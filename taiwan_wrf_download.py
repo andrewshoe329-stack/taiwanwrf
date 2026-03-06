@@ -1,0 +1,578 @@
+#!/usr/bin/env python3
+"""
+taiwan_wrf_download.py
+======================
+Download the latest Taiwan WRF GRIB2 forecast files from the
+Central Weather Administration (CWA) Open Data AWS S3 bucket.
+
+Data source: s3://cwaopendata  (public, no credentials needed)
+  M-A0064 — 3km High-Resolution WRF (best for Taiwan)  ~170 MB/file
+  M-A0061 — 15km Regional WRF      (wider Asia domain)  ~55 MB/file
+Each model: 15 forecast files at 6-hour intervals (0 → 84 h), updated 4×/day.
+
+Usage examples
+--------------
+  # Download all forecast hours of the 3km WRF (default)
+  python3 taiwan_wrf_download.py
+
+  # Download only 0h, 6h, and 12h forecasts
+  python3 taiwan_wrf_download.py --hours 0 6 12
+
+  # Download AND produce a 50nm-around-Keelung subset GRIB2 per file
+  python3 taiwan_wrf_download.py --keelung
+
+  # Keelung subset only, skip saving the full-domain files
+  python3 taiwan_wrf_download.py --keelung-only
+
+  # Use the 15km model, custom output dir, custom radius
+  python3 taiwan_wrf_download.py --model M-A0061 --keelung --radius 75 --outdir ~/weather/wrf
+
+  # Print current model run info and exit
+  python3 taiwan_wrf_download.py --info
+
+Subsetting requirements (optional — only needed for --keelung)
+--------------------------------------------------------------
+  pip install eccodes          # GRIB2 → GRIB2 subset  (recommended)
+  pip install cfgrib xarray    # GRIB2 → NetCDF subset (fallback)
+  If neither is installed the full-domain GRIB2 is kept as-is.
+"""
+
+import argparse
+import json
+import math
+import os
+import sys
+import shutil
+import urllib.request
+import urllib.error
+from pathlib import Path
+from datetime import datetime, timezone
+
+# ── Constants ────────────────────────────────────────────────────────────────
+
+S3_BASE = "https://cwaopendata.s3.ap-northeast-1.amazonaws.com/Model"
+
+MODELS = {
+    "M-A0064": {
+        "name": "3km High-Resolution WRF",
+        "resolution": "3 km",
+        "max_hours": 84,
+        "approx_mb": 170,
+    },
+    "M-A0061": {
+        "name": "15km Regional WRF",
+        "resolution": "15 km",
+        "max_hours": 84,
+        "approx_mb": 55,
+    },
+}
+
+DEFAULT_MODEL = "M-A0064"
+FORECAST_INTERVAL = 6   # hours between files
+
+# Keelung, Taiwan  (Port of Keelung)
+KEELUNG_LAT = 25.1276
+KEELUNG_LON = 121.7392
+DEFAULT_RADIUS_NM = 50
+
+# ── Geometry helpers ─────────────────────────────────────────────────────────
+
+def nm_to_km(nm: float) -> float:
+    return nm * 1.852
+
+
+def bbox_from_point(lat: float, lon: float, radius_nm: float) -> dict:
+    """
+    Return a lat/lon bounding box (square envelope) around a point.
+    The square fully contains the circle of the given radius.
+    """
+    km = nm_to_km(radius_nm)
+    lat_delta = km / 111.12
+    lon_delta = km / (111.12 * math.cos(math.radians(lat)))
+    return {
+        "lat_min": lat - lat_delta,
+        "lat_max": lat + lat_delta,
+        "lon_min": lon - lon_delta,
+        "lon_max": lon + lon_delta,
+    }
+
+
+def bbox_contains_point(bbox: dict, lat: float, lon: float) -> bool:
+    return (
+        bbox["lat_min"] <= lat <= bbox["lat_max"]
+        and bbox["lon_min"] <= lon <= bbox["lon_max"]
+    )
+
+
+# ── Network helpers ──────────────────────────────────────────────────────────
+
+def fetch_json(url: str, timeout: int = 15) -> dict:
+    with urllib.request.urlopen(url, timeout=timeout) as r:
+        return json.load(r)
+
+
+def download_file(url: str, dest: Path, label: str = "") -> None:
+    """Stream-download url → dest with a live progress bar."""
+    tmp = dest.with_suffix(dest.suffix + ".part")
+    try:
+        req = urllib.request.Request(url)
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            total = int(resp.headers.get("Content-Length", 0))
+            downloaded = 0
+            chunk_size = 1 << 16  # 64 KB
+            with open(tmp, "wb") as f:
+                while True:
+                    chunk = resp.read(chunk_size)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    downloaded += len(chunk)
+                    _print_progress(downloaded, total, label)
+        print()  # newline after progress bar
+        tmp.rename(dest)
+    except Exception:
+        if tmp.exists():
+            tmp.unlink()
+        raise
+
+
+def _print_progress(done: int, total: int, label: str = "") -> None:
+    if total > 0:
+        pct = min(100.0, done * 100 / total)
+        bars = int(pct / 5)
+        bar = "█" * bars + "░" * (20 - bars)
+        mb_done = done / 1_048_576
+        mb_total = total / 1_048_576
+        print(
+            f"\r    [{bar}] {pct:5.1f}%  {mb_done:.1f}/{mb_total:.1f} MB  {label}",
+            end="",
+            flush=True,
+        )
+    else:
+        mb = done / 1_048_576
+        print(f"\r    {mb:.1f} MB downloaded  {label}", end="", flush=True)
+
+
+# ── CWA model metadata ───────────────────────────────────────────────────────
+
+def get_run_info(model_id: str) -> dict:
+    """Fetch the JSON sidecar for forecast hour 000 to discover the current run."""
+    url = f"{S3_BASE}/{model_id}-000.json"
+    raw = fetch_json(url)
+    info = raw["cwaopendata"]["dataset"]["datasetInfo"]
+    init_dt = datetime.strptime(info["InitialTime"], "%Y%m%d%H%M").replace(
+        tzinfo=timezone.utc
+    )
+    return {
+        "model_id":   model_id,
+        "init_time":  init_dt,
+        "resolution": info["GridResolution"],
+        "grid_x":     int(info["GridDimensionX"]),
+        "grid_y":     int(info["GridDimensionY"]),
+        "lat_start":  float(info["StartPointLatitude"]),
+        "lon_start":  float(info["StartPointLongitude"]),
+        "lat_end":    float(info["EndPointLatitude"]),
+        "lon_end":    float(info["EndPointLongitude"]),
+    }
+
+
+# ── GRIB2 subsetting ─────────────────────────────────────────────────────────
+
+def subset_grib2(src: Path, dst: Path, bbox: dict) -> Path:
+    """
+    Crop all GRIB2 messages in src to the given bounding box and write dst.
+
+    Priority:
+      1. eccodes Python package  →  GRIB2 output  (sailing-app compatible)
+      2. cfgrib + xarray         →  NetCDF output (with .nc suffix)
+      3. Neither available       →  returns src unchanged with a warning
+    """
+    try:
+        import eccodes as ec
+        return _subset_eccodes(src, dst, bbox, ec)
+    except (ImportError, RuntimeError):
+        pass
+
+    try:
+        import cfgrib
+        import xarray as xr
+        nc_dst = dst.with_suffix(".nc")
+        return _subset_cfgrib(src, nc_dst, bbox, cfgrib, xr)
+    except ImportError:
+        pass
+
+    print(
+        "    ⚠  No subsetting library found.\n"
+        "       Full-domain file kept. To enable subsetting install:\n"
+        "         pip install eccodes        (GRIB2 output)\n"
+        "         pip install cfgrib xarray  (NetCDF fallback)"
+    )
+    return src   # caller handles the fallback path
+
+
+def _subset_eccodes(src: Path, dst: Path, bbox: dict, ec) -> Path:
+    """
+    Subset using the eccodes Python bindings — produces a valid GRIB2 file.
+
+    Handles both regular lat/lon grids (regular_ll) and Lambert Conformal
+    grids (lambert) which is what CWA Taiwan WRF uses.
+    """
+    import numpy as np
+
+    lat_min = bbox["lat_min"]
+    lat_max = bbox["lat_max"]
+    lon_min = bbox["lon_min"]
+    lon_max = bbox["lon_max"]
+
+    n_in = n_out = 0
+    with open(src, "rb") as fin, open(dst, "wb") as fout:
+        while True:
+            msg = ec.codes_grib_new_from_file(fin)
+            if msg is None:
+                break
+            n_in += 1
+            try:
+                grid_type = ec.codes_get(msg, "gridType")
+                ni = ec.codes_get(msg, "Ni")
+                nj = ec.codes_get(msg, "Nj")
+
+                if ni <= 1 or nj <= 1:
+                    ec.codes_write(msg, fout)
+                    n_out += 1
+                    continue
+
+                # ── Strategy: get the actual lat/lon of every grid point ────────
+                # This works for ANY projection (lambert, regular_ll, mercator…)
+                all_lats = ec.codes_get_array(msg, "latitudes").reshape(nj, ni)
+                all_lons = ec.codes_get_array(msg, "longitudes").reshape(nj, ni)
+
+                # Build boolean mask and find bounding rectangle in grid-index space
+                mask = (
+                    (all_lats >= lat_min) & (all_lats <= lat_max) &
+                    (all_lons >= lon_min) & (all_lons <= lon_max)
+                )
+
+                rows, cols = np.where(mask)
+                if len(rows) == 0:
+                    # Bounding box misses this message entirely — skip
+                    ec.codes_release(msg)
+                    continue
+
+                j_min, j_max = int(rows.min()), int(rows.max())
+                i_min, i_max = int(cols.min()), int(cols.max())
+
+                new_ni = i_max - i_min + 1
+                new_nj = j_max - j_min + 1
+
+                # Slice data values
+                vals = ec.codes_get_values(msg)
+                vals_2d = vals.reshape(nj, ni)
+                sub = vals_2d[j_min: j_max + 1, i_min: i_max + 1].flatten()
+
+                # New first-grid-point coordinates (SW corner of the sub-grid)
+                new_lat1 = float(all_lats[j_min, i_min])
+                new_lon1 = float(all_lons[j_min, i_min])
+
+                # Build output message
+                clone = ec.codes_clone(msg)
+                ec.codes_set(clone, "Ni", new_ni)
+                ec.codes_set(clone, "Nj", new_nj)
+                ec.codes_set(clone, "latitudeOfFirstGridPointInDegrees",  new_lat1)
+                ec.codes_set(clone, "longitudeOfFirstGridPointInDegrees", new_lon1)
+
+                # For regular_ll also update the last-grid-point corner
+                if grid_type == "regular_ll":
+                    new_lat2 = float(all_lats[j_max, i_max])
+                    new_lon2 = float(all_lons[j_max, i_max])
+                    ec.codes_set(clone, "latitudeOfLastGridPointInDegrees",  new_lat2)
+                    ec.codes_set(clone, "longitudeOfLastGridPointInDegrees", new_lon2)
+
+                ec.codes_set_values(clone, sub)
+                ec.codes_write(clone, fout)
+                ec.codes_release(clone)
+                n_out += 1
+
+            except Exception as e:
+                print(f"\n    ⚠  Skipped message ({type(e).__name__}): {e}")
+            finally:
+                ec.codes_release(msg)
+
+    print(f"    ✂  Subset: {n_out}/{n_in} messages written → {dst.name}")
+    return dst
+
+
+def _subset_cfgrib(src: Path, dst: Path, bbox: dict, cfgrib, xr) -> Path:
+    """Fallback: read with cfgrib, crop, save as NetCDF."""
+    datasets = cfgrib.open_datasets(str(src), errors="ignore")
+    merged = []
+    for ds in datasets:
+        lat_k = "latitude" if "latitude" in ds.dims else "lat"
+        lon_k = "longitude" if "longitude" in ds.dims else "lon"
+        sub = ds.sel(
+            {lat_k: slice(bbox["lat_min"], bbox["lat_max"]),
+             lon_k: slice(bbox["lon_min"], bbox["lon_max"])}
+        )
+        merged.append(sub)
+    xr.merge(merged, compat="override").to_netcdf(dst)
+    print(f"    ✂  Saved NetCDF subset → {dst.name}")
+    return dst
+
+
+# ── Main download orchestrator ────────────────────────────────────────────────
+
+def run(
+    model_id: str,
+    hours: list,
+    outdir: Path,
+    force: bool = False,
+    keelung: bool = True,
+    keelung_only: bool = False,
+    radius_nm: float = DEFAULT_RADIUS_NM,
+) -> list:
+    outdir.mkdir(parents=True, exist_ok=True)
+    bbox = bbox_from_point(KEELUNG_LAT, KEELUNG_LON, radius_nm) if keelung else None
+
+    # ── Header ────────────────────────────────────────────────────────────────
+    sep = "─" * 62
+    print(f"\n{sep}")
+    print(f"  Taiwan WRF Downloader  ·  {MODELS[model_id]['name']}")
+    print(sep)
+
+    print("\n  Fetching current model run info …")
+    run_info = get_run_info(model_id)
+    init = run_info["init_time"]
+
+    # Each run gets its own subfolder. If the folder already exists (re-run
+    # within the same 6-hour cycle), append an incrementing number.
+    base = outdir / f"{model_id}_{init.strftime('%Y%m%d_%H')}UTC"
+    outdir = base
+    counter = 2
+    while outdir.exists():
+        outdir = base.parent / f"{base.name}_{counter}"
+        counter += 1
+    outdir.mkdir(parents=True, exist_ok=True)
+
+    total_files = len(hours)
+    approx_total_mb = total_files * MODELS[model_id]["approx_mb"]
+
+    print(f"  Model      : {model_id}  ({run_info['resolution']})")
+    print(f"  Init time  : {init.strftime('%Y-%m-%d %H:%M UTC')}  "
+          f"(local +8: {(init.hour+8)%24:02d}:00 CST)")
+    print(f"  Grid       : {run_info['grid_x']} × {run_info['grid_y']} pts")
+    print(f"  Forecasts  : {total_files} files  "
+          f"({hours[0]}h → {hours[-1]}h in {FORECAST_INTERVAL}h steps)")
+    print(f"  Est. size  : ~{approx_total_mb:,} MB total")
+    print(f"  Output dir : {outdir.resolve()}")
+
+    if bbox:
+        print(
+            f"\n  ┌─ Keelung subset  ({radius_nm} nm radius) ──────────────────┐\n"
+            f"  │  Center : {KEELUNG_LAT}°N  {KEELUNG_LON}°E\n"
+            f"  │  Lat    : {bbox['lat_min']:.3f}° → {bbox['lat_max']:.3f}°N\n"
+            f"  │  Lon    : {bbox['lon_min']:.3f}° → {bbox['lon_max']:.3f}°E\n"
+            f"  └───────────────────────────────────────────────────────────┘"
+        )
+        if keelung_only:
+            print("  (--keelung-only: full-domain files will be deleted after subsetting)")
+
+    print(f"\n{sep}")
+
+    results = []
+    for fh in hours:
+        filename = f"{model_id}-{fh:03d}.grb2"
+        url = f"{S3_BASE}/{filename}"
+        dest = outdir / filename
+
+        tag = f"[F{fh:03d}]"
+        print(f"\n  {tag}  {filename}")
+
+        # Download
+        if dest.exists() and not force:
+            size_mb = dest.stat().st_size / 1_048_576
+            print(f"    ⏭  Exists ({size_mb:.0f} MB) — skipping  (use --force to re-download)")
+        else:
+            if dest.exists():
+                dest.unlink()
+            print(f"    ⬇  Downloading …")
+            download_file(url, dest, label=filename)
+            size_mb = dest.stat().st_size / 1_048_576
+            print(f"    ✓  {size_mb:.0f} MB saved")
+
+        if not bbox:
+            results.append(dest)
+            continue
+
+        # Keelung subset
+        subset_name = f"{model_id}-{fh:03d}_keelung{int(radius_nm)}nm.grb2"
+        subset_dest = outdir / subset_name
+
+        if subset_dest.exists() and not subset_dest.suffix == ".nc" and not force:
+            print(f"    ⏭  Subset exists — skipping")
+            results.append(subset_dest)
+        else:
+            if subset_dest.exists():
+                subset_dest.unlink()
+            print(f"    ✂  Subsetting to Keelung {radius_nm}nm …")
+            actual_dest = subset_grib2(dest, subset_dest, bbox)
+            results.append(actual_dest)
+
+        # FIX: only delete the full file if a real subset was created.
+        # When no subsetting library is available, subset_grib2 returns src
+        # unchanged — deleting it would leave no file at all.
+        if keelung_only and dest.exists():
+            if subset_dest.exists() and subset_dest != dest:
+                dest.unlink()
+                print(f"    🗑  Removed full-domain file")
+            else:
+                print(f"    ⚠  Full-domain file kept (subsetting unavailable — install eccodes or cfgrib+xarray)")
+
+    # ── Summary ───────────────────────────────────────────────────────────────
+    print(f"\n{sep}")
+    total_size = sum(p.stat().st_size for p in results if p.exists()) / 1_048_576
+    print(f"  ✅  Done! {len(results)} files  ·  {total_size:.0f} MB on disk")
+    print(f"  📂  {outdir.resolve()}")
+    print(sep + "\n")
+    return results
+
+
+# ── CLI ───────────────────────────────────────────────────────────────────────
+
+def build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        prog="taiwan_wrf_download.py",
+        description="Download the latest Taiwan CWA WRF GRIB2 forecast files.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python3 taiwan_wrf_download.py                       # download + Keelung subset (default)
+  python3 taiwan_wrf_download.py --keelung-only        # subset only, delete full-domain files
+  python3 taiwan_wrf_download.py --full-domain         # full-domain files only, no subset
+  python3 taiwan_wrf_download.py --hours 0 6 12        # only 0/6/12h forecasts
+  python3 taiwan_wrf_download.py --model M-A0061       # 15km model
+  python3 taiwan_wrf_download.py --radius 75           # 75nm radius around Keelung
+  python3 taiwan_wrf_download.py --info                # show current run and exit
+  python3 taiwan_wrf_download.py --check-deps          # check subsetting libraries
+
+Models available:
+  M-A0064  3km high-res (Taiwan domain, ~170 MB/file × 15 files)  [default]
+  M-A0061  15km regional (wider Asia, ~55 MB/file × 15 files)
+""",
+    )
+    p.add_argument(
+        "--model",
+        choices=list(MODELS.keys()),
+        default=DEFAULT_MODEL,
+        metavar="MODEL",
+        help=f"WRF model to use (default: {DEFAULT_MODEL}). "
+             f"Choices: {', '.join(MODELS.keys())}",
+    )
+    p.add_argument(
+        "--hours",
+        nargs="+",
+        type=int,
+        default=None,
+        metavar="H",
+        help="Forecast hours to download, e.g. --hours 0 6 12 18 24 "
+             "(default: all 15 files, 0–84h)",
+    )
+    p.add_argument(
+        "--full-domain",
+        action="store_true",
+        help="Skip Keelung subsetting and keep only the full-domain GRIB2 files.",
+    )
+    p.add_argument(
+        "--keelung-only",
+        action="store_true",
+        help="Delete full-domain files after subsetting (keep only the Keelung subset). "
+             "Subsetting is on by default; this just adds the cleanup step.",
+    )
+    p.add_argument(
+        "--radius",
+        type=float,
+        default=DEFAULT_RADIUS_NM,
+        metavar="NM",
+        help=f"Nautical-mile radius for the Keelung subset (default: {DEFAULT_RADIUS_NM})",
+    )
+    p.add_argument(
+        "--outdir",
+        default="./wrf_downloads",
+        metavar="DIR",
+        help="Output directory (default: ./wrf_downloads)",
+    )
+    p.add_argument(
+        "--force",
+        action="store_true",
+        help="Re-download/re-subset files even if they already exist",
+    )
+    p.add_argument(
+        "--info",
+        action="store_true",
+        help="Print current model run metadata and exit (no download)",
+    )
+    p.add_argument(
+        "--check-deps",
+        action="store_true",
+        help="Check which subsetting libraries are available and exit",
+    )
+    return p
+
+
+def check_deps() -> None:
+    print("\n  Dependency check for GRIB2 subsetting:\n")
+    for pkg, label in [
+        ("eccodes",  "eccodes        → GRIB2 output  (recommended)"),
+        ("cfgrib",   "cfgrib         → GRIB2 reading  (NetCDF fallback)"),
+        ("xarray",   "xarray         → needed by cfgrib fallback"),
+    ]:
+        try:
+            mod = __import__(pkg)
+            ver = getattr(mod, "__version__", "?")
+            print(f"    ✓  {label}  (v{ver})")
+        except ImportError:
+            print(f"    ✗  {label}")
+    print()
+    print("  To install all at once:")
+    print("    pip install eccodes cfgrib xarray\n")
+
+
+def main() -> None:
+    parser = build_parser()
+    args = parser.parse_args()
+
+    if args.check_deps:
+        check_deps()
+        return
+
+    if args.info:
+        print("\n  Fetching model run info …")
+        info = get_run_info(args.model)
+        info["init_time"] = info["init_time"].isoformat()
+        print(json.dumps(info, indent=4, ensure_ascii=False))
+        return
+
+    # Subsetting is on by default; --full-domain disables it.
+    keelung = not args.full_domain
+
+    # Resolve forecast hours
+    all_hours = list(range(0, MODELS[args.model]["max_hours"] + 1, FORECAST_INTERVAL))
+    hours = sorted(set(args.hours)) if args.hours else all_hours
+
+    bad = [h for h in hours if h not in all_hours]
+    if bad:
+        print(f"  ✗  Invalid forecast hours: {bad}")
+        print(f"     Valid values: {all_hours}")
+        sys.exit(1)
+
+    run(
+        model_id=args.model,
+        hours=hours,
+        outdir=Path(args.outdir),
+        force=args.force,
+        keelung=keelung,
+        keelung_only=args.keelung_only,
+        radius_nm=args.radius,
+    )
+
+
+if __name__ == "__main__":
+    main()
