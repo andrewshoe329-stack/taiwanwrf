@@ -25,9 +25,10 @@ jobs:
           python taiwan_wrf_download.py --keelung-only
 
       - name: Set up rclone
-        uses: AnimMouse/setup-rclone@v1
-        with:
-          rclone_config: ${{ secrets.RCLONE_CONFIG }}
+        run: |
+          sudo apt-get install -y rclone
+          mkdir -p ~/.config/rclone
+          echo "${{ secrets.RCLONE_CONFIG }}" > ~/.config/rclone/rclone.conf
 
       - name: Upload subset files to Google Drive
         run: |
