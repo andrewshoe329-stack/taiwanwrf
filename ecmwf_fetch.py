@@ -43,6 +43,7 @@ HOURLY_VARS = ",".join([
     "cloudcover",           # %
     "pressure_msl",         # hPa  (mean sea level pressure)
     "visibility",           # metres
+    "cape",                 # J/kg  (convective available potential energy)
 ])
 
 
@@ -117,6 +118,7 @@ def process(raw: dict) -> tuple[dict, list]:
     cloud  = col("cloudcover")
     mslp   = col("pressure_msl")
     vis    = col("visibility")
+    cape   = col("cape")
 
     def safe(arr, i):
         return arr[i] if arr and 0 <= i < len(arr) else None
@@ -147,6 +149,7 @@ def process(raw: dict) -> tuple[dict, list]:
             "precip_mm_6h": round(precip_6h, 2),
             "cloud_pct":    safe(cloud,  i),
             "vis_km":       vis_km,
+            "cape":         safe(cape,   i),
         })
 
     # ECMWF init time: first time entry in the response
