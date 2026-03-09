@@ -43,8 +43,10 @@ import math
 import os
 import sys
 import shutil
+import threading
 import urllib.request
 import urllib.error
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -104,6 +106,17 @@ def bbox_contains_point(bbox: dict, lat: float, lon: float) -> bool:
     )
 
 
+# ── Thread safety ────────────────────────────────────────────────────────────
+
+_print_lock   = threading.Lock()   # serialise console output across threads
+_eccodes_lock = threading.Lock()   # eccodes C library is not thread-safe
+
+
+def _log(msg: str) -> None:
+    with _print_lock:
+        print(msg, flush=True)
+
+
 # ── Network helpers ──────────────────────────────────────────────────────────
 
 def fetch_json(url: str, timeout: int = 15) -> dict:
@@ -111,46 +124,24 @@ def fetch_json(url: str, timeout: int = 15) -> dict:
         return json.load(r)
 
 
-def download_file(url: str, dest: Path, label: str = "") -> None:
-    """Stream-download url → dest with a live progress bar."""
+def download_file(url: str, dest: Path) -> None:
+    """Stream-download url → dest (atomic rename on completion)."""
     tmp = dest.with_suffix(dest.suffix + ".part")
     try:
         req = urllib.request.Request(url)
         with urllib.request.urlopen(req, timeout=120) as resp:
-            total = int(resp.headers.get("Content-Length", 0))
-            downloaded = 0
-            chunk_size = 1 << 16  # 64 KB
+            chunk_size = 1 << 17  # 128 KB
             with open(tmp, "wb") as f:
                 while True:
                     chunk = resp.read(chunk_size)
                     if not chunk:
                         break
                     f.write(chunk)
-                    downloaded += len(chunk)
-                    _print_progress(downloaded, total, label)
-        print()  # newline after progress bar
         tmp.rename(dest)
     except Exception:
         if tmp.exists():
             tmp.unlink()
         raise
-
-
-def _print_progress(done: int, total: int, label: str = "") -> None:
-    if total > 0:
-        pct = min(100.0, done * 100 / total)
-        bars = int(pct / 5)
-        bar = "█" * bars + "░" * (20 - bars)
-        mb_done = done / 1_048_576
-        mb_total = total / 1_048_576
-        print(
-            f"\r    [{bar}] {pct:5.1f}%  {mb_done:.1f}/{mb_total:.1f} MB  {label}",
-            end="",
-            flush=True,
-        )
-    else:
-        mb = done / 1_048_576
-        print(f"\r    {mb:.1f} MB downloaded  {label}", end="", flush=True)
 
 
 # ── CWA model metadata ───────────────────────────────────────────────────────
@@ -189,7 +180,8 @@ def subset_grib2(src: Path, dst: Path, bbox: dict) -> Path:
     """
     try:
         import eccodes as ec
-        return _subset_eccodes(src, dst, bbox, ec)
+        with _eccodes_lock:
+            return _subset_eccodes(src, dst, bbox, ec)
     except (ImportError, RuntimeError):
         pass
 
@@ -318,6 +310,65 @@ def _subset_cfgrib(src: Path, dst: Path, bbox: dict, cfgrib, xr) -> Path:
     return dst
 
 
+# ── Per-file worker (runs in thread pool) ────────────────────────────────────
+
+def _process_file(
+    fh: int,
+    model_id: str,
+    outdir: Path,
+    bbox: dict,
+    keelung_only: bool,
+    force: bool,
+    radius_nm: float,
+) -> Path:
+    """Download one forecast file, subset it, optionally delete the full grib."""
+    filename   = f"{model_id}-{fh:03d}.grb2"
+    url        = f"{S3_BASE}/{filename}"
+    dest       = outdir / filename
+    tag        = f"[F{fh:03d}]"
+
+    # ── Download ──────────────────────────────────────────────────────────────
+    if dest.exists() and not force:
+        size_mb = dest.stat().st_size / 1_048_576
+        _log(f"  {tag}  ⏭  {filename}  ({size_mb:.0f} MB) already exists — skipping")
+    else:
+        if dest.exists():
+            dest.unlink()
+        _log(f"  {tag}  ⬇  Downloading {filename} …")
+        download_file(url, dest)
+        size_mb = dest.stat().st_size / 1_048_576
+        _log(f"  {tag}  ✓  {filename}  {size_mb:.0f} MB saved")
+
+    if not bbox:
+        return dest
+
+    # ── Keelung subset ────────────────────────────────────────────────────────
+    subset_name = f"{model_id}-{fh:03d}_keelung{int(radius_nm)}nm.grb2"
+    subset_dest = outdir / subset_name
+
+    if subset_dest.exists() and subset_dest.suffix != ".nc" and not force:
+        _log(f"  {tag}  ⏭  Subset exists — skipping")
+        result = subset_dest
+    else:
+        if subset_dest.exists():
+            subset_dest.unlink()
+        _log(f"  {tag}  ✂  Subsetting to Keelung {radius_nm} nm …")
+        result = subset_grib2(dest, subset_dest, bbox)
+        if result.exists():
+            sub_mb = result.stat().st_size / 1_048_576
+            _log(f"  {tag}  ✂  Done → {result.name}  ({sub_mb:.1f} MB)")
+
+    # ── Cleanup ───────────────────────────────────────────────────────────────
+    if keelung_only and dest.exists():
+        if subset_dest.exists() and subset_dest != dest:
+            dest.unlink()
+            _log(f"  {tag}  🗑  Removed full-domain file")
+        else:
+            _log(f"  {tag}  ⚠  Full-domain file kept (no subsetting library available)")
+
+    return result
+
+
 # ── Main download orchestrator ────────────────────────────────────────────────
 
 def run(
@@ -328,6 +379,7 @@ def run(
     keelung: bool = True,
     keelung_only: bool = False,
     radius_nm: float = DEFAULT_RADIUS_NM,
+    workers: int = 3,
 ) -> list:
     outdir.mkdir(parents=True, exist_ok=True)
     bbox = bbox_from_point(KEELUNG_LAT, KEELUNG_LON, radius_nm) if keelung else None
@@ -375,56 +427,24 @@ def run(
         if keelung_only:
             print("  (--keelung-only: full-domain files will be deleted after subsetting)")
 
+    print(f"  Workers    : {workers} parallel downloads")
     print(f"\n{sep}")
 
     results = []
-    for fh in hours:
-        filename = f"{model_id}-{fh:03d}.grb2"
-        url = f"{S3_BASE}/{filename}"
-        dest = outdir / filename
-
-        tag = f"[F{fh:03d}]"
-        print(f"\n  {tag}  {filename}")
-
-        # Download
-        if dest.exists() and not force:
-            size_mb = dest.stat().st_size / 1_048_576
-            print(f"    ⏭  Exists ({size_mb:.0f} MB) — skipping  (use --force to re-download)")
-        else:
-            if dest.exists():
-                dest.unlink()
-            print(f"    ⬇  Downloading …")
-            download_file(url, dest, label=filename)
-            size_mb = dest.stat().st_size / 1_048_576
-            print(f"    ✓  {size_mb:.0f} MB saved")
-
-        if not bbox:
-            results.append(dest)
-            continue
-
-        # Keelung subset
-        subset_name = f"{model_id}-{fh:03d}_keelung{int(radius_nm)}nm.grb2"
-        subset_dest = outdir / subset_name
-
-        if subset_dest.exists() and not subset_dest.suffix == ".nc" and not force:
-            print(f"    ⏭  Subset exists — skipping")
-            results.append(subset_dest)
-        else:
-            if subset_dest.exists():
-                subset_dest.unlink()
-            print(f"    ✂  Subsetting to Keelung {radius_nm}nm …")
-            actual_dest = subset_grib2(dest, subset_dest, bbox)
-            results.append(actual_dest)
-
-        # FIX: only delete the full file if a real subset was created.
-        # When no subsetting library is available, subset_grib2 returns src
-        # unchanged — deleting it would leave no file at all.
-        if keelung_only and dest.exists():
-            if subset_dest.exists() and subset_dest != dest:
-                dest.unlink()
-                print(f"    🗑  Removed full-domain file")
-            else:
-                print(f"    ⚠  Full-domain file kept (subsetting unavailable — install eccodes or cfgrib+xarray)")
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {
+            pool.submit(
+                _process_file, fh, model_id, outdir,
+                bbox, keelung_only, force, radius_nm
+            ): fh
+            for fh in hours
+        }
+        for future in as_completed(futures):
+            fh = futures[future]
+            try:
+                results.append(future.result())
+            except Exception as exc:
+                _log(f"  [F{fh:03d}]  ✗  Failed: {exc}")
 
     # ── Summary ───────────────────────────────────────────────────────────────
     print(f"\n{sep}")
@@ -510,6 +530,13 @@ Models available:
         help="Print current model run metadata and exit (no download)",
     )
     p.add_argument(
+        "--workers",
+        type=int,
+        default=3,
+        metavar="N",
+        help="Number of parallel download workers (default: 3)",
+    )
+    p.add_argument(
         "--check-deps",
         action="store_true",
         help="Check which subsetting libraries are available and exit",
@@ -571,6 +598,7 @@ def main() -> None:
         keelung=keelung,
         keelung_only=args.keelung_only,
         radius_nm=args.radius,
+        workers=args.workers,
     )
 
 
