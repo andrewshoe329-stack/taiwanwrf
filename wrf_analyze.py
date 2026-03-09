@@ -49,16 +49,22 @@ VARS = [
     (['10v', 'VGRD'], 'heightAboveGround', 10,  'v10'),
     # Mean sea-level pressure
     (['msl', 'prmsl', 'PRMSL'], None, None,     'mslp_pa'),
-    # Precipitation — accumulated or 6-hourly
-    (['tp', 'apcp', 'APCP', 'prate'], 'surface', None, 'precip_raw'),
-    # Total cloud cover
-    (['tcc', 'TCDC'], None, None,               'cloud_raw'),
-    # Visibility
+    # Precipitation — accumulated total; try surface level first, then any typeOfLevel.
+    # WRF GRIB2 may use APCP/tp/PRATE; CWA files may use local table shortNames.
+    (['tp', 'apcp', 'APCP', 'prate', 'PRATE', 'NCPCP', 'CPCP'], 'surface', None, 'precip_raw'),
+    (['tp', 'apcp', 'APCP', 'prate', 'PRATE', 'NCPCP', 'CPCP'], None,      None, 'precip_raw'),
+    # Total cloud cover — any typeOfLevel (e.g. entireAtmosphere, atmosphere)
+    (['tcc', 'TCDC', 'tcdc', 'TCC', 'ccl', 'cch', 'ccm'],       None,      None, 'cloud_raw'),
+    # Visibility — surface first, then any
     (['vis', 'VIS'],  'surface', None,           'vis_m'),
-    # Wind gust
-    (['gust', 'fg10', 'GUST'], 'heightAboveGround', None, 'gust_ms'),
-    # CAPE
+    (['vis', 'VIS'],  None,      None,           'vis_m'),
+    # Wind gust — heightAboveGround first, then surface, then any
+    (['gust', 'fg10', 'GUST', '10fg', 'WINDGUST'], 'heightAboveGround', None, 'gust_ms'),
+    (['gust', 'fg10', 'GUST', '10fg'],             'surface',           None, 'gust_ms'),
+    (['gust', 'fg10', 'GUST', '10fg'],             None,                None, 'gust_ms'),
+    # CAPE — surface first, then any
     (['cape', 'CAPE'], 'surface', None,          'cape'),
+    (['cape', 'CAPE'], None,      None,          'cape'),
 ]
 
 # Maps raw key → (display unit, conversion function)
@@ -292,6 +298,13 @@ def _precip_bg(p):
     if p < 25:   return '#6cb0ff'
     return '#3070dd'
 
+def _cape_bg(c):
+    if c is None:  return '#f4f4f4'
+    if c < 100:    return '#d4f0c0'   # stable
+    if c < 500:    return '#fff7b0'   # slightly unstable
+    if c < 1500:   return '#ffd9a0'   # moderately unstable
+    return '#ffb3b3'                   # very unstable (thunderstorm risk)
+
 def _delta_span(curr, prev, fmt='.1f', unit='', positive_bad=False):
     """Return a small colored delta span, or '' if insignificant."""
     if curr is None or prev is None:
@@ -341,6 +354,7 @@ def render_html(meta: dict, records: list, prev_records: list) -> str:
   <th style="padding:5px 6px">6h Rain</th>
   <th style="padding:5px 6px">Cloud</th>
   <th style="padding:5px 6px">Vis</th>
+  <th style="padding:5px 6px">CAPE</th>
 </tr>
 </thead>
 <tbody>
@@ -356,14 +370,15 @@ def render_html(meta: dict, records: list, prev_records: list) -> str:
 
         prev = prev_by_valid.get(rec.get('valid_utc', ''), {})
 
-        t   = rec.get('temp_c')
-        w   = rec.get('wind_kt')
-        wd  = rec.get('wind_dir')
-        g   = rec.get('gust_kt')
-        p   = rec.get('mslp_hpa')
-        pr  = rec.get('precip_mm_6h')
-        cl  = rec.get('cloud_pct')
-        vis = rec.get('vis_km')
+        t    = rec.get('temp_c')
+        w    = rec.get('wind_kt')
+        wd   = rec.get('wind_dir')
+        g    = rec.get('gust_kt')
+        p    = rec.get('mslp_hpa')
+        pr   = rec.get('precip_mm_6h')
+        cl   = rec.get('cloud_pct')
+        vis  = rec.get('vis_km')
+        cape = rec.get('cape')
 
         wind_str = ''
         if w is not None:
@@ -382,6 +397,7 @@ def render_html(meta: dict, records: list, prev_records: list) -> str:
   <td style="padding:4px 6px;text-align:center;background:{_precip_bg(pr)}">{f"{pr:.1f}mm" if pr is not None else "—"}{_delta_span(pr, prev.get("precip_mm_6h"), ".1f", "mm", positive_bad=True)}</td>
   <td style="padding:4px 6px;text-align:center">{f"{cl:.0f}%" if cl is not None else "—"}</td>
   <td style="padding:4px 6px;text-align:center">{f"{vis:.0f}km" if vis is not None else "—"}</td>
+  <td style="padding:4px 6px;text-align:center;background:{_cape_bg(cape)}">{f"{cape:.0f}" if cape is not None else "—"}</td>
 </tr>
 '''
 
@@ -471,6 +487,12 @@ Wind scale:
 <span style="background:#ffd9a0;padding:1px 4px">20–30kt</span>&nbsp;
 <span style="background:#ffb3b3;padding:1px 4px">30–40kt</span>&nbsp;
 <span style="background:#ff6666;color:#fff;padding:1px 4px">&gt;40kt</span>
+&nbsp;&nbsp;
+CAPE (J/kg):
+<span style="background:#d4f0c0;padding:1px 4px">&lt;100</span>&nbsp;
+<span style="background:#fff7b0;padding:1px 4px">100–500</span>&nbsp;
+<span style="background:#ffd9a0;padding:1px 4px">500–1500</span>&nbsp;
+<span style="background:#ffb3b3;padding:1px 4px">&gt;1500</span>
 </p>
 </div>
 '''
