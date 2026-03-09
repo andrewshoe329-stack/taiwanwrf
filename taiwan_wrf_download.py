@@ -74,9 +74,9 @@ MODELS = {
 DEFAULT_MODEL = "M-A0064"
 FORECAST_INTERVAL = 6   # hours between files
 
-# Keelung, Taiwan  (Port of Keelung)
-KEELUNG_LAT = 25.1276
-KEELUNG_LON = 121.7392
+# Keelung, Taiwan
+KEELUNG_LAT = 25.15589534977208
+KEELUNG_LON = 121.78782946186699
 DEFAULT_RADIUS_NM = 50
 
 # ── Geometry helpers ─────────────────────────────────────────────────────────
