@@ -63,10 +63,20 @@ jobs:
             echo "  No previous summary found (first run?)."
           fi
 
+      # ── Fetch ECMWF IFS point forecast from Open-Meteo ───────────────────────
+      # No API key required. Uses only stdlib so no extra pip install needed.
+      # Produces ecmwf_keelung.json for side-by-side comparison with WRF.
+      - name: Fetch ECMWF forecast
+        id: ecmwf
+        run: |
+          python ecmwf_fetch.py --output ecmwf_keelung.json
+          echo "ecmwf_json=ecmwf_keelung.json" >> "$GITHUB_OUTPUT"
+
       # ── Run GRIB2 point-forecast analysis ────────────────────────────────────
       # Reads the Keelung subset .grb2 files (still present alongside the archive),
       # extracts the point forecast at Keelung, diffs against the previous run,
       # and writes keelung_summary.json + email_analysis.html.
+      # If ECMWF data was fetched, a WRF vs ECMWF comparison table is appended.
       - name: Analyze Keelung forecast
         id: analyze
         run: |
@@ -75,9 +85,14 @@ jobs:
           if [ "${{ steps.prev_summary.outputs.found }}" = "true" ]; then
             PREV_ARG="--prev-json keelung_summary.json"
           fi
+          ECMWF_ARG=""
+          if [ -f ecmwf_keelung.json ]; then
+            ECMWF_ARG="--ecmwf-json ecmwf_keelung.json"
+          fi
           python wrf_analyze.py \
             --rundir "$RUNDIR" \
             $PREV_ARG \
+            $ECMWF_ARG \
             --output-json keelung_summary_new.json \
             --output-html email_analysis.html
 
