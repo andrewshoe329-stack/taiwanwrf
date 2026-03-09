@@ -123,7 +123,7 @@ def process(raw: dict) -> tuple[dict, list]:
 
     records = []
     for i, t in enumerate(times):
-        dt = datetime.fromisoformat(t.ljust(19, '0')).replace(tzinfo=timezone.utc)
+        dt = datetime.fromisoformat(t if len(t) >= 19 else t + ':00').replace(tzinfo=timezone.utc)
         if dt.hour % 6 != 0:
             continue
 
