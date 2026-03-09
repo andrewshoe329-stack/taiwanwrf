@@ -43,6 +43,7 @@ import math
 import os
 import sys
 import shutil
+import tarfile
 import threading
 import urllib.request
 import urllib.error
@@ -208,6 +209,10 @@ def _subset_eccodes(src: Path, dst: Path, bbox: dict, ec) -> Path:
 
     Handles both regular lat/lon grids (regular_ll) and Lambert Conformal
     grids (lambert) which is what CWA Taiwan WRF uses.
+
+    Performance: all messages in a WRF file share the same grid geometry, so
+    the expensive lat/lon array extraction and numpy mask computation are cached
+    after the first message and reused for every subsequent message in the file.
     """
     import numpy as np
 
@@ -217,6 +222,12 @@ def _subset_eccodes(src: Path, dst: Path, bbox: dict, ec) -> Path:
     lon_max = bbox["lon_max"]
 
     n_in = n_out = 0
+
+    # Cache keyed by (grid_type, ni, nj).
+    # Value: None  → bbox misses this grid entirely (skip all such messages)
+    #        tuple → (j_min, j_max, i_min, i_max, new_lat1, new_lon1, extra)
+    _grid_cache: dict = {}
+
     with open(src, "rb") as fin, open(dst, "wb") as fout:
         while True:
             msg = ec.codes_grib_new_from_file(fin)
@@ -233,37 +244,50 @@ def _subset_eccodes(src: Path, dst: Path, bbox: dict, ec) -> Path:
                     n_out += 1
                     continue
 
-                # ── Strategy: get the actual lat/lon of every grid point ────────
-                # This works for ANY projection (lambert, regular_ll, mercator…)
-                all_lats = ec.codes_get_array(msg, "latitudes").reshape(nj, ni)
-                all_lons = ec.codes_get_array(msg, "longitudes").reshape(nj, ni)
+                cache_key = (grid_type, ni, nj)
 
-                # Build boolean mask and find bounding rectangle in grid-index space
-                mask = (
-                    (all_lats >= lat_min) & (all_lats <= lat_max) &
-                    (all_lons >= lon_min) & (all_lons <= lon_max)
-                )
+                if cache_key not in _grid_cache:
+                    # First time we see this grid: compute lat/lon arrays and
+                    # derive the sub-grid slice indices.  This is the expensive
+                    # step (reads ~800 K floats from the C library + numpy mask).
+                    all_lats = ec.codes_get_array(msg, "latitudes").reshape(nj, ni)
+                    all_lons = ec.codes_get_array(msg, "longitudes").reshape(nj, ni)
 
-                rows, cols = np.where(mask)
-                if len(rows) == 0:
-                    # Bounding box misses this message entirely — skip
+                    mask = (
+                        (all_lats >= lat_min) & (all_lats <= lat_max) &
+                        (all_lons >= lon_min) & (all_lons <= lon_max)
+                    )
+                    rows, cols = np.where(mask)
+
+                    if len(rows) == 0:
+                        _grid_cache[cache_key] = None   # bbox outside this grid
+                    else:
+                        j_min, j_max = int(rows.min()), int(rows.max())
+                        i_min, i_max = int(cols.min()), int(cols.max())
+                        extra = {}
+                        if grid_type == "regular_ll":
+                            extra["lat2"] = float(all_lats[j_max, i_max])
+                            extra["lon2"] = float(all_lons[j_max, i_max])
+                        _grid_cache[cache_key] = (
+                            j_min, j_max, i_min, i_max,
+                            float(all_lats[j_min, i_min]),
+                            float(all_lons[j_min, i_min]),
+                            extra,
+                        )
+
+                entry = _grid_cache[cache_key]
+                if entry is None:
                     ec.codes_release(msg)
                     continue
 
-                j_min, j_max = int(rows.min()), int(rows.max())
-                i_min, i_max = int(cols.min()), int(cols.max())
-
+                j_min, j_max, i_min, i_max, new_lat1, new_lon1, extra = entry
                 new_ni = i_max - i_min + 1
                 new_nj = j_max - j_min + 1
 
-                # Slice data values
+                # Slice data values (only the per-message work remaining)
                 vals = ec.codes_get_values(msg)
                 vals_2d = vals.reshape(nj, ni)
                 sub = vals_2d[j_min: j_max + 1, i_min: i_max + 1].flatten()
-
-                # New first-grid-point coordinates (SW corner of the sub-grid)
-                new_lat1 = float(all_lats[j_min, i_min])
-                new_lon1 = float(all_lons[j_min, i_min])
 
                 # Build output message
                 clone = ec.codes_clone(msg)
@@ -272,12 +296,9 @@ def _subset_eccodes(src: Path, dst: Path, bbox: dict, ec) -> Path:
                 ec.codes_set(clone, "latitudeOfFirstGridPointInDegrees",  new_lat1)
                 ec.codes_set(clone, "longitudeOfFirstGridPointInDegrees", new_lon1)
 
-                # For regular_ll also update the last-grid-point corner
                 if grid_type == "regular_ll":
-                    new_lat2 = float(all_lats[j_max, i_max])
-                    new_lon2 = float(all_lons[j_max, i_max])
-                    ec.codes_set(clone, "latitudeOfLastGridPointInDegrees",  new_lat2)
-                    ec.codes_set(clone, "longitudeOfLastGridPointInDegrees", new_lon2)
+                    ec.codes_set(clone, "latitudeOfLastGridPointInDegrees",  extra["lat2"])
+                    ec.codes_set(clone, "longitudeOfLastGridPointInDegrees", extra["lon2"])
 
                 ec.codes_set_values(clone, sub)
                 ec.codes_write(clone, fout)
@@ -308,6 +329,20 @@ def _subset_cfgrib(src: Path, dst: Path, bbox: dict, cfgrib, xr) -> Path:
     xr.merge(merged, compat="override").to_netcdf(dst)
     print(f"    ✂  Saved NetCDF subset → {dst.name}")
     return dst
+
+
+def _make_archive(files: list, archive_path: Path) -> Path:
+    """
+    Pack a list of files into a gzip-compressed tar archive.
+    Each file is stored with only its basename (no directory prefix).
+    GRIB2 data is already compressed internally, so we use the fastest
+    gzip level (1) — this mainly gives us a single-file container.
+    """
+    with tarfile.open(archive_path, "w:gz", compresslevel=1) as tar:
+        for f in sorted(files):
+            if Path(f).exists():
+                tar.add(f, arcname=Path(f).name)
+    return archive_path
 
 
 # ── Per-file worker (runs in thread pool) ────────────────────────────────────
@@ -446,10 +481,22 @@ def run(
             except Exception as exc:
                 _log(f"  [F{fh:03d}]  ✗  Failed: {exc}")
 
+    # ── Compress subsets into a single archive ────────────────────────────────
+    archive = None
+    if bbox and results:
+        archive_name = (
+            f"{model_id}_{init.strftime('%Y%m%d_%H')}UTC"
+            f"_keelung{int(radius_nm)}nm.tar.gz"
+        )
+        archive = _make_archive(results, outdir / archive_name)
+
     # ── Summary ───────────────────────────────────────────────────────────────
     print(f"\n{sep}")
     total_size = sum(p.stat().st_size for p in results if p.exists()) / 1_048_576
     print(f"  ✅  Done! {len(results)} files  ·  {total_size:.0f} MB on disk")
+    if archive and archive.exists():
+        arc_mb = archive.stat().st_size / 1_048_576
+        print(f"  📦  Archive → {archive.name}  ({arc_mb:.1f} MB)")
     print(f"  📂  {outdir.resolve()}")
     print(sep + "\n")
     return results
