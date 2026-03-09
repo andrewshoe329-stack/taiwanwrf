@@ -108,8 +108,9 @@ def bbox_contains_point(bbox: dict, lat: float, lon: float) -> bool:
 
 # ── Thread safety ────────────────────────────────────────────────────────────
 
-_print_lock   = threading.Lock()   # serialise console output across threads
-_eccodes_lock = threading.Lock()   # eccodes C library is not thread-safe
+_print_lock = threading.Lock()   # serialise console output across threads
+# Note: no global eccodes lock — each thread uses its own independent file
+# handles and GRIB message objects, so concurrent subsetting is safe.
 
 
 def _log(msg: str) -> None:
@@ -180,8 +181,7 @@ def subset_grib2(src: Path, dst: Path, bbox: dict) -> Path:
     """
     try:
         import eccodes as ec
-        with _eccodes_lock:
-            return _subset_eccodes(src, dst, bbox, ec)
+        return _subset_eccodes(src, dst, bbox, ec)
     except (ImportError, RuntimeError):
         pass
 
@@ -427,7 +427,7 @@ def run(
         if keelung_only:
             print("  (--keelung-only: full-domain files will be deleted after subsetting)")
 
-    print(f"  Workers    : {workers} parallel downloads")
+    print(f"  Workers    : {workers} parallel (download + subset)")
     print(f"\n{sep}")
 
     results = []
