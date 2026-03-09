@@ -45,6 +45,7 @@ import sys
 import shutil
 import tarfile
 import threading
+import time
 import urllib.request
 import urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -126,24 +127,41 @@ def fetch_json(url: str, timeout: int = 15) -> dict:
         return json.load(r)
 
 
+_DOWNLOAD_RETRIES = 3
+_RETRY_BASE_DELAY = 5   # seconds; actual delay = base * attempt
+
+
 def download_file(url: str, dest: Path) -> None:
-    """Stream-download url → dest (atomic rename on completion)."""
+    """Stream-download url → dest (atomic rename on completion).
+
+    Retries up to _DOWNLOAD_RETRIES times with exponential back-off to handle
+    transient S3 hiccups without failing the whole job.
+    """
     tmp = dest.with_suffix(dest.suffix + ".part")
-    try:
-        req = urllib.request.Request(url)
-        with urllib.request.urlopen(req, timeout=120) as resp:
-            chunk_size = 1 << 17  # 128 KB
-            with open(tmp, "wb") as f:
-                while True:
-                    chunk = resp.read(chunk_size)
-                    if not chunk:
-                        break
-                    f.write(chunk)
-        tmp.rename(dest)
-    except Exception:
-        if tmp.exists():
-            tmp.unlink()
-        raise
+    last_exc: Exception = RuntimeError("unknown")
+    for attempt in range(1, _DOWNLOAD_RETRIES + 1):
+        try:
+            req = urllib.request.Request(url)
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                chunk_size = 1 << 17  # 128 KB
+                with open(tmp, "wb") as f:
+                    while True:
+                        chunk = resp.read(chunk_size)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+            tmp.rename(dest)
+            return
+        except Exception as exc:
+            last_exc = exc
+            if tmp.exists():
+                tmp.unlink()
+            if attempt < _DOWNLOAD_RETRIES:
+                delay = _RETRY_BASE_DELAY * attempt
+                _log(f"    ↻  Download error ({exc}); retrying in {delay}s "
+                     f"(attempt {attempt}/{_DOWNLOAD_RETRIES})")
+                time.sleep(delay)
+    raise last_exc
 
 
 # ── CWA model metadata ───────────────────────────────────────────────────────
@@ -497,6 +515,16 @@ def run(
     if archive and archive.exists():
         arc_mb = archive.stat().st_size / 1_048_576
         print(f"  📦  Archive → {archive.name}  ({arc_mb:.1f} MB)")
+
+        # Expose archive details to GitHub Actions via $GITHUB_OUTPUT so
+        # downstream steps (rclone upload, email notification) can use them.
+        github_output = os.environ.get("GITHUB_OUTPUT")
+        if github_output:
+            with open(github_output, "a") as gho:
+                gho.write(f"archive_name={archive.name}\n")
+                gho.write(f"archive_path={archive.resolve()}\n")
+                gho.write(f"archive_size_mb={arc_mb:.1f}\n")
+
     print(f"  📂  {outdir.resolve()}")
     print(sep + "\n")
     return results
