@@ -22,13 +22,17 @@ jobs:
 
       - name: Download and subset WRF data
         run: |
-          python taiwan_wrf_download.py --keelung-only
+          python taiwan_wrf_download.py --keelung-only --workers 15
 
       - name: Set up rclone
+        env:
+          RCLONE_CONFIG_CONTENT: ${{ secrets.RCLONE_CONFIG }}
         run: |
           sudo apt-get install -y rclone
           mkdir -p ~/.config/rclone
-          echo "${{ secrets.RCLONE_CONFIG }}" > ~/.config/rclone/rclone.conf
+          printf '%s' "$RCLONE_CONFIG_CONTENT" > ~/.config/rclone/rclone.conf
+          echo "Configured remotes:"
+          rclone listremotes
 
       - name: Upload subset files to Google Drive
         run: |
