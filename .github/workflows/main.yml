@@ -47,23 +47,94 @@ jobs:
           mkdir -p ~/.config/rclone
           printf '%s' "$RCLONE_CONFIG_CONTENT" > ~/.config/rclone/rclone.conf
 
-      # Upload the archive and get a shareable Drive link
-      # --drive-chunk-size 128M raises per-chunk size for better throughput
-      - name: Upload archive to Google Drive
+      # ── Pull previous run summary from Drive for delta comparison ─────────────
+      # keelung_summary.json is stored at gdrive:WRF_Taiwan/keelung_summary.json
+      # On the very first run this step silently produces nothing.
+      - name: Fetch previous run summary
+        id: prev_summary
+        run: |
+          rclone copy gdrive:WRF_Taiwan/keelung_summary.json . \
+            --no-traverse 2>/dev/null || true
+          if [ -f keelung_summary.json ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            echo "  Previous summary fetched."
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "  No previous summary found (first run?)."
+          fi
+
+      # ── Run GRIB2 point-forecast analysis ────────────────────────────────────
+      # Reads the Keelung subset .grb2 files (still present alongside the archive),
+      # extracts the point forecast at Keelung, diffs against the previous run,
+      # and writes keelung_summary.json + email_analysis.html.
+      - name: Analyze Keelung forecast
+        id: analyze
+        run: |
+          RUNDIR=$(dirname "${{ steps.download.outputs.archive_path }}")
+          PREV_ARG=""
+          if [ "${{ steps.prev_summary.outputs.found }}" = "true" ]; then
+            PREV_ARG="--prev-json keelung_summary.json"
+          fi
+          python wrf_analyze.py \
+            --rundir "$RUNDIR" \
+            $PREV_ARG \
+            --output-json keelung_summary_new.json \
+            --output-html email_analysis.html
+
+      # ── Upload archive + new summary to Drive ─────────────────────────────────
+      - name: Upload to Google Drive
         id: upload
         run: |
+          # Upload the GRIB2 archive
           rclone copy "${{ steps.download.outputs.archive_path }}" gdrive:WRF_Taiwan/ \
             --drive-chunk-size 128M \
             --transfers 1 \
             --stats 10s \
             --stats-one-line
+
+          # Overwrite the persistent summary (used as prev-json next run)
+          rclone copy keelung_summary_new.json \
+            gdrive:WRF_Taiwan/keelung_summary.json \
+            --no-traverse
+
+          # Get shareable link to the archive
           LINK=$(rclone link "gdrive:WRF_Taiwan/${{ steps.download.outputs.archive_name }}" 2>/dev/null || echo "")
           echo "drive_link=$LINK" >> "$GITHUB_OUTPUT"
 
+      # ── Assemble the email HTML ───────────────────────────────────────────────
+      # Combines the metadata header with the forecast table from wrf_analyze.py.
+      # Uses heredoc syntax to safely pass multi-line HTML via GITHUB_OUTPUT.
+      - name: Build email HTML
+        id: email_html
+        run: |
+          DRIVE_CELL='gdrive:WRF_Taiwan/'
+          if [ -n "${{ steps.upload.outputs.drive_link }}" ]; then
+            DRIVE_CELL='<a href="${{ steps.upload.outputs.drive_link }}">Google Drive ↗</a>'
+          fi
+
+          {
+            echo 'body<<__EOF__'
+            cat <<HEADER
+          <div style="font-family:Arial,sans-serif;font-size:13px;margin-bottom:12px">
+          <table cellpadding="5" style="border-collapse:collapse;background:#f0f4f8;border-radius:4px">
+            <tr><td><b>Archive</b></td><td>${{ steps.download.outputs.archive_name }}</td></tr>
+            <tr><td><b>Size</b></td><td>${{ steps.download.outputs.archive_size }}</td></tr>
+            <tr><td><b>Triggered by</b></td><td>${{ github.event_name }}</td></tr>
+            <tr><td><b>Workflow run</b></td>
+                <td><a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">#${{ github.run_number }}</a></td></tr>
+            <tr><td><b>Download</b></td><td>$DRIVE_CELL</td></tr>
+          </table>
+          </div>
+          <hr style="border:none;border-top:1px solid #e2e8f0;margin:12px 0">
+          HEADER
+            cat email_analysis.html
+            echo '__EOF__'
+          } >> "$GITHUB_OUTPUT"
+
       # ── Success notification ─────────────────────────────────────────────────
       # Requires two repository secrets: EMAIL_USERNAME and EMAIL_PASSWORD
-      # (use a Gmail App Password — not your regular password).
-      # To create one: Google Account → Security → App passwords
+      # (Gmail App Password — not your regular password)
+      # Create one at: Google Account → Security → App passwords
       - name: Send success notification
         if: success()
         uses: dawidd6/action-send-mail@v3
@@ -76,17 +147,7 @@ jobs:
           subject: "✅ WRF Taiwan — ${{ steps.download.outputs.archive_name }}"
           to: andrewshoe329@gmail.com
           from: "WRF Downloader <${{ secrets.EMAIL_USERNAME }}>"
-          html_body: |
-            <h2 style="font-family:sans-serif">Taiwan WRF Download Complete</h2>
-            <table cellpadding="6" style="font-family:monospace;border-collapse:collapse">
-              <tr><td><b>Archive</b></td><td>${{ steps.download.outputs.archive_name }}</td></tr>
-              <tr><td><b>Size</b></td><td>${{ steps.download.outputs.archive_size }}</td></tr>
-              <tr><td><b>Triggered by</b></td><td>${{ github.event_name }}</td></tr>
-              <tr><td><b>Workflow run</b></td>
-                  <td><a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">#${{ github.run_number }}</a></td></tr>
-              <tr><td><b>Download</b></td>
-                  <td>${{ steps.upload.outputs.drive_link != '' && format('<a href="{0}">Google Drive link</a>', steps.upload.outputs.drive_link) || 'gdrive:WRF_Taiwan/' }}</td></tr>
-            </table>
+          html_body: ${{ steps.email_html.outputs.body }}
 
       # ── Failure notification ─────────────────────────────────────────────────
       - name: Send failure notification
