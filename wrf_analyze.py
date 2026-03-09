@@ -13,6 +13,7 @@ Usage:
   python wrf_analyze.py \\
       --rundir wrf_downloads/M-A0064_20260309_00UTC \\
       [--prev-json keelung_summary_prev.json] \\
+      [--ecmwf-json ecmwf_keelung.json] \\
       [--output-json keelung_summary.json] \\
       [--output-html email_analysis.html] \\
       [--list-vars]           # diagnostic: list all GRIB2 variables in first file
@@ -33,8 +34,8 @@ import numpy as np
 
 # ── Target point ─────────────────────────────────────────────────────────────
 
-KEELUNG_LAT = 25.1276
-KEELUNG_LON = 121.7392
+KEELUNG_LAT = 25.15589534977208
+KEELUNG_LON = 121.78782946186699
 
 # ── GRIB2 variable matching ───────────────────────────────────────────────────
 # Priority-ordered list of (shortName_variants, typeOfLevel, level, output_key)
@@ -476,6 +477,174 @@ Wind scale:
     return html
 
 
+# ── WRF vs ECMWF comparison ───────────────────────────────────────────────────
+
+def _delta_cell(d, thresh, positive_bad=False):
+    """Return a <td> element color-coded by disagreement magnitude."""
+    if d is None:
+        return '<td style="padding:4px 5px;text-align:center;color:#aaa">—</td>'
+    abs_d = abs(d)
+    if abs_d < thresh * 0.5:
+        bg, color = '#c6f6d5', '#276749'   # green  – good agreement
+    elif abs_d < thresh:
+        bg, color = '#fefcbf', '#744210'   # yellow – moderate
+    else:
+        bg, color = '#fed7d7', '#9b2335'   # red    – large disagreement
+    sign = '+' if d > 0 else ''
+    return (f'<td style="padding:4px 5px;text-align:center;background:{bg};'
+            f'color:{color};font-weight:500">{sign}{d}</td>')
+
+
+def render_comparison_html(wrf_records: list, ecmwf_records: list) -> str:
+    """
+    Side-by-side WRF vs ECMWF IFS comparison table.
+    Aligns rows by valid_utc.  Appended after the main WRF table in the email.
+    """
+    if not wrf_records or not ecmwf_records:
+        return ('<div style="font-family:Arial,sans-serif;font-size:13px;'
+                'color:#888;margin-top:12px">'
+                '<i>No ECMWF data available for comparison.</i></div>\n')
+
+    ec_by_valid = {r['valid_utc']: r for r in ecmwf_records if r.get('valid_utc')}
+    paired = [
+        (r, ec_by_valid[r['valid_utc']])
+        for r in wrf_records
+        if r.get('valid_utc') and r['valid_utc'] in ec_by_valid
+    ]
+
+    if not paired:
+        return ('<div style="font-family:Arial,sans-serif;font-size:13px;'
+                'color:#888;margin-top:12px">'
+                '<i>No overlapping time steps between WRF and ECMWF.</i></div>\n')
+
+    html = '''<div style="font-family:Arial,sans-serif;font-size:13px;line-height:1.4;margin-top:20px">
+<h3 style="margin:0 0 2px;font-size:15px">
+  📊 WRF vs ECMWF IFS Comparison
+  <span style="font-weight:normal;font-size:0.85em;color:#555">
+    &nbsp;{lat}°N {lon}°E
+  </span>
+</h3>
+<p style="margin:0 0 8px;color:#666;font-size:0.88em">
+  WRF CWA-3 km vs ECMWF IFS 0.25° &nbsp;·&nbsp; Δ&nbsp;=&nbsp;WRF&nbsp;−&nbsp;ECMWF
+</p>
+
+<table style="border-collapse:collapse;width:100%;font-size:12px">
+<thead>
+<tr style="background:#2d3748;color:#fff;text-align:center">
+  <th style="padding:5px 6px;text-align:left" rowspan="2">Valid UTC</th>
+  <th style="padding:5px 6px;text-align:left" rowspan="2">CST +8</th>
+  <th colspan="3" style="padding:4px 6px;border-bottom:1px solid #4a5568">Temp (°C)</th>
+  <th colspan="3" style="padding:4px 6px;border-bottom:1px solid #4a5568">Wind (kt)</th>
+  <th colspan="3" style="padding:4px 6px;border-bottom:1px solid #4a5568">6h Rain (mm)</th>
+  <th colspan="3" style="padding:4px 6px;border-bottom:1px solid #4a5568">MSLP (hPa)</th>
+</tr>
+<tr style="background:#4a5568;color:#e2e8f0;text-align:center">
+  <th style="padding:3px 5px">WRF</th><th style="padding:3px 5px">EC</th><th style="padding:3px 5px">Δ</th>
+  <th style="padding:3px 5px">WRF</th><th style="padding:3px 5px">EC</th><th style="padding:3px 5px">Δ</th>
+  <th style="padding:3px 5px">WRF</th><th style="padding:3px 5px">EC</th><th style="padding:3px 5px">Δ</th>
+  <th style="padding:3px 5px">WRF</th><th style="padding:3px 5px">EC</th><th style="padding:3px 5px">Δ</th>
+</tr>
+</thead>
+<tbody>
+'''.format(lat=KEELUNG_LAT, lon=KEELUNG_LON)
+
+    temp_deltas, wind_deltas, rain_deltas, mslp_deltas = [], [], [], []
+
+    def _fmt(v, fmt, unit=''):
+        return f'{v:{fmt}}{unit}' if v is not None else '—'
+
+    for i, (wrf, ec) in enumerate(paired):
+        valid_utc = valid_cst = ''
+        if wrf.get('valid_utc'):
+            dt_u = datetime.fromisoformat(wrf['valid_utc'])
+            dt_c = dt_u + timedelta(hours=8)
+            valid_utc = dt_u.strftime('%m/%d %H:%M')
+            valid_cst = dt_c.strftime('%m/%d %H:%M')
+
+        row_bg = '#f5f7fa' if i % 2 else '#ffffff'
+
+        wt = wrf.get('temp_c');       et = ec.get('temp_c')
+        ww = wrf.get('wind_kt');      ew = ec.get('wind_kt')
+        wr = wrf.get('precip_mm_6h'); er = ec.get('precip_mm_6h')
+        wp = wrf.get('mslp_hpa');     ep = ec.get('mslp_hpa')
+
+        dt = round(wt - et, 1) if wt is not None and et is not None else None
+        dw = round(ww - ew, 1) if ww is not None and ew is not None else None
+        dr = round(wr - er, 1) if wr is not None and er is not None else None
+        dp = round(wp - ep, 1) if wp is not None and ep is not None else None
+
+        if dt is not None: temp_deltas.append(dt)
+        if dw is not None: wind_deltas.append(dw)
+        if dr is not None: rain_deltas.append(dr)
+        if dp is not None: mslp_deltas.append(dp)
+
+        html += (
+            f'<tr style="background:{row_bg}">\n'
+            f'  <td style="padding:4px 6px;white-space:nowrap;font-weight:500">{valid_utc}</td>\n'
+            f'  <td style="padding:4px 6px;white-space:nowrap;color:#666">{valid_cst}</td>\n'
+            f'  <td style="padding:4px 5px;text-align:center;background:{_temp_bg(wt)}">{_fmt(wt,".1f","°")}</td>\n'
+            f'  <td style="padding:4px 5px;text-align:center;background:{_temp_bg(et)}">{_fmt(et,".1f","°")}</td>\n'
+            f'  {_delta_cell(dt, 2.0)}\n'
+            f'  <td style="padding:4px 5px;text-align:center;background:{_wind_bg(ww)}">{_fmt(ww,".0f","kt")}</td>\n'
+            f'  <td style="padding:4px 5px;text-align:center;background:{_wind_bg(ew)}">{_fmt(ew,".0f","kt")}</td>\n'
+            f'  {_delta_cell(dw, 5.0, positive_bad=True)}\n'
+            f'  <td style="padding:4px 5px;text-align:center;background:{_precip_bg(wr)}">{_fmt(wr,".1f","mm")}</td>\n'
+            f'  <td style="padding:4px 5px;text-align:center;background:{_precip_bg(er)}">{_fmt(er,".1f","mm")}</td>\n'
+            f'  {_delta_cell(dr, 5.0, positive_bad=True)}\n'
+            f'  <td style="padding:4px 5px;text-align:center">{_fmt(wp,".1f")}</td>\n'
+            f'  <td style="padding:4px 5px;text-align:center">{_fmt(ep,".1f")}</td>\n'
+            f'  {_delta_cell(dp, 3.0)}\n'
+            f'</tr>\n'
+        )
+
+    html += '</tbody></table>\n'
+
+    # ── Agreement summary ─────────────────────────────────────────────────────
+    def _mae(deltas):
+        return sum(abs(d) for d in deltas) / len(deltas) if deltas else None
+
+    def _bias(deltas):
+        return sum(deltas) / len(deltas) if deltas else None
+
+    items = []
+    for label, deltas, unit, thresh in [
+        ('Temp', temp_deltas, '°C',  2.0),
+        ('Wind', wind_deltas, 'kt',  5.0),
+        ('Rain', rain_deltas, 'mm',  5.0),
+        ('MSLP', mslp_deltas, 'hPa', 3.0),
+    ]:
+        mae  = _mae(deltas)
+        bias = _bias(deltas)
+        if mae is not None:
+            icon = '🟢' if mae < thresh * 0.5 else ('🟡' if mae < thresh else '🔴')
+            sign = '+' if bias > 0 else ''
+            items.append(f'{icon} <b>{label}</b> MAE&nbsp;{mae:.1f}{unit}'
+                         f' (bias&nbsp;{sign}{bias:.1f}{unit})')
+
+    if items:
+        html += (
+            '<div style="margin:10px 0 0;padding:8px 12px;background:#ebf8ff;'
+            'border-left:3px solid #3182ce;font-size:0.9em">'
+            f'<b>Model Agreement</b> — WRF vs ECMWF over {len(paired)} steps:<br>'
+            + ' &nbsp;·&nbsp; '.join(items) +
+            '</div>\n'
+        )
+
+    # ── Delta legend ──────────────────────────────────────────────────────────
+    html += (
+        '<p style="margin:6px 0 0;font-size:0.78em;color:#888">'
+        'Δ shading: '
+        '<span style="background:#c6f6d5;color:#276749;padding:1px 4px">good agreement</span>'
+        '&nbsp;'
+        '<span style="background:#fefcbf;color:#744210;padding:1px 4px">moderate</span>'
+        '&nbsp;'
+        '<span style="background:#fed7d7;color:#9b2335;padding:1px 4px">large</span>'
+        '</p>\n'
+        '</div>\n'
+    )
+    return html
+
+
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
 def main():
@@ -490,6 +659,8 @@ def main():
                    help='Output summary JSON path (default: keelung_summary.json)')
     p.add_argument('--output-html', default='email_analysis.html',
                    help='Output HTML path (default: email_analysis.html)')
+    p.add_argument('--ecmwf-json',  default=None,
+                   help='ECMWF IFS JSON produced by ecmwf_fetch.py (enables comparison table)')
     p.add_argument('--list-vars',   action='store_true',
                    help='Diagnostic: list all GRIB2 shortNames in the first file and exit')
     args = p.parse_args()
@@ -538,8 +709,22 @@ def main():
     out_json.write_text(json.dumps(summary, indent=2))
     print(f'  📊  Summary → {out_json}')
 
+    # ── Load ECMWF comparison data ────────────────────────────────────────────
+    ecmwf_records = []
+    if args.ecmwf_json and Path(args.ecmwf_json).exists():
+        try:
+            with open(args.ecmwf_json) as f:
+                ecmwf_data = json.load(f)
+            ecmwf_records = ecmwf_data.get('records', [])
+            ecmwf_init = ecmwf_data.get('meta', {}).get('init_utc', 'unknown')
+            print(f'  ECMWF data: {ecmwf_init} ({len(ecmwf_records)} records)')
+        except Exception as e:
+            print(f'  ⚠  Could not load ECMWF JSON: {e}')
+
     # ── Write HTML ────────────────────────────────────────────────────────────
     html = render_html(meta, records, prev_records)
+    if ecmwf_records:
+        html += render_comparison_html(records, ecmwf_records)
     out_html = Path(args.output_html)
     out_html.write_text(html)
     print(f'  📧  HTML    → {out_html}')
