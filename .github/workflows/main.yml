@@ -34,9 +34,9 @@ jobs:
           echo "Configured remotes:"
           rclone listremotes
 
-      - name: Upload subset files to Google Drive
+      - name: Upload archive to Google Drive
         run: |
           rclone copy wrf_downloads/ gdrive:WRF_Taiwan/ \
-            --include "*keelung*" \
-            --transfers 4 \
+            --include "*.tar.gz" \
+            --transfers 1 \
             --stats 10s
