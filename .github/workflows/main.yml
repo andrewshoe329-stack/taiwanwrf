@@ -76,8 +76,7 @@ jobs:
           subject: "✅ WRF Taiwan — ${{ steps.download.outputs.archive_name }}"
           to: andrewshoe329@gmail.com
           from: "WRF Downloader <${{ secrets.EMAIL_USERNAME }}>"
-          content_type: text/html
-          body: |
+          html_body: |
             <h2 style="font-family:sans-serif">Taiwan WRF Download Complete</h2>
             <table cellpadding="6" style="font-family:monospace;border-collapse:collapse">
               <tr><td><b>Archive</b></td><td>${{ steps.download.outputs.archive_name }}</td></tr>
@@ -102,8 +101,7 @@ jobs:
           subject: "❌ WRF Taiwan download FAILED — run #${{ github.run_number }}"
           to: andrewshoe329@gmail.com
           from: "WRF Downloader <${{ secrets.EMAIL_USERNAME }}>"
-          content_type: text/html
-          body: |
+          html_body: |
             <h2 style="font-family:sans-serif;color:#c00">Taiwan WRF Download Failed</h2>
             <p style="font-family:sans-serif">
               Workflow run <b>#${{ github.run_number }}</b> failed.<br>
