@@ -72,6 +72,20 @@ jobs:
           python ecmwf_fetch.py --output ecmwf_keelung.json
           echo "ecmwf_json=ecmwf_keelung.json" >> "$GITHUB_OUTPUT"
 
+      # ── Diagnostic: list GRIB2 variables in first subset file ────────────────
+      # Logs the (shortName, typeOfLevel, level) inventory so we can verify
+      # that all expected variables (precip, cloud, vis, gust, CAPE) are present.
+      - name: List GRIB2 variables (diagnostic)
+        run: |
+          RUNDIR=$(dirname "${{ steps.download.outputs.archive_path }}")
+          FIRST=$(ls "$RUNDIR"/*_keelung*.grb2 2>/dev/null | sort | head -1)
+          if [ -n "$FIRST" ]; then
+            echo "=== GRIB2 variable inventory: $(basename $FIRST) ==="
+            python wrf_analyze.py --rundir "$RUNDIR" --list-vars || true
+          else
+            echo "No keelung grb2 files found for diagnostic."
+          fi
+
       # ── Run GRIB2 point-forecast analysis ────────────────────────────────────
       # Reads the Keelung subset .grb2 files (still present alongside the archive),
       # extracts the point forecast at Keelung, diffs against the previous run,
