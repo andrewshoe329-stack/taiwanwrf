@@ -36,6 +36,7 @@ import json
 import os
 import re
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -85,35 +86,47 @@ def _deg_to_compass(deg):
 
 # ── ECMWF via Open-Meteo marine API ──────────────────────────────────────────
 
+_FETCH_RETRIES     = 3
+_FETCH_RETRY_DELAY = 5   # seconds between attempts
+
+_HOURLY_WAVE_VARS = ",".join([
+    "wave_height",
+    "wave_direction",
+    "wave_period",
+    "wind_wave_height",
+    "wind_wave_direction",
+    "wind_wave_period",
+    "swell_wave_height",
+    "swell_wave_direction",
+    "swell_wave_period",
+])
+
+
 def fetch_ecmwf_wave() -> dict:
-    """Fetch ECMWF WAM wave forecast from the Open-Meteo marine API."""
-    hourly_vars = ",".join([
-        "wave_height",
-        "wave_direction",
-        "wave_period",
-        "wind_wave_height",
-        "wind_wave_direction",
-        "wind_wave_period",
-        "swell_wave_height",
-        "swell_wave_direction",
-        "swell_wave_period",
-    ])
+    """Fetch ECMWF WAM wave forecast from the Open-Meteo marine API (with retry)."""
     params = {
         "latitude":      KEELUNG_LAT,
         "longitude":     KEELUNG_LON,
-        "hourly":        hourly_vars,
+        "hourly":        _HOURLY_WAVE_VARS,
         "timezone":      "UTC",
-        "forecast_days": "7",
+        "forecast_days": 7,   # int, not string
     }
     url = MARINE_API_URL + "?" + urllib.parse.urlencode(params)
     print("  Fetching ECMWF WAM wave from Open-Meteo marine …", flush=True)
-    try:
-        with urllib.request.urlopen(url, timeout=30) as r:
-            data = json.load(r)
-    except urllib.error.URLError as e:
-        print(f"  ✗  Open-Meteo marine request failed: {e}", file=sys.stderr)
-        sys.exit(1)
-    return data
+    last_exc: Exception = RuntimeError("no attempts made")
+    for attempt in range(1, _FETCH_RETRIES + 1):
+        try:
+            with urllib.request.urlopen(url, timeout=30) as r:
+                return json.load(r)
+        except urllib.error.URLError as e:
+            last_exc = e
+            if attempt < _FETCH_RETRIES:
+                print(f"  ↻  Request failed ({e}); retry {attempt}/{_FETCH_RETRIES} "
+                      f"in {_FETCH_RETRY_DELAY}s …", file=sys.stderr)
+                time.sleep(_FETCH_RETRY_DELAY)
+    print(f"  ✗  Open-Meteo marine request failed after {_FETCH_RETRIES} attempts: {last_exc}",
+          file=sys.stderr)
+    sys.exit(1)
 
 
 def _norm_utc(iso: str) -> str:
