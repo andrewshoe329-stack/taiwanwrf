@@ -305,6 +305,23 @@ def _cape_bg(c):
     if c < 1500:   return '#ffd9a0'   # moderately unstable
     return '#ffb3b3'                   # very unstable (thunderstorm risk)
 
+def _wave_height_bg(h):
+    """Background colour for significant wave height (metres)."""
+    if h is None: return '#f4f4f4'
+    if h < 0.3:   return '#d4f0c0'   # glassy / rippled
+    if h < 1.0:   return '#fff7b0'   # slight
+    if h < 2.0:   return '#ffd9a0'   # moderate
+    if h < 3.5:   return '#ffb3b3'   # rough / very rough
+    return '#ff6666'                  # high / dangerous
+
+def _wave_period_bg(p):
+    """Background colour for wave period (seconds)."""
+    if p is None: return '#f4f4f4'
+    if p < 4:     return '#f4f4f4'   # very short (local chop)
+    if p < 8:     return '#fff7b0'   # moderate wind sea
+    if p < 12:    return '#d4f0c0'   # longer period swell
+    return '#b0d9ff'                  # long-period ocean swell
+
 def _delta_span(curr, prev, fmt='.1f', unit='', positive_bad=False):
     """Return a small colored delta span, or '' if insignificant."""
     if curr is None or prev is None:
@@ -365,8 +382,8 @@ def render_html(meta: dict, records: list, prev_records: list) -> str:
         if rec.get('valid_utc'):
             dt_u = datetime.fromisoformat(rec['valid_utc'])
             dt_c = dt_u + timedelta(hours=8)
-            valid_utc = dt_u.strftime('%m/%d %H:%M')
-            valid_cst = dt_c.strftime('%m/%d %H:%M')
+            valid_utc = dt_u.strftime('%a %m/%d %H:%M')
+            valid_cst = dt_c.strftime('%a %m/%d %H:%M')
 
         prev = prev_by_valid.get(rec.get('valid_utc', ''), {})
 
@@ -580,8 +597,8 @@ def render_comparison_html(wrf_records: list, ecmwf_records: list) -> str:
         if wrf.get('valid_utc'):
             dt_u = datetime.fromisoformat(wrf['valid_utc'])
             dt_c = dt_u + timedelta(hours=8)
-            valid_utc = dt_u.strftime('%m/%d %H:%M')
-            valid_cst = dt_c.strftime('%m/%d %H:%M')
+            valid_utc = dt_u.strftime('%a %m/%d %H:%M')
+            valid_cst = dt_c.strftime('%a %m/%d %H:%M')
 
         row_bg = '#f5f7fa' if i % 2 else '#ffffff'
 
@@ -619,9 +636,49 @@ def render_comparison_html(wrf_records: list, ecmwf_records: list) -> str:
             f'</tr>\n'
         )
 
+    # ── ECMWF-only rows beyond WRF range (extended 7-day outlook) ────────────
+    wrf_valids = {r['valid_utc'] for r in wrf_records if r.get('valid_utc')}
+    ecmwf_only = sorted(
+        [r for r in ecmwf_records if r.get('valid_utc') and r['valid_utc'] not in wrf_valids],
+        key=lambda r: r['valid_utc'],
+    )
+    if ecmwf_only:
+        html += (
+            '<tr><td colspan="14" style="padding:3px 6px;background:#e2e8f0;'
+            'color:#4a5568;font-size:0.82em;text-align:center;font-style:italic">'
+            '— ECMWF extended outlook (beyond WRF range) —</td></tr>\n'
+        )
+        for j, ec in enumerate(ecmwf_only):
+            valid_utc = valid_cst = ''
+            if ec.get('valid_utc'):
+                dt_u = datetime.fromisoformat(ec['valid_utc'])
+                dt_c = dt_u + timedelta(hours=8)
+                valid_utc = dt_u.strftime('%a %m/%d %H:%M')
+                valid_cst = dt_c.strftime('%a %m/%d %H:%M')
+            row_bg = '#f0f4ff' if j % 2 else '#f8f9ff'
+            et = ec.get('temp_c');       ew = ec.get('wind_kt')
+            er = ec.get('precip_mm_6h'); ep = ec.get('mslp_hpa')
+            html += (
+                f'<tr style="background:{row_bg};color:#555">\n'
+                f'  <td style="padding:4px 6px;white-space:nowrap;font-weight:500">{valid_utc}</td>\n'
+                f'  <td style="padding:4px 6px;white-space:nowrap;color:#666">{valid_cst}</td>\n'
+                f'  <td style="padding:4px 5px;text-align:center;color:#bbb">—</td>\n'
+                f'  <td style="padding:4px 5px;text-align:center;background:{_temp_bg(et)}">{_fmt(et,".1f","°")}</td>\n'
+                f'  <td style="padding:4px 5px;text-align:center;color:#bbb">—</td>\n'
+                f'  <td style="padding:4px 5px;text-align:center;color:#bbb">—</td>\n'
+                f'  <td style="padding:4px 5px;text-align:center;background:{_wind_bg(ew)}">{_fmt(ew,".0f","kt")}</td>\n'
+                f'  <td style="padding:4px 5px;text-align:center;color:#bbb">—</td>\n'
+                f'  <td style="padding:4px 5px;text-align:center;color:#bbb">—</td>\n'
+                f'  <td style="padding:4px 5px;text-align:center;background:{_precip_bg(er)}">{_fmt(er,".1f","mm")}</td>\n'
+                f'  <td style="padding:4px 5px;text-align:center;color:#bbb">—</td>\n'
+                f'  <td style="padding:4px 5px;text-align:center">{_fmt(ep,".1f")}</td>\n'
+                f'  <td style="padding:4px 5px;text-align:center;color:#bbb">—</td>\n'
+                f'</tr>\n'
+            )
+
     html += '</tbody></table>\n'
 
-    # ── Agreement summary ─────────────────────────────────────────────────────
+    # ── Agreement summary (WRF overlap period only) ───────────────────────────
     def _mae(deltas):
         return sum(abs(d) for d in deltas) / len(deltas) if deltas else None
 
@@ -667,6 +724,296 @@ def render_comparison_html(wrf_records: list, ecmwf_records: list) -> str:
     return html
 
 
+# ── Wave forecast rendering ───────────────────────────────────────────────────
+
+_WAVE_COMPASS = ['N','NNE','NE','ENE','E','ESE','SE','SSE',
+                 'S','SSW','SW','WSW','W','WNW','NW','NNW']
+
+def _wave_dir_str(deg):
+    if deg is None:
+        return '—'
+    return _WAVE_COMPASS[round(deg / 22.5) % 16]
+
+
+def render_wave_html(wave_data: dict) -> str:
+    """
+    Render the wave-forecast section from wave_keelung.json.
+    wave_data keys: 'ecmwf_wave' (always), 'cwa_wave' (may be None).
+    """
+    ecmwf = wave_data.get('ecmwf_wave', {})
+    cwa   = wave_data.get('cwa_wave')
+
+    ecmwf_recs = ecmwf.get('records', [])
+    ecmwf_meta = ecmwf.get('meta', {})
+
+    if not ecmwf_recs:
+        return ('<div style="font-family:Arial,sans-serif;font-size:13px;'
+                'color:#888;margin-top:12px">'
+                '<i>No wave data available.</i></div>\n')
+
+    init_str = ''
+    if ecmwf_meta.get('init_utc'):
+        try:
+            dt = datetime.fromisoformat(ecmwf_meta['init_utc'])
+            init_str = dt.strftime('%Y-%m-%d %H:%M UTC')
+        except Exception:
+            init_str = ecmwf_meta['init_utc']
+
+    # ── ECMWF wave forecast table ──────────────────────────────────────────────
+    html = (
+        '<div style="font-family:Arial,sans-serif;font-size:13px;line-height:1.4;margin-top:20px">\n'
+        '<h3 style="margin:0 0 2px;font-size:15px">\n'
+        '  🌊 Wave Forecast\n'
+        f'  <span style="font-weight:normal;font-size:0.85em;color:#555">'
+        f'&nbsp;{KEELUNG_LAT}°N {KEELUNG_LON}°E</span>\n'
+        '</h3>\n'
+        f'<p style="margin:0 0 8px;color:#666;font-size:0.88em">'
+        f'ECMWF WAM (Open-Meteo marine) &nbsp;·&nbsp; Init: {init_str}</p>\n'
+        '\n'
+        '<table style="border-collapse:collapse;width:100%;font-size:12px">\n'
+        '<thead>\n'
+        '<tr style="background:#1a5276;color:#fff;text-align:center">\n'
+        '  <th style="padding:5px 6px;text-align:left">Valid UTC</th>\n'
+        '  <th style="padding:5px 6px;text-align:left">CST +8</th>\n'
+        '  <th style="padding:5px 6px">Hs (m)</th>\n'
+        '  <th style="padding:5px 6px">T (s)</th>\n'
+        '  <th style="padding:5px 6px">Dir</th>\n'
+        '  <th style="padding:5px 6px">Swell Hs</th>\n'
+        '  <th style="padding:5px 6px">Swell T</th>\n'
+        '  <th style="padding:5px 6px">Swell Dir</th>\n'
+        '  <th style="padding:5px 6px">Wind Sea</th>\n'
+        '</tr>\n'
+        '</thead>\n'
+        '<tbody>\n'
+    )
+
+    max_hs   = 0.0
+    max_swell = 0.0
+
+    for i, rec in enumerate(ecmwf_recs):
+        valid_utc = valid_cst = ''
+        if rec.get('valid_utc'):
+            try:
+                dt_u = datetime.fromisoformat(rec['valid_utc'])
+                dt_c = dt_u + timedelta(hours=8)
+                valid_utc = dt_u.strftime('%a %m/%d %H:%M')
+                valid_cst = dt_c.strftime('%a %m/%d %H:%M')
+            except Exception:
+                pass
+
+        hs   = rec.get('wave_height')
+        tp   = rec.get('wave_period')
+        wdir = rec.get('wave_direction')
+        swh  = rec.get('swell_wave_height')
+        swt  = rec.get('swell_wave_period')
+        swd  = rec.get('swell_wave_direction')
+        wwh  = rec.get('wind_wave_height')
+
+        if hs  is not None: max_hs    = max(max_hs,    hs)
+        if swh is not None: max_swell = max(max_swell, swh)
+
+        row_bg = '#f5f7fa' if i % 2 else '#ffffff'
+
+        def _fmt(v, decimals=1, suffix=''):
+            return f'{v:.{decimals}f}{suffix}' if v is not None else '—'
+
+        html += (
+            f'<tr style="background:{row_bg}">\n'
+            f'  <td style="padding:4px 6px;white-space:nowrap;font-weight:500">{valid_utc}</td>\n'
+            f'  <td style="padding:4px 6px;white-space:nowrap;color:#666">{valid_cst}</td>\n'
+            f'  <td style="padding:4px 6px;text-align:center;background:{_wave_height_bg(hs)}">{_fmt(hs)}</td>\n'
+            f'  <td style="padding:4px 6px;text-align:center;background:{_wave_period_bg(tp)}">{_fmt(tp)}</td>\n'
+            f'  <td style="padding:4px 6px;text-align:center">{_wave_dir_str(wdir)}</td>\n'
+            f'  <td style="padding:4px 6px;text-align:center;background:{_wave_height_bg(swh)}">{_fmt(swh)}</td>\n'
+            f'  <td style="padding:4px 6px;text-align:center;background:{_wave_period_bg(swt)}">{_fmt(swt)}</td>\n'
+            f'  <td style="padding:4px 6px;text-align:center">{_wave_dir_str(swd)}</td>\n'
+            f'  <td style="padding:4px 6px;text-align:center;background:{_wave_height_bg(wwh)}">{_fmt(wwh)}</td>\n'
+            f'</tr>\n'
+        )
+
+    html += '</tbody></table>\n'
+
+    # ── Wave alerts ────────────────────────────────────────────────────────────
+    wave_alerts = []
+    if max_hs >= 3.5:
+        wave_alerts.append(f'⚠️ <b>Dangerous sea state</b> — Hs {max_hs:.1f}m peak')
+    elif max_hs >= 2.0:
+        wave_alerts.append(f'🌊 Rough conditions expected — Hs {max_hs:.1f}m peak')
+    if max_swell >= 1.5:
+        wave_alerts.append(f'🌀 Significant swell — {max_swell:.1f}m peak swell height')
+
+    if wave_alerts:
+        html += (
+            '<div style="margin:8px 0 0;padding:8px 10px;background:#ebf8ff;'
+            'border-left:3px solid #2b6cb0;font-size:0.9em">'
+            + '<br>'.join(wave_alerts) +
+            '</div>\n'
+        )
+
+    # ── Wave legend ────────────────────────────────────────────────────────────
+    html += (
+        '<p style="margin:8px 0 0;font-size:0.78em;color:#888">'
+        'Hs: '
+        '<span style="background:#d4f0c0;padding:1px 4px">&lt;0.3m calm</span>&nbsp;'
+        '<span style="background:#fff7b0;padding:1px 4px">0.3–1m slight</span>&nbsp;'
+        '<span style="background:#ffd9a0;padding:1px 4px">1–2m moderate</span>&nbsp;'
+        '<span style="background:#ffb3b3;padding:1px 4px">2–3.5m rough</span>&nbsp;'
+        '<span style="background:#ff6666;color:#fff;padding:1px 4px">&gt;3.5m high</span>'
+        '&nbsp;&nbsp;'
+        'Period: '
+        '<span style="background:#fff7b0;padding:1px 4px">4–8s wind sea</span>&nbsp;'
+        '<span style="background:#d4f0c0;padding:1px 4px">8–12s swell</span>&nbsp;'
+        '<span style="background:#b0d9ff;padding:1px 4px">&gt;12s long swell</span>'
+        '</p>\n'
+    )
+
+    # ── CWA vs ECMWF wave comparison ──────────────────────────────────────────
+    if cwa and cwa.get('records'):
+        html += _render_cwa_ecmwf_wave_comparison(ecmwf_recs, cwa)
+
+    html += '</div>\n'
+    return html
+
+
+def _render_cwa_ecmwf_wave_comparison(ecmwf_recs: list, cwa: dict) -> str:
+    """Side-by-side CWA wave model vs ECMWF WAM comparison."""
+    cwa_recs = cwa.get('records', [])
+    cwa_meta = cwa.get('meta', {})
+    if not cwa_recs:
+        return ''
+
+    ec_by_valid = {r['valid_utc']: r for r in ecmwf_recs if r.get('valid_utc')}
+    paired = [
+        (cwa_r, ec_by_valid[cwa_r['valid_utc']])
+        for cwa_r in cwa_recs
+        if cwa_r.get('valid_utc') and cwa_r['valid_utc'] in ec_by_valid
+    ]
+    if not paired:
+        return ''
+
+    cwa_model_id = cwa_meta.get('model_id', 'CWA-Wave')
+
+    html = (
+        '<div style="margin-top:20px">\n'
+        '<h3 style="margin:0 0 2px;font-size:15px">\n'
+        f'  📊 {cwa_model_id} vs ECMWF WAM — Wave Comparison\n'
+        f'  <span style="font-weight:normal;font-size:0.85em;color:#555">'
+        f'&nbsp;{KEELUNG_LAT}°N {KEELUNG_LON}°E</span>\n'
+        '</h3>\n'
+        '<p style="margin:0 0 8px;color:#666;font-size:0.88em">'
+        f'{cwa_model_id} (3–15km) vs ECMWF WAM (0.25°) &nbsp;·&nbsp; '
+        'Δ&nbsp;=&nbsp;CWA&nbsp;−&nbsp;ECMWF</p>\n'
+        '\n'
+        '<table style="border-collapse:collapse;width:100%;font-size:12px">\n'
+        '<thead>\n'
+        '<tr style="background:#2d3748;color:#fff;text-align:center">\n'
+        '  <th style="padding:5px 6px;text-align:left" rowspan="2">Valid UTC</th>\n'
+        '  <th style="padding:5px 6px;text-align:left" rowspan="2">CST +8</th>\n'
+        '  <th colspan="3" style="padding:4px 6px;border-bottom:1px solid #4a5568">Hs (m)</th>\n'
+        '  <th colspan="3" style="padding:4px 6px;border-bottom:1px solid #4a5568">Period (s)</th>\n'
+        '  <th colspan="3" style="padding:4px 6px;border-bottom:1px solid #4a5568">Swell Hs (m)</th>\n'
+        '</tr>\n'
+        '<tr style="background:#4a5568;color:#e2e8f0;text-align:center">\n'
+        '  <th style="padding:3px 5px">CWA</th><th style="padding:3px 5px">EC</th>'
+        '<th style="padding:3px 5px">Δ</th>\n'
+        '  <th style="padding:3px 5px">CWA</th><th style="padding:3px 5px">EC</th>'
+        '<th style="padding:3px 5px">Δ</th>\n'
+        '  <th style="padding:3px 5px">CWA</th><th style="padding:3px 5px">EC</th>'
+        '<th style="padding:3px 5px">Δ</th>\n'
+        '</tr>\n'
+        '</thead>\n'
+        '<tbody>\n'
+    )
+
+    hs_deltas, tp_deltas, sw_deltas = [], [], []
+
+    def _fmtw(v, dec=1, suf=''):
+        return f'{v:.{dec}f}{suf}' if v is not None else '—'
+
+    for i, (cwa_r, ec_r) in enumerate(paired):
+        valid_utc = valid_cst = ''
+        if cwa_r.get('valid_utc'):
+            try:
+                dt_u = datetime.fromisoformat(cwa_r['valid_utc'])
+                dt_c = dt_u + timedelta(hours=8)
+                valid_utc = dt_u.strftime('%a %m/%d %H:%M')
+                valid_cst = dt_c.strftime('%a %m/%d %H:%M')
+            except Exception:
+                pass
+
+        row_bg = '#f5f7fa' if i % 2 else '#ffffff'
+
+        ch = cwa_r.get('wave_height');      eh = ec_r.get('wave_height')
+        ct = cwa_r.get('wave_period');      et = ec_r.get('wave_period')
+        cs = cwa_r.get('swell_wave_height'); es = ec_r.get('swell_wave_height')
+
+        dh = round(ch - eh, 2) if ch is not None and eh is not None else None
+        dt_ = round(ct - et, 1) if ct is not None and et is not None else None
+        ds = round(cs - es, 2) if cs is not None and es is not None else None
+
+        if dh  is not None: hs_deltas.append(dh)
+        if dt_ is not None: tp_deltas.append(dt_)
+        if ds  is not None: sw_deltas.append(ds)
+
+        html += (
+            f'<tr style="background:{row_bg}">\n'
+            f'  <td style="padding:4px 6px;white-space:nowrap;font-weight:500">{valid_utc}</td>\n'
+            f'  <td style="padding:4px 6px;white-space:nowrap;color:#666">{valid_cst}</td>\n'
+            f'  <td style="padding:4px 5px;text-align:center;background:{_wave_height_bg(ch)}">{_fmtw(ch)}</td>\n'
+            f'  <td style="padding:4px 5px;text-align:center;background:{_wave_height_bg(eh)}">{_fmtw(eh)}</td>\n'
+            f'  {_delta_cell(dh, 0.5)}\n'
+            f'  <td style="padding:4px 5px;text-align:center;background:{_wave_period_bg(ct)}">{_fmtw(ct)}</td>\n'
+            f'  <td style="padding:4px 5px;text-align:center;background:{_wave_period_bg(et)}">{_fmtw(et)}</td>\n'
+            f'  {_delta_cell(dt_, 2.0)}\n'
+            f'  <td style="padding:4px 5px;text-align:center;background:{_wave_height_bg(cs)}">{_fmtw(cs)}</td>\n'
+            f'  <td style="padding:4px 5px;text-align:center;background:{_wave_height_bg(es)}">{_fmtw(es)}</td>\n'
+            f'  {_delta_cell(ds, 0.5)}\n'
+            f'</tr>\n'
+        )
+
+    html += '</tbody></table>\n'
+
+    # Summary
+    def _mae(d): return sum(abs(x) for x in d) / len(d) if d else None
+    def _bias(d): return sum(d) / len(d) if d else None
+
+    items = []
+    for label, deltas, unit, thresh in [
+        ('Hs',     hs_deltas, 'm',  0.5),
+        ('Period', tp_deltas, 's',  2.0),
+        ('Swell',  sw_deltas, 'm',  0.5),
+    ]:
+        mae  = _mae(deltas)
+        bias = _bias(deltas)
+        if mae is not None:
+            icon = '🟢' if mae < thresh * 0.5 else ('🟡' if mae < thresh else '🔴')
+            sign = '+' if bias > 0 else ''
+            items.append(f'{icon} <b>{label}</b> MAE&nbsp;{mae:.2f}{unit}'
+                         f' (bias&nbsp;{sign}{bias:.2f}{unit})')
+
+    if items:
+        html += (
+            '<div style="margin:10px 0 0;padding:8px 12px;background:#ebf8ff;'
+            'border-left:3px solid #3182ce;font-size:0.9em">'
+            f'<b>Wave Model Agreement</b> — CWA vs ECMWF over {len(paired)} steps:<br>'
+            + ' &nbsp;·&nbsp; '.join(items) +
+            '</div>\n'
+        )
+
+    html += (
+        '<p style="margin:6px 0 0;font-size:0.78em;color:#888">'
+        'Δ shading: '
+        '<span style="background:#c6f6d5;color:#276749;padding:1px 4px">good agreement</span>'
+        '&nbsp;'
+        '<span style="background:#fefcbf;color:#744210;padding:1px 4px">moderate</span>'
+        '&nbsp;'
+        '<span style="background:#fed7d7;color:#9b2335;padding:1px 4px">large</span>'
+        '</p>\n'
+        '</div>\n'
+    )
+    return html
+
+
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
 def main():
@@ -683,6 +1030,8 @@ def main():
                    help='Output HTML path (default: email_analysis.html)')
     p.add_argument('--ecmwf-json',  default=None,
                    help='ECMWF IFS JSON produced by ecmwf_fetch.py (enables comparison table)')
+    p.add_argument('--wave-json',   default=None,
+                   help='Wave JSON produced by wave_fetch.py (adds wave forecast section to email)')
     p.add_argument('--list-vars',   action='store_true',
                    help='Diagnostic: list all GRIB2 shortNames in the first file and exit')
     args = p.parse_args()
@@ -743,10 +1092,25 @@ def main():
         except Exception as e:
             print(f'  ⚠  Could not load ECMWF JSON: {e}')
 
+    # ── Load wave data ────────────────────────────────────────────────────────
+    wave_data = None
+    if args.wave_json and Path(args.wave_json).exists():
+        try:
+            with open(args.wave_json) as f:
+                wave_data = json.load(f)
+            ecmwf_wave_recs = len((wave_data.get('ecmwf_wave') or {}).get('records', []))
+            cwa_wave_recs   = len((wave_data.get('cwa_wave')   or {}).get('records', []))
+            print(f'  Wave data: {ecmwf_wave_recs} ECMWF steps, '
+                  f'{cwa_wave_recs} CWA steps')
+        except Exception as e:
+            print(f'  ⚠  Could not load wave JSON: {e}')
+
     # ── Write HTML ────────────────────────────────────────────────────────────
     html = render_html(meta, records, prev_records)
     if ecmwf_records:
         html += render_comparison_html(records, ecmwf_records)
+    if wave_data:
+        html += render_wave_html(wave_data)
     out_html = Path(args.output_html)
     out_html.write_text(html)
     print(f'  📧  HTML    → {out_html}')
