@@ -67,14 +67,33 @@ VARS = [
     (['cape', 'CAPE'], None,      None,          'cape'),
 ]
 
+# ── paramId fallback ──────────────────────────────────────────────────────────
+# Some CWA GRIB2 fields decode as shortName='unknown' because eccodes doesn't
+# have their local table entries.  Map paramId → output_key so they can still
+# be captured.  Populate this once you've seen the actual paramIds in the email
+# diagnostic (look for lines like:  shortName=unknown  paramId=<N>).
+#
+# Common NCEP WRF GRIB2 paramIds to try:
+#   61  → total precip (APCP)       → 'precip_raw'
+#   71  → total cloud cover (%)     → 'cloud_raw'
+#   180 → wind gust (m/s)           → 'gust_ms'
+#   59  → CAPE (J/kg)               → 'cape'
+#   20  → visibility (m)            → 'vis_m'
+#
+# Example — once you see "shortName=unknown  paramId=61" in the email, add:
+#   61: 'precip_raw',
+PARAMID_VARS: dict[int, str] = {
+    # Add entries here after the next email diagnostic shows actual paramIds.
+    # e.g.:  61: 'precip_raw',
+}
+
 # Maps raw key → (display unit, conversion function)
 DERIVED = {
     'temp_c':    ('°C',  lambda d: d['temp_k'] - 273.15),
     'wind_kt':   ('kt',  lambda d: math.sqrt(d['u10']**2 + d['v10']**2) * 1.94384),
     'wind_dir':  ('°',   lambda d: (270 - math.degrees(math.atan2(d['v10'], d['u10']))) % 360),
     'mslp_hpa':  ('hPa', lambda d: d['mslp_pa'] / 100),
-    'precip_mm': ('mm',  lambda d: d['precip_raw'] * 1000
-                                   if d['precip_raw'] < 100 else d['precip_raw']),
+    'precip_mm': ('mm',  lambda d: d['precip_raw']),   # units normalised in read_point()
     'cloud_pct': ('%',   lambda d: d['cloud_raw'] * 100
                                    if d['cloud_raw'] <= 1.01 else d['cloud_raw']),
     'vis_km':    ('km',  lambda d: d['vis_m'] / 1000),
@@ -84,9 +103,24 @@ DERIVED = {
 
 COMPASS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW']
 
+# Unicode arrows showing the direction the wind is blowing TOWARD
+# (opposite of the "from" direction stored in the GRIB2 wind_dir field).
+# 0° = FROM North → blows southward → ↓, 90° = FROM East → blows west → ←, etc.
+_WIND_ARROWS = ['↓', '↙', '←', '↖', '↑', '↗', '→', '↘']
+
 
 def deg_to_compass(deg: float) -> str:
     return COMPASS[round(deg / 22.5) % 16]
+
+
+def _wind_arrow(deg: float) -> str:
+    """Return a single Unicode arrow for the direction the wind is blowing toward."""
+    return _WIND_ARROWS[round(deg / 45) % 8]
+
+
+def _fmt(v, fmt='.1f', unit=''):
+    """Format *v* with the given format spec and unit suffix, or return '—'."""
+    return f'{v:{fmt}}{unit}' if v is not None else '—'
 
 
 # ── Grid helpers ──────────────────────────────────────────────────────────────
@@ -99,7 +133,7 @@ def nearest_idx(lats2d, lons2d, lat, lon):
 # ── GRIB2 reading ─────────────────────────────────────────────────────────────
 
 def list_vars(grib_path: Path) -> None:
-    """Print all unique (shortName, typeOfLevel, level) found in a GRIB2 file."""
+    """Print all unique (shortName, typeOfLevel, level, paramId) found in a GRIB2 file."""
     import eccodes as ec
     seen = set()
     with open(grib_path, 'rb') as f:
@@ -108,14 +142,17 @@ def list_vars(grib_path: Path) -> None:
             if msg is None:
                 break
             try:
-                key = (
-                    ec.codes_get(msg, 'shortName'),
-                    ec.codes_get(msg, 'typeOfLevel'),
-                    ec.codes_get(msg, 'level'),
-                )
+                sn  = ec.codes_get(msg, 'shortName')
+                tol = ec.codes_get(msg, 'typeOfLevel')
+                lev = ec.codes_get(msg, 'level')
+                try:
+                    pid = ec.codes_get(msg, 'paramId')
+                except Exception:
+                    pid = '?'
+                key = (sn, tol, lev)
                 if key not in seen:
                     seen.add(key)
-                    print(f"  shortName={key[0]:<10}  typeOfLevel={key[1]:<25}  level={key[2]}")
+                    print(f"  shortName={sn:<12}  typeOfLevel={tol:<25}  level={lev:<6}  paramId={pid}")
             except Exception:
                 pass
             finally:
@@ -147,6 +184,26 @@ def read_point(grib_path: Path, lat: float, lon: float) -> dict:
             try:
                 sname = ec.codes_get(msg, 'shortName')
                 if sname not in sn_map:
+                    # Fallback: when eccodes can't match the local table it returns
+                    # shortName='unknown'.  Try the numeric paramId instead.
+                    if sname == 'unknown' and PARAMID_VARS:
+                        try:
+                            pid = ec.codes_get(msg, 'paramId')
+                            if pid in PARAMID_VARS:
+                                out_key = PARAMID_VARS[pid]
+                                if out_key not in raw:
+                                    ni2 = ec.codes_get(msg, 'Ni')
+                                    nj2 = ec.codes_get(msg, 'Nj')
+                                    ck2 = (ni2, nj2)
+                                    if ck2 not in grid_cache:
+                                        lt2 = ec.codes_get_array(msg, 'latitudes').reshape(nj2, ni2)
+                                        ln2 = ec.codes_get_array(msg, 'longitudes').reshape(nj2, ni2)
+                                        grid_cache[ck2] = nearest_idx(lt2, ln2, lat, lon)
+                                    jj, ii = grid_cache[ck2]
+                                    vals2 = ec.codes_get_values(msg).reshape(nj2, ni2)
+                                    raw[out_key] = float(vals2[jj, ii])
+                        except Exception:
+                            pass
                     continue
 
                 tol_actual   = ec.codes_get(msg, 'typeOfLevel')
@@ -177,7 +234,25 @@ def read_point(grib_path: Path, lat: float, lon: float) -> dict:
 
                 j, i = grid_cache[cache_key]
                 vals = ec.codes_get_values(msg).reshape(nj, ni)
-                raw[matched_key] = float(vals[j, i])
+                val  = float(vals[j, i])
+
+                # For precipitation, read the GRIB2 units key to decide whether
+                # to convert from metres to mm.  This is more reliable than the
+                # old heuristic (val < 100 → multiply) which misfires on heavy rain.
+                if matched_key == 'precip_raw':
+                    try:
+                        units_str = ec.codes_get(msg, 'units')
+                        if units_str == 'm':
+                            val *= 1000.0   # WMO standard: m → mm
+                        # 'kg m**-2' == mm of liquid water, no conversion needed
+                    except Exception:
+                        # Units key unavailable: fall back to a conservative
+                        # heuristic — only convert if value looks like metres
+                        # (i.e. plausibly < 0.5 m of rain in 6 h).
+                        if 0 < val < 0.5:
+                            val *= 1000.0
+
+                raw[matched_key] = val
 
             except Exception:
                 pass
@@ -334,7 +409,14 @@ def _delta_span(curr, prev, fmt='.1f', unit='', positive_bad=False):
     return f'<span style="color:{color};font-size:0.8em"> ({sign}{d:{fmt}}{unit})</span>'
 
 
-def render_html(meta: dict, records: list, prev_records: list) -> str:
+# NOTE: render_html(), render_comparison_html(), render_wave_html(), and
+# _render_cwa_ecmwf_wave_comparison() were removed — superseded by
+# render_unified_html() which produces a single consolidated table.
+# If you need to restore them, check git history.
+
+
+def _render_html_DEPRECATED(meta: dict, records: list, prev_records: list) -> str:  # noqa
+    # DEAD CODE — kept only as reference; not called by main().
     init_str = ''
     if meta.get('init_utc'):
         dt = datetime.fromisoformat(meta['init_utc'])
@@ -534,7 +616,8 @@ def _delta_cell(d, thresh, positive_bad=False):
             f'color:{color};font-weight:500">{sign}{d}</td>')
 
 
-def render_comparison_html(wrf_records: list, ecmwf_records: list) -> str:
+def _render_comparison_html_DEPRECATED(wrf_records: list, ecmwf_records: list) -> str:  # noqa
+    # DEAD CODE — not called by main().  Superseded by render_unified_html().
     """
     Side-by-side WRF vs ECMWF IFS comparison table.
     Aligns rows by valid_utc.  Appended after the main WRF table in the email.
@@ -735,7 +818,8 @@ def _wave_dir_str(deg):
     return _WAVE_COMPASS[round(deg / 22.5) % 16]
 
 
-def render_wave_html(wave_data: dict) -> str:
+def _render_wave_html_DEPRECATED(wave_data: dict) -> str:  # noqa
+    # DEAD CODE — not called by main().  Superseded by render_unified_html().
     """
     Render the wave-forecast section from wave_keelung.json.
     wave_data keys: 'ecmwf_wave' (always), 'cwa_wave' (may be None).
@@ -875,7 +959,8 @@ def render_wave_html(wave_data: dict) -> str:
     return html
 
 
-def _render_cwa_ecmwf_wave_comparison(ecmwf_recs: list, cwa: dict) -> str:
+def _render_cwa_ecmwf_wave_comparison_DEPRECATED(ecmwf_recs: list, cwa: dict) -> str:  # noqa
+    # DEAD CODE — not called by main().  CWA has no public wave model.
     """Side-by-side CWA wave model vs ECMWF WAM comparison."""
     cwa_recs = cwa.get('records', [])
     cwa_meta = cwa.get('meta', {})
@@ -1014,6 +1099,533 @@ def _render_cwa_ecmwf_wave_comparison(ecmwf_recs: list, cwa: dict) -> str:
     return html
 
 
+# ── Daily summary cards ───────────────────────────────────────────────────────
+
+def _daily_summary_html(
+    wrf_by_valid: dict,
+    ec_by_valid:  dict,
+    wave_by_valid: dict,
+    all_valids: list,
+) -> str:
+    """
+    Compact day-by-day summary cards (one per CST calendar day).
+    Uses WRF data where available; falls back to ECMWF for extended days.
+    Shows: condition icon, temp range, max wind + direction, total rain,
+           peak wave height, and the data source tag.
+    """
+    from collections import defaultdict
+
+    # Group all valid times by CST date string  (e.g. "2026-03-11")
+    day_buckets: dict[str, list] = defaultdict(list)
+    for vt in all_valids:
+        try:
+            cst_date = (datetime.fromisoformat(vt) + timedelta(hours=8)).strftime('%Y-%m-%d')
+            day_buckets[cst_date].append(vt)
+        except Exception:
+            pass
+
+    if not day_buckets:
+        return ''
+
+    def _condition_emoji(max_wind, total_rain, max_cape, max_hs, max_gust=None):
+        if max_hs is not None and max_hs >= 3.5:
+            return '🌊'
+        if max_cape is not None and max_cape >= 500:
+            return '⛈️'
+        if total_rain >= 15:
+            return '🌧️'
+        if total_rain >= 3:
+            return '🌦️'
+        # Gusts ≥ 34 kt (gale) → strong wind icon regardless of mean
+        if max_gust is not None and max_gust >= 34:
+            return '💨'
+        if max_wind is not None and max_wind >= 25:
+            return '💨'
+        if max_wind is not None and max_wind >= 15:
+            return '🌬️'
+        return '🌤️'
+
+    cards_html = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 14px">\n'
+
+    for cst_date in sorted(day_buckets):
+        valids = day_buckets[cst_date]
+
+        # Gather per-6h values for this day
+        temps, winds, wind_dirs, gusts, rains, capes, wave_hs = [], [], [], [], [], [], []
+        source_tags = set()
+
+        for vt in valids:
+            wrf = wrf_by_valid.get(vt)
+            ec  = ec_by_valid.get(vt)
+            wav = wave_by_valid.get(vt)
+
+            # Pick atmospheric source: WRF preferred
+            atm = wrf if wrf else ec
+            if atm:
+                tag = 'WRF' if wrf else 'EC'
+                source_tags.add(tag)
+                if atm.get('temp_c')       is not None: temps.append(atm['temp_c'])
+                if atm.get('wind_kt')      is not None:
+                    winds.append(atm['wind_kt'])
+                    if atm.get('wind_dir') is not None: wind_dirs.append((atm['wind_kt'], atm['wind_dir']))
+                if atm.get('gust_kt')      is not None: gusts.append(atm['gust_kt'])
+                if atm.get('precip_mm_6h') is not None: rains.append(atm['precip_mm_6h'])
+                if atm.get('cape')         is not None: capes.append(atm['cape'])
+
+            if wav and wav.get('wave_height') is not None:
+                wave_hs.append(wav['wave_height'])
+
+        # Summarise
+        t_min    = min(temps)  if temps  else None
+        t_max    = max(temps)  if temps  else None
+        max_wind = max(winds)  if winds  else None
+        max_gust = max(gusts)  if gusts  else None
+        max_cape = max(capes)  if capes  else None
+        total_r  = sum(rains)
+        max_hs_v = max(wave_hs) if wave_hs else None
+
+        # Wind direction and arrow at peak wind step
+        peak_dir_s  = ''
+        peak_arrow  = ''
+        peak_deg_v  = None
+        if wind_dirs:
+            _, peak_deg_v = max(wind_dirs, key=lambda x: x[0])
+            peak_dir_s   = f' {deg_to_compass(peak_deg_v)}'
+            peak_arrow   = _wind_arrow(peak_deg_v)
+
+        cond_icon = _condition_emoji(max_wind, total_r, max_cape, max_hs_v, max_gust)
+
+        # Format day label
+        try:
+            day_label = datetime.strptime(cst_date, '%Y-%m-%d').strftime('%a %-m/%-d')
+        except Exception:
+            day_label = cst_date
+
+        # Source badge colours
+        src_label = '+'.join(sorted(source_tags, reverse=True))   # WRF+EC or WRF or EC
+        src_bg    = '#1a365d' if 'WRF' in source_tags else '#276749'
+        src_color = '#fff'
+
+        # Temp background for the card accent
+        card_border = _temp_bg(t_max) if t_max is not None else '#e2e8f0'
+
+        temp_str = f'{t_min:.0f}–{t_max:.0f}°C' if t_min is not None and t_max is not None else '—'
+
+        # Wind: mean + direction arrow + compass; gust shown when notably higher
+        if max_wind is not None:
+            arrow_bit = f' {peak_arrow}' if peak_arrow else ''
+            gust_bit  = (f' (g{max_gust:.0f})' if max_gust is not None
+                         and max_gust >= max_wind * 1.15 and max_gust >= max_wind + 3
+                         else '')
+            wind_str  = f'{max_wind:.0f}kt{arrow_bit}{peak_dir_s}{gust_bit}'
+        else:
+            wind_str  = '—'
+
+        rain_str = f'{total_r:.0f}mm' if total_r > 0 else 'dry'
+        wave_str = f'Hs {max_hs_v:.1f}m' if max_hs_v is not None else ''
+
+        # CAPE indicator: ⚡ badge when convective potential is elevated
+        cape_badge = ''
+        if max_cape is not None and max_cape >= 500:
+            cape_level = '⚡⚡' if max_cape >= 1500 else '⚡'
+            cape_badge = (
+                f'  <div style="color:#b7600a;font-size:0.85em">'
+                f'{cape_level} CAPE {max_cape:.0f} J/kg</div>\n'
+            )
+
+        cards_html += (
+            f'<div style="border:1px solid #ddd;border-top:3px solid {card_border};'
+            f'border-radius:5px;padding:7px 10px;min-width:115px;background:#fafafa;'
+            f'font-size:12px;line-height:1.5">\n'
+            f'  <div style="font-weight:600;color:#333;font-size:0.95em">'
+            f'{day_label}&nbsp;<span style="font-size:1.1em">{cond_icon}</span></div>\n'
+            f'  <div style="color:#555">🌡️ {temp_str}</div>\n'
+            f'  <div style="color:#555">💨 {wind_str}</div>\n'
+            f'  <div style="color:#555">🌧️ {rain_str}</div>\n'
+            + (f'  <div style="color:#555">🌊 {wave_str}</div>\n' if wave_str else '')
+            + cape_badge
+            + f'  <div style="margin-top:4px">'
+            f'<span style="background:{src_bg};color:{src_color};font-size:0.72em;'
+            f'padding:1px 5px;border-radius:3px">{src_label}</span></div>\n'
+            f'</div>\n'
+        )
+
+    cards_html += '</div>\n'
+    return cards_html
+
+
+# ── Unified table (all sources, JS-togglable column groups) ──────────────────
+
+def render_unified_html(
+    meta: dict,
+    records: list,
+    prev_records: list,
+    ecmwf_records: list,
+    wave_data: dict | None,
+) -> str:
+    """
+    Single wide table combining WRF, ECMWF IFS, and Wave data.
+
+    Column groups (each togglable via JS buttons):
+      grp-wrf   — 8 WRF atmospheric columns (Temp Wind Gust MSLP Rain Cloud Vis CAPE)
+      grp-ec    — 4 ECMWF IFS columns       (Temp Wind Rain MSLP)
+      grp-delta — 4 Δ WRF−ECMWF columns    (ΔT ΔW ΔR ΔP)
+      grp-wave  — 7 ECMWF WAM wave columns  (Hs T Dir SwHs SwT SwDir WSea)
+
+    Rows are aligned by valid_utc.  Steps where WRF has no data (ECMWF-only,
+    beyond the ~84 h WRF range) are shown with blue-tinted background.
+    """
+    # ── Lookups ───────────────────────────────────────────────────────────────
+    init_str = ''
+    if meta.get('init_utc'):
+        init_str = datetime.fromisoformat(meta['init_utc']).strftime('%Y-%m-%d %H:%M UTC')
+
+    prev_by_valid = {r['valid_utc']: r for r in (prev_records or []) if r.get('valid_utc')}
+    has_prev = bool(prev_by_valid)
+
+    ec_by_valid = {r['valid_utc']: r for r in (ecmwf_records or []) if r.get('valid_utc')}
+    has_ec = bool(ec_by_valid)
+
+    ecmwf_wave  = (wave_data or {}).get('ecmwf_wave', {})
+    wave_recs   = ecmwf_wave.get('records', [])
+    wave_meta   = ecmwf_wave.get('meta', {})
+    wave_by_valid = {r['valid_utc']: r for r in wave_recs if r.get('valid_utc')}
+    has_wave = bool(wave_by_valid)
+
+    wrf_by_valid = {r['valid_utc']: r for r in records if r.get('valid_utc')}
+
+    # Union of all valid times, sorted chronologically
+    all_valids = sorted(set(wrf_by_valid) | set(ec_by_valid) | set(wave_by_valid))
+
+    # ── Subtitle bits ─────────────────────────────────────────────────────────
+    wave_init_str = ''
+    if wave_meta.get('init_utc'):
+        try:
+            wave_init_str = (' &nbsp;·&nbsp; Wave: '
+                + datetime.fromisoformat(wave_meta['init_utc']).strftime('%m/%d %H:%M UTC'))
+        except Exception:
+            pass
+
+    # ── Helper: add CSS class to a _delta_cell() output string ───────────────
+    def _dc(d, thresh, positive_bad=False, cls='grp-delta'):
+        return _delta_cell(d, thresh, positive_bad).replace('<td ', f'<td class="{cls}" ', 1)
+
+    # ═════════════════════════════════════════════════════════════════════════
+    # HTML construction starts here
+    # ═════════════════════════════════════════════════════════════════════════
+    html = (
+        '<div style="font-family:Arial,sans-serif;font-size:13px;line-height:1.4">\n'
+        '<h3 style="margin:0 0 2px;font-size:15px">\n'
+        f'  🌏 Keelung Unified Forecast\n'
+        f'  <span style="font-weight:normal;font-size:0.85em;color:#555">'
+        f'&nbsp;{KEELUNG_LAT}°N {KEELUNG_LON}°E</span>\n'
+        '</h3>\n'
+        f'<p style="margin:0 0 4px;color:#666;font-size:0.88em">'
+        f'{meta.get("model_id","?")} · WRF Init: {init_str}{wave_init_str}'
+        f'{"&nbsp;·&nbsp; <i>Δ vs prev WRF run in brackets</i>" if has_prev else ""}'
+        '</p>\n\n'
+    )
+
+    # ── Daily summary cards ───────────────────────────────────────────────────
+    html += _daily_summary_html(wrf_by_valid, ec_by_valid, wave_by_valid, all_valids)
+
+    # ── JavaScript toggle ────────────────────────────────────────────────────
+    html += (
+        '<script>\n'
+        'function toggleGrp(cls){\n'
+        '  var els=document.querySelectorAll("."+cls);\n'
+        '  var hide=els.length&&els[0].style.display!=="none";\n'
+        '  for(var i=0;i<els.length;i++) els[i].style.display=hide?"none":"";\n'
+        '  var b=document.getElementById("btn-"+cls);\n'
+        '  if(b) b.style.opacity=hide?"0.4":"1";\n'
+        '}\n'
+        '</script>\n'
+    )
+
+    # ── Toggle buttons ────────────────────────────────────────────────────────
+    btn_base = ('display:inline-block;padding:3px 10px;border:1px solid;'
+                'border-radius:4px;cursor:pointer;font-size:0.82em;background:#fff')
+    html += '<div style="margin:0 0 8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center">\n'
+    html += '<span style="font-size:0.82em;color:#666">Toggle columns:</span>\n'
+    html += (f'<button id="btn-grp-wrf" onclick="toggleGrp(\'grp-wrf\')" '
+             f'style="{btn_base};border-color:#1a365d;color:#1a365d">🔵 WRF</button>\n')
+    if has_ec:
+        html += (f'<button id="btn-grp-ec" onclick="toggleGrp(\'grp-ec\')" '
+                 f'style="{btn_base};border-color:#276749;color:#276749">🟢 ECMWF</button>\n')
+        html += (f'<button id="btn-grp-delta" onclick="toggleGrp(\'grp-delta\')" '
+                 f'style="{btn_base};border-color:#744210;color:#744210">Δ Diff</button>\n')
+    if has_wave:
+        html += (f'<button id="btn-grp-wave" onclick="toggleGrp(\'grp-wave\')" '
+                 f'style="{btn_base};border-color:#1a5276;color:#1a5276">🌊 Wave</button>\n')
+    html += '</div>\n\n'
+
+    # ── Table ─────────────────────────────────────────────────────────────────
+    html += '<div style="overflow-x:auto">\n'
+    html += '<table style="border-collapse:collapse;font-size:11.5px;white-space:nowrap">\n'
+    html += '<thead>\n'
+
+    # Header row 1 — group labels
+    html += '<tr style="background:#1a1a2e;color:#fff;text-align:center">\n'
+    html += ('  <th rowspan="2" style="padding:4px 6px;text-align:left">Valid UTC</th>\n'
+             '  <th rowspan="2" style="padding:4px 6px;text-align:left">CST +8</th>\n')
+    html += ('  <th colspan="8" class="grp-wrf" style="padding:4px 8px;background:#1a365d;'
+             'border-left:2px solid #4a5568;border-right:2px solid #4a5568">'
+             'WRF Forecast (3km)</th>\n')
+    if has_ec:
+        html += ('  <th colspan="4" class="grp-ec" style="padding:4px 8px;background:#276749;'
+                 'border-right:2px solid #4a5568">ECMWF IFS</th>\n')
+        html += ('  <th colspan="4" class="grp-delta" style="padding:4px 8px;background:#744210;'
+                 'border-right:2px solid #4a5568">Δ WRF−EC</th>\n')
+    if has_wave:
+        html += ('  <th colspan="7" class="grp-wave" style="padding:4px 8px;background:#1a5276">'
+                 'Wave (ECMWF WAM)</th>\n')
+    html += '</tr>\n'
+
+    # Header row 2 — sub-labels
+    wrf_th   = 'background:#2c4a7c;color:#d0e0ff'
+    ec_th    = 'background:#2d6a4f;color:#d0f0e0'
+    delta_th = 'background:#8b5e2f;color:#fff8ee'
+    wave_th  = 'background:#1e4d7a;color:#d0e8ff'
+    html += '<tr style="text-align:center;font-size:0.9em">\n'
+    for lbl in ['Temp', 'Wind', 'Gust', 'MSLP', '6hRain', 'Cloud', 'Vis', 'CAPE']:
+        html += f'  <th class="grp-wrf" style="padding:3px 4px;{wrf_th}">{lbl}</th>\n'
+    if has_ec:
+        for lbl in ['Temp', 'Wind', '6hRain', 'MSLP']:
+            html += f'  <th class="grp-ec" style="padding:3px 4px;{ec_th}">{lbl}</th>\n'
+        for lbl in ['ΔT°', 'ΔW', 'ΔR', 'ΔP']:
+            html += f'  <th class="grp-delta" style="padding:3px 4px;{delta_th}">{lbl}</th>\n'
+    if has_wave:
+        for lbl in ['Hs m', 'T s', 'Dir', 'SwHs', 'SwT', 'SwDir', 'WSea']:
+            html += f'  <th class="grp-wave" style="padding:3px 4px;{wave_th}">{lbl}</th>\n'
+    html += '</tr>\n'
+    html += '</thead>\n<tbody>\n'
+
+    # ── Data rows ─────────────────────────────────────────────────────────────
+    temp_deltas, wind_deltas, rain_deltas, mslp_deltas = [], [], [], []
+
+    for row_idx, vt in enumerate(all_valids):
+        wrf  = wrf_by_valid.get(vt)
+        ec   = ec_by_valid.get(vt)
+        wav  = wave_by_valid.get(vt)
+        prev = prev_by_valid.get(vt, {})
+
+        has_wrf = wrf is not None
+
+        try:
+            dt_u = datetime.fromisoformat(vt)
+            dt_c = dt_u + timedelta(hours=8)
+            utc_str = dt_u.strftime('%a %m/%d %H:%M')
+            cst_str = dt_c.strftime('%a %m/%d %H:%M')
+        except Exception:
+            utc_str, cst_str = vt, ''
+
+        # Row background: blue-tinted for ECMWF-only rows, white/grey for WRF rows
+        if not has_wrf:
+            row_bg    = '#f0f4ff' if row_idx % 2 else '#f8f9ff'
+            row_extra = 'color:#556'
+        else:
+            row_bg    = '#f5f7fa' if row_idx % 2 else '#ffffff'
+            row_extra = ''
+
+        html += f'<tr style="background:{row_bg};{row_extra}">\n'
+        html += f'  <td style="padding:3px 6px;font-weight:500">{utc_str}</td>\n'
+        html += f'  <td style="padding:3px 6px;color:#666">{cst_str}</td>\n'
+
+        # ── WRF cells ─────────────────────────────────────────────────────────
+        if has_wrf:
+            wt  = wrf.get('temp_c')
+            ww  = wrf.get('wind_kt')
+            wwd = wrf.get('wind_dir')
+            wg  = wrf.get('gust_kt')
+            wp  = wrf.get('mslp_hpa')
+            wr  = wrf.get('precip_mm_6h')
+            wcl = wrf.get('cloud_pct')
+            wvs = wrf.get('vis_km')
+            wcp = wrf.get('cape')
+
+            dir_s  = f' {deg_to_compass(wwd)}' if wwd is not None else ''
+            wind_s = f'{ww:.0f}kt{dir_s}' if ww is not None else '—'
+
+            html += (f'  <td class="grp-wrf" style="padding:3px 5px;text-align:center;background:{_temp_bg(wt)}">'
+                     f'{_fmt(wt,".1f","°")}{_delta_span(wt, prev.get("temp_c"), ".1f", "°")}</td>\n')
+            html += (f'  <td class="grp-wrf" style="padding:3px 5px;text-align:center;background:{_wind_bg(ww)}">'
+                     f'{wind_s}{_delta_span(ww, prev.get("wind_kt"), ".0f", "kt", True)}</td>\n')
+            html += (f'  <td class="grp-wrf" style="padding:3px 5px;text-align:center;background:{_wind_bg(wg)}">'
+                     f'{_fmt(wg,".0f","kt")}</td>\n')
+            html += (f'  <td class="grp-wrf" style="padding:3px 5px;text-align:center">'
+                     f'{_fmt(wp,".1f")}{_delta_span(wp, prev.get("mslp_hpa"), ".1f", "")}</td>\n')
+            html += (f'  <td class="grp-wrf" style="padding:3px 5px;text-align:center;background:{_precip_bg(wr)}">'
+                     f'{_fmt(wr,".1f","mm")}{_delta_span(wr, prev.get("precip_mm_6h"), ".1f", "mm", True)}</td>\n')
+            html += (f'  <td class="grp-wrf" style="padding:3px 5px;text-align:center">'
+                     f'{_fmt(wcl,".0f","%")}</td>\n')
+            html += (f'  <td class="grp-wrf" style="padding:3px 5px;text-align:center">'
+                     f'{_fmt(wvs,".0f","km")}</td>\n')
+            html += (f'  <td class="grp-wrf" style="padding:3px 5px;text-align:center;background:{_cape_bg(wcp)}">'
+                     f'{_fmt(wcp,".0f")}</td>\n')
+        else:
+            # ECMWF-extended row: WRF columns blank
+            for _ in range(8):
+                html += '  <td class="grp-wrf" style="padding:3px 5px;text-align:center;color:#bbb">—</td>\n'
+
+        # ── ECMWF cells ───────────────────────────────────────────────────────
+        if has_ec:
+            et = ec.get('temp_c')       if ec else None
+            ew = ec.get('wind_kt')      if ec else None
+            er = ec.get('precip_mm_6h') if ec else None
+            ep = ec.get('mslp_hpa')     if ec else None
+
+            html += (f'  <td class="grp-ec" style="padding:3px 5px;text-align:center;background:{_temp_bg(et)}">'
+                     f'{_fmt(et,".1f","°")}</td>\n')
+            html += (f'  <td class="grp-ec" style="padding:3px 5px;text-align:center;background:{_wind_bg(ew)}">'
+                     f'{_fmt(ew,".0f","kt")}</td>\n')
+            html += (f'  <td class="grp-ec" style="padding:3px 5px;text-align:center;background:{_precip_bg(er)}">'
+                     f'{_fmt(er,".1f","mm")}</td>\n')
+            html += (f'  <td class="grp-ec" style="padding:3px 5px;text-align:center">'
+                     f'{_fmt(ep,".1f")}</td>\n')
+
+            # Delta cells (WRF − ECMWF; blank for ECMWF-only rows)
+            dt_ = round(wt - et, 1) if has_wrf and wt is not None and et is not None else None
+            dw_ = round(ww - ew, 1) if has_wrf and ww is not None and ew is not None else None
+            dr_ = round(wr - er, 1) if has_wrf and wr is not None and er is not None else None
+            dp_ = round(wp - ep, 1) if has_wrf and wp is not None and ep is not None else None
+
+            if dt_ is not None: temp_deltas.append(dt_)
+            if dw_ is not None: wind_deltas.append(dw_)
+            if dr_ is not None: rain_deltas.append(dr_)
+            if dp_ is not None: mslp_deltas.append(dp_)
+
+            html += f'  {_dc(dt_, 2.0)}\n'
+            html += f'  {_dc(dw_, 5.0, True)}\n'
+            html += f'  {_dc(dr_, 5.0, True)}\n'
+            html += f'  {_dc(dp_, 3.0)}\n'
+
+        # ── Wave cells ────────────────────────────────────────────────────────
+        if has_wave:
+            hs   = wav.get('wave_height')          if wav else None
+            tp_  = wav.get('wave_period')          if wav else None
+            wdir = wav.get('wave_direction')       if wav else None
+            swh  = wav.get('swell_wave_height')    if wav else None
+            swt  = wav.get('swell_wave_period')    if wav else None
+            swd  = wav.get('swell_wave_direction') if wav else None
+            wwh  = wav.get('wind_wave_height')     if wav else None
+
+            html += (f'  <td class="grp-wave" style="padding:3px 5px;text-align:center;background:{_wave_height_bg(hs)}">'
+                     f'{_fmt(hs)}</td>\n')
+            html += (f'  <td class="grp-wave" style="padding:3px 5px;text-align:center;background:{_wave_period_bg(tp_)}">'
+                     f'{_fmt(tp_)}</td>\n')
+            html += (f'  <td class="grp-wave" style="padding:3px 5px;text-align:center">'
+                     f'{_wave_dir_str(wdir)}</td>\n')
+            html += (f'  <td class="grp-wave" style="padding:3px 5px;text-align:center;background:{_wave_height_bg(swh)}">'
+                     f'{_fmt(swh)}</td>\n')
+            html += (f'  <td class="grp-wave" style="padding:3px 5px;text-align:center;background:{_wave_period_bg(swt)}">'
+                     f'{_fmt(swt)}</td>\n')
+            html += (f'  <td class="grp-wave" style="padding:3px 5px;text-align:center">'
+                     f'{_wave_dir_str(swd)}</td>\n')
+            html += (f'  <td class="grp-wave" style="padding:3px 5px;text-align:center;background:{_wave_height_bg(wwh)}">'
+                     f'{_fmt(wwh)}</td>\n')
+
+        html += '</tr>\n'
+
+    html += '</tbody></table>\n</div>\n'
+
+    # ── Alerts ────────────────────────────────────────────────────────────────
+    alerts = []
+    if records:
+        max_wind   = max((r.get('wind_kt')      or 0 for r in records), default=0)
+        max_gust   = max((r.get('gust_kt')      or 0 for r in records), default=0)
+        total_rain = sum( r.get('precip_mm_6h') or 0 for r in records)
+        min_mslp   = min((r.get('mslp_hpa')     or 9999 for r in records), default=9999)
+        max_cape   = max((r.get('cape')          or 0 for r in records), default=0)
+        if max_wind  >= 34: alerts.append(f'⚠️ <b>Gale-force winds</b> — {max_wind:.0f}kt peak')
+        elif max_wind >= 22: alerts.append(f'💨 Strong winds — {max_wind:.0f}kt peak')
+        if max_gust  >= 40: alerts.append(f'⚠️ <b>Gusts to {max_gust:.0f}kt</b>')
+        if total_rain >= 50: alerts.append(f'🌧️ <b>Heavy rain</b> — {total_rain:.0f}mm total')
+        elif total_rain >= 15: alerts.append(f'🌦️ Moderate rain — {total_rain:.0f}mm total')
+        if min_mslp  <= 985: alerts.append(f'🌀 <b>Low MSLP {min_mslp:.0f}hPa</b> — possible tropical influence')
+        if max_cape  >= 1000: alerts.append(f'⛈️ High instability — CAPE {max_cape:.0f} J/kg')
+    if wave_recs:
+        max_hs = max((r.get('wave_height') or 0 for r in wave_recs), default=0)
+        if max_hs >= 3.5: alerts.append(f'⚠️ <b>Dangerous seas</b> — Hs {max_hs:.1f}m peak')
+        elif max_hs >= 2.0: alerts.append(f'🌊 Rough conditions — Hs {max_hs:.1f}m peak')
+    if alerts:
+        html += ('<div style="margin:8px 0 0;padding:8px 10px;background:#fff5f5;'
+                 'border-left:3px solid #e53e3e;font-size:0.9em">'
+                 + '<br>'.join(alerts) + '</div>\n')
+
+    # ── Model shift vs prev run ───────────────────────────────────────────────
+    if has_prev and records:
+        overlapping = [(r, prev_by_valid[r['valid_utc']]) for r in records
+                       if r.get('valid_utc') in prev_by_valid]
+        notes = []
+        wd = [r.get('wind_kt', 0) - p.get('wind_kt', 0) for r, p in overlapping
+              if r.get('wind_kt') is not None and p.get('wind_kt') is not None]
+        if wd:
+            pk = max(wd, key=abs)
+            if abs(pk) >= 3:
+                notes.append(f'Peak wind {"+" if pk>0 else ""}{pk:.0f}kt vs prev run')
+        dp_total = sum((r.get('precip_mm_6h') or 0) - (p.get('precip_mm_6h') or 0)
+                       for r, p in overlapping)
+        if abs(dp_total) >= 2:
+            notes.append(f'Total rain {"+" if dp_total>0 else ""}{dp_total:.1f}mm vs prev run')
+        md = [r.get('mslp_hpa', 0) - p.get('mslp_hpa', 0) for r, p in overlapping
+              if r.get('mslp_hpa') is not None and p.get('mslp_hpa') is not None]
+        if md:
+            pk_m = max(md, key=abs)
+            if abs(pk_m) >= 1:
+                notes.append(f'Max MSLP shift {"+" if pk_m>0 else ""}{pk_m:.1f}hPa vs prev run')
+        if notes:
+            html += ('<p style="margin:8px 0 0;padding:6px 10px;background:#fffbeb;'
+                     'border-left:3px solid #d69e2e;font-size:0.9em">'
+                     '🔄 <b>Model shift vs prev run:</b> ' + ' · '.join(notes) + '</p>\n')
+
+    # ── WRF vs ECMWF agreement summary ───────────────────────────────────────
+    if has_ec and (temp_deltas or wind_deltas):
+        def _mae(d):  return sum(abs(x) for x in d) / len(d) if d else None
+        def _bias(d): return sum(d) / len(d) if d else None
+        items = []
+        for lbl, deltas, unit, thresh in [
+            ('Temp', temp_deltas, '°C',  2.0),
+            ('Wind', wind_deltas, 'kt',  5.0),
+            ('Rain', rain_deltas, 'mm',  5.0),
+            ('MSLP', mslp_deltas, 'hPa', 3.0),
+        ]:
+            mae = _mae(deltas); bias = _bias(deltas)
+            if mae is not None:
+                icon = '🟢' if mae < thresh * 0.5 else ('🟡' if mae < thresh else '🔴')
+                s = '+' if bias > 0 else ''
+                items.append(f'{icon} <b>{lbl}</b> MAE {mae:.1f}{unit} (bias {s}{bias:.1f}{unit})')
+        if items:
+            n = sum(1 for vt in all_valids if vt in wrf_by_valid and vt in ec_by_valid)
+            html += ('<div style="margin:8px 0 0;padding:8px 12px;background:#ebf8ff;'
+                     'border-left:3px solid #3182ce;font-size:0.9em">'
+                     f'<b>WRF vs ECMWF</b> — {n} overlapping steps: '
+                     + ' · '.join(items) + '</div>\n')
+
+    # ── Legend ────────────────────────────────────────────────────────────────
+    html += (
+        '<p style="margin:8px 0 0;font-size:0.78em;color:#888">'
+        'Wind: '
+        '<span style="background:#d4f0c0;padding:1px 3px">&lt;10kt</span> '
+        '<span style="background:#fff7b0;padding:1px 3px">10–20</span> '
+        '<span style="background:#ffd9a0;padding:1px 3px">20–30</span> '
+        '<span style="background:#ffb3b3;padding:1px 3px">30–40</span> '
+        '<span style="background:#ff6666;color:#fff;padding:1px 3px">&gt;40</span>'
+        '&nbsp; Hs: '
+        '<span style="background:#d4f0c0;padding:1px 3px">&lt;0.3m</span> '
+        '<span style="background:#fff7b0;padding:1px 3px">0.3–1m</span> '
+        '<span style="background:#ffd9a0;padding:1px 3px">1–2m</span> '
+        '<span style="background:#ffb3b3;padding:1px 3px">2–3.5m</span> '
+        '<span style="background:#ff6666;color:#fff;padding:1px 3px">&gt;3.5m</span>'
+        '&nbsp; Δ shading: '
+        '<span style="background:#c6f6d5;color:#276749;padding:1px 3px">good</span> '
+        '<span style="background:#fefcbf;color:#744210;padding:1px 3px">moderate</span> '
+        '<span style="background:#fed7d7;color:#9b2335;padding:1px 3px">large</span>'
+        '</p>\n'
+        '</div>\n'
+    )
+    return html
+
+
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
 def main():
@@ -1047,8 +1659,15 @@ def main():
         if not grbs:
             print('No *_keelung*.grb2 files found.')
             sys.exit(1)
-        print(f'\nVariables in {grbs[0].name}:\n')
+        # f000 = init analysis — has pressure levels, 2m/10m, MSLP, but NOT
+        # accumulated fields (precip, cloud, gusts, CAPE).
+        print(f'\n=== {grbs[0].name} (f000 — init/analysis hour) ===\n')
         list_vars(grbs[0])
+        # f006 (or next available) — first forecast hour where accumulated
+        # fields (precip, cloud cover, gusts, CAPE) should appear.
+        if len(grbs) > 1:
+            print(f'\n=== {grbs[1].name} (first forecast hour — check for new vars) ===\n')
+            list_vars(grbs[1])
         return
 
     # ── Main analysis ─────────────────────────────────────────────────────────
@@ -1106,11 +1725,7 @@ def main():
             print(f'  ⚠  Could not load wave JSON: {e}')
 
     # ── Write HTML ────────────────────────────────────────────────────────────
-    html = render_html(meta, records, prev_records)
-    if ecmwf_records:
-        html += render_comparison_html(records, ecmwf_records)
-    if wave_data:
-        html += render_wave_html(wave_data)
+    html = render_unified_html(meta, records, prev_records, ecmwf_records, wave_data)
     out_html = Path(args.output_html)
     out_html.write_text(html)
     print(f'  📧  HTML    → {out_html}')
