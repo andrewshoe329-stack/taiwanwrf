@@ -16,6 +16,7 @@ import argparse
 import json
 import os
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -49,6 +50,10 @@ HOURLY_VARS = ",".join([
 
 # ── Fetch ─────────────────────────────────────────────────────────────────────
 
+_FETCH_RETRIES    = 3
+_FETCH_RETRY_DELAY = 5   # seconds between attempts
+
+
 def fetch_ecmwf_json() -> dict:
     params = {
         "latitude":           KEELUNG_LAT,
@@ -59,18 +64,25 @@ def fetch_ecmwf_json() -> dict:
         "temperature_unit":   "celsius",
         "precipitation_unit": "mm",
         "timeformat":         "iso8601",
-        "forecast_days":      "7",
+        "forecast_days":      7,          # int, not string
         "timezone":           "UTC",
     }
     url = OPEN_METEO_URL + "?" + urllib.parse.urlencode(params)
-    print(f"  Fetching ECMWF IFS from Open-Meteo …", flush=True)
-    try:
-        with urllib.request.urlopen(url, timeout=30) as r:
-            data = json.load(r)
-    except urllib.error.URLError as e:
-        print(f"  ✗  Open-Meteo request failed: {e}", file=sys.stderr)
-        sys.exit(1)
-    return data
+    print("  Fetching ECMWF IFS from Open-Meteo …", flush=True)
+    last_exc: Exception = RuntimeError("no attempts made")
+    for attempt in range(1, _FETCH_RETRIES + 1):
+        try:
+            with urllib.request.urlopen(url, timeout=30) as r:
+                return json.load(r)
+        except urllib.error.URLError as e:
+            last_exc = e
+            if attempt < _FETCH_RETRIES:
+                print(f"  ↻  Request failed ({e}); retry {attempt}/{_FETCH_RETRIES} "
+                      f"in {_FETCH_RETRY_DELAY}s …", file=sys.stderr)
+                time.sleep(_FETCH_RETRY_DELAY)
+    print(f"  ✗  Open-Meteo request failed after {_FETCH_RETRIES} attempts: {last_exc}",
+          file=sys.stderr)
+    sys.exit(1)
 
 
 # ── Process ───────────────────────────────────────────────────────────────────
