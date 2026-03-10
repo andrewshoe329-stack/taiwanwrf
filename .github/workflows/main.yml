@@ -29,11 +29,14 @@ jobs:
           sudo apt-get install -y --no-install-recommends libeccodes-dev rclone
           pip install --quiet eccodes numpy
 
-      # Download, subset, and capture the archive path for later steps
+      # Download, subset, and capture outputs for later steps.
+      # taiwan_wrf_download.py writes rundir + init_utc to GITHUB_OUTPUT directly;
+      # the shell commands below add archive_path / archive_name / archive_size as
+      # a belt-and-suspenders fallback (identical values, different key names).
       - name: Download and subset WRF data
         id: download
         run: |
-          python taiwan_wrf_download.py --keelung-only --workers 15
+          python taiwan_wrf_download.py --keelung-only --workers 8
           ARCHIVE=$(find wrf_downloads/ -name "*.tar.gz" | sort | tail -1)
           echo "archive_path=$ARCHIVE"               >> "$GITHUB_OUTPUT"
           echo "archive_name=$(basename "$ARCHIVE")"  >> "$GITHUB_OUTPUT"
@@ -63,11 +66,37 @@ jobs:
             echo "  No previous summary found (first run?)."
           fi
 
+      # ── Stale-run detection ───────────────────────────────────────────────────
+      # Compare the CWA init_utc just downloaded against the one stored in the
+      # previous summary.  If they match, the model hasn't published a new cycle
+      # yet — skip everything downstream so we don't send duplicate emails or
+      # re-upload identical data.
+      - name: Check for new CWA run
+        id: stale_check
+        run: |
+          NEW_INIT="${{ steps.download.outputs.init_utc }}"
+          if [ "${{ steps.prev_summary.outputs.found }}" = "true" ] && [ -f keelung_summary.json ]; then
+            PREV_INIT=$(python3 -c \
+              "import json,sys; d=json.load(open('keelung_summary.json')); print(d.get('meta',{}).get('init_utc',''))" \
+              2>/dev/null || echo "")
+            if [ -n "$PREV_INIT" ] && [ "$NEW_INIT" = "$PREV_INIT" ]; then
+              echo "  ⏭  Same CWA init ($NEW_INIT) as previous run — skipping downstream steps."
+              echo "is_new=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "  ✅  New CWA run: $NEW_INIT  (prev: $PREV_INIT)"
+              echo "is_new=true" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "  ✅  No previous summary — treating as new run."
+            echo "is_new=true" >> "$GITHUB_OUTPUT"
+          fi
+
       # ── Fetch ECMWF IFS point forecast from Open-Meteo ───────────────────────
       # No API key required. Uses only stdlib so no extra pip install needed.
       # Produces ecmwf_keelung.json for side-by-side comparison with WRF.
       - name: Fetch ECMWF forecast
         id: ecmwf
+        if: steps.stale_check.outputs.is_new == 'true'
         run: |
           python ecmwf_fetch.py --output ecmwf_keelung.json
           echo "ecmwf_json=ecmwf_keelung.json" >> "$GITHUB_OUTPUT"
@@ -80,6 +109,7 @@ jobs:
       # to probe the CWA S3 bucket and inspect the GRIB2 variable names).
       - name: Fetch wave forecast
         id: wave
+        if: steps.stale_check.outputs.is_new == 'true'
         run: |
           python wave_fetch.py --output wave_keelung.json
           echo "wave_json=wave_keelung.json" >> "$GITHUB_OUTPUT"
@@ -90,8 +120,9 @@ jobs:
       # rain, cloud, vis, CAPE) without having to dig through Actions logs.
       - name: List GRIB2 variables (diagnostic)
         id: grib_vars
+        if: steps.stale_check.outputs.is_new == 'true'
         run: |
-          RUNDIR=$(dirname "${{ steps.download.outputs.archive_path }}")
+          RUNDIR="${{ steps.download.outputs.rundir }}"
           FIRST=$(ls "$RUNDIR"/*_keelung*.grb2 2>/dev/null | sort | head -1)
           if [ -n "$FIRST" ]; then
             echo "=== GRIB2 variable inventory: $(basename $FIRST) ===" | tee /tmp/grib_vars.txt
@@ -115,8 +146,9 @@ jobs:
       # Appends: WRF vs ECMWF atmospheric comparison, and wave forecast section.
       - name: Analyze Keelung forecast
         id: analyze
+        if: steps.stale_check.outputs.is_new == 'true'
         run: |
-          RUNDIR=$(dirname "${{ steps.download.outputs.archive_path }}")
+          RUNDIR="${{ steps.download.outputs.rundir }}"
           PREV_ARG=""
           if [ "${{ steps.prev_summary.outputs.found }}" = "true" ]; then
             PREV_ARG="--prev-json keelung_summary.json"
@@ -140,6 +172,7 @@ jobs:
       # ── Upload archive + new summary to Drive ─────────────────────────────────
       - name: Upload to Google Drive
         id: upload
+        if: steps.stale_check.outputs.is_new == 'true'
         run: |
           # Upload the GRIB2 archive
           rclone copy "${{ steps.download.outputs.archive_path }}" gdrive:WRF_Taiwan/ \
@@ -153,6 +186,13 @@ jobs:
             gdrive:WRF_Taiwan/keelung_summary.json \
             --no-traverse
 
+          # Prune archives older than 7 days to keep Drive tidy
+          rclone delete gdrive:WRF_Taiwan/ \
+            --min-age 7d \
+            --include "*.tar.gz" \
+            --drive-use-trash=false \
+            2>/dev/null || true
+
           # Get shareable link to the archive
           LINK=$(rclone link "gdrive:WRF_Taiwan/${{ steps.download.outputs.archive_name }}" 2>/dev/null || echo "")
           echo "drive_link=$LINK" >> "$GITHUB_OUTPUT"
@@ -162,6 +202,7 @@ jobs:
       # Uses heredoc syntax to safely pass multi-line HTML via GITHUB_OUTPUT.
       - name: Build email HTML
         id: email_html
+        if: steps.stale_check.outputs.is_new == 'true'
         run: |
           DRIVE_CELL='gdrive:WRF_Taiwan/'
           if [ -n "${{ steps.upload.outputs.drive_link }}" ]; then
@@ -193,7 +234,7 @@ jobs:
       # (Gmail App Password — not your regular password)
       # Create one at: Google Account → Security → App passwords
       - name: Send success notification
-        if: success()
+        if: success() && steps.stale_check.outputs.is_new == 'true'
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com
@@ -207,6 +248,8 @@ jobs:
           html_body: ${{ steps.email_html.outputs.body }}
 
       # ── Failure notification ─────────────────────────────────────────────────
+      # Shows a per-step outcome table so you can tell at a glance which step
+      # failed without digging through the Actions log.
       - name: Send failure notification
         if: failure()
         uses: dawidd6/action-send-mail@v3
@@ -220,8 +263,37 @@ jobs:
           to: andrewshoe329@gmail.com
           from: "WRF Downloader <${{ secrets.EMAIL_USERNAME }}>"
           html_body: |
-            <h2 style="font-family:sans-serif;color:#c00">Taiwan WRF Download Failed</h2>
-            <p style="font-family:sans-serif">
-              Workflow run <b>#${{ github.run_number }}</b> failed.<br>
-              <a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">View logs →</a>
+            <h2 style="font-family:Arial,sans-serif;color:#c00;margin-bottom:8px">
+              Taiwan WRF Download Failed
+            </h2>
+            <p style="font-family:Arial,sans-serif;font-size:13px;margin:0 0 16px">
+              Workflow run <b>#${{ github.run_number }}</b>
+              (<a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">view logs →</a>)
             </p>
+            <table cellpadding="6"
+                   style="font-family:Arial,sans-serif;font-size:13px;border-collapse:collapse;background:#fafafa;border:1px solid #e2e8f0;border-radius:4px">
+              <tr style="background:#f0f4f8">
+                <th align="left" style="padding:6px 12px">Step</th>
+                <th align="left" style="padding:6px 12px">Outcome</th>
+              </tr>
+              <tr>
+                <td style="padding:4px 12px">Download WRF data</td>
+                <td style="padding:4px 12px">${{ steps.download.outcome == 'success' && '✅ success' || steps.download.outcome == 'failure' && '❌ FAILED' || '⏭️ skipped' }}</td>
+              </tr>
+              <tr style="background:#f7fafc">
+                <td style="padding:4px 12px">Fetch ECMWF forecast</td>
+                <td style="padding:4px 12px">${{ steps.ecmwf.outcome == 'success' && '✅ success' || steps.ecmwf.outcome == 'failure' && '❌ FAILED' || '⏭️ skipped' }}</td>
+              </tr>
+              <tr>
+                <td style="padding:4px 12px">Fetch wave forecast</td>
+                <td style="padding:4px 12px">${{ steps.wave.outcome == 'success' && '✅ success' || steps.wave.outcome == 'failure' && '❌ FAILED' || '⏭️ skipped' }}</td>
+              </tr>
+              <tr style="background:#f7fafc">
+                <td style="padding:4px 12px">Analyze Keelung forecast</td>
+                <td style="padding:4px 12px">${{ steps.analyze.outcome == 'success' && '✅ success' || steps.analyze.outcome == 'failure' && '❌ FAILED' || '⏭️ skipped' }}</td>
+              </tr>
+              <tr>
+                <td style="padding:4px 12px">Upload to Google Drive</td>
+                <td style="padding:4px 12px">${{ steps.upload.outcome == 'success' && '✅ success' || steps.upload.outcome == 'failure' && '❌ FAILED' || '⏭️ skipped' }}</td>
+              </tr>
+            </table>
