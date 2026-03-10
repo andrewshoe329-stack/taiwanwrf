@@ -524,6 +524,10 @@ def run(
                 gho.write(f"archive_name={archive.name}\n")
                 gho.write(f"archive_path={archive.resolve()}\n")
                 gho.write(f"archive_size_mb={arc_mb:.1f}\n")
+                # Also expose rundir and init_utc so downstream steps can use them
+                # without fragile dirname() manipulation on the archive path.
+                gho.write(f"rundir={outdir.resolve()}\n")
+                gho.write(f"init_utc={init.strftime('%Y-%m-%dT%H:00:00+00:00')}\n")
 
     print(f"  📂  {outdir.resolve()}")
     print(sep + "\n")
