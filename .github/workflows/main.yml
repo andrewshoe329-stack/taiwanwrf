@@ -72,25 +72,47 @@ jobs:
           python ecmwf_fetch.py --output ecmwf_keelung.json
           echo "ecmwf_json=ecmwf_keelung.json" >> "$GITHUB_OUTPUT"
 
+      # ── Fetch wave forecasts from Open-Meteo marine API ──────────────────────
+      # Produces wave_keelung.json (ECMWF WAM wave data always; CWA wave if model
+      # ID is known).  To add CWA wave data once you find the right model ID,
+      # append:  --cwa-wave-model M-W0061  (or whatever the correct ID turns out
+      # to be — run wave_fetch.py --cwa-wave-model <ID> --list-wave-vars locally
+      # to probe the CWA S3 bucket and inspect the GRIB2 variable names).
+      - name: Fetch wave forecast
+        id: wave
+        run: |
+          python wave_fetch.py --output wave_keelung.json
+          echo "wave_json=wave_keelung.json" >> "$GITHUB_OUTPUT"
+
       # ── Diagnostic: list GRIB2 variables in first subset file ────────────────
-      # Logs the (shortName, typeOfLevel, level) inventory so we can verify
-      # that all expected variables (precip, cloud, vis, gust, CAPE) are present.
+      # Captures the (shortName, typeOfLevel, level) inventory to a file so it
+      # can be included in the email.  Helps diagnose missing variables (gusts,
+      # rain, cloud, vis, CAPE) without having to dig through Actions logs.
       - name: List GRIB2 variables (diagnostic)
+        id: grib_vars
         run: |
           RUNDIR=$(dirname "${{ steps.download.outputs.archive_path }}")
           FIRST=$(ls "$RUNDIR"/*_keelung*.grb2 2>/dev/null | sort | head -1)
           if [ -n "$FIRST" ]; then
-            echo "=== GRIB2 variable inventory: $(basename $FIRST) ==="
-            python wrf_analyze.py --rundir "$RUNDIR" --list-vars || true
+            echo "=== GRIB2 variable inventory: $(basename $FIRST) ===" | tee /tmp/grib_vars.txt
+            python wrf_analyze.py --rundir "$RUNDIR" --list-vars 2>&1 | tee -a /tmp/grib_vars.txt || true
           else
-            echo "No keelung grb2 files found for diagnostic."
+            echo "No keelung grb2 files found." | tee /tmp/grib_vars.txt
           fi
+          # Wrap in an HTML <details> block for the email
+          {
+            echo 'vars_html<<__VARS__'
+            printf '<details style="margin-top:16px"><summary style="font-family:Arial,sans-serif;font-size:12px;color:#718096;cursor:pointer">🔍 GRIB2 variable inventory (click to expand)</summary>'
+            printf '<pre style="font-family:monospace;font-size:11px;background:#f7fafc;border:1px solid #e2e8f0;border-radius:4px;padding:8px;overflow-x:auto;margin:4px 0">'
+            cat /tmp/grib_vars.txt | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g'
+            printf '</pre></details>\n'
+            echo '__VARS__'
+          } >> "$GITHUB_OUTPUT"
 
       # ── Run GRIB2 point-forecast analysis ────────────────────────────────────
-      # Reads the Keelung subset .grb2 files (still present alongside the archive),
-      # extracts the point forecast at Keelung, diffs against the previous run,
-      # and writes keelung_summary.json + email_analysis.html.
-      # If ECMWF data was fetched, a WRF vs ECMWF comparison table is appended.
+      # Reads the Keelung subset .grb2 files, extracts the point forecast,
+      # diffs against the previous run, and writes email_analysis.html.
+      # Appends: WRF vs ECMWF atmospheric comparison, and wave forecast section.
       - name: Analyze Keelung forecast
         id: analyze
         run: |
@@ -103,10 +125,15 @@ jobs:
           if [ -f ecmwf_keelung.json ]; then
             ECMWF_ARG="--ecmwf-json ecmwf_keelung.json"
           fi
+          WAVE_ARG=""
+          if [ -f wave_keelung.json ]; then
+            WAVE_ARG="--wave-json wave_keelung.json"
+          fi
           python wrf_analyze.py \
             --rundir "$RUNDIR" \
             $PREV_ARG \
             $ECMWF_ARG \
+            $WAVE_ARG \
             --output-json keelung_summary_new.json \
             --output-html email_analysis.html
 
@@ -157,6 +184,7 @@ jobs:
           <hr style="border:none;border-top:1px solid #e2e8f0;margin:12px 0">
           HEADER
             cat email_analysis.html
+            echo '${{ steps.grib_vars.outputs.vars_html }}'
             echo '__EOF__'
           } >> "$GITHUB_OUTPUT"
 
