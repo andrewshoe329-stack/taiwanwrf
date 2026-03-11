@@ -1321,7 +1321,7 @@ def _daily_summary_html(
 
 # ── Unified table (all sources, JS-togglable column groups) ──────────────────
 
-def render_unified_html(
+def render_email_html(
     meta: dict,
     records: list,
     prev_records: list,
@@ -1329,16 +1329,12 @@ def render_unified_html(
     wave_data: dict | None,
 ) -> str:
     """
-    Single wide table combining WRF, ECMWF IFS, and Wave data.
+    Compact 7-day sailing summary for Keelung.
 
-    Column groups (each togglable via JS buttons):
-      grp-wrf   — 8 WRF atmospheric columns (Temp Wind Gust MSLP Rain Cloud Vis CAPE)
-      grp-ec    — 4 ECMWF IFS columns       (Temp Wind Rain MSLP)
-      grp-delta — 4 Δ WRF−ECMWF columns    (ΔT ΔW ΔR ΔP)
-      grp-wave  — 7 ECMWF WAM wave columns  (Hs T Dir SwHs SwT SwDir WSea)
-
-    Rows are aligned by valid_utc.  Steps where WRF has no data (ECMWF-only,
-    beyond the ~84 h WRF range) are shown with blue-tinted background.
+    Emits:
+      - Daily summary cards (Good/Marginal/No-go) with wind, wave, rain, temp
+      - Alerts for significant hazards (gale, heavy rain, rough seas)
+      - Model shift note if prev run is available and drift is significant
     """
     # ── Lookups ───────────────────────────────────────────────────────────────
     init_str = ''
@@ -1394,271 +1390,6 @@ def render_unified_html(
     # ── Daily summary cards ───────────────────────────────────────────────────
     html += _daily_summary_html(wrf_by_valid, ec_by_valid, wave_by_valid, all_valids)
 
-    # ── Source legend ─────────────────────────────────────────────────────────
-    html += (
-        '<p style="margin:0 0 6px;font-size:0.82em;color:#555">'
-        '<span style="background:#2c4a7c;color:#d0e0ff;padding:1px 5px;border-radius:3px">WRF 3km</span>'
-        '&nbsp;'
-        '<span style="background:#2d6a4f;color:#d0f0e0;padding:1px 5px;border-radius:3px">ECMWF IFS</span>'
-        '&nbsp;— green <sup style="color:#276749;font-size:0.85em">EC</sup> badge = ECMWF/GFS fills in'
-        ' where CWA WRF is absent (gust, rain, cloud, vis, CAPE)'
-        '</p>\n'
-    )
-
-    # ── Table ─────────────────────────────────────────────────────────────────
-    html += '<div style="overflow-x:auto">\n'
-    html += '<table style="border-collapse:collapse;font-size:11.5px;white-space:nowrap">\n'
-    html += '<thead>\n'
-
-    # Single header row — sailing priority: wind/gust first, then wave, then rest
-    wrf_th  = 'background:#2c4a7c;color:#d0e0ff'
-    ec_th   = 'background:#2d6a4f;color:#d0f0e0'
-    wave_th = 'background:#1e4d7a;color:#d0e8ff'
-    alrt_th = 'background:#2d3748;color:#e2e8f0'
-    html += '<tr style="text-align:center;font-size:0.9em">\n'
-    html += f'  <th style="padding:3px 5px;{alrt_th}" title="Per-step sailing alerts">⚠</th>\n'
-    html += '  <th style="padding:4px 7px;text-align:left;background:#1a1a2e;color:#fff">UTC</th>\n'
-    html += '  <th style="padding:4px 7px;text-align:left;background:#1a1a2e;color:#fff">CST +8</th>\n'
-    # Sailing priority: wind & gust first
-    for lbl, th in [('Wind (kt)', wrf_th), ('Gust (kt)', ec_th)]:
-        html += f'  <th style="padding:3px 5px;{th}">{lbl}</th>\n'
-    # Wave section (Hs, period, swell height, direction)
-    if has_wave:
-        for lbl, th in [('Waves (m)', wave_th), ('Period (s)', wave_th),
-                        ('Swell (m)', wave_th), ('Wave Dir', wave_th)]:
-            html += f'  <th style="padding:3px 5px;{th}">{lbl}</th>\n'
-    # Remaining columns
-    for lbl, th in [('Pressure', wrf_th), ('Rain 6h', ec_th), ('Vis (km)', ec_th),
-                    ('Temp (°C)', wrf_th), ('Cloud %', ec_th), ('CAPE', ec_th)]:
-        html += f'  <th style="padding:3px 5px;{th}">{lbl}</th>\n'
-    html += '</tr>\n'
-    html += '</thead>\n<tbody>\n'
-
-    # pre-compute total column count for date separator colspan
-    _n_wave_cols = 4 if has_wave else 0
-    _total_cols  = 3 + 2 + _n_wave_cols + 6 + 1   # alert+UTC+CST + wind+gust + wave + rest
-
-    # ── Data rows ─────────────────────────────────────────────────────────────
-    temp_deltas, wind_deltas, rain_deltas, mslp_deltas = [], [], [], []
-
-    # EC fallback styling: pale-green bg + small superscript badge
-    _EC_BADGE = '<sup style="color:#276749;font-size:0.72em;line-height:1"> EC</sup>'
-    _EC_BG    = '#f0fff4'
-
-    _prev_cst_date = None   # track date changes for separator rows
-
-    for row_idx, vt in enumerate(all_valids):
-        wrf  = wrf_by_valid.get(vt)
-        ec   = ec_by_valid.get(vt)
-        wav  = wave_by_valid.get(vt)
-        prev = prev_by_valid.get(vt, {})
-
-        has_wrf = wrf is not None
-
-        try:
-            dt_u = datetime.fromisoformat(vt)
-            dt_c = dt_u + timedelta(hours=8)
-            utc_str = dt_u.strftime('%H:%M')         # just time — date is in separator
-            cst_str = dt_c.strftime('%H:%M')
-            cst_date_str = dt_c.strftime('%a %-d %b')   # e.g. "Tue 11 Mar"
-            cst_date_key = dt_c.strftime('%Y-%m-%d')
-        except Exception:
-            utc_str, cst_str = vt, ''
-            cst_date_str = ''
-            cst_date_key = vt[:10]
-
-        # ── Date separator row when CST date changes ──────────────────────────
-        if cst_date_key != _prev_cst_date:
-            _prev_cst_date = cst_date_key
-            html += (f'<tr style="background:#2d3748">'
-                     f'<td colspan="{_total_cols}" style="padding:4px 10px;'
-                     f'font-weight:700;color:#e2e8f0;font-size:0.88em;letter-spacing:0.03em">'
-                     f'📅 {cst_date_str} (CST)</td></tr>\n')
-
-        # Row background: blue-tinted for ECMWF-only rows
-        if not has_wrf:
-            row_bg    = '#f0f4ff' if row_idx % 2 else '#f8f9ff'
-            row_extra = 'color:#446'
-        else:
-            row_bg    = '#f5f7fa' if row_idx % 2 else '#ffffff'
-            row_extra = ''
-
-        # Extract all values upfront
-        wt  = wrf.get('temp_c')       if wrf else None
-        ww  = wrf.get('wind_kt')      if wrf else None
-        wwd = wrf.get('wind_dir')     if wrf else None
-        wg  = wrf.get('gust_kt')      if wrf else None
-        wp  = wrf.get('mslp_hpa')     if wrf else None
-        wr  = wrf.get('precip_mm_6h') if wrf else None
-        wcl = wrf.get('cloud_pct')    if wrf else None
-        wvs = wrf.get('vis_km')       if wrf else None
-        wcp = wrf.get('cape')         if wrf else None
-
-        et  = ec.get('temp_c')       if ec else None
-        ew  = ec.get('wind_kt')      if ec else None
-        ewd = ec.get('wind_dir')     if ec else None
-        eg  = ec.get('gust_kt')      if ec else None
-        ep  = ec.get('mslp_hpa')     if ec else None
-        er  = ec.get('precip_mm_6h') if ec else None
-        ecl = ec.get('cloud_pct')    if ec else None
-        evs = ec.get('vis_km')       if ec else None
-        ecp = ec.get('cape')         if ec else None
-
-        # Accumulate WRF-EC deltas where both have data
-        dt_ = round(wt - et, 1) if wt is not None and et is not None else None
-        dw_ = round(ww - ew, 1) if ww is not None and ew is not None else None
-        dr_ = round(wr - er, 1) if wr is not None and er is not None else None
-        dp_ = round(wp - ep, 1) if wp is not None and ep is not None else None
-
-        # ── Per-row alert cell ─────────────────────────────────────────────────
-        # Effective wind / gust (best available source)
-        _eff_wind  = ww if ww is not None else ew
-        _eff_gust  = wg if wg is not None else eg
-        _eff_rain  = wr if wr is not None else er
-        _eff_hs    = wav.get('wave_height') if wav else None
-        _row_alerts = []
-        if _eff_gust is not None and _eff_gust >= 34:
-            _row_alerts.append('<span style="color:#c53030;font-weight:700">Gale⚠</span>')
-        elif _eff_gust is not None and _eff_gust >= 28:
-            _row_alerts.append('<span style="color:#c05621">g28+</span>')
-        if _eff_wind is not None and _eff_wind >= 34:
-            _row_alerts.append('<span style="color:#c53030;font-weight:700">B8+</span>')
-        elif _eff_wind is not None and _eff_wind >= 28:
-            _row_alerts.append('<span style="color:#c05621">B7</span>')
-        elif _eff_wind is not None and _eff_wind >= 22:
-            _row_alerts.append('<span style="color:#975a16">B6</span>')
-        if _eff_hs is not None and _eff_hs >= 2.5:
-            _row_alerts.append('<span style="color:#2b6cb0">🌊⚠</span>')
-        elif _eff_hs is not None and _eff_hs >= 1.5:
-            _row_alerts.append('<span style="color:#2b6cb0">🌊</span>')
-        if _eff_rain is not None and _eff_rain >= 10:
-            _row_alerts.append('<span style="color:#2c5282">🌧</span>')
-        _alert_html = '&nbsp;'.join(_row_alerts) if _row_alerts else ''
-        _alert_bg   = '#fff5f5' if any('⚠' in a or 'Gale' in a for a in _row_alerts) else (
-                      '#fffbeb' if _row_alerts else row_bg)
-
-        # ── Open row + alert cell + time cells ────────────────────────────────
-        html += f'<tr style="background:{row_bg};{row_extra}">\n'
-        html += (f'  <td style="padding:2px 5px;text-align:center;font-size:0.85em;'
-                 f'background:{_alert_bg};white-space:nowrap">{_alert_html}</td>\n')
-        html += f'  <td style="padding:3px 6px;font-weight:500;white-space:nowrap">{utc_str}</td>\n'
-        html += f'  <td style="padding:3px 6px;color:#666;white-space:nowrap">{cst_str}</td>\n'
-        if dt_ is not None: temp_deltas.append(dt_)
-        if dw_ is not None: wind_deltas.append(dw_)
-        if dr_ is not None: rain_deltas.append(dr_)
-        if dp_ is not None: mslp_deltas.append(dp_)
-
-        # ── Wind: WRF primary (Beaufort + arrow + compass), EC fallback ──────────
-        if ww is not None:
-            bf      = _beaufort(ww)
-            arrow_s = f' {_wind_arrow(wwd)}' if wwd is not None else ''
-            dir_s   = f' {deg_to_compass(wwd)}' if wwd is not None else ''
-            wind_s  = f'{ww:.0f}kt B{bf}{arrow_s}{dir_s}'
-            html += (f'  <td style="padding:3px 5px;text-align:center;background:{_wind_bg(ww)}">'
-                     f'{wind_s}{_delta_span(ww, prev.get("wind_kt"), ".0f", "kt", True)}</td>\n')
-        elif ew is not None:
-            bf      = _beaufort(ew)
-            arrow_s = f' {_wind_arrow(ewd)}' if ewd is not None else ''
-            dir_s   = f' {deg_to_compass(ewd)}' if ewd is not None else ''
-            wind_s  = f'{ew:.0f}kt B{bf}{arrow_s}{dir_s}'
-            html += (f'  <td style="padding:3px 5px;text-align:center;background:{_EC_BG}">'
-                     f'{wind_s}{_EC_BADGE}</td>\n')
-        else:
-            html += '  <td style="padding:3px 5px;text-align:center;color:#bbb">—</td>\n'
-
-        # ── Gust: WRF if available, else EC (CWA WRF never publishes gusts) ───
-        g_val = wg if wg is not None else eg
-        g_ec  = (wg is None and eg is not None)
-        if g_val is not None:
-            badge = _EC_BADGE if g_ec else ''
-            html += (f'  <td style="padding:3px 5px;text-align:center;background:{_wind_bg(g_val)}">'
-                     f'{g_val:.0f}kt{badge}</td>\n')
-        else:
-            html += '  <td style="padding:3px 5px;text-align:center;color:#bbb">—</td>\n'
-
-        # ── Wave cells (Hs | Tp | SwHs | WvDir) ───────────────────────────────
-        if has_wave:
-            hs   = wav.get('wave_height')       if wav else None
-            tp   = wav.get('wave_period')       if wav else None
-            swhs = wav.get('swell_wave_height') if wav else None
-            wdir = wav.get('wave_direction')    if wav else None
-            html += (f'  <td style="padding:3px 5px;text-align:center;background:{_wave_height_bg(hs)}">'
-                     f'{_fmt(hs)}</td>\n')
-            html += (f'  <td style="padding:3px 5px;text-align:center;background:{_wave_period_bg(tp)}">'
-                     f'{_fmt(tp, ".0f", "s") if tp is not None else "—"}</td>\n')
-            html += (f'  <td style="padding:3px 5px;text-align:center;background:{_wave_height_bg(swhs)}">'
-                     f'{_fmt(swhs)}</td>\n')
-            html += (f'  <td style="padding:3px 5px;text-align:center">'
-                     f'{_wave_dir_str(wdir)}</td>\n')
-
-        # ── MSLP: WRF primary, EC fallback ────────────────────────────────────
-        if wp is not None:
-            html += (f'  <td style="padding:3px 5px;text-align:center">'
-                     f'{wp:.1f}{_delta_span(wp, prev.get("mslp_hpa"), ".1f", "")}</td>\n')
-        elif ep is not None:
-            html += (f'  <td style="padding:3px 5px;text-align:center;background:{_EC_BG}">'
-                     f'{ep:.1f}{_EC_BADGE}</td>\n')
-        else:
-            html += '  <td style="padding:3px 5px;text-align:center;color:#bbb">—</td>\n'
-
-        # ── 6h Rain: WRF if available, else EC ────────────────────────────────
-        r_val = wr if wr is not None else er
-        r_ec  = (wr is None and er is not None)
-        if r_val is not None:
-            badge = _EC_BADGE if r_ec else ''
-            delta = _delta_span(wr, prev.get('precip_mm_6h'), '.1f', 'mm', True) if not r_ec else ''
-            html += (f'  <td style="padding:3px 5px;text-align:center;background:{_precip_bg(r_val)}">'
-                     f'{r_val:.1f}mm{delta}{badge}</td>\n')
-        else:
-            html += '  <td style="padding:3px 5px;text-align:center;color:#bbb">—</td>\n'
-
-        # ── Vis: WRF if available, else EC ────────────────────────────────────
-        v_val = wvs if wvs is not None else evs
-        v_ec  = (wvs is None and evs is not None)
-        if v_val is not None:
-            bg_v = _EC_BG if v_ec else ''
-            badge = _EC_BADGE if v_ec else ''
-            bg_style = f';background:{bg_v}' if bg_v else ''
-            html += (f'  <td style="padding:3px 5px;text-align:center{bg_style}">'
-                     f'{v_val:.0f}km{badge}</td>\n')
-        else:
-            html += '  <td style="padding:3px 5px;text-align:center;color:#bbb">—</td>\n'
-
-        # ── Temp: WRF primary, EC fallback ────────────────────────────────────
-        if wt is not None:
-            html += (f'  <td style="padding:3px 5px;text-align:center;background:{_temp_bg(wt)}">'
-                     f'{wt:.1f}°{_delta_span(wt, prev.get("temp_c"), ".1f", "°")}</td>\n')
-        elif et is not None:
-            html += (f'  <td style="padding:3px 5px;text-align:center;background:{_EC_BG}">'
-                     f'{et:.1f}°{_EC_BADGE}</td>\n')
-        else:
-            html += '  <td style="padding:3px 5px;text-align:center;color:#bbb">—</td>\n'
-
-        # ── Cloud: WRF if available, else EC ──────────────────────────────────
-        cl_val = wcl if wcl is not None else ecl
-        cl_ec  = (wcl is None and ecl is not None)
-        if cl_val is not None:
-            bg_cl = _EC_BG if cl_ec else ''
-            badge = _EC_BADGE if cl_ec else ''
-            bg_style = f';background:{bg_cl}' if bg_cl else ''
-            html += (f'  <td style="padding:3px 5px;text-align:center{bg_style}">'
-                     f'{cl_val:.0f}%{badge}</td>\n')
-        else:
-            html += '  <td style="padding:3px 5px;text-align:center;color:#bbb">—</td>\n'
-
-        # ── CAPE: WRF if available, else EC ───────────────────────────────────
-        cp_val = wcp if wcp is not None else ecp
-        cp_ec  = (wcp is None and ecp is not None)
-        if cp_val is not None:
-            badge = _EC_BADGE if cp_ec else ''
-            html += (f'  <td style="padding:3px 5px;text-align:center;background:{_cape_bg(cp_val)}">'
-                     f'{cp_val:.0f}{badge}</td>\n')
-        else:
-            html += '  <td style="padding:3px 5px;text-align:center;color:#bbb">—</td>\n'
-
-        html += '</tr>\n'
-
-    html += '</tbody></table>\n</div>\n'
 
     # ── Alerts (WRF primary; ECMWF fills in gust/rain/CAPE) ──────────────────
     alerts = []
@@ -1715,6 +1446,289 @@ def render_unified_html(
             html += ('<p style="margin:8px 0 0;padding:6px 10px;background:#fffbeb;'
                      'border-left:3px solid #d69e2e;font-size:0.9em">'
                      '🔄 <b>Model shift vs prev run:</b> ' + ' · '.join(notes) + '</p>\n')
+
+    html += '</div>\n'
+    return html
+
+
+def render_unified_html(
+    meta: dict,
+    records: list,
+    prev_records: list,
+    ecmwf_records: list,
+    wave_data: dict | None,
+) -> str:
+    """
+    Full web-app version: daily summary cards + complete hourly table
+    (WRF + ECMWF IFS + wave columns) + WRF vs ECMWF agreement stats + legend.
+    render_email_html() produces the compact email-only summary.
+    """
+    # Build lookups (same as render_email_html)
+    prev_by_valid = {r['valid_utc']: r for r in (prev_records or []) if r.get('valid_utc')}
+    has_prev = bool(prev_by_valid)
+    ec_by_valid = {r['valid_utc']: r for r in (ecmwf_records or []) if r.get('valid_utc')}
+    has_ec = bool(ec_by_valid)
+    ecmwf_wave  = (wave_data or {}).get('ecmwf_wave', {})
+    wave_recs   = ecmwf_wave.get('records', [])
+    wave_meta   = ecmwf_wave.get('meta', {})
+    wave_by_valid = {r['valid_utc']: r for r in wave_recs if r.get('valid_utc')}
+    has_wave = bool(wave_by_valid)
+    wrf_by_valid = {r['valid_utc']: r for r in records if r.get('valid_utc')}
+    all_valids = sorted(set(wrf_by_valid) | set(ec_by_valid) | set(wave_by_valid))
+
+    # Start with the email summary (header + daily cards + alerts + model shift),
+    # then strip its closing </div> so we can append the full table.
+    html = render_email_html(meta, records, prev_records, ecmwf_records, wave_data)
+    if html.endswith('</div>\n'):
+        html = html[:-len('</div>\n')]
+
+    # ── Source legend ─────────────────────────────────────────────────────────
+    html += (
+        '<p style="margin:0 0 6px;font-size:0.82em;color:#555">'
+        '<span style="background:#2c4a7c;color:#d0e0ff;padding:1px 5px;border-radius:3px">WRF 3km</span>'
+        '&nbsp;'
+        '<span style="background:#2d6a4f;color:#d0f0e0;padding:1px 5px;border-radius:3px">ECMWF IFS</span>'
+        '&nbsp;— green <sup style="color:#276749;font-size:0.85em">EC</sup> badge = ECMWF/GFS fills in'
+        ' where CWA WRF is absent (gust, rain, cloud, vis, CAPE)'
+        '</p>\n'
+    )
+
+    # ── Table ─────────────────────────────────────────────────────────────────
+    html += '<div style="overflow-x:auto">\n'
+    html += '<table style="border-collapse:collapse;font-size:11.5px;white-space:nowrap">\n'
+    html += '<thead>\n'
+
+    wrf_th  = 'background:#2c4a7c;color:#d0e0ff'
+    ec_th   = 'background:#2d6a4f;color:#d0f0e0'
+    wave_th = 'background:#1e4d7a;color:#d0e8ff'
+    alrt_th = 'background:#2d3748;color:#e2e8f0'
+    html += '<tr style="text-align:center;font-size:0.9em">\n'
+    html += f'  <th style="padding:3px 5px;{alrt_th}" title="Per-step sailing alerts">⚠</th>\n'
+    html += '  <th style="padding:4px 7px;text-align:left;background:#1a1a2e;color:#fff">UTC</th>\n'
+    html += '  <th style="padding:4px 7px;text-align:left;background:#1a1a2e;color:#fff">CST +8</th>\n'
+    for lbl, th in [('Wind (kt)', wrf_th), ('Gust (kt)', ec_th)]:
+        html += f'  <th style="padding:3px 5px;{th}">{lbl}</th>\n'
+    if has_wave:
+        for lbl, th in [('Waves (m)', wave_th), ('Period (s)', wave_th),
+                        ('Swell (m)', wave_th), ('Wave Dir', wave_th)]:
+            html += f'  <th style="padding:3px 5px;{th}">{lbl}</th>\n'
+    for lbl, th in [('Pressure', wrf_th), ('Rain 6h', ec_th), ('Vis (km)', ec_th),
+                    ('Temp (°C)', wrf_th), ('Cloud %', ec_th), ('CAPE', ec_th)]:
+        html += f'  <th style="padding:3px 5px;{th}">{lbl}</th>\n'
+    html += '</tr>\n</thead>\n<tbody>\n'
+
+    _n_wave_cols = 4 if has_wave else 0
+    _total_cols  = 3 + 2 + _n_wave_cols + 6 + 1
+
+    # ── Data rows ─────────────────────────────────────────────────────────────
+    temp_deltas, wind_deltas, rain_deltas, mslp_deltas = [], [], [], []
+    _EC_BADGE = '<sup style="color:#276749;font-size:0.72em;line-height:1"> EC</sup>'
+    _EC_BG    = '#f0fff4'
+    _prev_cst_date = None
+
+    for row_idx, vt in enumerate(all_valids):
+        wrf  = wrf_by_valid.get(vt)
+        ec   = ec_by_valid.get(vt)
+        wav  = wave_by_valid.get(vt)
+        prev = prev_by_valid.get(vt, {})
+        has_wrf = wrf is not None
+
+        try:
+            dt_u = datetime.fromisoformat(vt)
+            dt_c = dt_u + timedelta(hours=8)
+            utc_str      = dt_u.strftime('%H:%M')
+            cst_str      = dt_c.strftime('%H:%M')
+            cst_date_str = dt_c.strftime('%a %-d %b')
+            cst_date_key = dt_c.strftime('%Y-%m-%d')
+        except Exception:
+            utc_str, cst_str = vt, ''
+            cst_date_str = ''
+            cst_date_key = vt[:10]
+
+        if cst_date_key != _prev_cst_date:
+            _prev_cst_date = cst_date_key
+            html += (f'<tr style="background:#2d3748">'
+                     f'<td colspan="{_total_cols}" style="padding:4px 10px;'
+                     f'font-weight:700;color:#e2e8f0;font-size:0.88em;letter-spacing:0.03em">'
+                     f'📅 {cst_date_str} (CST)</td></tr>\n')
+
+        if not has_wrf:
+            row_bg    = '#f0f4ff' if row_idx % 2 else '#f8f9ff'
+            row_extra = 'color:#446'
+        else:
+            row_bg    = '#f5f7fa' if row_idx % 2 else '#ffffff'
+            row_extra = ''
+
+        wt  = wrf.get('temp_c')       if wrf else None
+        ww  = wrf.get('wind_kt')      if wrf else None
+        wwd = wrf.get('wind_dir')     if wrf else None
+        wg  = wrf.get('gust_kt')      if wrf else None
+        wp  = wrf.get('mslp_hpa')     if wrf else None
+        wr  = wrf.get('precip_mm_6h') if wrf else None
+        wcl = wrf.get('cloud_pct')    if wrf else None
+        wvs = wrf.get('vis_km')       if wrf else None
+        wcp = wrf.get('cape')         if wrf else None
+
+        et  = ec.get('temp_c')       if ec else None
+        ew  = ec.get('wind_kt')      if ec else None
+        ewd = ec.get('wind_dir')     if ec else None
+        eg  = ec.get('gust_kt')      if ec else None
+        ep  = ec.get('mslp_hpa')     if ec else None
+        er  = ec.get('precip_mm_6h') if ec else None
+        ecl = ec.get('cloud_pct')    if ec else None
+        evs = ec.get('vis_km')       if ec else None
+        ecp = ec.get('cape')         if ec else None
+
+        dt_ = round(wt - et, 1) if wt is not None and et is not None else None
+        dw_ = round(ww - ew, 1) if ww is not None and ew is not None else None
+        dr_ = round(wr - er, 1) if wr is not None and er is not None else None
+        dp_ = round(wp - ep, 1) if wp is not None and ep is not None else None
+
+        _eff_wind = ww if ww is not None else ew
+        _eff_gust = wg if wg is not None else eg
+        _eff_rain = wr if wr is not None else er
+        _eff_hs   = wav.get('wave_height') if wav else None
+        _row_alerts = []
+        if _eff_gust is not None and _eff_gust >= 34:
+            _row_alerts.append('<span style="color:#c53030;font-weight:700">Gale⚠</span>')
+        elif _eff_gust is not None and _eff_gust >= 28:
+            _row_alerts.append('<span style="color:#c05621">g28+</span>')
+        if _eff_wind is not None and _eff_wind >= 34:
+            _row_alerts.append('<span style="color:#c53030;font-weight:700">B8+</span>')
+        elif _eff_wind is not None and _eff_wind >= 28:
+            _row_alerts.append('<span style="color:#c05621">B7</span>')
+        elif _eff_wind is not None and _eff_wind >= 22:
+            _row_alerts.append('<span style="color:#975a16">B6</span>')
+        if _eff_hs is not None and _eff_hs >= 2.5:
+            _row_alerts.append('<span style="color:#2b6cb0">🌊⚠</span>')
+        elif _eff_hs is not None and _eff_hs >= 1.5:
+            _row_alerts.append('<span style="color:#2b6cb0">🌊</span>')
+        if _eff_rain is not None and _eff_rain >= 10:
+            _row_alerts.append('<span style="color:#2c5282">🌧</span>')
+        _alert_html = '&nbsp;'.join(_row_alerts) if _row_alerts else ''
+        _alert_bg   = '#fff5f5' if any('⚠' in a or 'Gale' in a for a in _row_alerts) else (
+                      '#fffbeb' if _row_alerts else row_bg)
+
+        html += f'<tr style="background:{row_bg};{row_extra}">\n'
+        html += (f'  <td style="padding:2px 5px;text-align:center;font-size:0.85em;'
+                 f'background:{_alert_bg};white-space:nowrap">{_alert_html}</td>\n')
+        html += f'  <td style="padding:3px 6px;font-weight:500;white-space:nowrap">{utc_str}</td>\n'
+        html += f'  <td style="padding:3px 6px;color:#666;white-space:nowrap">{cst_str}</td>\n'
+        if dt_ is not None: temp_deltas.append(dt_)
+        if dw_ is not None: wind_deltas.append(dw_)
+        if dr_ is not None: rain_deltas.append(dr_)
+        if dp_ is not None: mslp_deltas.append(dp_)
+
+        # Wind
+        if ww is not None:
+            bf = _beaufort(ww)
+            arrow_s = f' {_wind_arrow(wwd)}' if wwd is not None else ''
+            dir_s   = f' {deg_to_compass(wwd)}' if wwd is not None else ''
+            html += (f'  <td style="padding:3px 5px;text-align:center;background:{_wind_bg(ww)}">'
+                     f'{ww:.0f}kt B{bf}{arrow_s}{dir_s}'
+                     f'{_delta_span(ww, prev.get("wind_kt"), ".0f", "kt", True)}</td>\n')
+        elif ew is not None:
+            bf = _beaufort(ew)
+            arrow_s = f' {_wind_arrow(ewd)}' if ewd is not None else ''
+            dir_s   = f' {deg_to_compass(ewd)}' if ewd is not None else ''
+            html += (f'  <td style="padding:3px 5px;text-align:center;background:{_EC_BG}">'
+                     f'{ew:.0f}kt B{bf}{arrow_s}{dir_s}{_EC_BADGE}</td>\n')
+        else:
+            html += '  <td style="padding:3px 5px;text-align:center;color:#bbb">—</td>\n'
+
+        # Gust
+        g_val = wg if wg is not None else eg
+        g_ec  = (wg is None and eg is not None)
+        if g_val is not None:
+            badge = _EC_BADGE if g_ec else ''
+            html += (f'  <td style="padding:3px 5px;text-align:center;background:{_wind_bg(g_val)}">'
+                     f'{g_val:.0f}kt{badge}</td>\n')
+        else:
+            html += '  <td style="padding:3px 5px;text-align:center;color:#bbb">—</td>\n'
+
+        # Wave columns
+        if has_wave:
+            hs   = wav.get('wave_height')       if wav else None
+            tp   = wav.get('wave_period')       if wav else None
+            swhs = wav.get('swell_wave_height') if wav else None
+            wdir = wav.get('wave_direction')    if wav else None
+            html += (f'  <td style="padding:3px 5px;text-align:center;background:{_wave_height_bg(hs)}">'
+                     f'{_fmt(hs)}</td>\n')
+            html += (f'  <td style="padding:3px 5px;text-align:center;background:{_wave_period_bg(tp)}">'
+                     f'{_fmt(tp, ".0f", "s") if tp is not None else "—"}</td>\n')
+            html += (f'  <td style="padding:3px 5px;text-align:center;background:{_wave_height_bg(swhs)}">'
+                     f'{_fmt(swhs)}</td>\n')
+            html += (f'  <td style="padding:3px 5px;text-align:center">'
+                     f'{_wave_dir_str(wdir)}</td>\n')
+
+        # MSLP
+        if wp is not None:
+            html += (f'  <td style="padding:3px 5px;text-align:center">'
+                     f'{wp:.1f}{_delta_span(wp, prev.get("mslp_hpa"), ".1f", "")}</td>\n')
+        elif ep is not None:
+            html += (f'  <td style="padding:3px 5px;text-align:center;background:{_EC_BG}">'
+                     f'{ep:.1f}{_EC_BADGE}</td>\n')
+        else:
+            html += '  <td style="padding:3px 5px;text-align:center;color:#bbb">—</td>\n'
+
+        # 6h Rain
+        r_val = wr if wr is not None else er
+        r_ec  = (wr is None and er is not None)
+        if r_val is not None:
+            badge = _EC_BADGE if r_ec else ''
+            delta = _delta_span(wr, prev.get('precip_mm_6h'), '.1f', 'mm', True) if not r_ec else ''
+            html += (f'  <td style="padding:3px 5px;text-align:center;background:{_precip_bg(r_val)}">'
+                     f'{r_val:.1f}mm{delta}{badge}</td>\n')
+        else:
+            html += '  <td style="padding:3px 5px;text-align:center;color:#bbb">—</td>\n'
+
+        # Vis
+        v_val = wvs if wvs is not None else evs
+        v_ec  = (wvs is None and evs is not None)
+        if v_val is not None:
+            bg_v = _EC_BG if v_ec else ''
+            badge = _EC_BADGE if v_ec else ''
+            bg_style = f';background:{bg_v}' if bg_v else ''
+            html += (f'  <td style="padding:3px 5px;text-align:center{bg_style}">'
+                     f'{v_val:.0f}km{badge}</td>\n')
+        else:
+            html += '  <td style="padding:3px 5px;text-align:center;color:#bbb">—</td>\n'
+
+        # Temp
+        if wt is not None:
+            html += (f'  <td style="padding:3px 5px;text-align:center;background:{_temp_bg(wt)}">'
+                     f'{wt:.1f}°{_delta_span(wt, prev.get("temp_c"), ".1f", "°")}</td>\n')
+        elif et is not None:
+            html += (f'  <td style="padding:3px 5px;text-align:center;background:{_EC_BG}">'
+                     f'{et:.1f}°{_EC_BADGE}</td>\n')
+        else:
+            html += '  <td style="padding:3px 5px;text-align:center;color:#bbb">—</td>\n'
+
+        # Cloud
+        cl_val = wcl if wcl is not None else ecl
+        cl_ec  = (wcl is None and ecl is not None)
+        if cl_val is not None:
+            bg_cl = _EC_BG if cl_ec else ''
+            badge = _EC_BADGE if cl_ec else ''
+            bg_style = f';background:{bg_cl}' if bg_cl else ''
+            html += (f'  <td style="padding:3px 5px;text-align:center{bg_style}">'
+                     f'{cl_val:.0f}%{badge}</td>\n')
+        else:
+            html += '  <td style="padding:3px 5px;text-align:center;color:#bbb">—</td>\n'
+
+        # CAPE
+        cp_val = wcp if wcp is not None else ecp
+        cp_ec  = (wcp is None and ecp is not None)
+        if cp_val is not None:
+            badge = _EC_BADGE if cp_ec else ''
+            html += (f'  <td style="padding:3px 5px;text-align:center;background:{_cape_bg(cp_val)}">'
+                     f'{cp_val:.0f}{badge}</td>\n')
+        else:
+            html += '  <td style="padding:3px 5px;text-align:center;color:#bbb">—</td>\n'
+
+        html += '</tr>\n'
+
+    html += '</tbody></table>\n</div>\n'
 
     # ── WRF vs ECMWF agreement summary ───────────────────────────────────────
     if has_ec and (temp_deltas or wind_deltas):
@@ -1778,7 +1792,9 @@ def main():
     p.add_argument('--output-json', default='keelung_summary.json',
                    help='Output summary JSON path (default: keelung_summary.json)')
     p.add_argument('--output-html', default='email_analysis.html',
-                   help='Output HTML path (default: email_analysis.html)')
+                   help='Full web-app HTML path (default: email_analysis.html)')
+    p.add_argument('--email-html', default='email_analysis_email.html',
+                   help='Simple email summary HTML path (default: email_analysis_email.html)')
     p.add_argument('--ecmwf-json',  default=None,
                    help='ECMWF IFS JSON produced by ecmwf_fetch.py (enables comparison table)')
     p.add_argument('--wave-json',   default=None,
@@ -1864,10 +1880,17 @@ def main():
             print(f'  ⚠  Could not load wave JSON: {e}')
 
     # ── Write HTML ────────────────────────────────────────────────────────────
-    html = render_unified_html(meta, records, prev_records, ecmwf_records, wave_data)
+    # Full web-app version (phone drill-down)
+    html_full = render_unified_html(meta, records, prev_records, ecmwf_records, wave_data)
     out_html = Path(args.output_html)
-    out_html.write_text(html)
-    print(f'  📧  HTML    → {out_html}')
+    out_html.write_text(html_full)
+    print(f'  🌐  HTML (full)  → {out_html}')
+
+    # Simple email summary
+    html_email = render_email_html(meta, records, prev_records, ecmwf_records, wave_data)
+    out_email_html = Path(args.email_html)
+    out_email_html.write_text(html_email)
+    print(f'  📧  HTML (email) → {out_email_html}')
 
     # ── Expose to GitHub Actions ──────────────────────────────────────────────
     gha = os.environ.get('GITHUB_OUTPUT')
