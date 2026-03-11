@@ -1119,6 +1119,44 @@ def _render_cwa_ecmwf_wave_comparison_DEPRECATED(ecmwf_recs: list, cwa: dict) ->
 
 # ── Daily summary cards ───────────────────────────────────────────────────────
 
+def _sail_rating(max_wind, max_gust, max_hs, total_rain):
+    """Return (label, bg_color) — go/marginal/no-go sailing suitability."""
+    no_go = (
+        (max_gust  is not None and max_gust  >= 34) or   # gale gusts
+        (max_wind  is not None and max_wind  >= 28) or   # near-gale sustained
+        (max_hs    is not None and max_hs    >= 2.5)     # rough-plus seas
+    )
+    marginal = (
+        (max_gust  is not None and max_gust  >= 22) or   # strong breeze gusts
+        (max_wind  is not None and max_wind  >= 17) or   # fresh breeze
+        (max_hs    is not None and max_hs    >= 1.5) or  # moderate seas
+        total_rain >= 15                                  # significant rain
+    )
+    if no_go:
+        return '🔴 No-go', '#fed7d7'
+    if marginal:
+        return '🟡 Marginal', '#fefcbf'
+    return '🟢 Good', '#c6f6d5'
+
+
+def _condition_emoji(max_wind, total_rain, max_cape, max_hs, max_gust=None):
+    if max_hs is not None and max_hs >= 3.5:
+        return '🌊'
+    if max_cape is not None and max_cape >= 500:
+        return '⛈️'
+    if total_rain >= 15:
+        return '🌧️'
+    if total_rain >= 3:
+        return '🌦️'
+    if max_gust is not None and max_gust >= 34:
+        return '💨'
+    if max_wind is not None and max_wind >= 25:
+        return '💨'
+    if max_wind is not None and max_wind >= 15:
+        return '🌬️'
+    return '🌤️'
+
+
 def _daily_summary_html(
     wrf_by_valid: dict,
     ec_by_valid:  dict,
@@ -1128,8 +1166,7 @@ def _daily_summary_html(
     """
     Compact day-by-day summary cards (one per CST calendar day).
     Uses WRF data where available; falls back to ECMWF for extended days.
-    Shows: condition icon, temp range, max wind + direction, total rain,
-           peak wave height, and the data source tag.
+    Shows: sailing suitability rating, condition icon, wave, wind, rain, temp.
     """
     from collections import defaultdict
 
@@ -1144,24 +1181,6 @@ def _daily_summary_html(
 
     if not day_buckets:
         return ''
-
-    def _condition_emoji(max_wind, total_rain, max_cape, max_hs, max_gust=None):
-        if max_hs is not None and max_hs >= 3.5:
-            return '🌊'
-        if max_cape is not None and max_cape >= 500:
-            return '⛈️'
-        if total_rain >= 15:
-            return '🌧️'
-        if total_rain >= 3:
-            return '🌦️'
-        # Gusts ≥ 34 kt (gale) → strong wind icon regardless of mean
-        if max_gust is not None and max_gust >= 34:
-            return '💨'
-        if max_wind is not None and max_wind >= 25:
-            return '💨'
-        if max_wind is not None and max_wind >= 15:
-            return '🌬️'
-        return '🌤️'
 
     cards_html = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 14px">\n'
 
@@ -1223,6 +1242,7 @@ def _daily_summary_html(
             peak_arrow   = _wind_arrow(peak_deg_v)
 
         cond_icon = _condition_emoji(max_wind, total_r, max_cape, max_hs_v, max_gust)
+        sail_label, sail_bg = _sail_rating(max_wind, max_gust, max_hs_v, total_r)
 
         # Format day label
         try:
@@ -1277,10 +1297,13 @@ def _daily_summary_html(
 
         cards_html += (
             f'<div style="border:1px solid #ddd;border-top:3px solid {card_border};'
-            f'border-radius:5px;padding:7px 10px;min-width:115px;background:#fafafa;'
+            f'border-radius:5px;padding:7px 10px;min-width:120px;background:#fafafa;'
             f'font-size:12px;line-height:1.5">\n'
-            f'  <div style="font-weight:600;color:#333;font-size:0.95em">'
+            f'  <div style="font-weight:700;color:#333;font-size:1em">'
             f'{day_label}&nbsp;<span style="font-size:1.1em">{cond_icon}</span></div>\n'
+            f'  <div style="background:{sail_bg};border-radius:3px;padding:1px 5px;'
+            f'font-weight:600;font-size:0.9em;margin:2px 0 3px;display:inline-block">'
+            f'{sail_label}</div>\n'
             + (f'  <div style="color:#555">🌊 {wave_str}</div>\n' if wave_str else '')
             + f'  <div style="color:#555">💨 {wind_str}</div>\n'
             f'  <div style="color:#555">🌧️ {rain_str}</div>\n'
@@ -1377,7 +1400,7 @@ def render_unified_html(
         '<span style="background:#2c4a7c;color:#d0e0ff;padding:1px 5px;border-radius:3px">WRF 3km</span>'
         '&nbsp;'
         '<span style="background:#2d6a4f;color:#d0f0e0;padding:1px 5px;border-radius:3px">ECMWF IFS</span>'
-        '&nbsp;— green <sup style="color:#276749;font-size:0.85em">EC</sup> badge = ECMWF fills in'
+        '&nbsp;— green <sup style="color:#276749;font-size:0.85em">EC</sup> badge = ECMWF/GFS fills in'
         ' where CWA WRF is absent (gust, rain, cloud, vis, CAPE)'
         '</p>\n'
     )
@@ -1391,22 +1414,29 @@ def render_unified_html(
     wrf_th  = 'background:#2c4a7c;color:#d0e0ff'
     ec_th   = 'background:#2d6a4f;color:#d0f0e0'
     wave_th = 'background:#1e4d7a;color:#d0e8ff'
+    alrt_th = 'background:#2d3748;color:#e2e8f0'
     html += '<tr style="text-align:center;font-size:0.9em">\n'
-    html += '  <th style="padding:4px 7px;text-align:left;background:#1a1a2e;color:#fff">Valid UTC</th>\n'
+    html += f'  <th style="padding:3px 5px;{alrt_th}" title="Per-step sailing alerts">⚠</th>\n'
+    html += '  <th style="padding:4px 7px;text-align:left;background:#1a1a2e;color:#fff">UTC</th>\n'
     html += '  <th style="padding:4px 7px;text-align:left;background:#1a1a2e;color:#fff">CST +8</th>\n'
     # Sailing priority: wind & gust first
-    for lbl, th in [('Wind', wrf_th), ('Gust', ec_th)]:
+    for lbl, th in [('Wind (kt)', wrf_th), ('Gust (kt)', ec_th)]:
         html += f'  <th style="padding:3px 5px;{th}">{lbl}</th>\n'
     # Wave section (Hs, period, swell height, direction)
     if has_wave:
-        for lbl in ['Hs m', 'Tp s', 'SwHs', 'WvDir']:
-            html += f'  <th style="padding:3px 5px;{wave_th}">{lbl}</th>\n'
+        for lbl, th in [('Waves (m)', wave_th), ('Period (s)', wave_th),
+                        ('Swell (m)', wave_th), ('Wave Dir', wave_th)]:
+            html += f'  <th style="padding:3px 5px;{th}">{lbl}</th>\n'
     # Remaining columns
-    for lbl, th in [('MSLP', wrf_th), ('6h Rain', ec_th), ('Vis', ec_th),
-                    ('Temp', wrf_th), ('Cloud', ec_th), ('CAPE', ec_th)]:
+    for lbl, th in [('Pressure', wrf_th), ('Rain 6h', ec_th), ('Vis (km)', ec_th),
+                    ('Temp (°C)', wrf_th), ('Cloud %', ec_th), ('CAPE', ec_th)]:
         html += f'  <th style="padding:3px 5px;{th}">{lbl}</th>\n'
     html += '</tr>\n'
     html += '</thead>\n<tbody>\n'
+
+    # pre-compute total column count for date separator colspan
+    _n_wave_cols = 4 if has_wave else 0
+    _total_cols  = 3 + 2 + _n_wave_cols + 6 + 1   # alert+UTC+CST + wind+gust + wave + rest
 
     # ── Data rows ─────────────────────────────────────────────────────────────
     temp_deltas, wind_deltas, rain_deltas, mslp_deltas = [], [], [], []
@@ -1414,6 +1444,8 @@ def render_unified_html(
     # EC fallback styling: pale-green bg + small superscript badge
     _EC_BADGE = '<sup style="color:#276749;font-size:0.72em;line-height:1"> EC</sup>'
     _EC_BG    = '#f0fff4'
+
+    _prev_cst_date = None   # track date changes for separator rows
 
     for row_idx, vt in enumerate(all_valids):
         wrf  = wrf_by_valid.get(vt)
@@ -1426,10 +1458,22 @@ def render_unified_html(
         try:
             dt_u = datetime.fromisoformat(vt)
             dt_c = dt_u + timedelta(hours=8)
-            utc_str = dt_u.strftime('%a %m/%d %H:%M')
-            cst_str = dt_c.strftime('%a %m/%d %H:%M')
+            utc_str = dt_u.strftime('%H:%M')         # just time — date is in separator
+            cst_str = dt_c.strftime('%H:%M')
+            cst_date_str = dt_c.strftime('%a %-d %b')   # e.g. "Tue 11 Mar"
+            cst_date_key = dt_c.strftime('%Y-%m-%d')
         except Exception:
             utc_str, cst_str = vt, ''
+            cst_date_str = ''
+            cst_date_key = vt[:10]
+
+        # ── Date separator row when CST date changes ──────────────────────────
+        if cst_date_key != _prev_cst_date:
+            _prev_cst_date = cst_date_key
+            html += (f'<tr style="background:#2d3748">'
+                     f'<td colspan="{_total_cols}" style="padding:4px 10px;'
+                     f'font-weight:700;color:#e2e8f0;font-size:0.88em;letter-spacing:0.03em">'
+                     f'📅 {cst_date_str} (CST)</td></tr>\n')
 
         # Row background: blue-tinted for ECMWF-only rows
         if not has_wrf:
@@ -1438,10 +1482,6 @@ def render_unified_html(
         else:
             row_bg    = '#f5f7fa' if row_idx % 2 else '#ffffff'
             row_extra = ''
-
-        html += f'<tr style="background:{row_bg};{row_extra}">\n'
-        html += f'  <td style="padding:3px 6px;font-weight:500">{utc_str}</td>\n'
-        html += f'  <td style="padding:3px 6px;color:#666">{cst_str}</td>\n'
 
         # Extract all values upfront
         wt  = wrf.get('temp_c')       if wrf else None
@@ -1469,6 +1509,40 @@ def render_unified_html(
         dw_ = round(ww - ew, 1) if ww is not None and ew is not None else None
         dr_ = round(wr - er, 1) if wr is not None and er is not None else None
         dp_ = round(wp - ep, 1) if wp is not None and ep is not None else None
+
+        # ── Per-row alert cell ─────────────────────────────────────────────────
+        # Effective wind / gust (best available source)
+        _eff_wind  = ww if ww is not None else ew
+        _eff_gust  = wg if wg is not None else eg
+        _eff_rain  = wr if wr is not None else er
+        _eff_hs    = wav.get('wave_height') if wav else None
+        _row_alerts = []
+        if _eff_gust is not None and _eff_gust >= 34:
+            _row_alerts.append('<span style="color:#c53030;font-weight:700">Gale⚠</span>')
+        elif _eff_gust is not None and _eff_gust >= 28:
+            _row_alerts.append('<span style="color:#c05621">g28+</span>')
+        if _eff_wind is not None and _eff_wind >= 34:
+            _row_alerts.append('<span style="color:#c53030;font-weight:700">B8+</span>')
+        elif _eff_wind is not None and _eff_wind >= 28:
+            _row_alerts.append('<span style="color:#c05621">B7</span>')
+        elif _eff_wind is not None and _eff_wind >= 22:
+            _row_alerts.append('<span style="color:#975a16">B6</span>')
+        if _eff_hs is not None and _eff_hs >= 2.5:
+            _row_alerts.append('<span style="color:#2b6cb0">🌊⚠</span>')
+        elif _eff_hs is not None and _eff_hs >= 1.5:
+            _row_alerts.append('<span style="color:#2b6cb0">🌊</span>')
+        if _eff_rain is not None and _eff_rain >= 10:
+            _row_alerts.append('<span style="color:#2c5282">🌧</span>')
+        _alert_html = '&nbsp;'.join(_row_alerts) if _row_alerts else ''
+        _alert_bg   = '#fff5f5' if any('⚠' in a or 'Gale' in a for a in _row_alerts) else (
+                      '#fffbeb' if _row_alerts else row_bg)
+
+        # ── Open row + alert cell + time cells ────────────────────────────────
+        html += f'<tr style="background:{row_bg};{row_extra}">\n'
+        html += (f'  <td style="padding:2px 5px;text-align:center;font-size:0.85em;'
+                 f'background:{_alert_bg};white-space:nowrap">{_alert_html}</td>\n')
+        html += f'  <td style="padding:3px 6px;font-weight:500;white-space:nowrap">{utc_str}</td>\n'
+        html += f'  <td style="padding:3px 6px;color:#666;white-space:nowrap">{cst_str}</td>\n'
         if dt_ is not None: temp_deltas.append(dt_)
         if dw_ is not None: wind_deltas.append(dw_)
         if dr_ is not None: rain_deltas.append(dr_)
