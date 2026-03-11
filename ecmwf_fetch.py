@@ -39,19 +39,44 @@ HOURLY_VARS = ",".join([
     "temperature_2m",       # °C
     "windspeed_10m",        # requested in knots (wind_speed_unit=kn)
     "winddirection_10m",    # degrees
-    "windgusts_10m",        # knots
+    "windgusts_10m",        # knots  (may be null for ECMWF IFS on Open-Meteo)
     "precipitation",        # mm/h  → we sum to 6-hourly
     "cloudcover",           # %
     "pressure_msl",         # hPa  (mean sea level pressure)
-    "visibility",           # metres
+    "visibility",           # metres (may be null for ECMWF IFS on Open-Meteo)
     "cape",                 # J/kg  (convective available potential energy)
 ])
+
+# GFS fallback: windgusts and visibility are often missing from ECMWF IFS on
+# Open-Meteo.  We make a second call to GFS global and fill in any null values.
+GFS_MODEL     = "gfs_global"
+GFS_FILL_VARS = "windgusts_10m,visibility"
 
 
 # ── Fetch ─────────────────────────────────────────────────────────────────────
 
 _FETCH_RETRIES    = 3
 _FETCH_RETRY_DELAY = 5   # seconds between attempts
+
+
+def _fetch_json(params: dict, label: str) -> dict:
+    """Low-level fetch helper with retry logic. Returns parsed JSON or {} on failure."""
+    url = OPEN_METEO_URL + "?" + urllib.parse.urlencode(params)
+    print(f"  Fetching {label} from Open-Meteo …", flush=True)
+    last_exc: Exception = RuntimeError("no attempts made")
+    for attempt in range(1, _FETCH_RETRIES + 1):
+        try:
+            with urllib.request.urlopen(url, timeout=30) as r:
+                return json.load(r)
+        except urllib.error.URLError as e:
+            last_exc = e
+            if attempt < _FETCH_RETRIES:
+                print(f"  ↻  Request failed ({e}); retry {attempt}/{_FETCH_RETRIES} "
+                      f"in {_FETCH_RETRY_DELAY}s …", file=sys.stderr)
+                time.sleep(_FETCH_RETRY_DELAY)
+    print(f"  ⚠  {label} fetch failed after {_FETCH_RETRIES} attempts: {last_exc}",
+          file=sys.stderr)
+    return {}
 
 
 def fetch_ecmwf_json() -> dict:
@@ -64,25 +89,25 @@ def fetch_ecmwf_json() -> dict:
         "temperature_unit":   "celsius",
         "precipitation_unit": "mm",
         "timeformat":         "iso8601",
-        "forecast_days":      7,          # int, not string
+        "forecast_days":      7,
         "timezone":           "UTC",
     }
-    url = OPEN_METEO_URL + "?" + urllib.parse.urlencode(params)
-    print("  Fetching ECMWF IFS from Open-Meteo …", flush=True)
-    last_exc: Exception = RuntimeError("no attempts made")
-    for attempt in range(1, _FETCH_RETRIES + 1):
-        try:
-            with urllib.request.urlopen(url, timeout=30) as r:
-                return json.load(r)
-        except urllib.error.URLError as e:
-            last_exc = e
-            if attempt < _FETCH_RETRIES:
-                print(f"  ↻  Request failed ({e}); retry {attempt}/{_FETCH_RETRIES} "
-                      f"in {_FETCH_RETRY_DELAY}s …", file=sys.stderr)
-                time.sleep(_FETCH_RETRY_DELAY)
-    print(f"  ✗  Open-Meteo request failed after {_FETCH_RETRIES} attempts: {last_exc}",
-          file=sys.stderr)
-    sys.exit(1)
+    return _fetch_json(params, "ECMWF IFS")
+
+
+def fetch_gfs_gust_vis_json() -> dict:
+    """GFS fallback for windgusts_10m and visibility (often null in ECMWF IFS)."""
+    params = {
+        "latitude":        KEELUNG_LAT,
+        "longitude":       KEELUNG_LON,
+        "hourly":          GFS_FILL_VARS,
+        "models":          GFS_MODEL,
+        "wind_speed_unit": "kn",
+        "timeformat":      "iso8601",
+        "forecast_days":   7,
+        "timezone":        "UTC",
+    }
+    return _fetch_json(params, "GFS gust+vis fallback")
 
 
 # ── Process ───────────────────────────────────────────────────────────────────
@@ -102,7 +127,7 @@ def _norm_utc(iso: str) -> str:
     return iso
 
 
-def process(raw: dict) -> tuple[dict, list]:
+def process(raw: dict, raw_fill: dict | None = None) -> tuple[dict, list]:
     """
     Convert Open-Meteo hourly response to 6-hourly records.
 
@@ -111,6 +136,9 @@ def process(raw: dict) -> tuple[dict, list]:
 
     For precipitation we sum the 6 hourly values *ending* at each 6h timestamp
     to match the WRF 'precip_mm_6h' convention.
+
+    raw_fill: optional secondary Open-Meteo response (e.g. GFS) used to backfill
+              null gust_kt and vis_km values that ECMWF IFS may not publish.
 
     Returns (meta dict, list of record dicts).
     """
@@ -135,6 +163,21 @@ def process(raw: dict) -> tuple[dict, list]:
     def safe(arr, i):
         return arr[i] if arr and 0 <= i < len(arr) else None
 
+    # Build lookup index for GFS fill data keyed by normalised time string
+    fill_gust_by_time: dict[str, float | None] = {}
+    fill_vis_by_time:  dict[str, float | None] = {}
+    if raw_fill:
+        fh  = raw_fill.get("hourly", {})
+        ft  = fh.get("time", [])
+        fg  = fh.get("windgusts_10m", [])
+        fv  = fh.get("visibility", [])
+        for j, ft_entry in enumerate(ft):
+            key = _norm_utc(ft_entry)
+            fill_gust_by_time[key] = fg[j] if fg and j < len(fg) else None
+            fill_vis_by_time[key]  = (round(fv[j] / 1000, 1)
+                                      if fv and j < len(fv) and fv[j] is not None
+                                      else None)
+
     records = []
     for i, t in enumerate(times):
         dt = datetime.fromisoformat(t if len(t) >= 19 else t + ':00').replace(tzinfo=timezone.utc)
@@ -151,12 +194,20 @@ def process(raw: dict) -> tuple[dict, list]:
         vis_val = safe(vis, i)
         vis_km  = round(vis_val / 1000, 1) if vis_val is not None else None
 
+        # Gust from ECMWF; fall back to GFS fill if null
+        gust_val = safe(gust, i)
+        norm_t   = _norm_utc(t)
+        if gust_val is None and norm_t in fill_gust_by_time:
+            gust_val = fill_gust_by_time[norm_t]
+        if vis_km is None and norm_t in fill_vis_by_time:
+            vis_km = fill_vis_by_time[norm_t]
+
         records.append({
-            "valid_utc":    _norm_utc(t),
+            "valid_utc":    norm_t,
             "temp_c":       safe(temp,   i),
             "wind_kt":      safe(wspd,   i),
             "wind_dir":     safe(wdir,   i),
-            "gust_kt":      safe(gust,   i),
+            "gust_kt":      gust_val,
             "mslp_hpa":     safe(mslp,   i),
             "precip_mm_6h": round(precip_6h, 2),
             "cloud_pct":    safe(cloud,  i),
@@ -186,8 +237,9 @@ def main():
                     help="Output JSON path (default: ecmwf_keelung.json)")
     args = ap.parse_args()
 
-    raw = fetch_ecmwf_json()
-    meta, records = process(raw)
+    raw      = fetch_ecmwf_json()
+    raw_fill = fetch_gfs_gust_vis_json()
+    meta, records = process(raw, raw_fill)
 
     if not records:
         print("  ⚠  No records extracted from Open-Meteo response.", file=sys.stderr)
