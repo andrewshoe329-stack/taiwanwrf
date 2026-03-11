@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="TW Sea">
+<meta name="theme-color" content="#0f2a4a">
+<title>Taiwan Sea Weather</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+  background: #0f172a; color: #e2e8f0; min-height: 100vh;
+  -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+.header {
+  background: linear-gradient(160deg, #1e3a5f 0%, #0f2a4a 100%);
+  padding: max(env(safe-area-inset-top, 0px), 12px) 16px 0;
+  position: sticky; top: 0; z-index: 100;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.4);
+}
+.header-top { display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px; }
+.app-title { font-size: 1.15rem; font-weight: 700; letter-spacing: -0.3px; }
+.header-right { display: flex; align-items: center; gap: 10px; }
+.last-updated { font-size: 0.7rem; color: #64748b; }
+.refresh-btn {
+  background: rgba(255,255,255,0.1); border: none; border-radius: 7px;
+  color: #94a3b8; padding: 4px 9px; font-size: 0.85rem; cursor: pointer;
+}
+.refresh-btn:active { background: rgba(255,255,255,0.2); }
+
+/* ── Sport tabs ──────────────────────────────────────────────────────────── */
+.sport-tabs { display: flex; gap: 4px; }
+.sport-tab {
+  flex: 1; padding: 9px 6px; border: none; border-radius: 8px 8px 0 0;
+  background: rgba(255,255,255,0.07); color: #64748b;
+  font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: all 0.15s;
+}
+.sport-tab.active { background: #0f172a; color: #e2e8f0; }
+
+/* ── Location bar (sailing only) ─────────────────────────────────────────── */
+.location-bar {
+  background: #1a2540; padding: 10px 12px;
+  display: flex; gap: 7px; overflow-x: auto;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  border-bottom: 1px solid #1e293b;
+}
+.location-bar::-webkit-scrollbar { display: none; }
+.loc-btn {
+  flex-shrink: 0; padding: 6px 14px; border-radius: 20px;
+  border: 1.5px solid #334155; background: transparent; color: #94a3b8;
+  font-size: 0.82rem; font-weight: 500; cursor: pointer; white-space: nowrap;
+}
+.loc-btn.active { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+
+/* ── Content ─────────────────────────────────────────────────────────────── */
+.content { padding: 14px 12px 90px; }
+
+/* ── Loading / error ─────────────────────────────────────────────────────── */
+.loading { text-align: center; padding: 60px 20px; color: #475569; }
+.spinner {
+  width: 34px; height: 34px; border: 3px solid #1e293b; border-top-color: #3b82f6;
+  border-radius: 50%; animation: spin 0.75s linear infinite; margin: 0 auto 12px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.error-box {
+  background: #2d1515; border: 1px solid #7f1d1d; border-radius: 10px;
+  padding: 20px; color: #fc8181; text-align: center; margin: 20px 0; line-height: 1.7;
+}
+.retry-btn { margin-top: 12px; padding: 9px 20px; border-radius: 8px; background: #3b82f6; border: none; color: #fff; cursor: pointer; font-size: 0.9rem; }
+
+/* ── Section headings ────────────────────────────────────────────────────── */
+.section-head { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.9px; color: #475569; margin: 14px 0 8px; }
+
+/* ── Sailing: daily cards ────────────────────────────────────────────────── */
+.cards-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.cards-row::-webkit-scrollbar { display: none; }
+.day-card { flex-shrink: 0; width: 112px; background: #1e293b; border-radius: 12px; padding: 10px; border: 1px solid #2d3f5a; }
+.card-date { font-size: 0.78rem; font-weight: 600; color: #94a3b8; margin-bottom: 5px; }
+.card-today { color: #60a5fa; }
+.card-rating { display: inline-block; font-size: 0.7rem; font-weight: 700; padding: 2px 7px; border-radius: 5px; margin-bottom: 7px; }
+.card-stats { font-size: 0.71rem; color: #64748b; line-height: 1.7; }
+.card-stats b { color: #94a3b8; }
+
+/* ── Forecast table (sailing detail / surf detail) ───────────────────────── */
+.table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid #2d3f5a; -webkit-overflow-scrolling: touch; }
+table { border-collapse: collapse; width: 100%; font-size: 0.77rem; }
+th { background: #1e3a5f; color: #7db8f0; padding: 7px 8px; text-align: center; white-space: nowrap; font-size: 0.69rem; font-weight: 600; border-bottom: 1px solid #2d3f5a; }
+td { padding: 5px 7px; text-align: center; white-space: nowrap; border-bottom: 1px solid #151f30; }
+tr.date-sep td { background: #1a2f4a; color: #7db8f0; font-size: 0.79rem; font-weight: 700; padding: 5px 10px; text-align: left; border-bottom: 1px solid #2d3f5a; }
+tr.r-even td { background: #0f172a; }
+tr.r-odd  td { background: #111827; }
+td.acell  { font-size: 0.72rem; min-width: 42px; }
+.b-gale  { color: #fc8181; font-weight: 700; }
+.b-warn  { color: #fbd38d; font-weight: 600; }
+.b-wave  { color: #63b3ed; }
+.b-rain  { color: #76e4f7; }
+.c-danger { color: #fc8181; font-weight: 700; }
+.c-warn   { color: #fbd38d; }
+.c-good   { color: #68d391; }
+.c-muted  { color: #475569; }
+
+/* ── Surf: comparison matrix ─────────────────────────────────────────────── */
+.matrix-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid #2d3f5a; -webkit-overflow-scrolling: touch; }
+.matrix-table { border-collapse: collapse; width: 100%; font-size: 0.72rem; }
+.matrix-table th { background: #1e3a5f; color: #7db8f0; padding: 6px 6px; text-align: center; white-space: nowrap; font-size: 0.67rem; font-weight: 600; border-bottom: 1px solid #2d3f5a; border-right: 1px solid #2d3f5a; min-width: 52px; }
+.matrix-table th.spot-col { text-align: left; min-width: 80px; }
+.matrix-table td { padding: 5px 4px; text-align: center; border-right: 1px solid #151f30; border-bottom: 1px solid #151f30; font-size: 0.69rem; cursor: pointer; transition: opacity 0.1s; }
+.matrix-table td:active { opacity: 0.7; }
+.matrix-table td.spot-name-cell { text-align: left; background: #111827; padding: 6px 8px; cursor: pointer; }
+.matrix-table td.spot-name-cell:active { background: #1e293b; }
+.spot-nm { font-size: 0.75rem; font-weight: 600; color: #cbd5e1; }
+.spot-desc { font-size: 0.6rem; color: #475569; display: block; line-height: 1.3; }
+
+/* ── Surf: spot detail ───────────────────────────────────────────────────── */
+.spot-detail-header {
+  background: #1a2f4a; border-radius: 10px 10px 0 0;
+  padding: 10px 14px; border: 1px solid #2d3f5a; border-bottom: none;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.spot-detail-name { font-size: 0.9rem; font-weight: 700; color: #93c5fd; }
+.spot-detail-desc { font-size: 0.7rem; color: #475569; margin-top: 2px; }
+.close-detail { background: rgba(255,255,255,0.1); border: none; border-radius: 6px; color: #94a3b8; padding: 4px 10px; font-size: 0.8rem; cursor: pointer; }
+
+/* ── Optimal conditions pill ─────────────────────────────────────────────── */
+.opt-row { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+.opt-pill { font-size: 0.65rem; padding: 2px 8px; border-radius: 10px; background: #1a2f4a; color: #7db8f0; border: 1px solid #2d4a6a; }
+
+/* ── Legend ──────────────────────────────────────────────────────────────── */
+.legend { margin-top: 16px; background: #1a2236; border-radius: 10px; padding: 12px 14px; font-size: 0.73rem; color: #475569; line-height: 1.9; border: 1px solid #2d3f5a; }
+.legend-title { font-weight: 700; color: #64748b; margin-bottom: 3px; font-size: 0.77rem; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <div class="app-title">🌊 Taiwan Sea Weather</div>
+    <div class="header-right">
+      <div class="last-updated" id="lastUpdated">—</div>
+      <button class="refresh-btn" onclick="refresh()">↻</button>
+    </div>
+  </div>
+  <div class="sport-tabs">
+    <button class="sport-tab active" id="tab-sailing" onclick="switchSport('sailing')">⛵ Sailing</button>
+    <button class="sport-tab"        id="tab-surfing" onclick="switchSport('surfing')">🏄 Surfing</button>
+  </div>
+</div>
+
+<div class="location-bar" id="locationBar" style="display:none"></div>
+<div class="content" id="content">
+  <div class="loading"><div class="spinner"></div>Loading…</div>
+</div>
+
+<script>
+'use strict';
+
+// ── Direction helpers ──────────────────────────────────────────────────────
+const DIR_DEG = {
+  N:0,NNE:22,NE:45,ENE:67,E:90,ESE:112,SE:135,SSE:157,
+  S:180,SSW:202,SW:225,WSW:247,W:270,WNW:292,NW:315,NNW:337
+};
+const DIR_NAMES = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+const ARROWS    = ['↓','↓','↙','↙','←','←','↖','↖','↑','↑','↗','↗','→','→','↘','↘'];
+const WKDAY     = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MONTH     = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function degDiff(a, b) { const d = Math.abs(a - b) % 360; return Math.min(d, 360 - d); }
+function compass(deg) { return deg == null ? '—' : DIR_NAMES[Math.round(deg / 22.5) % 16]; }
+function arrow(deg)   { return deg == null ? '' : ARROWS[Math.round(deg / 22.5) % 16]; }
+
+function dirQuality(deg, optDirs) {
+  if (deg == null) return 'unknown';
+  const min = Math.min(...optDirs.map(d => degDiff(deg, DIR_DEG[d])));
+  if (min <= 22.5) return 'good';
+  if (min <= 45)   return 'ok';
+  return 'poor';
+}
+
+// ── Locations ──────────────────────────────────────────────────────────────
+const LOCATIONS = {
+  sailing: [
+    { id: 'keelung', name: 'Keelung', lat: 25.128, lon: 121.740 },
+  ],
+  surfing: [
+    { id: 'fulong',      name: 'Fulong',       lat: 25.019, lon: 121.940,
+      facing: 'NE/E', optWind: ['S','SW'],   optSwell: ['N','NE','E'],
+      desc: 'Rivermouth beach · L&R · All levels' },
+    { id: 'greenbay',    name: 'Green Bay',     lat: 25.189, lon: 121.686,
+      facing: 'NE',   optWind: ['W','SW'],   optSwell: ['E','NE'],
+      desc: 'Beach break · L&R · All levels' },
+    { id: 'jinshan',     name: 'Jinshan',       lat: 25.238, lon: 121.638,
+      facing: 'NE',   optWind: ['S','SW'],   optSwell: ['N','NNE','NE','E','ESE'],
+      desc: 'Beach/point · L&R · Beg–Inter' },
+    { id: 'daxi',        name: 'Daxi',          lat: 24.870, lon: 121.930,
+      facing: 'SE',   optWind: ['NW','W'],   optSwell: ['SE','SSE','S','E'],
+      desc: 'Half-moon bay · L&R · Beg–Inter' },
+    { id: 'wushih',      name: 'Wushih',        lat: 24.862, lon: 121.921,
+      facing: 'E',    optWind: ['NW','W'],   optSwell: ['E','SE','SSE'],
+      desc: 'Beach break · L&R · All levels' },
+    { id: 'doublelions', name: 'Double Lions',  lat: 24.847, lon: 121.917,
+      facing: 'E',    optWind: ['W','SW'],   optSwell: ['ENE','E','SE','SSE'],
+      desc: 'Beach break · L&R · All levels' },
+    { id: 'chousui',     name: 'Chousui',       lat: 24.820, lon: 121.899,
+      facing: 'E',    optWind: ['WSW','W'],  optSwell: ['ENE','E','ESE'],
+      desc: 'Point break · Left · Intermediate+' },
+  ]
+};
+
+// ── State ──────────────────────────────────────────────────────────────────
+let currentSport   = 'sailing';
+let currentLocId   = 'keelung';
+let selectedSurfId = null;
+const cache = {};
+const CACHE_TTL = 20 * 60 * 1000;
+
+const $ = id => document.getElementById(id);
+const f1 = v => v == null ? '—' : v.toFixed(1);
+const f0 = v => v == null ? '—' : String(Math.round(v));
+
+function windCls(kt)     { if (kt == null) return ''; if (kt >= 34) return 'c-danger'; if (kt >= 22) return 'c-warn'; return ''; }
+function hsCls(hs, surf) { if (hs == null) return ''; if (surf) { if (hs > 3.5) return 'c-danger'; if (hs > 1.8) return 'c-warn'; if (hs > 0.6) return 'c-good'; return 'c-muted'; } else { if (hs >= 2.5) return 'c-danger'; if (hs >= 1.5) return 'c-warn'; return ''; } }
+
+// ── Ratings ────────────────────────────────────────────────────────────────
+function sailRating(maxW, maxG, maxHs, totalRain) {
+  if ((maxG >= 34) || (maxW >= 28) || (maxHs >= 2.5)) return { label:'🔴 No-go',   bg:'#3d1515', col:'#fc8181' };
+  if ((maxG >= 22) || (maxW >= 17) || (maxHs >= 1.5) || (totalRain >= 15)) return { label:'🟡 Marginal', bg:'#3d2e00', col:'#fbd38d' };
+  return { label:'🟢 Good', bg:'#0d2d1a', col:'#68d391' };
+}
+
+function surfDayRating(dayRecs, spot) {
+  if (!dayRecs.length) return { emoji:'❓', label:'No data', bg:'#1a2236', col:'#475569' };
+  const maxSw = Math.max(0, ...dayRecs.map(r => r.swHs || 0));
+  const maxW  = Math.max(0, ...dayRecs.map(r => r.wind || 0));
+  if (maxSw < 0.25)        return { emoji:'😴', label:'Flat',      bg:'#1a2236', col:'#475569' };
+  if (maxSw > 4.5 || maxW > 32) return { emoji:'🔴', label:'Danger',   bg:'#3d1515', col:'#fc8181' };
+
+  let best = 0;
+  dayRecs.forEach(r => {
+    let sc = 0;
+    const sq = dirQuality(r.swDir, spot.optSwell);
+    const wq = dirQuality(r.windDir, spot.optWind);
+    sc += {good:4, ok:2, poor:0, unknown:1}[sq];
+    sc += {good:3, ok:1, poor:0, unknown:1}[wq];
+    const wkt = r.wind || 0;
+    if (wkt < 10) sc += 2; else if (wkt < 15) sc += 1; else if (wkt > 22) sc -= 2;
+    const hs = r.swHs || 0;
+    if (hs >= 0.6 && hs <= 2.5) sc += 3; else if (hs > 0.3) sc += 1;
+    const tp = r.swTp || 0;
+    if (tp >= 12) sc += 2; else if (tp >= 9) sc += 1;
+    if (sc > best) best = sc;
+  });
+
+  if (best >= 9) return { emoji:'🔥', label:'Firing!',  bg:'#0d3320', col:'#48bb78' };
+  if (best >= 7) return { emoji:'🟢', label:'Good',     bg:'#0d2d1a', col:'#68d391' };
+  if (best >= 4) return { emoji:'🟡', label:'Marginal', bg:'#3d2e00', col:'#fbd38d' };
+  return             { emoji:'🔴', label:'Poor',     bg:'#3d1515', col:'#fc8181' };
+}
+
+// ── Fetch ──────────────────────────────────────────────────────────────────
+async function fetchAll(lat, lon) {
+  const B = 'https://api.open-meteo.com/v1/forecast?';
+  const M = 'https://marine-api.open-meteo.com/v1/marine?';
+  const C = `&timeformat=iso8601&forecast_days=7&timezone=UTC`;
+  const ec  = fetch(`${B}latitude=${lat}&longitude=${lon}&hourly=windspeed_10m,winddirection_10m,windgusts_10m,precipitation,cloudcover,pressure_msl,visibility,temperature_2m,cape&wind_speed_unit=kn&models=ecmwf_ifs025${C}`).then(r=>r.json());
+  const gfs = fetch(`${B}latitude=${lat}&longitude=${lon}&hourly=windgusts_10m,visibility&wind_speed_unit=kn&models=gfs_global${C}`).then(r=>r.json()).catch(()=>({}));
+  const mar = fetch(`${M}latitude=${lat}&longitude=${lon}&hourly=wave_height,wave_period,wave_direction,swell_wave_height,swell_wave_period,swell_wave_direction${C}`).then(r=>r.json()).catch(()=>({}));
+  return Promise.all([ec, gfs, mar]);
+}
+
+function processData([ecmwf, gfs, marine]) {
+  const eh = ecmwf.hourly||{}, gh = gfs.hourly||{}, mh = marine.hourly||{};
+  const gfsByT  = {}; (gh.time||[]).forEach((t,i)=>{ gfsByT[t]=i; });
+  const waveByT = {}; (mh.time||[]).forEach((t,i)=>{ waveByT[t]=i; });
+  const records = [];
+  (eh.time||[]).forEach((t,i) => {
+    if (i%6!==0) return;
+    let gust = eh.windgusts_10m?.[i]??null, vis = eh.visibility?.[i]??null;
+    const gi = gfsByT[t];
+    if (gust==null && gi!=null) gust = gh.windgusts_10m?.[gi]??null;
+    if (vis ==null && gi!=null) vis  = gh.visibility?.[gi]??null;
+    let rain6h = 0;
+    for (let k=Math.max(0,i-5); k<=i; k++) rain6h += eh.precipitation?.[k]??0;
+    const wi = waveByT[t];
+    const wv = wi!=null ? {
+      hs: mh.wave_height?.[wi]??null, tp: mh.wave_period?.[wi]??null,
+      dir: mh.wave_direction?.[wi]??null,
+      swHs: mh.swell_wave_height?.[wi]??null, swTp: mh.swell_wave_period?.[wi]??null,
+      swDir: mh.swell_wave_direction?.[wi]??null,
+    } : {hs:null,tp:null,dir:null,swHs:null,swTp:null,swDir:null};
+    const dtUTC = new Date(t+':00Z');
+    const dtCST = new Date(dtUTC.getTime() + 8*3600_000);
+    const dk = `${dtCST.getUTCFullYear()}-${String(dtCST.getUTCMonth()+1).padStart(2,'0')}-${String(dtCST.getUTCDate()).padStart(2,'0')}`;
+    records.push({ time:t, dtUTC, dtCST, dk,
+      wind: eh.windspeed_10m?.[i]??null, windDir: eh.winddirection_10m?.[i]??null,
+      gust, rain6h, cloud: eh.cloudcover?.[i]??null,
+      pressure: eh.pressure_msl?.[i]??null, vis: vis!=null?vis/1000:null,
+      temp: eh.temperature_2m?.[i]??null, cape: eh.cape?.[i]??null, ...wv });
+  });
+  return records;
+}
+
+function bucketByDay(records) {
+  const b = {};
+  records.forEach(r => { if (!b[r.dk]) b[r.dk]=[]; b[r.dk].push(r); });
+  return b;
+}
+
+// ── Sailing row alerts ─────────────────────────────────────────────────────
+function rowAlerts(r) {
+  const a = [];
+  if (r.gust!=null && r.gust>=34) a.push('<span class="b-gale">Gale⚠</span>');
+  else if (r.gust!=null && r.gust>=28) a.push('<span class="b-warn">g28+</span>');
+  if (r.wind!=null && r.wind>=34) a.push('<span class="b-gale">B8+</span>');
+  else if (r.wind!=null && r.wind>=28) a.push('<span class="b-warn">B7</span>');
+  else if (r.wind!=null && r.wind>=22) a.push('<span class="b-warn">B6</span>');
+  if (r.hs!=null && r.hs>=2.5) a.push('<span class="b-wave">🌊⚠</span>');
+  else if (r.hs!=null && r.hs>=1.5) a.push('<span class="b-wave">🌊</span>');
+  if (r.rain6h>=8) a.push('<span class="b-rain">🌧</span>');
+  return a.join('&nbsp;');
+}
+
+// ── Day label ──────────────────────────────────────────────────────────────
+function dayLabel(dk) {
+  const d = new Date(dk + 'T00:00:00Z');
+  return `${WKDAY[d.getUTCDay()]} ${d.getUTCDate()} ${MONTH[d.getUTCMonth()]}`;
+}
+function isToday(dk) {
+  const now = new Date();
+  const todayCST = new Date(now.getTime() + 8*3600_000);
+  return dk === `${todayCST.getUTCFullYear()}-${String(todayCST.getUTCMonth()+1).padStart(2,'0')}-${String(todayCST.getUTCDate()).padStart(2,'0')}`;
+}
+
+// ── Render sailing ─────────────────────────────────────────────────────────
+function renderSailing(records) {
+  if (!records.length) return '<div class="error-box">No forecast data.</div>';
+  const buckets = bucketByDay(records);
+  const dayKeys = Object.keys(buckets).sort();
+  const NCOLS = 13;
+
+  let html = '<div class="section-head">7-Day Outlook</div><div class="cards-row">';
+  dayKeys.forEach(dk => {
+    const recs = buckets[dk];
+    const maxW = Math.max(0, ...recs.map(r=>r.wind||0));
+    const maxG = Math.max(0, ...recs.map(r=>r.gust||0));
+    const maxHs= Math.max(0, ...recs.map(r=>r.hs||0));
+    const totR = recs.reduce((s,r)=>s+(r.rain6h||0),0);
+    const today = isToday(dk);
+    const rat = sailRating(maxW, maxG, maxHs, totR);
+    html += `<div class="day-card">
+      <div class="card-date ${today?'card-today':''}">${today?'▸ ':''}${dayLabel(dk)}</div>
+      <div class="card-rating" style="background:${rat.bg};color:${rat.col}">${rat.label}</div>
+      <div class="card-stats"><b>💨 ${f0(maxW)}</b>/${f0(maxG)} kt<br><b>🌊 ${f1(maxHs)}</b>m Hs<br>🌧 ${f1(totR)}mm</div>
+    </div>`;
+  });
+  html += '</div>';
+
+  html += '<div class="section-head" style="margin-top:18px">Detailed Forecast · CST (UTC+8)</div>';
+  html += '<div class="table-wrap"><table>';
+  html += '<tr><th>⚠</th><th>Time</th><th>Wind kt</th><th>Dir</th><th>Gust kt</th><th>Hs m</th><th>Tp s</th><th>Swell m</th><th>Sw Dir</th><th>MSLP</th><th>Rain mm</th><th>Vis km</th><th>Temp°C</th></tr>';
+
+  let prevDk=null, ri=0;
+  records.forEach(r => {
+    if (r.dk!==prevDk) { prevDk=r.dk; ri=0; html+=`<tr class="date-sep"><td colspan="${NCOLS}">📅 ${dayLabel(r.dk)} (CST)</td></tr>`; }
+    const cls = ri++%2===0?'r-even':'r-odd';
+    const tStr = `${String(r.dtCST.getUTCHours()).padStart(2,'0')}:00`;
+    const alts = rowAlerts(r);
+    const aBg  = alts.includes('⚠')?'background:#2d1010':(alts?'background:#2d2300':'');
+    html += `<tr class="${cls}">
+      <td class="acell" style="${aBg}">${alts}</td>
+      <td><b>${tStr}</b></td>
+      <td class="${windCls(r.wind)}">${f0(r.wind)}</td>
+      <td>${arrow(r.windDir)} ${compass(r.windDir)}</td>
+      <td class="${windCls(r.gust)}">${f0(r.gust)}</td>
+      <td class="${hsCls(r.hs,false)}">${f1(r.hs)}</td>
+      <td>${f1(r.tp)}</td>
+      <td class="${hsCls(r.swHs,false)}">${f1(r.swHs)}</td>
+      <td>${compass(r.swDir)}</td>
+      <td>${r.pressure!=null?Math.round(r.pressure):'—'}</td>
+      <td>${f1(r.rain6h)}</td>
+      <td>${f1(r.vis)}</td>
+      <td>${f1(r.temp)}</td>
+    </tr>`;
+  });
+  html += '</table></div>';
+
+  html += `<div class="legend">
+    <div class="legend-title">Sailing Key</div>
+    🟢 Good · 🟡 Marginal · 🔴 No-go<br>
+    <span class="c-warn">Amber ≥22kt</span> · <span class="c-danger">Red ≥34kt</span> · Hs <span class="c-warn">≥1.5m</span> · <span class="c-danger">≥2.5m</span><br>
+    Data: ECMWF IFS025 + GFS fallback · Marine: ECMWF WAM (Open-Meteo)
+  </div>`;
+  return html;
+}
+
+// ── Render surfing overview (matrix + optional spot detail) ────────────────
+function renderSurfing(allData) {
+  if (!allData.length) return '<div class="error-box">No surf data.</div>';
+
+  // Collect all day keys
+  const allDks = [...new Set(allData.flatMap(d => d.records.map(r => r.dk)))].sort();
+
+  // ── Matrix ──
+  let html = '<div class="section-head">Spot Comparison — tap a spot for detail</div>';
+  html += '<div class="matrix-wrap"><table class="matrix-table"><tr>';
+  html += '<th class="spot-col">Spot</th>';
+  allDks.forEach(dk => {
+    const today = isToday(dk);
+    const d = new Date(dk+'T00:00:00Z');
+    html += `<th style="${today?'color:#60a5fa':''}">${WKDAY[d.getUTCDay()]}<br>${d.getUTCDate()} ${MONTH[d.getUTCMonth()]}</th>`;
+  });
+  html += '</tr>';
+
+  allData.forEach(({ loc, records }) => {
+    const byDay = bucketByDay(records);
+    html += `<tr><td class="spot-name-cell" onclick="selectSurf('${loc.id}')">
+      <span class="spot-nm">${loc.name}</span>
+      <span class="spot-desc">${loc.desc}</span>
+    </td>`;
+    allDks.forEach(dk => {
+      const dayRecs = byDay[dk] || [];
+      const rat = surfDayRating(dayRecs, loc);
+      const today = isToday(dk);
+      html += `<td style="background:${rat.bg};color:${rat.col};${today?'border-left:2px solid #3b82f6':''}" onclick="selectSurf('${loc.id}')">${rat.emoji}<br><span style="font-size:0.62rem">${rat.label}</span></td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</table></div>';
+
+  // ── Spot detail (if selected) ──
+  if (selectedSurfId) {
+    const entry = allData.find(d => d.loc.id === selectedSurfId);
+    if (entry) html += renderSurfDetail(entry.loc, entry.records);
+  }
+
+  html += `<div class="legend">
+    <div class="legend-title">Surf Key</div>
+    🔥 Firing · 🟢 Good · 🟡 Marginal · 🔴 Poor/Danger · 😴 Flat<br>
+    Ratings account for swell direction vs. each spot's optimal exposure<br>
+    Tap any row for a 7-day detailed forecast · Data: ECMWF IFS025 + ECMWF WAM
+  </div>`;
+  return html;
+}
+
+function renderSurfDetail(loc, records) {
+  if (!records.length) return '';
+  const NCOLS = 10;
+  let html = `
+  <div style="margin-top:16px">
+    <div class="spot-detail-header">
+      <div>
+        <div class="spot-detail-name">${loc.name}</div>
+        <div class="spot-detail-desc">${loc.desc}</div>
+      </div>
+      <button class="close-detail" onclick="closeSurf()">✕ Close</button>
+    </div>
+    <div style="background:#111827;padding:8px 12px;border:1px solid #2d3f5a;border-top:none;border-radius:0">
+      <div class="opt-row">
+        <span class="opt-pill">Best swell: ${loc.optSwell.join(' / ')}</span>
+        <span class="opt-pill">Best wind: ${loc.optWind.join(' / ')} (offshore)</span>
+        <span class="opt-pill">Faces: ${loc.facing}</span>
+      </div>
+    </div>`;
+
+  html += '<div class="table-wrap" style="border-radius:0 0 10px 10px;border-top:none"><table>';
+  html += '<tr><th>Time</th><th>Rating</th><th>Swell m</th><th>T s</th><th>Sw Dir</th><th>Hs m</th><th>Wind kt</th><th>W Dir</th><th>Gust</th><th>Rain</th></tr>';
+
+  let prevDk=null, ri=0;
+  records.forEach(r => {
+    if (r.dk!==prevDk) { prevDk=r.dk; ri=0; html+=`<tr class="date-sep"><td colspan="${NCOLS}">📅 ${dayLabel(r.dk)} (CST)</td></tr>`; }
+    const cls = ri++%2===0?'r-even':'r-odd';
+    const tStr = `${String(r.dtCST.getUTCHours()).padStart(2,'0')}:00`;
+    const rat  = surfDayRating([r], loc);
+
+    const sq = dirQuality(r.swDir, loc.optSwell);
+    const wq = dirQuality(r.windDir, loc.optWind);
+    let swDirStr = compass(r.swDir);
+    if (sq==='good') swDirStr = `<b class="c-good">${swDirStr}✓</b>`;
+    else if (sq==='poor') swDirStr = `<span class="c-danger">${swDirStr}✗</span>`;
+    let wDirStr = `${arrow(r.windDir)} ${compass(r.windDir)}`;
+    if (wq==='good') wDirStr = `<b class="c-good">${wDirStr}✓</b>`;
+    else if (wq==='poor') wDirStr = `<span class="c-warn">${wDirStr}</span>`;
+
+    html += `<tr class="${cls}">
+      <td><b>${tStr}</b></td>
+      <td style="background:${rat.bg};color:${rat.col}">${rat.emoji}</td>
+      <td class="${hsCls(r.swHs,true)}">${f1(r.swHs)}</td>
+      <td>${f1(r.swTp)}</td>
+      <td>${swDirStr}</td>
+      <td class="${hsCls(r.hs,true)}">${f1(r.hs)}</td>
+      <td class="${windCls(r.wind)}">${f0(r.wind)}</td>
+      <td>${wDirStr}</td>
+      <td class="${windCls(r.gust)}">${f0(r.gust)}</td>
+      <td>${f1(r.rain6h)}</td>
+    </tr>`;
+  });
+  html += '</table></div></div>';
+  return html;
+}
+
+// ── Sport / location switching ─────────────────────────────────────────────
+function renderLocationBar() {
+  const bar = $('locationBar');
+  if (currentSport === 'sailing' && LOCATIONS.sailing.length > 1) {
+    bar.style.display = 'flex';
+    bar.innerHTML = LOCATIONS.sailing.map(l =>
+      `<button class="loc-btn ${l.id===currentLocId?'active':''}" onclick="selectLocation('${l.id}')">${l.name}</button>`
+    ).join('');
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
+function switchSport(sport) {
+  if (sport === currentSport) return;
+  currentSport = sport;
+  selectedSurfId = null;
+  if (sport === 'sailing') currentLocId = LOCATIONS.sailing[0].id;
+  document.querySelectorAll('.sport-tab').forEach(t => t.classList.remove('active'));
+  $(`tab-${sport}`).classList.add('active');
+  renderLocationBar();
+  loadForecast();
+}
+
+async function selectLocation(locId) {
+  if (locId === currentLocId) return;
+  currentLocId = locId;
+  renderLocationBar();
+  await loadForecast();
+}
+
+function selectSurf(locId) {
+  selectedSurfId = selectedSurfId === locId ? null : locId;
+  // Re-render with cached data
+  const key = 'surfing:all';
+  if (cache[key]) {
+    $('content').innerHTML = renderSurfing(cache[key].data);
+    if (selectedSurfId) {
+      // scroll to detail
+      setTimeout(() => {
+        const el = document.querySelector('.spot-detail-header');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 50);
+    }
+  }
+}
+
+function closeSurf() {
+  selectedSurfId = null;
+  const key = 'surfing:all';
+  if (cache[key]) $('content').innerHTML = renderSurfing(cache[key].data);
+}
+
+async function refresh() {
+  const key = currentSport === 'sailing' ? `sailing:${currentLocId}` : 'surfing:all';
+  delete cache[key];
+  await loadForecast();
+}
+
+// ── Load forecast ──────────────────────────────────────────────────────────
+async function loadForecast() {
+  if (currentSport === 'sailing') {
+    await loadSailing();
+  } else {
+    await loadSurfing();
+  }
+}
+
+async function loadSailing() {
+  const loc = LOCATIONS.sailing.find(l => l.id === currentLocId);
+  if (!loc) return;
+  const key = `sailing:${currentLocId}`;
+  if (cache[key] && (Date.now() - cache[key].ts) < CACHE_TTL) {
+    $('content').innerHTML = renderSailing(cache[key].records);
+    $('lastUpdated').textContent = 'cached';
+    return;
+  }
+  $('content').innerHTML = '<div class="loading"><div class="spinner"></div>Fetching sailing forecast…</div>';
+  try {
+    const raw = await fetchAll(loc.lat, loc.lon);
+    const records = processData(raw);
+    cache[key] = { ts: Date.now(), records };
+    $('content').innerHTML = renderSailing(records);
+    $('lastUpdated').textContent = new Date().toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+  } catch (err) {
+    $('content').innerHTML = `<div class="error-box">Failed to load forecast.<br><small>${err.message}</small><br><button class="retry-btn" onclick="refresh()">Retry</button></div>`;
+  }
+}
+
+async function loadSurfing() {
+  const key = 'surfing:all';
+  if (cache[key] && (Date.now() - cache[key].ts) < CACHE_TTL) {
+    $('content').innerHTML = renderSurfing(cache[key].data);
+    $('lastUpdated').textContent = 'cached';
+    return;
+  }
+  $('content').innerHTML = '<div class="loading"><div class="spinner"></div>Fetching all surf spots…<br><small style="font-size:0.75rem;color:#64748b">Pulling 7 spots in parallel</small></div>';
+  try {
+    const promises = LOCATIONS.surfing.map(loc =>
+      fetchAll(loc.lat, loc.lon).then(raw => ({ loc, records: processData(raw) }))
+    );
+    const allData = await Promise.all(promises);
+    cache[key] = { ts: Date.now(), data: allData };
+    $('content').innerHTML = renderSurfing(allData);
+    $('lastUpdated').textContent = new Date().toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+  } catch (err) {
+    $('content').innerHTML = `<div class="error-box">Failed to load surf forecast.<br><small>${err.message}</small><br><button class="retry-btn" onclick="refresh()">Retry</button></div>`;
+  }
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+renderLocationBar();
+loadForecast();
+</script>
+</body>
+</html>
