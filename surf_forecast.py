@@ -536,6 +536,26 @@ def generate_html(all_spot_data: list[dict], keelung_records: list = None) -> st
 
     html += '</table>\n</div>\n'
 
+    html += '</div>\n'  # surf-section
+    return html
+
+
+def generate_full_html(all_spot_data: list[dict], keelung_records: list = None) -> str:
+    """
+    Full web-app version: Daily Activity Planner + 7-spot rating matrix
+    + per-spot hourly detail tables + legend.  Used for the phone web app.
+    generate_html() produces the compact email-only summary.
+    """
+    # Start with the email summary (planner table)
+    html = generate_html(all_spot_data, keelung_records=keelung_records)
+
+    # Strip the closing </div> (surf-section) so we can append more content
+    if html.endswith('</div>\n'):
+        html = html[:-len('</div>\n')]
+
+    now_cst = datetime.now(timezone.utc) + timedelta(hours=8)
+    all_dks = sorted({r['dk'] for sd in all_spot_data for r in sd['records']})
+
     # ── Rating matrix ──────────────────────────────────────────────────────
     html += '<table class="matrix-table">\n<tr>'
     html += '<th class="spot-hdr">Spot</th>'
@@ -604,7 +624,6 @@ def generate_html(all_spot_data: list[dict], keelung_records: list = None) -> st
             w_dir  = r.get('w_dir')
             gust   = r.get('gust')
 
-            # Per-row swell direction quality indicator
             sq = dir_quality(sw_dir, spot['opt_swell'])
             wq = dir_quality(w_dir,  spot['opt_wind'])
             sw_dir_str = f'{compass(sw_dir)}'
@@ -647,11 +666,14 @@ def generate_html(all_spot_data: list[dict], keelung_records: list = None) -> st
     html += '</div>\n'  # surf-section
     return html
 
+
 # ── Main ───────────────────────────────────────────────────────────────────
 def main():
     ap = argparse.ArgumentParser(description='Taiwan surf forecast for email')
     ap.add_argument('--output', default='surf_forecast.html',
-                    help='Output HTML file (default: surf_forecast.html)')
+                    help='Full web-app HTML (default: surf_forecast.html)')
+    ap.add_argument('--email-output', default='surf_forecast_email.html',
+                    help='Simple email summary HTML (default: surf_forecast_email.html)')
     args = ap.parse_args()
 
     # ── Fetch Keelung sailing data (for daily planner) ─────────────────────
@@ -669,10 +691,17 @@ def main():
         print(f'    → {len(records)} timesteps', flush=True)
         all_spot_data.append({'spot': spot, 'records': records})
 
-    html = generate_html(all_spot_data, keelung_records=keelung_records)
+    # Full web-app version (phone drill-down)
+    html_full = generate_full_html(all_spot_data, keelung_records=keelung_records)
     with open(args.output, 'w', encoding='utf-8') as f:
-        f.write(html)
-    print(f'  ✅ Wrote {args.output} ({len(html):,} chars)', flush=True)
+        f.write(html_full)
+    print(f'  ✅ Wrote {args.output} ({len(html_full):,} chars)', flush=True)
+
+    # Simple email summary
+    html_email = generate_html(all_spot_data, keelung_records=keelung_records)
+    with open(args.email_output, 'w', encoding='utf-8') as f:
+        f.write(html_email)
+    print(f'  ✅ Wrote {args.email_output} ({len(html_email):,} chars)', flush=True)
 
 if __name__ == '__main__':
     main()
