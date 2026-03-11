@@ -169,6 +169,17 @@ jobs:
             --output-json keelung_summary_new.json \
             --output-html email_analysis.html
 
+      # ── Generate surf forecast & daily planner ────────────────────────────────
+      # Fetches ECMWF + marine data for all 7 surf spots plus Keelung sailing,
+      # writes surf_forecast.html, then appends it to email_analysis.html.
+      # Runs independently of the WRF GRIB analysis (Open-Meteo only).
+      - name: Generate surf forecast
+        id: surf
+        if: steps.stale_check.outputs.is_new == 'true'
+        run: |
+          python surf_forecast.py --output surf_forecast.html
+          cat surf_forecast.html >> email_analysis.html
+
       # ── Upload archive + new summary to Drive ─────────────────────────────────
       - name: Upload to Google Drive
         id: upload
