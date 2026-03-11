@@ -166,7 +166,8 @@ jobs:
             $ECMWF_ARG \
             $WAVE_ARG \
             --output-json keelung_summary_new.json \
-            --output-html email_analysis.html
+            --output-html email_analysis.html \
+            --email-html  email_analysis_email.html
 
       # ── Generate surf forecast & daily planner ────────────────────────────────
       # Fetches ECMWF + marine data for all 7 surf spots plus Keelung sailing,
@@ -176,8 +177,14 @@ jobs:
         id: surf
         if: steps.stale_check.outputs.is_new == 'true'
         run: |
-          python surf_forecast.py --output surf_forecast.html
+          # Full web-app version (both outputs combined into email_analysis.html for Drive/phone)
+          python surf_forecast.py \
+            --output surf_forecast.html \
+            --email-output surf_forecast_email.html
           cat surf_forecast.html >> email_analysis.html
+
+          # Simple email version (compact summary only)
+          cat surf_forecast_email.html >> email_analysis_email.html
 
       # ── Upload archive + new summary to Drive ─────────────────────────────────
       - name: Upload to Google Drive
@@ -235,7 +242,7 @@ jobs:
           </div>
           <hr style="border:none;border-top:1px solid #e2e8f0;margin:12px 0">
           HEADER
-            cat email_analysis.html
+            cat email_analysis_email.html
             cat /tmp/grib_vars_wrapped.html 2>/dev/null || true
           } > /tmp/email_body.html
 
