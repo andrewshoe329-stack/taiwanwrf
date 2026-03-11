@@ -130,15 +130,14 @@ jobs:
           else
             echo "No keelung grb2 files found." | tee /tmp/grib_vars.txt
           fi
-          # Wrap in an HTML <details> block for the email
+          # Wrap in an HTML <details> block and write to a temp file (not GITHUB_OUTPUT)
+          # so it can be cat'd into the email body without hitting output size limits.
           {
-            echo 'vars_html<<__VARS__'
             printf '<details style="margin-top:16px"><summary style="font-family:Arial,sans-serif;font-size:12px;color:#718096;cursor:pointer">🔍 GRIB2 variable inventory (click to expand)</summary>'
             printf '<pre style="font-family:monospace;font-size:11px;background:#f7fafc;border:1px solid #e2e8f0;border-radius:4px;padding:8px;overflow-x:auto;margin:4px 0">'
             cat /tmp/grib_vars.txt | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g'
             printf '</pre></details>\n'
-            echo '__VARS__'
-          } >> "$GITHUB_OUTPUT"
+          } > /tmp/grib_vars_wrapped.html
 
       # ── Run GRIB2 point-forecast analysis ────────────────────────────────────
       # Reads the Keelung subset .grb2 files, extracts the point forecast,
@@ -220,8 +219,9 @@ jobs:
             DRIVE_CELL='<a href="${{ steps.upload.outputs.drive_link }}">Google Drive ↗</a>'
           fi
 
+          # Write to a file instead of GITHUB_OUTPUT to avoid E2BIG / arg-list-too-long
+          # when the action spawns Node with INPUT_HTML_BODY as an env var.
           {
-            echo 'body<<__EOF__'
             cat <<HEADER
           <div style="font-family:Arial,sans-serif;font-size:13px;margin-bottom:12px">
           <table cellpadding="5" style="border-collapse:collapse;background:#f0f4f8;border-radius:4px">
@@ -236,9 +236,8 @@ jobs:
           <hr style="border:none;border-top:1px solid #e2e8f0;margin:12px 0">
           HEADER
             cat email_analysis.html
-            echo '${{ steps.grib_vars.outputs.vars_html }}'
-            echo '__EOF__'
-          } >> "$GITHUB_OUTPUT"
+            cat /tmp/grib_vars_wrapped.html 2>/dev/null || true
+          } > /tmp/email_body.html
 
       # ── Success notification ─────────────────────────────────────────────────
       # Requires two repository secrets: EMAIL_USERNAME and EMAIL_PASSWORD
@@ -256,7 +255,7 @@ jobs:
           subject: "✅ WRF Taiwan — ${{ steps.download.outputs.archive_name }}"
           to: andrewshoe329@gmail.com
           from: "WRF Downloader <${{ secrets.EMAIL_USERNAME }}>"
-          html_body: ${{ steps.email_html.outputs.body }}
+          html_body: file:///tmp/email_body.html
 
       # ── Failure notification ─────────────────────────────────────────────────
       # Shows a per-step outcome table so you can tell at a glance which step
