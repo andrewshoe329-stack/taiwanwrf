@@ -125,7 +125,7 @@ jobs:
           RUNDIR="${{ steps.download.outputs.rundir }}"
           FIRST=$(ls "$RUNDIR"/*_keelung*.grb2 2>/dev/null | sort | head -1)
           if [ -n "$FIRST" ]; then
-            echo "=== GRIB2 variable inventory: $(basename $FIRST) ===" | tee /tmp/grib_vars.txt
+            echo "=== GRIB2 variable inventory: $(basename "$FIRST") ===" | tee /tmp/grib_vars.txt
             python wrf_analyze.py --rundir "$RUNDIR" --list-vars 2>&1 | tee -a /tmp/grib_vars.txt || true
           else
             echo "No keelung grb2 files found." | tee /tmp/grib_vars.txt

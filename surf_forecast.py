@@ -83,6 +83,19 @@ SPOTS = [
     },
 ]
 
+# ── Safe index access ─────────────────────────────────────────────────────
+def _safe_get(lst, idx):
+    """Return lst[idx] if in bounds, else None."""
+    return lst[idx] if lst and idx < len(lst) else None
+
+# ── Rating thresholds ─────────────────────────────────────────────────────
+MIN_SWELL_HEIGHT_M = 0.25   # below this → flat
+MAX_SWELL_HEIGHT_M = 4.5    # above this → dangerous
+MAX_WIND_KT        = 32     # above this → too windy
+LIGHT_WIND_KT      = 10     # below this → light wind bonus
+ONSHORE_WIND_KT    = 22     # above this → surf score penalty
+STRONG_WIND_KT     = 25     # above this → strong wind penalty
+
 # ── Direction helpers ──────────────────────────────────────────────────────
 DIR_DEG = {
     'N': 0, 'NNE': 22, 'NE': 45, 'ENE': 67,
@@ -168,10 +181,10 @@ def process_spot(ec: dict, gfs: dict, mar: dict) -> list[dict]:
         if i % 6 != 0:
             continue  # 6-hourly only
 
-        gust = eh.get('windgusts_10m', [None] * (i+1))[i]
+        gust = _safe_get(eh.get('windgusts_10m'), i)
         gi   = gfs_by_t.get(t)
         if gust is None and gi is not None:
-            gust = gh.get('windgusts_10m', [None] * (gi+1))[gi]
+            gust = _safe_get(gh.get('windgusts_10m'), gi)
 
         rain6h = sum(
             (eh.get('precipitation', [0]) + [0] * 10)[k]
@@ -182,12 +195,12 @@ def process_spot(ec: dict, gfs: dict, mar: dict) -> list[dict]:
         wv = {}
         if wi is not None:
             wv = {
-                'hs':    (mh.get('wave_height')         or [None] * (wi+1))[wi],
-                'tp':    (mh.get('wave_period')         or [None] * (wi+1))[wi],
-                'dir':   (mh.get('wave_direction')      or [None] * (wi+1))[wi],
-                'sw_hs': (mh.get('swell_wave_height')   or [None] * (wi+1))[wi],
-                'sw_tp': (mh.get('swell_wave_period')   or [None] * (wi+1))[wi],
-                'sw_dir':(mh.get('swell_wave_direction')or [None] * (wi+1))[wi],
+                'hs':    _safe_get(mh.get('wave_height'),          wi),
+                'tp':    _safe_get(mh.get('wave_period'),          wi),
+                'dir':   _safe_get(mh.get('wave_direction'),       wi),
+                'sw_hs': _safe_get(mh.get('swell_wave_height'),    wi),
+                'sw_tp': _safe_get(mh.get('swell_wave_period'),    wi),
+                'sw_dir':_safe_get(mh.get('swell_wave_direction'), wi),
             }
 
         dt_utc = datetime.fromisoformat(t.replace('Z', '+00:00')).replace(tzinfo=timezone.utc)
@@ -197,8 +210,8 @@ def process_spot(ec: dict, gfs: dict, mar: dict) -> list[dict]:
             'dt_utc': dt_utc,
             'dt_cst': dt_cst,
             'dk':     dt_cst.strftime('%Y-%m-%d'),
-            'wind':   (eh.get('windspeed_10m')    or [None] * (i+1))[i],
-            'w_dir':  (eh.get('winddirection_10m')or [None] * (i+1))[i],
+            'wind':   _safe_get(eh.get('windspeed_10m'),     i),
+            'w_dir':  _safe_get(eh.get('winddirection_10m'), i),
             'gust':   gust,
             'rain6h': rain6h,
             **wv,
@@ -224,11 +237,11 @@ def day_rating(day_recs: list, spot: dict) -> dict:
     max_sw_hs   = max((r.get('sw_hs') or 0) for r in day_recs)
     max_wind_kt = max((r.get('wind')  or 0) for r in day_recs)
 
-    if max_sw_hs < 0.25:
+    if max_sw_hs < MIN_SWELL_HEIGHT_M:
         return {'label': 'Flat',      'emoji': '😴', 'bg': '#1a2236', 'col': '#475569',
                 'best_sw_hs': max_sw_hs, 'best_sw_tp': None, 'best_wind': max_wind_kt}
 
-    if max_sw_hs > 4.5 or max_wind_kt > 32:
+    if max_sw_hs > MAX_SWELL_HEIGHT_M or max_wind_kt > MAX_WIND_KT:
         return {'label': 'Dangerous', 'emoji': '🔴', 'bg': '#3d1515', 'col': '#fc8181',
                 'best_sw_hs': max_sw_hs, 'best_sw_tp': None, 'best_wind': max_wind_kt}
 
@@ -251,9 +264,9 @@ def day_rating(day_recs: list, spot: dict) -> dict:
         wq = dir_quality(w_dir, spot['opt_wind'])
         score += {'good': 3, 'ok': 1, 'poor': 0, 'unknown': 1}[wq]
         # Wind speed (light is better)
-        if wind_kt < 10:  score += 2
-        elif wind_kt < 15: score += 1
-        elif wind_kt > 22: score -= 2
+        if wind_kt < LIGHT_WIND_KT:   score += 2
+        elif wind_kt < 15:            score += 1
+        elif wind_kt > ONSHORE_WIND_KT: score -= 2
         # Swell height
         if 0.6 <= sw_hs <= 2.5: score += 3
         elif sw_hs > 0.3:        score += 1

@@ -124,9 +124,9 @@ def fetch_ecmwf_wave() -> dict:
                 print(f"  ↻  Request failed ({e}); retry {attempt}/{_FETCH_RETRIES} "
                       f"in {_FETCH_RETRY_DELAY}s …", file=sys.stderr)
                 time.sleep(_FETCH_RETRY_DELAY)
-    print(f"  ✗  Open-Meteo marine request failed after {_FETCH_RETRIES} attempts: {last_exc}",
-          file=sys.stderr)
-    sys.exit(1)
+    raise RuntimeError(
+        f"Open-Meteo marine request failed after {_FETCH_RETRIES} attempts: {last_exc}"
+    )
 
 
 def _norm_utc(iso: str) -> str:
@@ -265,8 +265,8 @@ def list_wave_vars(grib_path: Path) -> None:
                 if key not in seen:
                     seen.add(key)
                     print(f"  shortName={key[0]:<12}  typeOfLevel={key[1]:<20}  level={key[2]}")
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"  ⚠  Skipping GRIB message: {e}", file=sys.stderr)
             finally:
                 ec.codes_release(msg)
 
@@ -331,8 +331,8 @@ def read_wave_point(grib_path: Path, lat: float, lon: float) -> dict:
                 vals = ec.codes_get_values(msg).reshape(nj, ni)
                 raw[matched_key] = float(vals[j, i])
 
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"  ⚠  Skipping GRIB message in read_wave_point: {e}", file=sys.stderr)
             finally:
                 ec.codes_release(msg)
 
@@ -398,7 +398,11 @@ def main():
     args = ap.parse_args()
 
     # ── Always: ECMWF wave from Open-Meteo marine API ─────────────────────────
-    ecmwf_raw              = fetch_ecmwf_wave()
+    try:
+        ecmwf_raw = fetch_ecmwf_wave()
+    except RuntimeError as e:
+        print(f"  ✗  {e}", file=sys.stderr)
+        sys.exit(1)
     ecmwf_meta, ecmwf_recs = process_ecmwf_wave(ecmwf_raw)
     print(f"  ✓  ECMWF WAM: {len(ecmwf_recs)} 6-hourly records")
 
