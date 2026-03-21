@@ -71,46 +71,46 @@ class TestFmt:
 
 class TestBackgroundColors:
     def test_temp_bg_none(self):
-        assert _temp_bg(None) == '#eee'
+        assert _temp_bg(None) == '#1e293b'
 
     def test_temp_bg_cold(self):
-        assert _temp_bg(5) == '#b3d9ff'
+        assert _temp_bg(5) == '#1a3654'
 
     def test_temp_bg_hot(self):
-        assert _temp_bg(35) == '#ffb3b3'
+        assert _temp_bg(35) == '#3d1515'
 
     def test_wind_bg_none(self):
-        assert _wind_bg(None) == '#f4f4f4'
+        assert _wind_bg(None) == '#1e293b'
 
     def test_wind_bg_light(self):
-        assert _wind_bg(5) == '#d4f0c0'
+        assert _wind_bg(5) == '#0d2d1a'
 
     def test_wind_bg_gale(self):
-        assert _wind_bg(40) == '#ff6666'
+        assert _wind_bg(40) == '#3d1515'
 
     def test_precip_bg_none(self):
-        assert _precip_bg(None) == '#f8f8f8'
+        assert _precip_bg(None) == '#1e293b'
 
     def test_precip_bg_dry(self):
-        assert _precip_bg(0) == '#f8f8f8'
+        assert _precip_bg(0) == '#1e293b'
 
     def test_cape_bg_none(self):
-        assert _cape_bg(None) == '#f4f4f4'
+        assert _cape_bg(None) == '#1e293b'
 
     def test_cape_bg_stable(self):
-        assert _cape_bg(50) == '#d4f0c0'
+        assert _cape_bg(50) == '#0d2d1a'
 
     def test_wave_height_bg_none(self):
-        assert _wave_height_bg(None) == '#f4f4f4'
+        assert _wave_height_bg(None) == '#1e293b'
 
     def test_wave_height_bg_calm(self):
-        assert _wave_height_bg(0.1) == '#d4f0c0'
+        assert _wave_height_bg(0.1) == '#0d2d1a'
 
     def test_wave_period_bg_none(self):
-        assert _wave_period_bg(None) == '#f4f4f4'
+        assert _wave_period_bg(None) == '#1e293b'
 
     def test_wave_period_bg_long(self):
-        assert _wave_period_bg(15) == '#b0d9ff'
+        assert _wave_period_bg(15) == '#1a3654'
 
 
 # ── _beaufort ────────────────────────────────────────────────────────────────
@@ -159,11 +159,11 @@ class TestDeltaCell:
 
     def test_small_difference(self):
         result = _delta_cell(0.5, 2.0)
-        assert '#c6f6d5' in result  # green
+        assert '#0d2d1a' in result  # green (dark theme)
 
     def test_large_difference(self):
         result = _delta_cell(5.0, 2.0)
-        assert '#fed7d7' in result  # red
+        assert '#3d1515' in result  # red (dark theme)
 
 
 # ── _wave_dir_str ────────────────────────────────────────────────────────────

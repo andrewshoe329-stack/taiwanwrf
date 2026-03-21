@@ -344,7 +344,7 @@ CSS = """
 <style>
 .surf-section {
   font-family: Arial, 'Helvetica Neue', sans-serif;
-  font-size: 13px;
+  font-size: 14px;
   color: #e2e8f0;
   background: #0f172a;
   padding: 16px;
@@ -362,6 +362,29 @@ CSS = """
   color: #475569;
   margin-bottom: 14px;
 }
+/* ── Sticky navigation bar ─────────────────────────────────── */
+.surf-nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #1e293b;
+  padding: 6px 10px;
+  margin: 0 -16px 12px;
+  overflow-x: auto;
+  white-space: nowrap;
+  font-size: 12px;
+  border-bottom: 1px solid #2d3f5a;
+  -webkit-overflow-scrolling: touch;
+}
+.surf-nav a {
+  color: #93c5fd;
+  text-decoration: none;
+  padding: 3px 8px;
+  border-radius: 3px;
+}
+.surf-nav a:hover { background: #2d3f5a; }
+.surf-nav .sep { color: #475569; margin: 0 2px; }
+/* ── Tables ────────────────────────────────────────────────── */
 .matrix-table {
   border-collapse: collapse;
   width: 100%;
@@ -370,22 +393,25 @@ CSS = """
 .matrix-table th {
   background: #1e3a5f;
   color: #7db8f0;
-  padding: 6px 8px;
+  padding: 6px 10px;
   font-size: 11px;
   text-align: center;
   white-space: nowrap;
   border: 1px solid #2d3f5a;
+  line-height: 1.4;
 }
 .matrix-table th.spot-hdr {
   text-align: left;
   min-width: 110px;
 }
 .matrix-table td {
-  padding: 5px 8px;
+  padding: 6px 10px;
   text-align: center;
   border: 1px solid #1e293b;
   font-size: 12px;
   white-space: nowrap;
+  line-height: 1.4;
+  border-radius: 4px;
 }
 .matrix-table td.spot-name {
   text-align: left;
@@ -399,7 +425,7 @@ CSS = """
   color: #475569;
 }
 .detail-section {
-  margin-top: 16px;
+  margin-top: 24px;
 }
 .detail-header {
   font-size: 13px;
@@ -412,23 +438,25 @@ CSS = """
 .detail-table {
   border-collapse: collapse;
   width: 100%;
-  font-size: 11px;
-  margin-bottom: 12px;
+  font-size: 12px;
+  margin-bottom: 16px;
 }
 .detail-table th {
   background: #1e3a5f;
   color: #7db8f0;
-  padding: 4px 6px;
+  padding: 5px 8px;
   text-align: center;
   white-space: nowrap;
   border: 1px solid #2d3f5a;
+  line-height: 1.4;
 }
 .detail-table td {
-  padding: 3px 6px;
+  padding: 4px 8px;
   text-align: center;
   white-space: nowrap;
   border-bottom: 1px solid #151f30;
   background: #0f172a;
+  line-height: 1.4;
 }
 .detail-table tr.r-alt td { background: #111827; }
 .detail-table td.date-sep {
@@ -448,6 +476,29 @@ CSS = """
   margin-top: 10px;
   border-top: 1px solid #1e293b;
   padding-top: 8px;
+}
+/* ── Mobile responsiveness ─────────────────────────────────── */
+@media (max-width: 600px) {
+  .surf-section { padding: 10px; font-size: 13px; }
+  .matrix-table th, .matrix-table td { padding: 4px 5px; font-size: 10px; }
+  .matrix-table td.spot-name { white-space: normal; }
+  .detail-table th, .detail-table td { padding: 3px 4px; font-size: 10px; }
+  .detail-header { font-size: 12px; }
+  .surf-nav { font-size: 11px; padding: 5px 8px; }
+}
+/* ── Print-friendly overrides ──────────────────────────────── */
+@media print {
+  .surf-section { background: #fff !important; color: #000 !important; padding: 8px; }
+  .surf-nav { display: none !important; }
+  .surf-title, .detail-header { color: #000 !important; }
+  .matrix-table th, .detail-table th { background: #eee !important; color: #000 !important; border: 1px solid #ccc !important; }
+  .matrix-table td, .detail-table td { background: #fff !important; color: #000 !important; border: 1px solid #ccc !important; }
+  .detail-table tr.r-alt td { background: #f5f5f5 !important; }
+  .c-good { color: #16a34a !important; }
+  .c-warn { color: #ca8a04 !important; }
+  .c-danger { color: #dc2626 !important; }
+  .legend-block { color: #555 !important; border-color: #ccc !important; }
+  .detail-section { page-break-inside: avoid; }
 }
 </style>
 """
@@ -480,10 +531,15 @@ def generate_html(all_spot_data: list[dict], keelung_records: list = None) -> st
     # Collect all day keys across all spots
     all_dks = sorted({r['dk'] for sd in all_spot_data for r in sd['records']})
 
-    html = CSS
-    html += '<div class="surf-section">\n'
-    html += f'<div class="surf-title">🏄 Taiwan Surf Forecast</div>\n'
-    html += f'<div class="surf-subtitle">Generated {gen_str} · Data: ECMWF IFS025 + GFS + ECMWF WAM (Open-Meteo) · Source: swelleye.com</div>\n'
+    # Email version: use inline styles (Gmail strips <style> blocks)
+    _S = 'font-family:Arial,Helvetica Neue,sans-serif'
+    _TH = f'background:#1e3a5f;color:#7db8f0;padding:6px 10px;font-size:11px;text-align:center;white-space:nowrap;border:1px solid #2d3f5a;line-height:1.4'
+    _TD = f'padding:6px 10px;text-align:center;border:1px solid #1e293b;font-size:12px;white-space:nowrap;line-height:1.4'
+
+    html = ''
+    html += f'<div style="{_S};font-size:14px;color:#e2e8f0;background:#0f172a;padding:16px;border-radius:8px;margin-top:20px">\n'
+    html += '<div style="font-size:16px;font-weight:700;margin-bottom:4px;color:#93c5fd"><span role="img" aria-label="Surfer">🏄</span> Taiwan Surf Forecast</div>\n'
+    html += f'<div style="font-size:11px;color:#475569;margin-bottom:14px">Generated {gen_str} · Data: ECMWF IFS025 + GFS + ECMWF WAM (Open-Meteo) · Source: swelleye.com</div>\n'
 
     # ── Daily Activity Planner ─────────────────────────────────────────────
     # Pre-bucket keelung records and surf records by day
@@ -501,14 +557,15 @@ def generate_html(all_spot_data: list[dict], keelung_records: list = None) -> st
             surf_by_day_spot.setdefault(dk, []).append((sd['spot'], recs))
 
     html += '<div style="margin-bottom:20px">\n'
-    html += '<div style="font-size:14px;font-weight:700;color:#93c5fd;margin-bottom:6px">📅 Daily Activity Planner</div>\n'
-    html += ('<table class="matrix-table">\n'
-             '<tr>'
-             '<th class="spot-hdr" style="text-align:left;min-width:90px">Day</th>'
-             '<th style="min-width:110px">⛵ Keelung Sailing</th>'
-             '<th style="min-width:130px">🏄 Best Surf Spot</th>'
-             '<th style="min-width:160px">Recommendation</th>'
-             '</tr>\n')
+    html += '<div style="font-size:14px;font-weight:700;color:#93c5fd;margin-bottom:6px"><span role="img" aria-label="Calendar">📅</span> Daily Activity Planner</div>\n'
+    html += '<div style="overflow-x:auto">\n'
+    html += ('<table style="border-collapse:collapse;width:100%;margin-bottom:20px">\n'
+             '<thead><tr>'
+             f'<th scope="col" style="{_TH};text-align:left;min-width:90px">Day</th>'
+             f'<th scope="col" style="{_TH};min-width:110px">⛵ Keelung Sailing</th>'
+             f'<th scope="col" style="{_TH};min-width:130px">🏄 Best Surf Spot</th>'
+             f'<th scope="col" style="{_TH};min-width:160px">Recommendation</th>'
+             '</tr></thead>\n<tbody>\n')
 
     for dk in all_dks:
         d    = datetime.strptime(dk, '%Y-%m-%d')
@@ -542,16 +599,16 @@ def generate_html(all_spot_data: list[dict], keelung_records: list = None) -> st
             sail_detail = f'<small style="color:#64748b;display:block">{round(max_w)}/{round(max_g)}kt · {max_hs:.1f}m</small>'
 
         html += (f'<tr>'
-                 f'<td class="spot-name" style="font-weight:700;color:#cbd5e1">{dlbl}</td>'
-                 f'<td style="background:{sail_rat["bg"]};color:{sail_rat["col"]};text-align:center">'
+                 f'<td style="{_TD};text-align:left;font-weight:700;color:#cbd5e1;background:#111827">{dlbl}</td>'
+                 f'<td style="{_TD};background:{sail_rat["bg"]};color:{sail_rat["col"]}">'
                  f'{sail_rat["label"]}{sail_detail}</td>'
-                 f'<td style="background:{best_surf_rat["bg"]};color:{best_surf_rat["col"]};text-align:center">'
+                 f'<td style="{_TD};background:{best_surf_rat["bg"]};color:{best_surf_rat["col"]}">'
                  f'{best_surf_rat["emoji"]} {best_surf_name}'
                  f'<small style="color:#64748b;display:block">{best_surf_rat["label"]}</small></td>'
-                 f'<td style="background:{rec_bg};color:#e2e8f0;font-weight:600;padding:6px 10px">{rec_text}</td>'
+                 f'<td style="{_TD};background:{rec_bg};color:#e2e8f0;font-weight:600">{rec_text}</td>'
                  f'</tr>\n')
 
-    html += '</table>\n</div>\n'
+    html += '</tbody></table>\n</div>\n</div>\n'
 
     html += '</div>\n'  # surf-section
     return html
@@ -573,13 +630,26 @@ def generate_full_html(all_spot_data: list[dict], keelung_records: list = None) 
     now_cst = datetime.now(timezone.utc) + timedelta(hours=8)
     all_dks = sorted({r['dk'] for sd in all_spot_data for r in sd['records']})
 
+    # ── Sticky navigation bar ──────────────────────────────────────────────
+    html += '<div class="surf-nav">'
+    html += '<a href="#planner">Planner</a><span class="sep">·</span>'
+    html += '<a href="#matrix">Overview</a>'
+    for sd in all_spot_data:
+        sid = sd['spot']['id']
+        short = sd['spot']['name'].split()[0]
+        html += f'<span class="sep">·</span><a href="#spot-{sid}">{short}</a>'
+    html += '</div>\n'
+
     # ── Rating matrix ──────────────────────────────────────────────────────
-    html += '<table class="matrix-table">\n<tr>'
-    html += '<th class="spot-hdr">Spot</th>'
+    html += '<div id="matrix" style="overflow-x:auto">\n'
+    html += '<table class="matrix-table">\n'
+    html += '<caption class="c-muted" style="caption-side:top;text-align:left;font-size:10px;margin-bottom:4px">7-day surf spot ratings</caption>\n'
+    html += '<thead><tr>'
+    html += '<th scope="col" class="spot-hdr">Spot</th>'
     for dk in all_dks:
         d = datetime.strptime(dk, '%Y-%m-%d')
-        html += f'<th>{WKDAY[d.weekday()]}<br>{d.day} {MONTH[d.month-1]}</th>'
-    html += '</tr>\n'
+        html += f'<th scope="col">{WKDAY[d.weekday()]}<br>{d.day} {MONTH[d.month-1]}</th>'
+    html += '</tr></thead>\n<tbody>\n'
 
     for sd in all_spot_data:
         spot    = sd['spot']
@@ -589,17 +659,17 @@ def generate_full_html(all_spot_data: list[dict], keelung_records: list = None) 
             by_day.setdefault(r['dk'], []).append(r)
 
         html += '<tr>'
-        html += (f'<td class="spot-name">{spot["name"]}'
+        html += (f'<td scope="row" class="spot-name">{spot["name"]}'
                  f'<small>{spot["desc"]}</small></td>')
 
         for dk in all_dks:
             day_recs = by_day.get(dk, [])
             rating   = day_rating(day_recs, spot)
             html += (f'<td style="background:{rating["bg"]};color:{rating["col"]}">'
-                     f'{rating["emoji"]} {rating["label"]}</td>')
+                     f'<span role="img" aria-label="{rating["label"]}">{rating["emoji"]}</span> {rating["label"]}</td>')
         html += '</tr>\n'
 
-    html += '</table>\n'
+    html += '</tbody></table>\n</div>\n'
 
     # ── Per-spot detail tables ─────────────────────────────────────────────
     html += '<div class="detail-section">\n'
@@ -610,13 +680,20 @@ def generate_full_html(all_spot_data: list[dict], keelung_records: list = None) 
         if not records:
             continue
 
-        html += f'<div class="detail-header">{spot["name"]} — Detailed Forecast</div>\n'
+        html += f'<div id="spot-{spot["id"]}" class="detail-header">{spot["name"]} — Detailed Forecast</div>\n'
+        html += '<div style="overflow-x:auto">\n'
         html += '<table class="detail-table">\n'
-        html += ('<tr><th>CST</th>'
-                 '<th>Rating</th>'
-                 '<th>Swell m</th><th>T s</th><th>Sw Dir</th>'
-                 '<th>Hs m</th>'
-                 '<th>Wind kt</th><th>W Dir</th><th>Gust</th></tr>\n')
+        html += ('<thead><tr>'
+                 '<th scope="col">CST</th>'
+                 '<th scope="col">Rating</th>'
+                 '<th scope="col" title="Swell wave height in metres">Swell m</th>'
+                 '<th scope="col" title="Wave period in seconds — longer = more powerful">T s</th>'
+                 '<th scope="col" title="Swell direction — where waves come from">Sw Dir</th>'
+                 '<th scope="col" title="Significant wave height in metres (combined sea state)">Hs m</th>'
+                 '<th scope="col" title="Wind speed in knots (1 kt = 1.85 km/h)">Wind kt</th>'
+                 '<th scope="col" title="Wind direction — where wind blows from">W Dir</th>'
+                 '<th scope="col" title="Maximum wind gust speed in knots">Gust</th>'
+                 '</tr></thead>\n<tbody>\n')
 
         prev_dk = None
         row_i   = 0
@@ -664,20 +741,25 @@ def generate_full_html(all_spot_data: list[dict], keelung_records: list = None) 
                      f'</tr>\n')
             row_i += 1
 
-        html += '</table>\n'
+        html += '</tbody></table>\n</div>\n'  # close table + overflow wrapper
 
     html += '</div>\n'  # detail-section
 
     # ── Legend ─────────────────────────────────────────────────────────────
     html += ('<div class="legend-block">'
              '<b>Surf conditions key:</b> '
-             '🔥 Firing (optimal dir + good swell + light wind) · '
-             '🟢 Good · 🟡 Marginal · 🔴 Poor/Dangerous · 😴 Flat (&lt;0.25m swell)<br>'
+             '<span role="img" aria-label="Firing">🔥</span> Firing (optimal dir + good swell + light wind) · '
+             '<span role="img" aria-label="Good">🟢</span> Good · '
+             '<span role="img" aria-label="Marginal">🟡</span> Marginal · '
+             '<span role="img" aria-label="Poor or Dangerous">🔴</span> Poor/Dangerous · '
+             '<span role="img" aria-label="Flat">😴</span> Flat (&lt;0.25m swell)<br>'
              'Direction ticks: <b class="c-good">✓ optimal</b> · '
              '<span class="c-danger">✗ unfavourable</span><br>'
              'Swell colour: <span class="c-good">green 0.6–2.5m</span> · '
              '<span class="c-warn">amber &gt;2.5m</span> · '
-             '<span class="c-danger">red &gt;3.5m</span>'
+             '<span class="c-danger">red &gt;3.5m</span><br>'
+             '<b>Wind (Beaufort):</b> B1-3 &lt;11kt gentle · B4 11-16kt moderate · '
+             'B5 17-21kt fresh · B6 22-27kt strong · B7 28-33kt near-gale · B8+ ≥34kt gale'
              '</div>\n')
 
     html += '</div>\n'  # surf-section
