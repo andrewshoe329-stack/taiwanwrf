@@ -23,6 +23,7 @@ Requirements: eccodes, numpy  (already installed by the workflow)
 
 import argparse
 import json
+import logging
 import math
 import os
 import re
@@ -32,7 +33,9 @@ from datetime import datetime, timedelta, timezone
 
 import numpy as np
 
-from config import KEELUNG_LAT, KEELUNG_LON
+from config import KEELUNG_LAT, KEELUNG_LON, setup_logging
+
+log = logging.getLogger(__name__)
 
 # ── GRIB2 variable matching ───────────────────────────────────────────────────
 # Priority-ordered list of (shortName_variants, typeOfLevel, level, output_key)
@@ -115,14 +118,15 @@ def _wind_arrow(deg: float) -> str:
     return _WIND_ARROWS[round(deg / 45) % 8]
 
 
-def _fmt(v, fmt='.1f', unit=''):
+def _fmt(v: float | None, fmt: str = '.1f', unit: str = '') -> str:
     """Format *v* with the given format spec and unit suffix, or return '—'."""
     return f'{v:{fmt}}{unit}' if v is not None else '—'
 
 
 # ── Grid helpers ──────────────────────────────────────────────────────────────
 
-def nearest_idx(lats2d, lons2d, lat, lon):
+def nearest_idx(lats2d: np.ndarray, lons2d: np.ndarray,
+                lat: float, lon: float) -> tuple[int, int]:
     dist = np.sqrt((lats2d - lat) ** 2 + (lons2d - lon) ** 2)
     return np.unravel_index(dist.argmin(), dist.shape)
 
@@ -149,9 +153,9 @@ def list_vars(grib_path: Path) -> None:
                 key = (sn, tol, lev)
                 if key not in seen:
                     seen.add(key)
-                    print(f"  shortName={sn:<12}  typeOfLevel={tol:<25}  level={lev:<6}  paramId={pid}")
+                    log.info("  shortName=%-12s  typeOfLevel=%-25s  level=%-6s  paramId=%s", sn, tol, lev, pid)
             except Exception as e:
-                print(f"  ⚠  Skipping GRIB message in list_vars: {e}", file=sys.stderr)
+                log.warning("Skipping GRIB message in list_vars: %s", e)
             finally:
                 ec.codes_release(msg)
 
@@ -200,7 +204,7 @@ def read_point(grib_path: Path, lat: float, lon: float) -> dict:
                                     vals2 = ec.codes_get_values(msg).reshape(nj2, ni2)
                                     raw[out_key] = float(vals2[jj, ii])
                         except Exception as e:
-                            print(f"  ⚠  paramId fallback failed: {e}", file=sys.stderr)
+                            log.warning("paramId fallback failed: %s", e)
                     continue
 
                 tol_actual   = ec.codes_get(msg, 'typeOfLevel')
@@ -252,7 +256,7 @@ def read_point(grib_path: Path, lat: float, lon: float) -> dict:
                 raw[matched_key] = val
 
             except Exception as e:
-                print(f"  ⚠  Skipping GRIB message in read_point: {e}", file=sys.stderr)
+                log.warning("Skipping GRIB message in read_point: %s", e)
             finally:
                 ec.codes_release(msg)
 
@@ -261,7 +265,7 @@ def read_point(grib_path: Path, lat: float, lon: float) -> dict:
 
 # ── Forecast extraction ───────────────────────────────────────────────────────
 
-def _parse_init_time(dirname: str):
+def _parse_init_time(dirname: str) -> datetime | None:
     """Extract init datetime from directory name like M-A0064_20260309_00UTC."""
     m = re.search(r'(\d{8})_(\d{2})UTC', dirname)
     if not m:
@@ -269,7 +273,7 @@ def _parse_init_time(dirname: str):
     return datetime.strptime(m.group(1) + m.group(2), '%Y%m%d%H').replace(tzinfo=timezone.utc)
 
 
-def extract_forecast(rundir: Path) -> tuple:
+def extract_forecast(rundir: Path) -> tuple[dict, list[dict]]:
     """Return (meta dict, list of record dicts sorted by forecast hour)."""
     grb_files = sorted(rundir.glob('*_keelung*.grb2'))
     if not grb_files:
@@ -296,10 +300,10 @@ def extract_forecast(rundir: Path) -> tuple:
         fh = int(m.group(1))
         valid_time = (init_time + timedelta(hours=fh)) if init_time else None
 
-        print(f"    Extracting F{fh:03d} …", flush=True)
+        log.info("  Extracting F%03d …", fh)
         raw = read_point(grb, KEELUNG_LAT, KEELUNG_LON)
         if not raw:
-            print(f"    ⚠  No variables extracted from {grb.name}")
+            log.warning("No variables extracted from %s", grb.name)
             continue
 
         rec: dict = {
@@ -347,7 +351,7 @@ def extract_forecast(rundir: Path) -> tuple:
 
 # ── HTML rendering ────────────────────────────────────────────────────────────
 
-def _temp_bg(t):
+def _temp_bg(t: float | None) -> str:
     if t is None:  return '#eee'
     if t < 10:     return '#b3d9ff'
     if t < 18:     return '#d4f0c0'
@@ -355,7 +359,7 @@ def _temp_bg(t):
     if t < 29:     return '#ffd9a0'
     return '#ffb3b3'
 
-def _beaufort(kt):
+def _beaufort(kt: float | None) -> int:
     """Return Beaufort force number for a wind speed in knots."""
     if kt is None: return 0
     if kt < 1:  return 0
@@ -372,7 +376,7 @@ def _beaufort(kt):
     if kt < 64: return 11
     return 12
 
-def _wind_bg(w):
+def _wind_bg(w: float | None) -> str:
     if w is None:  return '#f4f4f4'
     if w < 11:     return '#d4f0c0'   # B1-3  gentle/light breeze (comfortable sailing)
     if w < 17:     return '#e8f5c0'   # B4    moderate breeze
@@ -381,21 +385,21 @@ def _wind_bg(w):
     if w < 34:     return '#ffb080'   # B7    near-gale (consider harbour)
     return '#ff6666'                   # B8+   gale or worse (danger)
 
-def _precip_bg(p):
+def _precip_bg(p: float | None) -> str:
     if p is None or p < 0.1: return '#f8f8f8'
     if p < 2:    return '#d4f0c0'
     if p < 10:   return '#b0d9ff'
     if p < 25:   return '#6cb0ff'
     return '#3070dd'
 
-def _cape_bg(c):
+def _cape_bg(c: float | None) -> str:
     if c is None:  return '#f4f4f4'
     if c < 100:    return '#d4f0c0'   # stable
     if c < 500:    return '#fff7b0'   # slightly unstable
     if c < 1500:   return '#ffd9a0'   # moderately unstable
     return '#ffb3b3'                   # very unstable (thunderstorm risk)
 
-def _wave_height_bg(h):
+def _wave_height_bg(h: float | None) -> str:
     """Background colour for significant wave height (metres)."""
     if h is None: return '#f4f4f4'
     if h < 0.3:   return '#d4f0c0'   # glassy / rippled
@@ -404,7 +408,7 @@ def _wave_height_bg(h):
     if h < 3.5:   return '#ffb3b3'   # rough / very rough
     return '#ff6666'                  # high / dangerous
 
-def _wave_period_bg(p):
+def _wave_period_bg(p: float | None) -> str:
     """Background colour for wave period (seconds)."""
     if p is None: return '#f4f4f4'
     if p < 4:     return '#f4f4f4'   # very short (local chop)
@@ -412,7 +416,8 @@ def _wave_period_bg(p):
     if p < 12:    return '#d4f0c0'   # longer period swell
     return '#b0d9ff'                  # long-period ocean swell
 
-def _delta_span(curr, prev, fmt='.1f', unit='', positive_bad=False):
+def _delta_span(curr: float | None, prev: float | None,
+                fmt: str = '.1f', unit: str = '', positive_bad: bool = False) -> str:
     """Return a small colored delta span, or '' if insignificant."""
     if curr is None or prev is None:
         return ''
@@ -432,7 +437,7 @@ def _delta_span(curr, prev, fmt='.1f', unit='', positive_bad=False):
 
 # ── WRF vs ECMWF comparison ───────────────────────────────────────────────────
 
-def _delta_cell(d, thresh, positive_bad=False):
+def _delta_cell(d: float | None, thresh: float, positive_bad: bool = False) -> str:
     """Return a <td> element color-coded by disagreement magnitude."""
     if d is None:
         return '<td style="padding:4px 5px;text-align:center;color:#aaa">—</td>'
@@ -451,7 +456,7 @@ def _delta_cell(d, thresh, positive_bad=False):
 _WAVE_COMPASS = ['N','NNE','NE','ENE','E','ESE','SE','SSE',
                  'S','SSW','SW','WSW','W','WNW','NW','NNW']
 
-def _wave_dir_str(deg):
+def _wave_dir_str(deg: float | None) -> str:
     if deg is None:
         return '—'
     return _WAVE_COMPASS[round(deg / 22.5) % 16]
@@ -460,7 +465,8 @@ def _wave_dir_str(deg):
 
 # ── Daily summary cards ───────────────────────────────────────────────────────
 
-def _sail_rating(max_wind, max_gust, max_hs, total_rain):
+def _sail_rating(max_wind: float | None, max_gust: float | None,
+                 max_hs: float | None, total_rain: float) -> tuple[str, str]:
     """Return (label, bg_color) — go/marginal/no-go sailing suitability."""
     no_go = (
         (max_gust  is not None and max_gust  >= 34) or   # gale gusts
@@ -480,7 +486,8 @@ def _sail_rating(max_wind, max_gust, max_hs, total_rain):
     return '🟢 Good', '#c6f6d5'
 
 
-def _condition_emoji(max_wind, total_rain, max_cape, max_hs, max_gust=None):
+def _condition_emoji(max_wind: float, total_rain: float, max_cape: float,
+                     max_hs: float, max_gust: float | None = None) -> str:
     if max_hs is not None and max_hs >= 3.5:
         return '🌊'
     if max_cape is not None and max_cape >= 500:
@@ -1122,7 +1129,7 @@ def render_unified_html(
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
-def main():
+def main() -> None:
     p = argparse.ArgumentParser(
         description='Extract Keelung point forecast from WRF GRIB2 subset files.'
     )
@@ -1146,32 +1153,32 @@ def main():
 
     rundir = Path(args.rundir)
     if not rundir.exists():
-        print(f'ERROR: --rundir {rundir} does not exist', file=sys.stderr)
+        log.error("--rundir %s does not exist", rundir)
         sys.exit(1)
 
     # ── Diagnostic mode ───────────────────────────────────────────────────────
     if args.list_vars:
         grbs = sorted(rundir.glob('*_keelung*.grb2'))
         if not grbs:
-            print('No *_keelung*.grb2 files found.')
+            log.error("No *_keelung*.grb2 files found.")
             sys.exit(1)
         # f000 = init analysis — has pressure levels, 2m/10m, MSLP, but NOT
         # accumulated fields (precip, cloud, gusts, CAPE).
-        print(f'\n=== {grbs[0].name} (f000 — init/analysis hour) ===\n')
+        log.info("=== %s (f000 — init/analysis hour) ===", grbs[0].name)
         list_vars(grbs[0])
         # f006 (or next available) — first forecast hour where accumulated
         # fields (precip, cloud cover, gusts, CAPE) should appear.
         if len(grbs) > 1:
-            print(f'\n=== {grbs[1].name} (first forecast hour — check for new vars) ===\n')
+            log.info("=== %s (first forecast hour — check for new vars) ===", grbs[1].name)
             list_vars(grbs[1])
         return
 
     # ── Main analysis ─────────────────────────────────────────────────────────
-    print(f'\n  Analyzing GRIB2 files in {rundir} …')
+    log.info("Analyzing GRIB2 files in %s …", rundir)
     meta, records = extract_forecast(rundir)
 
     if not records:
-        print('  ⚠  No records extracted. Run with --list-vars to diagnose available fields.')
+        log.warning("No records extracted. Run with --list-vars to diagnose available fields.")
         # Still write empty outputs so downstream steps don't break
         Path(args.output_html).write_text('<p>No forecast data extracted.</p>')
         Path(args.output_json).write_text(json.dumps({'meta': meta, 'records': []}, indent=2))
@@ -1185,15 +1192,15 @@ def main():
                 prev_data = json.load(f)
             prev_records = prev_data.get('records', [])
             prev_init = prev_data.get('meta', {}).get('init_utc', 'unknown')
-            print(f'  Previous run: {prev_init} ({len(prev_records)} records)')
+            log.info("Previous run: %s (%d records)", prev_init, len(prev_records))
         except Exception as e:
-            print(f'  ⚠  Could not load previous summary: {e}')
+            log.warning("Could not load previous summary: %s", e)
 
     # ── Write JSON summary ────────────────────────────────────────────────────
     summary = {'meta': meta, 'records': records}
     out_json = Path(args.output_json)
     out_json.write_text(json.dumps(summary, indent=2))
-    print(f'  📊  Summary → {out_json}')
+    log.info("Summary → %s", out_json)
 
     # ── Load ECMWF comparison data ────────────────────────────────────────────
     ecmwf_records = []
@@ -1203,9 +1210,9 @@ def main():
                 ecmwf_data = json.load(f)
             ecmwf_records = ecmwf_data.get('records', [])
             ecmwf_init = ecmwf_data.get('meta', {}).get('init_utc', 'unknown')
-            print(f'  ECMWF data: {ecmwf_init} ({len(ecmwf_records)} records)')
+            log.info("ECMWF data: %s (%d records)", ecmwf_init, len(ecmwf_records))
         except Exception as e:
-            print(f'  ⚠  Could not load ECMWF JSON: {e}')
+            log.warning("Could not load ECMWF JSON: %s", e)
 
     # ── Load wave data ────────────────────────────────────────────────────────
     wave_data = None
@@ -1215,23 +1222,23 @@ def main():
                 wave_data = json.load(f)
             ecmwf_wave_recs = len((wave_data.get('ecmwf_wave') or {}).get('records', []))
             cwa_wave_recs   = len((wave_data.get('cwa_wave')   or {}).get('records', []))
-            print(f'  Wave data: {ecmwf_wave_recs} ECMWF steps, '
-                  f'{cwa_wave_recs} CWA steps')
+            log.info("Wave data: %d ECMWF steps, %d CWA steps",
+                     ecmwf_wave_recs, cwa_wave_recs)
         except Exception as e:
-            print(f'  ⚠  Could not load wave JSON: {e}')
+            log.warning("Could not load wave JSON: %s", e)
 
     # ── Write HTML ────────────────────────────────────────────────────────────
     # Full web-app version (phone drill-down)
     html_full = render_unified_html(meta, records, prev_records, ecmwf_records, wave_data)
     out_html = Path(args.output_html)
     out_html.write_text(html_full)
-    print(f'  🌐  HTML (full)  → {out_html}')
+    log.info("HTML (full)  → %s", out_html)
 
     # Simple email summary
     html_email = render_email_html(meta, records, prev_records, ecmwf_records, wave_data)
     out_email_html = Path(args.email_html)
     out_email_html.write_text(html_email)
-    print(f'  📧  HTML (email) → {out_email_html}')
+    log.info("HTML (email) → %s", out_email_html)
 
     # ── Expose to GitHub Actions ──────────────────────────────────────────────
     gha = os.environ.get('GITHUB_OUTPUT')
@@ -1242,4 +1249,5 @@ def main():
 
 
 if __name__ == '__main__':
+    setup_logging()
     main()

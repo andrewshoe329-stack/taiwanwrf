@@ -14,6 +14,7 @@ Usage:
 
 import argparse
 import json
+import logging
 import os
 import sys
 import time
@@ -23,7 +24,9 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from config import KEELUNG_LAT, KEELUNG_LON
+from config import KEELUNG_LAT, KEELUNG_LON, setup_logging
+
+log = logging.getLogger(__name__)
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
@@ -61,7 +64,7 @@ _FETCH_RETRY_DELAY = 5   # seconds between attempts
 def _fetch_json(params: dict, label: str) -> dict:
     """Low-level fetch helper with retry logic. Returns parsed JSON or {} on failure."""
     url = OPEN_METEO_URL + "?" + urllib.parse.urlencode(params)
-    print(f"  Fetching {label} from Open-Meteo …", flush=True)
+    log.info("Fetching %s from Open-Meteo …", label)
     last_exc: Exception = RuntimeError("no attempts made")
     for attempt in range(1, _FETCH_RETRIES + 1):
         try:
@@ -70,11 +73,11 @@ def _fetch_json(params: dict, label: str) -> dict:
         except urllib.error.URLError as e:
             last_exc = e
             if attempt < _FETCH_RETRIES:
-                print(f"  ↻  Request failed ({e}); retry {attempt}/{_FETCH_RETRIES} "
-                      f"in {_FETCH_RETRY_DELAY}s …", file=sys.stderr)
+                log.warning("Request failed (%s); retry %d/%d in %ds …",
+                            e, attempt, _FETCH_RETRIES, _FETCH_RETRY_DELAY)
                 time.sleep(_FETCH_RETRY_DELAY)
-    print(f"  ⚠  {label} fetch failed after {_FETCH_RETRIES} attempts: {last_exc}",
-          file=sys.stderr)
+    log.error("%s fetch failed after %d attempts: %s",
+              label, _FETCH_RETRIES, last_exc)
     return {}
 
 
@@ -241,13 +244,13 @@ def main():
     meta, records = process(raw, raw_fill)
 
     if not records:
-        print("  ⚠  No records extracted from Open-Meteo response.", file=sys.stderr)
+        log.error("No records extracted from Open-Meteo response.")
         sys.exit(1)
 
     summary = {"meta": meta, "records": records}
     out = Path(args.output)
     out.write_text(json.dumps(summary, indent=2))
-    print(f"  📊  ECMWF summary → {out}  ({len(records)} 6-hourly steps)")
+    log.info("ECMWF summary → %s  (%d 6-hourly steps)", out, len(records))
 
     gha = os.environ.get("GITHUB_OUTPUT")
     if gha:
@@ -256,4 +259,5 @@ def main():
 
 
 if __name__ == "__main__":
+    setup_logging()
     main()

@@ -9,8 +9,12 @@ Usage:
     python3 surf_forecast.py [--output surf_forecast.html]
 """
 
-import argparse, json, sys, time, urllib.request, urllib.parse
+import argparse, json, logging, sys, time, urllib.request, urllib.parse
 from datetime import datetime, timezone, timedelta
+
+from config import setup_logging
+
+log = logging.getLogger(__name__)
 
 # ── Surf spots ─────────────────────────────────────────────────────────────
 # opt_wind  : directions that are offshore / light & favourable
@@ -84,7 +88,7 @@ SPOTS = [
 ]
 
 # ── Safe index access ─────────────────────────────────────────────────────
-def _safe_get(lst, idx):
+def _safe_get(lst: list | None, idx: int) -> object:
     """Return lst[idx] if in bounds, else None."""
     return lst[idx] if lst and idx < len(lst) else None
 
@@ -110,7 +114,7 @@ def deg_diff(a: float, b: float) -> float:
     d = abs(a - b) % 360
     return min(d, 360 - d)
 
-def compass(deg):
+def compass(deg: float | None) -> str:
     if deg is None: return '—'
     return DIR_NAMES[round(deg / 22.5) % 16]
 
@@ -139,7 +143,7 @@ def _get(url: str, label: str) -> dict:
             last_err = e
             if attempt < RETRIES:
                 time.sleep(RETRY_DELAY)
-    print(f'  ⚠  {label} failed: {last_err}', file=sys.stderr)
+    log.error("%s failed: %s", label, last_err)
     return {}
 
 def fetch_spot(lat: float, lon: float) -> tuple[dict, dict, dict]:
@@ -681,7 +685,7 @@ def generate_full_html(all_spot_data: list[dict], keelung_records: list = None) 
 
 
 # ── Main ───────────────────────────────────────────────────────────────────
-def main():
+def main() -> None:
     ap = argparse.ArgumentParser(description='Taiwan surf forecast for email')
     ap.add_argument('--output', default='surf_forecast.html',
                     help='Full web-app HTML (default: surf_forecast.html)')
@@ -690,31 +694,32 @@ def main():
     args = ap.parse_args()
 
     # ── Fetch Keelung sailing data (for daily planner) ─────────────────────
-    print(f'  Fetching Keelung sailing (for daily planner) …', flush=True)
+    log.info("Fetching Keelung sailing (for daily planner) …")
     ec_k, gfs_k, mar_k = fetch_spot(KEELUNG['lat'], KEELUNG['lon'])
     keelung_records = process_spot(ec_k, gfs_k, mar_k)
-    print(f'    → {len(keelung_records)} timesteps', flush=True)
+    log.info("  → %d timesteps", len(keelung_records))
 
     # ── Fetch each surf spot ────────────────────────────────────────────────
     all_spot_data = []
     for spot in SPOTS:
-        print(f'  Fetching {spot["name"]} …', flush=True)
+        log.info("Fetching %s …", spot["name"])
         ec, gfs, mar = fetch_spot(spot['lat'], spot['lon'])
         records      = process_spot(ec, gfs, mar)
-        print(f'    → {len(records)} timesteps', flush=True)
+        log.info("  → %d timesteps", len(records))
         all_spot_data.append({'spot': spot, 'records': records})
 
     # Full web-app version (phone drill-down)
     html_full = generate_full_html(all_spot_data, keelung_records=keelung_records)
     with open(args.output, 'w', encoding='utf-8') as f:
         f.write(html_full)
-    print(f'  ✅ Wrote {args.output} ({len(html_full):,} chars)', flush=True)
+    log.info("Wrote %s (%s chars)", args.output, f"{len(html_full):,}")
 
     # Simple email summary
     html_email = generate_html(all_spot_data, keelung_records=keelung_records)
     with open(args.email_output, 'w', encoding='utf-8') as f:
         f.write(html_email)
-    print(f'  ✅ Wrote {args.email_output} ({len(html_email):,} chars)', flush=True)
+    log.info("Wrote %s (%s chars)", args.email_output, f"{len(html_email):,}")
 
 if __name__ == '__main__':
+    setup_logging()
     main()

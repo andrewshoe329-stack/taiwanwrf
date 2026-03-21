@@ -33,6 +33,7 @@ Usage
 
 import argparse
 import json
+import logging
 import os
 import re
 import sys
@@ -43,7 +44,9 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from config import KEELUNG_LAT, KEELUNG_LON
+from config import KEELUNG_LAT, KEELUNG_LON, setup_logging
+
+log = logging.getLogger(__name__)
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
@@ -77,7 +80,7 @@ WAVE_VARS = [
 
 COMPASS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW']
 
-def _deg_to_compass(deg):
+def _deg_to_compass(deg: float | None) -> str:
     if deg is None:
         return '—'
     return COMPASS[round(deg / 22.5) % 16]
@@ -111,7 +114,7 @@ def fetch_ecmwf_wave() -> dict:
         "forecast_days": 7,   # int, not string
     }
     url = MARINE_API_URL + "?" + urllib.parse.urlencode(params)
-    print("  Fetching ECMWF WAM wave from Open-Meteo marine …", flush=True)
+    log.info("Fetching ECMWF WAM wave from Open-Meteo marine …")
     last_exc: Exception = RuntimeError("no attempts made")
     for attempt in range(1, _FETCH_RETRIES + 1):
         try:
@@ -120,8 +123,8 @@ def fetch_ecmwf_wave() -> dict:
         except urllib.error.URLError as e:
             last_exc = e
             if attempt < _FETCH_RETRIES:
-                print(f"  ↻  Request failed ({e}); retry {attempt}/{_FETCH_RETRIES} "
-                      f"in {_FETCH_RETRY_DELAY}s …", file=sys.stderr)
+                log.warning("Request failed (%s); retry %d/%d in %ds …",
+                            e, attempt, _FETCH_RETRIES, _FETCH_RETRY_DELAY)
                 time.sleep(_FETCH_RETRY_DELAY)
     raise RuntimeError(
         f"Open-Meteo marine request failed after {_FETCH_RETRIES} attempts: {last_exc}"
@@ -137,7 +140,7 @@ def _norm_utc(iso: str) -> str:
     return iso
 
 
-def process_ecmwf_wave(raw: dict) -> tuple:
+def process_ecmwf_wave(raw: dict) -> tuple[dict, list[dict]]:
     """Convert Open-Meteo hourly marine response to 6-hourly records."""
     h     = raw.get("hourly", {})
     times = h.get("time", [])
@@ -199,7 +202,7 @@ def probe_cwa_wave_model(model_id: str) -> dict | None:
     JSON sidecar.  Returns run-info dict if found, None otherwise.
     """
     url = f"{CWA_S3_BASE}/{model_id}-000.json"
-    print(f"  Probing CWA S3 for wave model {model_id} …", flush=True)
+    log.info("Probing CWA S3 for wave model %s …", model_id)
     try:
         with urllib.request.urlopen(url, timeout=15) as r:
             raw = json.load(r)
@@ -207,10 +210,10 @@ def probe_cwa_wave_model(model_id: str) -> dict | None:
         init_dt = datetime.strptime(
             info["InitialTime"], "%Y%m%d%H%M"
         ).replace(tzinfo=timezone.utc)
-        print(f"  ✓  Found {model_id} — init {init_dt.isoformat()}")
+        log.info("Found %s — init %s", model_id, init_dt.isoformat())
         return {"model_id": model_id, "init_time": init_dt}
     except Exception as e:
-        print(f"  ✗  {model_id} not found / not parseable: {e}")
+        log.warning("%s not found / not parseable: %s", model_id, e)
         return None
 
 
@@ -220,7 +223,7 @@ def _download_file(url: str, dest: Path) -> None:
         dest.write_bytes(resp.read())
 
 
-def download_cwa_wave_grib(model_id: str, forecast_hours: list, outdir: Path) -> list:
+def download_cwa_wave_grib(model_id: str, forecast_hours: list[int], outdir: Path) -> list[Path]:
     """Download CWA wave GRIB2 files for the specified forecast hours."""
     outdir.mkdir(parents=True, exist_ok=True)
     paths = []
@@ -231,13 +234,13 @@ def download_cwa_wave_grib(model_id: str, forecast_hours: list, outdir: Path) ->
         if dest.exists():
             paths.append(dest)
             continue
-        print(f"  ⬇  {fname} …", flush=True)
+        log.info("Downloading %s …", fname)
         try:
             _download_file(url, dest)
             paths.append(dest)
-            print(f"  ✓  {fname}  ({dest.stat().st_size/1e6:.1f} MB)")
+            log.info("%s  (%.1f MB)", fname, dest.stat().st_size / 1e6)
         except Exception as e:
-            print(f"  ⚠  Failed to download {fname}: {e}")
+            log.warning("Failed to download %s: %s", fname, e)
     return paths
 
 
@@ -246,7 +249,7 @@ def list_wave_vars(grib_path: Path) -> None:
     try:
         import eccodes as ec
     except ImportError:
-        print("  eccodes not available — install with: pip install eccodes")
+        log.error("eccodes not available — install with: pip install eccodes")
         return
 
     seen = set()
@@ -263,9 +266,9 @@ def list_wave_vars(grib_path: Path) -> None:
                 )
                 if key not in seen:
                     seen.add(key)
-                    print(f"  shortName={key[0]:<12}  typeOfLevel={key[1]:<20}  level={key[2]}")
+                    log.info("  shortName=%-12s  typeOfLevel=%-20s  level=%s", key[0], key[1], key[2])
             except Exception as e:
-                print(f"  ⚠  Skipping GRIB message: {e}", file=sys.stderr)
+                log.warning("Skipping GRIB message: %s", e)
             finally:
                 ec.codes_release(msg)
 
@@ -276,7 +279,7 @@ def read_wave_point(grib_path: Path, lat: float, lon: float) -> dict:
         import eccodes as ec
         import numpy as np
     except ImportError:
-        print("  ⚠  eccodes/numpy not available — cannot read CWA wave GRIB2")
+        log.warning("eccodes/numpy not available — cannot read CWA wave GRIB2")
         return {}
 
     # Build shortName → [(tol_filter, level_filter, key)] map
@@ -331,7 +334,7 @@ def read_wave_point(grib_path: Path, lat: float, lon: float) -> dict:
                 raw[matched_key] = float(vals[j, i])
 
             except Exception as e:
-                print(f"  ⚠  Skipping GRIB message in read_wave_point: {e}", file=sys.stderr)
+                log.warning("Skipping GRIB message in read_wave_point: %s", e)
             finally:
                 ec.codes_release(msg)
 
@@ -354,7 +357,7 @@ def extract_cwa_wave_forecast(model_id: str, run_info: dict,
         fh         = int(m.group(1))
         valid_time = init_time + timedelta(hours=fh)
 
-        print(f"    CWA wave F{fh:03d} …", flush=True)
+        log.info("  CWA wave F%03d …", fh)
         raw = read_wave_point(grb, KEELUNG_LAT, KEELUNG_LON)
         if not raw:
             continue
@@ -400,10 +403,10 @@ def main():
     try:
         ecmwf_raw = fetch_ecmwf_wave()
     except RuntimeError as e:
-        print(f"  ✗  {e}", file=sys.stderr)
+        log.error("%s", e)
         sys.exit(1)
     ecmwf_meta, ecmwf_recs = process_ecmwf_wave(ecmwf_raw)
-    print(f"  ✓  ECMWF WAM: {len(ecmwf_recs)} 6-hourly records")
+    log.info("ECMWF WAM: %d 6-hourly records", len(ecmwf_recs))
 
     result = {
         "ecmwf_wave": {"meta": ecmwf_meta, "records": ecmwf_recs},
@@ -419,7 +422,7 @@ def main():
             if args.list_wave_vars:
                 paths = download_cwa_wave_grib(args.cwa_wave_model, [0], outdir)
                 if paths:
-                    print(f"\nWave GRIB2 variables in {paths[0].name}:\n")
+                    log.info("Wave GRIB2 variables in %s:", paths[0].name)
                     list_wave_vars(paths[0])
                 return
 
@@ -428,15 +431,15 @@ def main():
             )
             if cwa_recs:
                 result["cwa_wave"] = {"meta": cwa_meta, "records": cwa_recs}
-                print(f"  ✓  CWA wave: {len(cwa_recs)} records")
+                log.info("CWA wave: %d records", len(cwa_recs))
             else:
-                print("  ⚠  CWA wave: no records extracted "
-                      "(run --list-wave-vars to diagnose GRIB2 variable names)")
+                log.warning("CWA wave: no records extracted "
+                            "(run --list-wave-vars to diagnose GRIB2 variable names)")
 
     # ── Write output ──────────────────────────────────────────────────────────
     out = Path(args.output)
     out.write_text(json.dumps(result, indent=2))
-    print(f"  📊  Wave data → {out}  ({len(ecmwf_recs)} ECMWF steps)")
+    log.info("Wave data → %s  (%d ECMWF steps)", out, len(ecmwf_recs))
 
     gha = os.environ.get("GITHUB_OUTPUT")
     if gha:
@@ -445,4 +448,5 @@ def main():
 
 
 if __name__ == "__main__":
+    setup_logging()
     main()

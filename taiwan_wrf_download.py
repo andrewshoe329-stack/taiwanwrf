@@ -39,6 +39,7 @@ Subsetting requirements (optional — only needed for --keelung)
 
 import argparse
 import json
+import logging
 import math
 import os
 import sys
@@ -74,7 +75,9 @@ MODELS = {
 DEFAULT_MODEL = "M-A0064"
 FORECAST_INTERVAL = 6   # hours between files
 
-from config import KEELUNG_LAT, KEELUNG_LON  # Keelung, Taiwan
+from config import KEELUNG_LAT, KEELUNG_LON, setup_logging  # Keelung, Taiwan
+
+log = logging.getLogger(__name__)
 DEFAULT_RADIUS_NM = 50
 
 # ── Geometry helpers ─────────────────────────────────────────────────────────
@@ -108,14 +111,13 @@ def bbox_contains_point(bbox: dict, lat: float, lon: float) -> bool:
 
 # ── Thread safety ────────────────────────────────────────────────────────────
 
-_print_lock = threading.Lock()   # serialise console output across threads
 # Note: no global eccodes lock — each thread uses its own independent file
 # handles and GRIB message objects, so concurrent subsetting is safe.
 
 
 def _log(msg: str) -> None:
-    with _print_lock:
-        print(msg, flush=True)
+    """Thread-safe log wrapper (logging module is already thread-safe)."""
+    log.info(msg)
 
 
 # ── Network helpers ──────────────────────────────────────────────────────────
@@ -210,11 +212,10 @@ def subset_grib2(src: Path, dst: Path, bbox: dict) -> Path:
     except ImportError:
         pass
 
-    print(
-        "    ⚠  No subsetting library found.\n"
-        "       Full-domain file kept. To enable subsetting install:\n"
-        "         pip install eccodes        (GRIB2 output)\n"
-        "         pip install cfgrib xarray  (NetCDF fallback)"
+    log.warning(
+        "No subsetting library found. "
+        "Full-domain file kept. To enable subsetting install: "
+        "pip install eccodes (GRIB2 output) or pip install cfgrib xarray (NetCDF fallback)"
     )
     return src   # caller handles the fallback path
 
@@ -322,11 +323,11 @@ def _subset_eccodes(src: Path, dst: Path, bbox: dict, ec) -> Path:
                 n_out += 1
 
             except Exception as e:
-                print(f"\n    ⚠  Skipped message ({type(e).__name__}): {e}")
+                log.warning("Skipped message (%s): %s", type(e).__name__, e)
             finally:
                 ec.codes_release(msg)
 
-    print(f"    ✂  Subset: {n_out}/{n_in} messages written → {dst.name}")
+    log.info("Subset: %d/%d messages written → %s", n_out, n_in, dst.name)
     return dst
 
 
@@ -343,7 +344,7 @@ def _subset_cfgrib(src: Path, dst: Path, bbox: dict, cfgrib, xr) -> Path:
         )
         merged.append(sub)
     xr.merge(merged, compat="override").to_netcdf(dst)
-    print(f"    ✂  Saved NetCDF subset → {dst.name}")
+    log.info("Saved NetCDF subset → %s", dst.name)
     return dst
 
 
@@ -437,11 +438,11 @@ def run(
 
     # ── Header ────────────────────────────────────────────────────────────────
     sep = "─" * 62
-    print(f"\n{sep}")
-    print(f"  Taiwan WRF Downloader  ·  {MODELS[model_id]['name']}")
-    print(sep)
+    log.info(sep)
+    log.info("Taiwan WRF Downloader  ·  %s", MODELS[model_id]['name'])
+    log.info(sep)
 
-    print("\n  Fetching current model run info …")
+    log.info("Fetching current model run info …")
     run_info = get_run_info(model_id)
     init = run_info["init_time"]
 
@@ -458,28 +459,25 @@ def run(
     total_files = len(hours)
     approx_total_mb = total_files * MODELS[model_id]["approx_mb"]
 
-    print(f"  Model      : {model_id}  ({run_info['resolution']})")
-    print(f"  Init time  : {init.strftime('%Y-%m-%d %H:%M UTC')}  "
-          f"(local +8: {(init.hour+8)%24:02d}:00 CST)")
-    print(f"  Grid       : {run_info['grid_x']} × {run_info['grid_y']} pts")
-    print(f"  Forecasts  : {total_files} files  "
-          f"({hours[0]}h → {hours[-1]}h in {FORECAST_INTERVAL}h steps)")
-    print(f"  Est. size  : ~{approx_total_mb:,} MB total")
-    print(f"  Output dir : {outdir.resolve()}")
+    log.info("Model      : %s  (%s)", model_id, run_info['resolution'])
+    log.info("Init time  : %s  (local +8: %02d:00 CST)",
+             init.strftime('%Y-%m-%d %H:%M UTC'), (init.hour + 8) % 24)
+    log.info("Grid       : %s × %s pts", run_info['grid_x'], run_info['grid_y'])
+    log.info("Forecasts  : %d files  (%dh → %dh in %dh steps)",
+             total_files, hours[0], hours[-1], FORECAST_INTERVAL)
+    log.info("Est. size  : ~%s MB total", f"{approx_total_mb:,}")
+    log.info("Output dir : %s", outdir.resolve())
 
     if bbox:
-        print(
-            f"\n  ┌─ Keelung subset  ({radius_nm} nm radius) ──────────────────┐\n"
-            f"  │  Center : {KEELUNG_LAT}°N  {KEELUNG_LON}°E\n"
-            f"  │  Lat    : {bbox['lat_min']:.3f}° → {bbox['lat_max']:.3f}°N\n"
-            f"  │  Lon    : {bbox['lon_min']:.3f}° → {bbox['lon_max']:.3f}°E\n"
-            f"  └───────────────────────────────────────────────────────────┘"
-        )
+        log.info("Keelung subset  (%d nm radius)  Center: %.5f°N %.5f°E",
+                 radius_nm, KEELUNG_LAT, KEELUNG_LON)
+        log.info("  Lat: %.3f° → %.3f°N  Lon: %.3f° → %.3f°E",
+                 bbox['lat_min'], bbox['lat_max'], bbox['lon_min'], bbox['lon_max'])
         if keelung_only:
-            print("  (--keelung-only: full-domain files will be deleted after subsetting)")
+            log.info("(--keelung-only: full-domain files will be deleted after subsetting)")
 
-    print(f"  Workers    : {workers} parallel (download + subset)")
-    print(f"\n{sep}")
+    log.info("Workers    : %d parallel (download + subset)", workers)
+    log.info(sep)
 
     results = []
     with ThreadPoolExecutor(max_workers=workers) as pool:
@@ -507,12 +505,12 @@ def run(
         archive = _make_archive(results, outdir / archive_name)
 
     # ── Summary ───────────────────────────────────────────────────────────────
-    print(f"\n{sep}")
+    log.info(sep)
     total_size = sum(p.stat().st_size for p in results if p.exists()) / 1_048_576
-    print(f"  ✅  Done! {len(results)} files  ·  {total_size:.0f} MB on disk")
+    log.info("Done! %d files  ·  %.0f MB on disk", len(results), total_size)
     if archive and archive.exists():
         arc_mb = archive.stat().st_size / 1_048_576
-        print(f"  📦  Archive → {archive.name}  ({arc_mb:.1f} MB)")
+        log.info("Archive → %s  (%.1f MB)", archive.name, arc_mb)
 
         # Expose archive details to GitHub Actions via $GITHUB_OUTPUT so
         # downstream steps (rclone upload, email notification) can use them.
@@ -527,8 +525,8 @@ def run(
                 gho.write(f"rundir={outdir.resolve()}\n")
                 gho.write(f"init_utc={init.strftime('%Y-%m-%dT%H:00:00+00:00')}\n")
 
-    print(f"  📂  {outdir.resolve()}")
-    print(sep + "\n")
+    log.info("Output: %s", outdir.resolve())
+    log.info(sep)
     return results
 
 
@@ -622,7 +620,7 @@ Models available:
 
 
 def check_deps() -> None:
-    print("\n  Dependency check for GRIB2 subsetting:\n")
+    log.info("Dependency check for GRIB2 subsetting:")
     for pkg, label in [
         ("eccodes",  "eccodes        → GRIB2 output  (recommended)"),
         ("cfgrib",   "cfgrib         → GRIB2 reading  (NetCDF fallback)"),
@@ -631,12 +629,10 @@ def check_deps() -> None:
         try:
             mod = __import__(pkg)
             ver = getattr(mod, "__version__", "?")
-            print(f"    ✓  {label}  (v{ver})")
+            log.info("  ✓  %s  (v%s)", label, ver)
         except ImportError:
-            print(f"    ✗  {label}")
-    print()
-    print("  To install all at once:")
-    print("    pip install eccodes cfgrib xarray\n")
+            log.info("  ✗  %s", label)
+    log.info("To install all at once: pip install eccodes cfgrib xarray")
 
 
 def main() -> None:
@@ -648,10 +644,10 @@ def main() -> None:
         return
 
     if args.info:
-        print("\n  Fetching model run info …")
+        log.info("Fetching model run info …")
         info = get_run_info(args.model)
         info["init_time"] = info["init_time"].isoformat()
-        print(json.dumps(info, indent=4, ensure_ascii=False))
+        log.info("%s", json.dumps(info, indent=4, ensure_ascii=False))
         return
 
     # Subsetting is on by default; --full-domain disables it.
@@ -663,8 +659,7 @@ def main() -> None:
 
     bad = [h for h in hours if h not in all_hours]
     if bad:
-        print(f"  ✗  Invalid forecast hours: {bad}")
-        print(f"     Valid values: {all_hours}")
+        log.error("Invalid forecast hours: %s (valid: %s)", bad, all_hours)
         sys.exit(1)
 
     run(
@@ -680,4 +675,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    setup_logging()
     main()
