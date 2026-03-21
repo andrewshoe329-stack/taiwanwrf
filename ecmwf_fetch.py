@@ -23,10 +23,9 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-# ── Config ────────────────────────────────────────────────────────────────────
+from config import KEELUNG_LAT, KEELUNG_LON
 
-KEELUNG_LAT = 25.15589534977208
-KEELUNG_LON = 121.78782946186699
+# ── Config ────────────────────────────────────────────────────────────────────
 
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
 

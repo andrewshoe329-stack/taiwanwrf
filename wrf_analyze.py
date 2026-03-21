@@ -32,10 +32,7 @@ from datetime import datetime, timedelta, timezone
 
 import numpy as np
 
-# ── Target point ─────────────────────────────────────────────────────────────
-
-KEELUNG_LAT = 25.15589534977208
-KEELUNG_LON = 121.78782946186699
+from config import KEELUNG_LAT, KEELUNG_LON
 
 # ── GRIB2 variable matching ───────────────────────────────────────────────────
 # Priority-ordered list of (shortName_variants, typeOfLevel, level, output_key)
@@ -147,7 +144,7 @@ def list_vars(grib_path: Path) -> None:
                 lev = ec.codes_get(msg, 'level')
                 try:
                     pid = ec.codes_get(msg, 'paramId')
-                except Exception:
+                except (KeyError, ValueError):
                     pid = '?'
                 key = (sn, tol, lev)
                 if key not in seen:
@@ -245,7 +242,7 @@ def read_point(grib_path: Path, lat: float, lon: float) -> dict:
                         if units_str == 'm':
                             val *= 1000.0   # WMO standard: m → mm
                         # 'kg m**-2' == mm of liquid water, no conversion needed
-                    except Exception:
+                    except (KeyError, ValueError):
                         # Units key unavailable: fall back to a conservative
                         # heuristic — only convert if value looks like metres
                         # (i.e. plausibly < 0.5 m of rain in 6 h).
@@ -328,7 +325,7 @@ def extract_forecast(rundir: Path) -> tuple:
                     rec[key] = round(val, 2) if val is not None else None
                 else:
                     rec[key] = None
-            except Exception:
+            except (KeyError, ValueError, ZeroDivisionError):
                 rec[key] = None
 
         # Convert accumulated precip to 6-hourly incremental
@@ -520,7 +517,7 @@ def _daily_summary_html(
         try:
             cst_date = (datetime.fromisoformat(vt) + timedelta(hours=8)).strftime('%Y-%m-%d')
             day_buckets[cst_date].append(vt)
-        except Exception:
+        except (ValueError, TypeError):
             pass
 
     if not day_buckets:
@@ -591,7 +588,7 @@ def _daily_summary_html(
         # Format day label
         try:
             day_label = datetime.strptime(cst_date, '%Y-%m-%d').strftime('%a %-m/%-d')
-        except Exception:
+        except (ValueError, TypeError):
             day_label = cst_date
 
         # Source badge colours
@@ -708,7 +705,7 @@ def render_email_html(
         try:
             wave_init_str = (' &nbsp;·&nbsp; Wave: '
                 + datetime.fromisoformat(wave_meta['init_utc']).strftime('%m/%d %H:%M UTC'))
-        except Exception:
+        except (KeyError, ValueError, TypeError):
             pass
 
     # ── Helper: add CSS class to a _delta_cell() output string ───────────────
@@ -884,7 +881,7 @@ def render_unified_html(
             cst_str      = dt_c.strftime('%H:%M')
             cst_date_str = dt_c.strftime('%a %-d %b')
             cst_date_key = dt_c.strftime('%Y-%m-%d')
-        except Exception:
+        except (ValueError, TypeError):
             utc_str, cst_str = vt, ''
             cst_date_str = ''
             cst_date_key = vt[:10]

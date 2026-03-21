@@ -43,10 +43,9 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-# ── Config ────────────────────────────────────────────────────────────────────
+from config import KEELUNG_LAT, KEELUNG_LON
 
-KEELUNG_LAT = 25.15589534977208
-KEELUNG_LON = 121.78782946186699
+# ── Config ────────────────────────────────────────────────────────────────────
 
 MARINE_API_URL = "https://marine-api.open-meteo.com/v1/marine"
 CWA_S3_BASE    = "https://cwaopendata.s3.ap-northeast-1.amazonaws.com/Model"
