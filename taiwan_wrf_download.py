@@ -43,9 +43,7 @@ import logging
 import math
 import os
 import sys
-import shutil
 import tarfile
-import threading
 import time
 import urllib.request
 import urllib.error

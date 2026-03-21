@@ -9,7 +9,7 @@ Usage:
     python3 surf_forecast.py [--output surf_forecast.html]
 """
 
-import argparse, json, logging, sys, time, urllib.request, urllib.parse
+import argparse, json, logging, time, urllib.request, urllib.parse
 from datetime import datetime, timezone, timedelta
 
 from config import setup_logging
