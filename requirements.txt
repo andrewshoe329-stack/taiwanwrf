@@ -1,0 +1,5 @@
+eccodes
+numpy
+# Optional fallback for GRIB2 (used if eccodes Python bindings unavailable)
+# cfgrib
+# xarray

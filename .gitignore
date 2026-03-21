@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+wrf_downloads/
+wave_downloads/
+*.grb2
+*.nc
+*.tar.gz
+.env

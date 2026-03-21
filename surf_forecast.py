@@ -9,8 +9,12 @@ Usage:
     python3 surf_forecast.py [--output surf_forecast.html]
 """
 
-import argparse, json, sys, time, urllib.request, urllib.parse
+import argparse, json, logging, time, urllib.request, urllib.parse
 from datetime import datetime, timezone, timedelta
+
+from config import setup_logging
+
+log = logging.getLogger(__name__)
 
 # ── Surf spots ─────────────────────────────────────────────────────────────
 # opt_wind  : directions that are offshore / light & favourable
@@ -83,6 +87,19 @@ SPOTS = [
     },
 ]
 
+# ── Safe index access ─────────────────────────────────────────────────────
+def _safe_get(lst: list | None, idx: int) -> object:
+    """Return lst[idx] if in bounds, else None."""
+    return lst[idx] if lst and idx < len(lst) else None
+
+# ── Rating thresholds ─────────────────────────────────────────────────────
+MIN_SWELL_HEIGHT_M = 0.25   # below this → flat
+MAX_SWELL_HEIGHT_M = 4.5    # above this → dangerous
+MAX_WIND_KT        = 32     # above this → too windy
+LIGHT_WIND_KT      = 10     # below this → light wind bonus
+ONSHORE_WIND_KT    = 22     # above this → surf score penalty
+STRONG_WIND_KT     = 25     # above this → strong wind penalty
+
 # ── Direction helpers ──────────────────────────────────────────────────────
 DIR_DEG = {
     'N': 0, 'NNE': 22, 'NE': 45, 'ENE': 67,
@@ -97,7 +114,7 @@ def deg_diff(a: float, b: float) -> float:
     d = abs(a - b) % 360
     return min(d, 360 - d)
 
-def compass(deg):
+def compass(deg: float | None) -> str:
     if deg is None: return '—'
     return DIR_NAMES[round(deg / 22.5) % 16]
 
@@ -126,7 +143,7 @@ def _get(url: str, label: str) -> dict:
             last_err = e
             if attempt < RETRIES:
                 time.sleep(RETRY_DELAY)
-    print(f'  ⚠  {label} failed: {last_err}', file=sys.stderr)
+    log.error("%s failed: %s", label, last_err)
     return {}
 
 def fetch_spot(lat: float, lon: float) -> tuple[dict, dict, dict]:
@@ -168,10 +185,10 @@ def process_spot(ec: dict, gfs: dict, mar: dict) -> list[dict]:
         if i % 6 != 0:
             continue  # 6-hourly only
 
-        gust = eh.get('windgusts_10m', [None] * (i+1))[i]
+        gust = _safe_get(eh.get('windgusts_10m'), i)
         gi   = gfs_by_t.get(t)
         if gust is None and gi is not None:
-            gust = gh.get('windgusts_10m', [None] * (gi+1))[gi]
+            gust = _safe_get(gh.get('windgusts_10m'), gi)
 
         rain6h = sum(
             (eh.get('precipitation', [0]) + [0] * 10)[k]
@@ -182,12 +199,12 @@ def process_spot(ec: dict, gfs: dict, mar: dict) -> list[dict]:
         wv = {}
         if wi is not None:
             wv = {
-                'hs':    (mh.get('wave_height')         or [None] * (wi+1))[wi],
-                'tp':    (mh.get('wave_period')         or [None] * (wi+1))[wi],
-                'dir':   (mh.get('wave_direction')      or [None] * (wi+1))[wi],
-                'sw_hs': (mh.get('swell_wave_height')   or [None] * (wi+1))[wi],
-                'sw_tp': (mh.get('swell_wave_period')   or [None] * (wi+1))[wi],
-                'sw_dir':(mh.get('swell_wave_direction')or [None] * (wi+1))[wi],
+                'hs':    _safe_get(mh.get('wave_height'),          wi),
+                'tp':    _safe_get(mh.get('wave_period'),          wi),
+                'dir':   _safe_get(mh.get('wave_direction'),       wi),
+                'sw_hs': _safe_get(mh.get('swell_wave_height'),    wi),
+                'sw_tp': _safe_get(mh.get('swell_wave_period'),    wi),
+                'sw_dir':_safe_get(mh.get('swell_wave_direction'), wi),
             }
 
         dt_utc = datetime.fromisoformat(t.replace('Z', '+00:00')).replace(tzinfo=timezone.utc)
@@ -197,8 +214,8 @@ def process_spot(ec: dict, gfs: dict, mar: dict) -> list[dict]:
             'dt_utc': dt_utc,
             'dt_cst': dt_cst,
             'dk':     dt_cst.strftime('%Y-%m-%d'),
-            'wind':   (eh.get('windspeed_10m')    or [None] * (i+1))[i],
-            'w_dir':  (eh.get('winddirection_10m')or [None] * (i+1))[i],
+            'wind':   _safe_get(eh.get('windspeed_10m'),     i),
+            'w_dir':  _safe_get(eh.get('winddirection_10m'), i),
             'gust':   gust,
             'rain6h': rain6h,
             **wv,
@@ -224,11 +241,11 @@ def day_rating(day_recs: list, spot: dict) -> dict:
     max_sw_hs   = max((r.get('sw_hs') or 0) for r in day_recs)
     max_wind_kt = max((r.get('wind')  or 0) for r in day_recs)
 
-    if max_sw_hs < 0.25:
+    if max_sw_hs < MIN_SWELL_HEIGHT_M:
         return {'label': 'Flat',      'emoji': '😴', 'bg': '#1a2236', 'col': '#475569',
                 'best_sw_hs': max_sw_hs, 'best_sw_tp': None, 'best_wind': max_wind_kt}
 
-    if max_sw_hs > 4.5 or max_wind_kt > 32:
+    if max_sw_hs > MAX_SWELL_HEIGHT_M or max_wind_kt > MAX_WIND_KT:
         return {'label': 'Dangerous', 'emoji': '🔴', 'bg': '#3d1515', 'col': '#fc8181',
                 'best_sw_hs': max_sw_hs, 'best_sw_tp': None, 'best_wind': max_wind_kt}
 
@@ -251,9 +268,9 @@ def day_rating(day_recs: list, spot: dict) -> dict:
         wq = dir_quality(w_dir, spot['opt_wind'])
         score += {'good': 3, 'ok': 1, 'poor': 0, 'unknown': 1}[wq]
         # Wind speed (light is better)
-        if wind_kt < 10:  score += 2
-        elif wind_kt < 15: score += 1
-        elif wind_kt > 22: score -= 2
+        if wind_kt < LIGHT_WIND_KT:   score += 2
+        elif wind_kt < 15:            score += 1
+        elif wind_kt > ONSHORE_WIND_KT: score -= 2
         # Swell height
         if 0.6 <= sw_hs <= 2.5: score += 3
         elif sw_hs > 0.3:        score += 1
@@ -668,7 +685,7 @@ def generate_full_html(all_spot_data: list[dict], keelung_records: list = None) 
 
 
 # ── Main ───────────────────────────────────────────────────────────────────
-def main():
+def main() -> None:
     ap = argparse.ArgumentParser(description='Taiwan surf forecast for email')
     ap.add_argument('--output', default='surf_forecast.html',
                     help='Full web-app HTML (default: surf_forecast.html)')
@@ -677,31 +694,32 @@ def main():
     args = ap.parse_args()
 
     # ── Fetch Keelung sailing data (for daily planner) ─────────────────────
-    print(f'  Fetching Keelung sailing (for daily planner) …', flush=True)
+    log.info("Fetching Keelung sailing (for daily planner) …")
     ec_k, gfs_k, mar_k = fetch_spot(KEELUNG['lat'], KEELUNG['lon'])
     keelung_records = process_spot(ec_k, gfs_k, mar_k)
-    print(f'    → {len(keelung_records)} timesteps', flush=True)
+    log.info("  → %d timesteps", len(keelung_records))
 
     # ── Fetch each surf spot ────────────────────────────────────────────────
     all_spot_data = []
     for spot in SPOTS:
-        print(f'  Fetching {spot["name"]} …', flush=True)
+        log.info("Fetching %s …", spot["name"])
         ec, gfs, mar = fetch_spot(spot['lat'], spot['lon'])
         records      = process_spot(ec, gfs, mar)
-        print(f'    → {len(records)} timesteps', flush=True)
+        log.info("  → %d timesteps", len(records))
         all_spot_data.append({'spot': spot, 'records': records})
 
     # Full web-app version (phone drill-down)
     html_full = generate_full_html(all_spot_data, keelung_records=keelung_records)
     with open(args.output, 'w', encoding='utf-8') as f:
         f.write(html_full)
-    print(f'  ✅ Wrote {args.output} ({len(html_full):,} chars)', flush=True)
+    log.info("Wrote %s (%s chars)", args.output, f"{len(html_full):,}")
 
     # Simple email summary
     html_email = generate_html(all_spot_data, keelung_records=keelung_records)
     with open(args.email_output, 'w', encoding='utf-8') as f:
         f.write(html_email)
-    print(f'  ✅ Wrote {args.email_output} ({len(html_email):,} chars)', flush=True)
+    log.info("Wrote %s (%s chars)", args.email_output, f"{len(html_email):,}")
 
 if __name__ == '__main__':
+    setup_logging()
     main()
