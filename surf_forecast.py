@@ -3,16 +3,17 @@
 surf_forecast.py — Taiwan surf spot 7-day forecast
 Fetches ECMWF + GFS wind/gust and ECMWF WAM swell data for each spot,
 evaluates conditions against each spot's optimal wind/swell directions,
-and writes surf_forecast.html for appending to the email report.
+and writes surf_forecast.html for the web app.
 
 Usage:
     python3 surf_forecast.py [--output surf_forecast.html]
 """
 
 import argparse, json, logging, time, urllib.request, urllib.parse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone, timedelta
 
-from config import setup_logging
+from config import KEELUNG_LAT, KEELUNG_LON, deg_to_compass, setup_logging
 
 log = logging.getLogger(__name__)
 
@@ -88,7 +89,7 @@ SPOTS = [
 ]
 
 # ── Safe index access ─────────────────────────────────────────────────────
-def _safe_get(lst: list | None, idx: int) -> object:
+def _safe_get(lst: list | None, idx: int) -> object | None:
     """Return lst[idx] if in bounds, else None."""
     return lst[idx] if lst and idx < len(lst) else None
 
@@ -107,18 +108,13 @@ DIR_DEG = {
     'S': 180, 'SSW': 202, 'SW': 225, 'WSW': 247,
     'W': 270, 'WNW': 292, 'NW': 315, 'NNW': 337,
 }
-DIR_NAMES = ['N','NNE','NE','ENE','E','ESE','SE','SSE',
-             'S','SSW','SW','WSW','W','WNW','NW','NNW']
-
 def deg_diff(a: float, b: float) -> float:
     d = abs(a - b) % 360
     return min(d, 360 - d)
 
-def compass(deg: float | None) -> str:
-    if deg is None: return '—'
-    return DIR_NAMES[round(deg / 22.5) % 16]
+compass = deg_to_compass  # local alias
 
-def dir_quality(actual_deg, optimal_dirs: list) -> str:
+def dir_quality(actual_deg: float | None, optimal_dirs: list[str]) -> str:
     """Returns 'good', 'ok', or 'poor' based on proximity to optimal directions."""
     if actual_deg is None:
         return 'unknown'
@@ -133,7 +129,7 @@ MARINE_API   = 'https://marine-api.open-meteo.com/v1/marine'
 RETRIES      = 3
 RETRY_DELAY  = 5
 
-def _get(url: str, label: str) -> dict:
+def _get(url: str, label: str) -> dict[str, object]:
     last_err = RuntimeError('no attempts')
     for attempt in range(1, RETRIES + 1):
         try:
@@ -146,7 +142,7 @@ def _get(url: str, label: str) -> dict:
     log.error("%s failed: %s", label, last_err)
     return {}
 
-def fetch_spot(lat: float, lon: float) -> tuple[dict, dict, dict]:
+def fetch_spot(lat: float, lon: float) -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
     common = {
         'latitude': lat, 'longitude': lon,
         'timeformat': 'iso8601', 'forecast_days': 7, 'timezone': 'UTC',
@@ -172,7 +168,7 @@ def fetch_spot(lat: float, lon: float) -> tuple[dict, dict, dict]:
     return ec, gfs, mar
 
 # ── Data processing ────────────────────────────────────────────────────────
-def process_spot(ec: dict, gfs: dict, mar: dict) -> list[dict]:
+def process_spot(ec: dict, gfs: dict, mar: dict) -> list[dict[str, object]]:
     eh = ec.get('hourly', {})
     gh = gfs.get('hourly', {})
     mh = mar.get('hourly', {})
@@ -182,16 +178,23 @@ def process_spot(ec: dict, gfs: dict, mar: dict) -> list[dict]:
 
     records = []
     for i, t in enumerate(eh.get('time', [])):
-        if i % 6 != 0:
-            continue  # 6-hourly only
+        # Filter to 6-hourly timestamps by checking the actual hour,
+        # not the index — robust if the API response doesn't start at 00:00.
+        try:
+            _hour = int(t[11:13]) if len(t) >= 13 else -1
+        except (ValueError, TypeError):
+            _hour = -1
+        if _hour % 6 != 0:
+            continue
 
         gust = _safe_get(eh.get('windgusts_10m'), i)
         gi   = gfs_by_t.get(t)
         if gust is None and gi is not None:
             gust = _safe_get(gh.get('windgusts_10m'), gi)
 
+        _precip = eh.get('precipitation', [])
         rain6h = sum(
-            (eh.get('precipitation', [0]) + [0] * 10)[k]
+            (_precip[k] or 0) if k < len(_precip) else 0
             for k in range(max(0, i - 5), i + 1)
         )
 
@@ -223,13 +226,13 @@ def process_spot(ec: dict, gfs: dict, mar: dict) -> list[dict]:
     return records
 
 # ── Sailing location (for daily planner) ───────────────────────────────────
-KEELUNG = {'lat': 25.128, 'lon': 121.740, 'name': 'Keelung'}
+KEELUNG = {'lat': KEELUNG_LAT, 'lon': KEELUNG_LON, 'name': 'Keelung'}
 
 # ── Condition scoring ──────────────────────────────────────────────────────
-WKDAY = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+WKDAY = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 MONTH = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
-def day_rating(day_recs: list, spot: dict) -> dict:
+def day_rating(day_recs: list[dict], spot: dict) -> dict[str, object]:
     """
     Evaluate the best conditions available during the day for this spot.
     Returns dict with: label, emoji, bg, col, best_hs, best_period, best_wind.
@@ -290,7 +293,7 @@ def day_rating(day_recs: list, spot: dict) -> dict:
     else:                  return {'label': 'Poor',     'emoji': '🔴', 'bg': '#3d1515', 'col': '#fc8181', 'best_sw_hs': br.get('sw_hs'), 'best_sw_tp': br.get('sw_tp'), 'best_wind': br.get('wind')}
 
 
-def sail_day_rating(day_recs: list) -> dict:
+def sail_day_rating(day_recs: list[dict]) -> dict[str, object]:
     """Evaluate daily sailing conditions at Keelung."""
     if not day_recs:
         return {'label': '—',          'emoji': '❓', 'bg': '#1a2236', 'col': '#475569'}
@@ -479,12 +482,15 @@ CSS = """
 }
 /* ── Mobile responsiveness ─────────────────────────────────── */
 @media (max-width: 600px) {
-  .surf-section { padding: 10px; font-size: 13px; }
-  .matrix-table th, .matrix-table td { padding: 4px 5px; font-size: 10px; }
-  .matrix-table td.spot-name { white-space: normal; }
-  .detail-table th, .detail-table td { padding: 3px 4px; font-size: 10px; }
+  .surf-section { padding: 8px; font-size: 12px; }
+  .matrix-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .matrix-table th, .matrix-table td { padding: 3px 4px; font-size: 9px; }
+  .matrix-table td.spot-name { white-space: normal; min-width: 80px !important; }
+  .detail-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .detail-table th, .detail-table td { padding: 2px 3px; font-size: 9px; }
   .detail-header { font-size: 12px; }
   .surf-nav { font-size: 11px; padding: 5px 8px; }
+  .surf-nav a { padding: 4px 10px; }  /* bigger touch targets */
 }
 /* ── Print-friendly overrides ──────────────────────────────── */
 @media print {
@@ -520,7 +526,7 @@ def _hs_cls(hs, is_swell=True):
     if hs < 0.3: return 'c-muted'
     return ''
 
-def generate_html(all_spot_data: list[dict], keelung_records: list = None) -> str:
+def _generate_planner_html(all_spot_data: list[dict], keelung_records: list = None) -> str:
     """
     all_spot_data:    list of { 'spot': spot_dict, 'records': [record, ...] }
     keelung_records:  list of sailing records for Keelung (optional, for planner)
@@ -531,7 +537,7 @@ def generate_html(all_spot_data: list[dict], keelung_records: list = None) -> st
     # Collect all day keys across all spots
     all_dks = sorted({r['dk'] for sd in all_spot_data for r in sd['records']})
 
-    # Email version: use inline styles (Gmail strips <style> blocks)
+    # Planner table uses inline styles for maximum compatibility
     _S = 'font-family:Arial,Helvetica Neue,sans-serif'
     _TH = f'background:#1e3a5f;color:#7db8f0;padding:6px 10px;font-size:11px;text-align:center;white-space:nowrap;border:1px solid #2d3f5a;line-height:1.4'
     _TD = f'padding:6px 10px;text-align:center;border:1px solid #1e293b;font-size:12px;white-space:nowrap;line-height:1.4'
@@ -616,29 +622,31 @@ def generate_html(all_spot_data: list[dict], keelung_records: list = None) -> st
 
 def generate_full_html(all_spot_data: list[dict], keelung_records: list = None) -> str:
     """
-    Full web-app version: Daily Activity Planner + 7-spot rating matrix
-    + per-spot hourly detail tables + legend.  Used for the phone web app.
-    generate_html() produces the compact email-only summary.
+    Full HTML: Daily Activity Planner + 7-spot rating matrix
+    + per-spot hourly detail tables + legend.
     """
-    # Start with the email summary (planner table)
-    html = generate_html(all_spot_data, keelung_records=keelung_records)
-
-    # Strip the closing </div> (surf-section) so we can append more content
-    if html.endswith('</div>\n'):
-        html = html[:-len('</div>\n')]
+    # Start with the planner table, then strip the closing </div>
+    # (surf-section wrapper) so we can append matrix + detail sections.
+    html = _generate_planner_html(all_spot_data, keelung_records=keelung_records)
+    html = html.rstrip()
+    if html.endswith('</div>'):
+        html = html[:-len('</div>')] + '\n'
 
     now_cst = datetime.now(timezone.utc) + timedelta(hours=8)
     all_dks = sorted({r['dk'] for sd in all_spot_data for r in sd['records']})
 
+    # ── Skip navigation (accessibility) ─────────────────────────────────
+    html += '<a href="#matrix" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;color:#93c5fd" class="skip-nav">Skip to forecast overview</a>\n'
+
     # ── Sticky navigation bar ──────────────────────────────────────────────
-    html += '<div class="surf-nav">'
-    html += '<a href="#planner">Planner</a><span class="sep">·</span>'
+    html += '<nav class="surf-nav" aria-label="Surf spot navigation">'
+    html += '<a href="#planner">Planner</a><span class="sep" aria-hidden="true">·</span>'
     html += '<a href="#matrix">Overview</a>'
     for sd in all_spot_data:
         sid = sd['spot']['id']
         short = sd['spot']['name'].split()[0]
-        html += f'<span class="sep">·</span><a href="#spot-{sid}">{short}</a>'
-    html += '</div>\n'
+        html += f'<span class="sep" aria-hidden="true">·</span><a href="#spot-{sid}">{short}</a>'
+    html += '</nav>\n'
 
     # ── Rating matrix ──────────────────────────────────────────────────────
     html += '<div id="matrix" style="overflow-x:auto">\n'
@@ -768,39 +776,46 @@ def generate_full_html(all_spot_data: list[dict], keelung_records: list = None) 
 
 # ── Main ───────────────────────────────────────────────────────────────────
 def main() -> None:
-    ap = argparse.ArgumentParser(description='Taiwan surf forecast for email')
+    ap = argparse.ArgumentParser(description='Taiwan surf forecast')
     ap.add_argument('--output', default='surf_forecast.html',
-                    help='Full web-app HTML (default: surf_forecast.html)')
-    ap.add_argument('--email-output', default='surf_forecast_email.html',
-                    help='Simple email summary HTML (default: surf_forecast_email.html)')
+                    help='Output HTML path (default: surf_forecast.html)')
     args = ap.parse_args()
 
-    # ── Fetch Keelung sailing data (for daily planner) ─────────────────────
-    log.info("Fetching Keelung sailing (for daily planner) …")
-    ec_k, gfs_k, mar_k = fetch_spot(KEELUNG['lat'], KEELUNG['lon'])
-    keelung_records = process_spot(ec_k, gfs_k, mar_k)
-    log.info("  → %d timesteps", len(keelung_records))
+    # ── Fetch all spots in parallel (Keelung sailing + 7 surf spots) ─────
+    def _fetch_and_process(spot_entry):
+        lat, lon = spot_entry['lat'], spot_entry['lon']
+        name = spot_entry.get('name', 'Keelung')
+        log.info("Fetching %s …", name)
+        ec, gfs, mar = fetch_spot(lat, lon)
+        records = process_spot(ec, gfs, mar)
+        log.info("  %s → %d timesteps", name, len(records))
+        return spot_entry, records
 
-    # ── Fetch each surf spot ────────────────────────────────────────────────
+    all_entries = [{'lat': KEELUNG['lat'], 'lon': KEELUNG['lon'],
+                    'name': 'Keelung (sailing)', '_is_keelung': True}]
+    all_entries += [{'_is_keelung': False, **s} for s in SPOTS]
+
+    keelung_records = []
     all_spot_data = []
-    for spot in SPOTS:
-        log.info("Fetching %s …", spot["name"])
-        ec, gfs, mar = fetch_spot(spot['lat'], spot['lon'])
-        records      = process_spot(ec, gfs, mar)
-        log.info("  → %d timesteps", len(records))
-        all_spot_data.append({'spot': spot, 'records': records})
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        futures = {pool.submit(_fetch_and_process, e): e for e in all_entries}
+        for future in as_completed(futures):
+            entry, records = future.result()
+            if entry.get('_is_keelung'):
+                keelung_records = records
+            else:
+                # Reconstruct the original spot dict (without internal keys)
+                spot = {k: v for k, v in entry.items() if not k.startswith('_')}
+                all_spot_data.append({'spot': spot, 'records': records})
 
-    # Full web-app version (phone drill-down)
+    # Preserve original spot ordering
+    spot_order = {s['id']: i for i, s in enumerate(SPOTS)}
+    all_spot_data.sort(key=lambda d: spot_order.get(d['spot'].get('id'), 99))
+
     html_full = generate_full_html(all_spot_data, keelung_records=keelung_records)
     with open(args.output, 'w', encoding='utf-8') as f:
         f.write(html_full)
     log.info("Wrote %s (%s chars)", args.output, f"{len(html_full):,}")
-
-    # Simple email summary
-    html_email = generate_html(all_spot_data, keelung_records=keelung_records)
-    with open(args.email_output, 'w', encoding='utf-8') as f:
-        f.write(html_email)
-    log.info("Wrote %s (%s chars)", args.email_output, f"{len(html_email):,}")
 
 if __name__ == '__main__':
     setup_logging()

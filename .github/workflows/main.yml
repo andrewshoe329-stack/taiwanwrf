@@ -6,6 +6,10 @@ on:
     - cron: '45 0,6,12,18 * * *'
   workflow_dispatch:  # also allows manual trigger from GitHub UI
 
+concurrency:
+  group: wrf-pipeline
+  cancel-in-progress: true
+
 jobs:
   download-and-upload:
     runs-on: ubuntu-latest
@@ -33,14 +37,18 @@ jobs:
       # taiwan_wrf_download.py writes rundir + init_utc to GITHUB_OUTPUT directly;
       # the shell commands below add archive_path / archive_name / archive_size as
       # a belt-and-suspenders fallback (identical values, different key names).
+      # taiwan_wrf_download.py writes archive_name, archive_path, archive_size_mb,
+      # rundir, and init_utc to GITHUB_OUTPUT directly.  The grep below reads
+      # archive_path back from GITHUB_OUTPUT (since step outputs aren't available
+      # within the same step) to add the human-readable archive_size.
       - name: Download and subset WRF data
         id: download
         run: |
           python taiwan_wrf_download.py --keelung-only --workers 8
-          ARCHIVE=$(find wrf_downloads/ -name "*.tar.gz" | sort | tail -1)
-          echo "archive_path=$ARCHIVE"               >> "$GITHUB_OUTPUT"
-          echo "archive_name=$(basename "$ARCHIVE")"  >> "$GITHUB_OUTPUT"
-          echo "archive_size=$(du -sh "$ARCHIVE" | cut -f1)" >> "$GITHUB_OUTPUT"
+          ARCHIVE=$(grep '^archive_path=' "$GITHUB_OUTPUT" | tail -1 | cut -d= -f2-)
+          if [ -n "$ARCHIVE" ] && [ -f "$ARCHIVE" ]; then
+            echo "archive_size=$(du -sh "$ARCHIVE" | cut -f1)" >> "$GITHUB_OUTPUT"
+          fi
 
       # Configure rclone from the stored secret
       - name: Configure rclone
@@ -69,7 +77,7 @@ jobs:
       # ── Stale-run detection ───────────────────────────────────────────────────
       # Compare the CWA init_utc just downloaded against the one stored in the
       # previous summary.  If they match, the model hasn't published a new cycle
-      # yet — skip everything downstream so we don't send duplicate emails or
+      # yet — skip everything downstream so we don't re-deploy or
       # re-upload identical data.
       - name: Check for new CWA run
         id: stale_check
@@ -114,9 +122,17 @@ jobs:
           python wave_fetch.py --output wave_keelung.json
           echo "wave_json=wave_keelung.json" >> "$GITHUB_OUTPUT"
 
+      # ── Predict tides for Keelung harbour ─────────────────────────────────────
+      # Uses harmonic analysis (no API key needed). Produces tide_keelung.json.
+      - name: Predict tides
+        id: tide
+        if: steps.stale_check.outputs.is_new == 'true'
+        run: |
+          python tide_predict.py --output tide_keelung.json --days 7
+
       # ── Diagnostic: list GRIB2 variables in first subset file ────────────────
       # Captures the (shortName, typeOfLevel, level) inventory to a file so it
-      # can be included in the email.  Helps diagnose missing variables (gusts,
+      # can be included in the HTML output.  Helps diagnose missing variables (gusts,
       # rain, cloud, vis, CAPE) without having to dig through Actions logs.
       - name: List GRIB2 variables (diagnostic)
         id: grib_vars
@@ -131,7 +147,7 @@ jobs:
             echo "No keelung grb2 files found." | tee /tmp/grib_vars.txt
           fi
           # Wrap in an HTML <details> block and write to a temp file (not GITHUB_OUTPUT)
-          # so it can be cat'd into the email body without hitting output size limits.
+          # so it can be cat'd into the HTML output without hitting output size limits.
           {
             printf '<details style="margin-top:16px"><summary style="font-family:Arial,sans-serif;font-size:12px;color:#718096;cursor:pointer">🔍 GRIB2 variable inventory (click to expand)</summary>'
             printf '<pre style="font-family:monospace;font-size:11px;background:#f7fafc;border:1px solid #e2e8f0;border-radius:4px;padding:8px;overflow-x:auto;margin:4px 0">'
@@ -141,8 +157,8 @@ jobs:
 
       # ── Run GRIB2 point-forecast analysis ────────────────────────────────────
       # Reads the Keelung subset .grb2 files, extracts the point forecast,
-      # diffs against the previous run, and writes email_analysis.html.
-      # Appends: WRF vs ECMWF atmospheric comparison, and wave forecast section.
+      # diffs against the previous run, and writes forecast.html.
+      # Includes: WRF vs ECMWF atmospheric comparison, and wave forecast section.
       - name: Analyze Keelung forecast
         id: analyze
         if: steps.stale_check.outputs.is_new == 'true'
@@ -160,31 +176,28 @@ jobs:
           if [ -f wave_keelung.json ]; then
             WAVE_ARG="--wave-json wave_keelung.json"
           fi
+          TIDE_ARG=""
+          if [ -f tide_keelung.json ]; then
+            TIDE_ARG="--tide-json tide_keelung.json"
+          fi
           python wrf_analyze.py \
             --rundir "$RUNDIR" \
             $PREV_ARG \
             $ECMWF_ARG \
             $WAVE_ARG \
+            $TIDE_ARG \
             --output-json keelung_summary_new.json \
-            --output-html email_analysis.html \
-            --email-html  email_analysis_email.html
+            --output-html forecast.html
 
       # ── Generate surf forecast & daily planner ────────────────────────────────
       # Fetches ECMWF + marine data for all 7 surf spots plus Keelung sailing,
-      # writes surf_forecast.html, then appends it to email_analysis.html.
-      # Runs independently of the WRF GRIB analysis (Open-Meteo only).
+      # writes surf_forecast.html, then appends it to forecast.html.
       - name: Generate surf forecast
         id: surf
         if: steps.stale_check.outputs.is_new == 'true'
         run: |
-          # Full web-app version (both outputs combined into email_analysis.html for Drive/phone)
-          python surf_forecast.py \
-            --output surf_forecast.html \
-            --email-output surf_forecast_email.html
-          cat surf_forecast.html >> email_analysis.html
-
-          # Simple email version (compact summary only)
-          cat surf_forecast_email.html >> email_analysis_email.html
+          python surf_forecast.py --output surf_forecast.html
+          cat surf_forecast.html >> forecast.html
 
       # ── Generate AI forecast summary ──────────────────────────────────────────
       # Calls Anthropic API to produce a plain-English narrative from the
@@ -209,14 +222,10 @@ jobs:
             $WAVE_ARG \
             --output ai_summary.html
 
-          # Prepend AI summary to both HTML outputs (web + email)
-          if [ -s ai_summary.html ]; then
-            for f in email_analysis.html email_analysis_email.html; do
-              if [ -f "$f" ]; then
-                cat ai_summary.html "$f" > "${f}.tmp" && mv "${f}.tmp" "$f"
-              fi
-            done
-            echo "  ✅  AI summary prepended to HTML outputs"
+          # Prepend AI summary to the forecast HTML
+          if [ -s ai_summary.html ] && [ -f forecast.html ]; then
+            cat ai_summary.html forecast.html > forecast.html.tmp && mv forecast.html.tmp forecast.html
+            echo "  ✅  AI summary prepended to forecast HTML"
           else
             echo "  ⏭  No AI summary generated (API key missing or error)"
           fi
@@ -258,14 +267,23 @@ jobs:
           DRIVE_LINK="${{ steps.upload.outputs.drive_link }}"
           ARCHIVE_NAME="${{ steps.download.outputs.archive_name }}"
           ARCHIVE_SIZE="${{ steps.download.outputs.archive_size }}"
+          BUILD_UTC=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
           mkdir -p public
+          # PWA assets
+          cp pwa/manifest.json pwa/sw.js pwa/icon-192.png pwa/icon-512.png public/
           cat <<HEADER > public/index.html
           <!DOCTYPE html>
           <html lang="en">
           <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
+            <meta http-equiv="refresh" content="1800">
+            <meta name="theme-color" content="#0f172a">
+            <meta name="apple-mobile-web-app-capable" content="yes">
+            <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+            <link rel="manifest" href="/manifest.json">
+            <link rel="apple-touch-icon" href="/icon-192.png">
             <title>Taiwan Sail & Surf Forecast</title>
             <style>
               body { margin: 0; padding: 0; background: #0f172a; }
@@ -291,9 +309,41 @@ jobs:
                 font-size: 13px;
               }
               .download-bar a:hover { background: #3b5998; }
+              .timestamp-bar {
+                font-family: Arial, sans-serif;
+                background: #111827;
+                padding: 6px 16px;
+                font-size: 12px;
+                color: #64748b;
+                border-bottom: 1px solid #1e293b;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                flex-wrap: wrap;
+              }
+              .timestamp-bar .age { font-weight: 600; }
+              .age-fresh { color: #68d391; }
+              .age-stale { color: #fbd38d; }
+              .age-old   { color: #fc8181; }
             </style>
           </head>
           <body>
+          <div class="timestamp-bar">
+            <span>Last updated: <span id="ts">${BUILD_UTC}</span></span>
+            <span class="age" id="age"></span>
+          </div>
+          <script>
+          (function(){
+            var ts = new Date("${BUILD_UTC}");
+            var el = document.getElementById("age");
+            function update(){
+              var h = Math.round((Date.now() - ts.getTime()) / 3600000);
+              el.textContent = h < 1 ? "< 1h ago" : h + "h ago";
+              el.className = "age " + (h < 8 ? "age-fresh" : h < 24 ? "age-stale" : "age-old");
+            }
+            update(); setInterval(update, 60000);
+          })();
+          </script>
           HEADER
 
           # Add download bar if Drive link is available
@@ -306,7 +356,14 @@ jobs:
           DLBAR
           fi
 
-          cat email_analysis.html >> public/index.html
+          cat forecast.html >> public/index.html
+          cat <<'SWREG' >> public/index.html
+          <script>
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(function(){});
+          }
+          </script>
+          SWREG
           echo '</body></html>' >> public/index.html
 
       - name: Deploy to Vercel

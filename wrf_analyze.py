@@ -7,7 +7,7 @@ compare with the previous run (run-to-run model drift), and emit:
 
   --output-json  keelung_summary.json   machine-readable, stored on Drive
                                         so the next run can diff against it
-  --output-html  email_analysis.html    HTML fragment embedded in the email
+  --output-html  forecast.html          HTML fragment for the web app
 
 Usage:
   python wrf_analyze.py \\
@@ -15,7 +15,7 @@ Usage:
       [--prev-json keelung_summary_prev.json] \\
       [--ecmwf-json ecmwf_keelung.json] \\
       [--output-json keelung_summary.json] \\
-      [--output-html email_analysis.html] \\
+      [--output-html forecast.html] \\
       [--list-vars]           # diagnostic: list all GRIB2 variables in first file
 
 Requirements: eccodes, numpy  (already installed by the workflow)
@@ -33,7 +33,7 @@ from datetime import datetime, timedelta, timezone
 
 import numpy as np
 
-from config import KEELUNG_LAT, KEELUNG_LON, setup_logging
+from config import KEELUNG_LAT, KEELUNG_LON, COMPASS_NAMES, deg_to_compass, setup_logging
 
 log = logging.getLogger(__name__)
 
@@ -70,7 +70,7 @@ VARS = [
 # ── paramId fallback ──────────────────────────────────────────────────────────
 # Some CWA GRIB2 fields decode as shortName='unknown' because eccodes doesn't
 # have their local table entries.  Map paramId → output_key so they can still
-# be captured.  Populate this once you've seen the actual paramIds in the email
+# be captured.  Populate this once you've seen the actual paramIds in the
 # diagnostic (look for lines like:  shortName=unknown  paramId=<N>).
 #
 # Common NCEP WRF GRIB2 paramIds to try:
@@ -80,10 +80,10 @@ VARS = [
 #   59  → CAPE (J/kg)               → 'cape'
 #   20  → visibility (m)            → 'vis_m'
 #
-# Example — once you see "shortName=unknown  paramId=61" in the email, add:
+# Example — once you see "shortName=unknown  paramId=61" in the diagnostic, add:
 #   61: 'precip_raw',
 PARAMID_VARS: dict[int, str] = {
-    # Add entries here after the next email diagnostic shows actual paramIds.
+    # Add entries here after the next diagnostic shows actual paramIds.
     # e.g.:  61: 'precip_raw',
 }
 
@@ -101,16 +101,23 @@ DERIVED = {
     'cape':      ('J/kg',lambda d: d['cape']),
 }
 
-COMPASS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW']
+# Maps each DERIVED key to the raw keys it needs present before computing
+_NEEDED_RAW_KEYS: dict[str, list[str]] = {
+    'temp_c':    ['temp_k'],
+    'wind_kt':   ['u10', 'v10'],
+    'wind_dir':  ['u10', 'v10'],
+    'mslp_hpa':  ['mslp_pa'],
+    'precip_mm': ['precip_raw'],
+    'cloud_pct': ['cloud_raw'],
+    'vis_km':    ['vis_m'],
+    'gust_kt':   ['gust_ms'],
+    'cape':      ['cape'],
+}
 
 # Unicode arrows showing the direction the wind is blowing TOWARD
 # (opposite of the "from" direction stored in the GRIB2 wind_dir field).
 # 0° = FROM North → blows southward → ↓, 90° = FROM East → blows west → ←, etc.
 _WIND_ARROWS = ['↓', '↙', '←', '↖', '↑', '↗', '→', '↘']
-
-
-def deg_to_compass(deg: float) -> str:
-    return COMPASS[round(deg / 22.5) % 16]
 
 
 def _wind_arrow(deg: float) -> str:
@@ -160,7 +167,7 @@ def list_vars(grib_path: Path) -> None:
                 ec.codes_release(msg)
 
 
-def read_point(grib_path: Path, lat: float, lon: float) -> dict:
+def read_point(grib_path: Path, lat: float, lon: float) -> dict[str, float]:
     """
     Extract all configured variables at the nearest grid point.
     Returns a dict of raw values keyed by output_key.
@@ -195,7 +202,8 @@ def read_point(grib_path: Path, lat: float, lon: float) -> dict:
                                 if out_key not in raw:
                                     ni2 = ec.codes_get(msg, 'Ni')
                                     nj2 = ec.codes_get(msg, 'Nj')
-                                    ck2 = (ni2, nj2)
+                                    gt2 = ec.codes_get(msg, 'gridType')
+                                    ck2 = (gt2, ni2, nj2)
                                     if ck2 not in grid_cache:
                                         lt2 = ec.codes_get_array(msg, 'latitudes').reshape(nj2, ni2)
                                         ln2 = ec.codes_get_array(msg, 'longitudes').reshape(nj2, ni2)
@@ -226,7 +234,8 @@ def read_point(grib_path: Path, lat: float, lon: float) -> dict:
 
                 ni = ec.codes_get(msg, 'Ni')
                 nj = ec.codes_get(msg, 'Nj')
-                cache_key = (ni, nj)
+                grid_type = ec.codes_get(msg, 'gridType')
+                cache_key = (grid_type, ni, nj)
 
                 if cache_key not in grid_cache:
                     lats = ec.codes_get_array(msg, 'latitudes').reshape(nj, ni)
@@ -313,18 +322,7 @@ def extract_forecast(rundir: Path) -> tuple[dict, list[dict]]:
 
         for key, (unit, fn) in DERIVED.items():
             try:
-                needed_raw_keys = {
-                    'temp_c':    ['temp_k'],
-                    'wind_kt':   ['u10', 'v10'],
-                    'wind_dir':  ['u10', 'v10'],
-                    'mslp_hpa':  ['mslp_pa'],
-                    'precip_mm': ['precip_raw'],
-                    'cloud_pct': ['cloud_raw'],
-                    'vis_km':    ['vis_m'],
-                    'gust_kt':   ['gust_ms'],
-                    'cape':      ['cape'],
-                }
-                if all(k in raw for k in needed_raw_keys.get(key, [])):
+                if all(k in raw for k in _NEEDED_RAW_KEYS.get(key, [])):
                     val = fn(raw)
                     rec[key] = round(val, 2) if val is not None else None
                 else:
@@ -333,7 +331,10 @@ def extract_forecast(rundir: Path) -> tuple[dict, list[dict]]:
                 rec[key] = None
 
         # Convert accumulated precip to 6-hourly incremental
-        if rec.get('precip_mm') is not None and prev_precip_mm is not None:
+        if fh == 0:
+            # Analysis hour: no accumulation period yet
+            rec['precip_mm_6h'] = 0.0
+        elif rec.get('precip_mm') is not None and prev_precip_mm is not None:
             if rec['precip_mm'] >= prev_precip_mm:
                 rec['precip_mm_6h'] = round(rec['precip_mm'] - prev_precip_mm, 2)
             else:
@@ -453,13 +454,45 @@ def _delta_cell(d: float | None, thresh: float, positive_bad: bool = False) -> s
             f'color:{color};font-weight:500">{sign}{d}</td>')
 
 
-_WAVE_COMPASS = ['N','NNE','NE','ENE','E','ESE','SE','SSE',
-                 'S','SSW','SW','WSW','W','WNW','NW','NNW']
-
 def _wave_dir_str(deg: float | None) -> str:
-    if deg is None:
-        return '—'
-    return _WAVE_COMPASS[round(deg / 22.5) % 16]
+    return deg_to_compass(deg)
+
+
+_TD = 'padding:3px 5px;text-align:center'
+_EMPTY_TD = f'  <td style="{_TD};color:#475569">—</td>\n'
+
+
+def _td(content: str, bg: str = '', extra: str = '') -> str:
+    """Generate a styled <td> for the unified forecast table."""
+    bg_s = f';background:{bg}' if bg else ''
+    ex_s = f';{extra}' if extra else ''
+    return f'  <td style="{_TD}{bg_s}{ex_s}">{content}</td>\n'
+
+
+def _row_alerts(wind: float | None, gust: float | None,
+                hs: float | None, rain: float | None) -> tuple[str, str]:
+    """Return (alert_html, alert_bg) for a forecast row."""
+    alerts = []
+    if gust is not None and gust >= 34:
+        alerts.append('<span style="color:#fc8181;font-weight:700">Gale⚠</span>')
+    elif gust is not None and gust >= 28:
+        alerts.append('<span style="color:#fbd38d">g28+</span>')
+    if wind is not None and wind >= 34:
+        alerts.append('<span style="color:#fc8181;font-weight:700">B8+</span>')
+    elif wind is not None and wind >= 28:
+        alerts.append('<span style="color:#fbd38d">B7</span>')
+    elif wind is not None and wind >= 22:
+        alerts.append('<span style="color:#fbd38d">B6</span>')
+    if hs is not None and hs >= 2.5:
+        alerts.append('<span style="color:#93c5fd">🌊⚠</span>')
+    elif hs is not None and hs >= 1.5:
+        alerts.append('<span style="color:#93c5fd">🌊</span>')
+    if rain is not None and rain >= 10:
+        alerts.append('<span style="color:#93c5fd">🌧</span>')
+    alert_html = '&nbsp;'.join(alerts) if alerts else ''
+    alert_bg = ('#2d1515' if any('⚠' in a or 'Gale' in a for a in alerts)
+                else '#2d2200' if alerts else '')
+    return alert_html, alert_bg
 
 
 
@@ -510,6 +543,7 @@ def _daily_summary_html(
     ec_by_valid:  dict,
     wave_by_valid: dict,
     all_valids: list,
+    tide_data: dict | None = None,
 ) -> str:
     """
     Compact day-by-day summary cards (one per CST calendar day).
@@ -530,7 +564,7 @@ def _daily_summary_html(
     if not day_buckets:
         return ''
 
-    cards_html = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 14px">\n'
+    cards_html = '<div class="keelung-cards" style="display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 14px">\n'
 
     for cst_date in sorted(day_buckets):
         valids = day_buckets[cst_date]
@@ -643,6 +677,19 @@ def _daily_summary_html(
                 f'{cape_level} CAPE {max_cape:.0f} J/kg</div>\n'
             )
 
+        # Tide info for this day
+        tide_str = ''
+        if tide_data:
+            day_tides = [ex for ex in tide_data.get('extrema', [])
+                         if ex.get('cst', '').startswith(cst_date)]
+            if day_tides:
+                parts = []
+                for ex in day_tides[:4]:  # max 4 extrema per day
+                    arrow = '▲' if ex['type'] == 'high' else '▼'
+                    t_str = ex.get('cst', '')[-9:-4]  # "HH:MM" from "YYYY-MM-DD HH:MM CST"
+                    parts.append(f'{arrow}{t_str} {ex["height_m"]:.1f}m')
+                tide_str = ' '.join(parts)
+
         cards_html += (
             f'<div style="border:1px solid #2d3f5a;border-top:3px solid {card_border};'
             f'border-radius:5px;padding:7px 10px;min-width:120px;background:#111827;'
@@ -656,6 +703,7 @@ def _daily_summary_html(
             + f'  <div style="color:#94a3b8">💨 {wind_str}</div>\n'
             f'  <div style="color:#94a3b8">🌧️ {rain_str}</div>\n'
             f'  <div style="color:#94a3b8">🌡️ {temp_str}</div>\n'
+            + (f'  <div style="color:#7db8f0;font-size:0.85em">🌙 {tide_str}</div>\n' if tide_str else '')
             + cape_badge
             + f'  <div style="margin-top:4px">'
             f'<span style="background:{src_bg};color:{src_color};font-size:0.72em;'
@@ -669,20 +717,17 @@ def _daily_summary_html(
 
 # ── Unified table (all sources, JS-togglable column groups) ──────────────────
 
-def render_email_html(
+def _render_summary_html(
     meta: dict,
     records: list,
     prev_records: list,
     ecmwf_records: list,
     wave_data: dict | None,
+    tide_data: dict | None = None,
 ) -> str:
     """
-    Compact 7-day sailing summary for Keelung.
-
-    Emits:
-      - Daily summary cards (Good/Marginal/No-go) with wind, wave, rain, temp
-      - Alerts for significant hazards (gale, heavy rain, rough seas)
-      - Model shift note if prev run is available and drift is significant
+    Compact summary section: daily cards, alerts, model shift note.
+    Used as the header section of render_unified_html().
     """
     # ── Lookups ───────────────────────────────────────────────────────────────
     init_str = ''
@@ -723,10 +768,17 @@ def render_email_html(
     # HTML construction starts here
     # ═════════════════════════════════════════════════════════════════════════
     html = (
+        '<style>\n'
+        '@media (max-width: 700px) {\n'
+        '  .keelung-table { font-size: 10px !important; }\n'
+        '  .keelung-table th, .keelung-table td { padding: 2px 3px !important; }\n'
+        '  .keelung-cards > div { min-width: 100px !important; }\n'
+        '}\n'
+        '</style>\n'
         '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.4;'
         'background:#0f172a;color:#e2e8f0;padding:16px;border-radius:8px">\n'
         '<h3 style="margin:0 0 2px;font-size:15px;color:#93c5fd">\n'
-        f'  🌏 Keelung Unified Forecast\n'
+        f'  <span role="img" aria-label="Globe">🌏</span> Keelung Unified Forecast\n'
         f'  <span style="font-weight:normal;font-size:0.85em;color:#94a3b8">'
         f'&nbsp;{KEELUNG_LAT}°N {KEELUNG_LON}°E</span>\n'
         '</h3>\n'
@@ -737,7 +789,7 @@ def render_email_html(
     )
 
     # ── Daily summary cards ───────────────────────────────────────────────────
-    html += _daily_summary_html(wrf_by_valid, ec_by_valid, wave_by_valid, all_valids)
+    html += _daily_summary_html(wrf_by_valid, ec_by_valid, wave_by_valid, all_valids, tide_data)
 
 
     # ── Alerts (WRF primary; ECMWF fills in gust/rain/CAPE) ──────────────────
@@ -806,13 +858,13 @@ def render_unified_html(
     prev_records: list,
     ecmwf_records: list,
     wave_data: dict | None,
+    tide_data: dict | None = None,
 ) -> str:
     """
-    Full web-app version: daily summary cards + complete hourly table
+    Full web-app HTML: daily summary cards + complete hourly table
     (WRF + ECMWF IFS + wave columns) + WRF vs ECMWF agreement stats + legend.
-    render_email_html() produces the compact email-only summary.
     """
-    # Build lookups (same as render_email_html)
+    # Build lookups (same as _render_summary_html)
     prev_by_valid = {r['valid_utc']: r for r in (prev_records or []) if r.get('valid_utc')}
     has_prev = bool(prev_by_valid)
     ec_by_valid = {r['valid_utc']: r for r in (ecmwf_records or []) if r.get('valid_utc')}
@@ -825,9 +877,9 @@ def render_unified_html(
     wrf_by_valid = {r['valid_utc']: r for r in records if r.get('valid_utc')}
     all_valids = sorted(set(wrf_by_valid) | set(ec_by_valid) | set(wave_by_valid))
 
-    # Start with the email summary (header + daily cards + alerts + model shift),
+    # Start with the summary section (header + daily cards + alerts + model shift),
     # then strip its closing </div> so we can append the full table.
-    html = render_email_html(meta, records, prev_records, ecmwf_records, wave_data)
+    html = _render_summary_html(meta, records, prev_records, ecmwf_records, wave_data, tide_data)
     if html.endswith('</div>\n'):
         html = html[:-len('</div>\n')]
 
@@ -843,8 +895,9 @@ def render_unified_html(
     )
 
     # ── Table ─────────────────────────────────────────────────────────────────
-    html += '<div style="overflow-x:auto">\n'
-    html += '<table style="border-collapse:collapse;font-size:11.5px;white-space:nowrap">\n'
+    html += '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch">\n'
+    html += '<table class="keelung-table" style="border-collapse:collapse;font-size:11.5px;white-space:nowrap">\n'
+    html += '<caption style="caption-side:top;text-align:left;font-size:10px;color:#475569;margin-bottom:4px">6-hourly forecast detail — scroll horizontally on mobile</caption>\n'
     html += '<thead>\n'
 
     wrf_th  = 'background:#2c4a7c;color:#d0e0ff'
@@ -950,26 +1003,9 @@ def render_unified_html(
         _eff_gust = wg if wg is not None else eg
         _eff_rain = wr if wr is not None else er
         _eff_hs   = wav.get('wave_height') if wav else None
-        _row_alerts = []
-        if _eff_gust is not None and _eff_gust >= 34:
-            _row_alerts.append('<span style="color:#fc8181;font-weight:700">Gale⚠</span>')
-        elif _eff_gust is not None and _eff_gust >= 28:
-            _row_alerts.append('<span style="color:#fbd38d">g28+</span>')
-        if _eff_wind is not None and _eff_wind >= 34:
-            _row_alerts.append('<span style="color:#fc8181;font-weight:700">B8+</span>')
-        elif _eff_wind is not None and _eff_wind >= 28:
-            _row_alerts.append('<span style="color:#fbd38d">B7</span>')
-        elif _eff_wind is not None and _eff_wind >= 22:
-            _row_alerts.append('<span style="color:#fbd38d">B6</span>')
-        if _eff_hs is not None and _eff_hs >= 2.5:
-            _row_alerts.append('<span style="color:#93c5fd">🌊⚠</span>')
-        elif _eff_hs is not None and _eff_hs >= 1.5:
-            _row_alerts.append('<span style="color:#93c5fd">🌊</span>')
-        if _eff_rain is not None and _eff_rain >= 10:
-            _row_alerts.append('<span style="color:#93c5fd">🌧</span>')
-        _alert_html = '&nbsp;'.join(_row_alerts) if _row_alerts else ''
-        _alert_bg   = '#2d1515' if any('⚠' in a or 'Gale' in a for a in _row_alerts) else (
-                      '#2d2200' if _row_alerts else row_bg)
+        _alert_html, _alert_bg = _row_alerts(_eff_wind, _eff_gust, _eff_hs, _eff_rain)
+        if not _alert_bg:
+            _alert_bg = row_bg
 
         html += f'<tr style="background:{row_bg};{row_extra}">\n'
         html += (f'  <td style="padding:2px 5px;text-align:center;font-size:0.85em;'
@@ -1153,14 +1189,14 @@ def main() -> None:
                    help='Previous run summary JSON for delta comparison')
     p.add_argument('--output-json', default='keelung_summary.json',
                    help='Output summary JSON path (default: keelung_summary.json)')
-    p.add_argument('--output-html', default='email_analysis.html',
-                   help='Full web-app HTML path (default: email_analysis.html)')
-    p.add_argument('--email-html', default='email_analysis_email.html',
-                   help='Simple email summary HTML path (default: email_analysis_email.html)')
+    p.add_argument('--output-html', default='forecast.html',
+                   help='Output HTML path (default: forecast.html)')
     p.add_argument('--ecmwf-json',  default=None,
                    help='ECMWF IFS JSON produced by ecmwf_fetch.py (enables comparison table)')
     p.add_argument('--wave-json',   default=None,
-                   help='Wave JSON produced by wave_fetch.py (adds wave forecast section to email)')
+                   help='Wave JSON produced by wave_fetch.py (adds wave forecast section)')
+    p.add_argument('--tide-json',   default=None,
+                   help='Tide JSON produced by tide_predict.py (adds tide info to daily cards)')
     p.add_argument('--list-vars',   action='store_true',
                    help='Diagnostic: list all GRIB2 shortNames in the first file and exit')
     args = p.parse_args()
@@ -1241,18 +1277,23 @@ def main() -> None:
         except Exception as e:
             log.warning("Could not load wave JSON: %s", e)
 
+    # ── Load tide data ──────────────────────────────────────────────────────
+    tide_data = None
+    if args.tide_json and Path(args.tide_json).exists():
+        try:
+            with open(args.tide_json) as f:
+                tide_data = json.load(f)
+            n_extrema = len(tide_data.get('extrema', []))
+            log.info("Tide data: %d extrema", n_extrema)
+        except Exception as e:
+            log.warning("Could not load tide JSON: %s", e)
+
     # ── Write HTML ────────────────────────────────────────────────────────────
-    # Full web-app version (phone drill-down)
-    html_full = render_unified_html(meta, records, prev_records, ecmwf_records, wave_data)
+    html_full = render_unified_html(meta, records, prev_records, ecmwf_records, wave_data,
+                                    tide_data=tide_data)
     out_html = Path(args.output_html)
     out_html.write_text(html_full)
-    log.info("HTML (full)  → %s", out_html)
-
-    # Simple email summary
-    html_email = render_email_html(meta, records, prev_records, ecmwf_records, wave_data)
-    out_email_html = Path(args.email_html)
-    out_email_html.write_text(html_email)
-    log.info("HTML (email) → %s", out_email_html)
+    log.info("HTML → %s", out_html)
 
     # ── Expose to GitHub Actions ──────────────────────────────────────────────
     gha = os.environ.get('GITHUB_OUTPUT')

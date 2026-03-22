@@ -24,7 +24,7 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from config import KEELUNG_LAT, KEELUNG_LON, setup_logging
+from config import KEELUNG_LAT, KEELUNG_LON, norm_utc, setup_logging
 
 log = logging.getLogger(__name__)
 
@@ -114,19 +114,7 @@ def fetch_gfs_gust_vis_json() -> dict:
 
 # ── Process ───────────────────────────────────────────────────────────────────
 
-def _norm_utc(iso: str) -> str:
-    """
-    Normalise any ISO-8601 string to the same format wrf_analyze uses:
-    '2026-03-09T06:00:00+00:00'
-    Open-Meteo returns bare 'YYYY-MM-DDTHH:MM' with timezone=UTC, so we add
-    the explicit offset so string comparison with WRF valid_utc works directly.
-    """
-    iso = iso.strip()
-    if len(iso) == 16:               # YYYY-MM-DDTHH:MM
-        iso += ":00+00:00"
-    elif len(iso) == 19:             # YYYY-MM-DDTHH:MM:SS
-        iso += "+00:00"
-    return iso
+_norm_utc = norm_utc  # local alias for backward compatibility
 
 
 def process(raw: dict, raw_fill: dict | None = None) -> tuple[dict, list]:
@@ -186,7 +174,10 @@ def process(raw: dict, raw_fill: dict | None = None) -> tuple[dict, list]:
         if dt.hour % 6 != 0:
             continue
 
-        # Precipitation: sum hours [i-5 .. i] inclusive (6-hour window)
+        # Precipitation: sum hours [i-5 .. i] inclusive (6-hour window).
+        # Note: at i=0 (first record), the window is only 1 hour — this is
+        # inherent to the first available timestamp and matches WRF convention
+        # where F000 typically reports near-zero accumulation.
         precip_6h = sum(
             (safe(precip, j) or 0.0)
             for j in range(max(0, i - 5), i + 1)
@@ -217,8 +208,17 @@ def process(raw: dict, raw_fill: dict | None = None) -> tuple[dict, list]:
             "cape":         safe(cape,   i),
         })
 
-    # ECMWF init time: first time entry in the response
-    init_raw = raw.get("hourly", {}).get("time", [""])[0]
+    # ECMWF init time: prefer the model's actual init time from Open-Meteo's
+    # response metadata (available since ~2024) over the first hourly timestamp,
+    # which is always T00:00 of the current day regardless of the model cycle.
+    init_raw = None
+    for key in ("current", "current_weather"):
+        cw = raw.get(key, {})
+        if cw.get("time"):
+            init_raw = cw["time"]
+            break
+    if not init_raw:
+        init_raw = raw.get("hourly", {}).get("time", [""])[0]
     meta = {
         "model_id":  "ECMWF-IFS-0.25",
         "init_utc":  _norm_utc(init_raw) if init_raw else None,
