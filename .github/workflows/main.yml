@@ -390,7 +390,7 @@ jobs:
         timeout-minutes: 10
         run: |
           npm install -g vercel@39
-          vercel deploy --prod --yes
+          vercel deploy --prod --yes --token "$VERCEL_TOKEN"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
