@@ -27,7 +27,7 @@ jobs:
         run: |
           sudo apt-get update -q
           sudo apt-get install -y --no-install-recommends libeccodes-dev rclone
-          pip install --quiet eccodes numpy
+          pip install --quiet eccodes numpy anthropic
 
       # Download, subset, and capture outputs for later steps.
       # taiwan_wrf_download.py writes rundir + init_utc to GITHUB_OUTPUT directly;
@@ -185,6 +185,41 @@ jobs:
 
           # Simple email version (compact summary only)
           cat surf_forecast_email.html >> email_analysis_email.html
+
+      # ── Generate AI forecast summary ──────────────────────────────────────────
+      # Calls Anthropic API to produce a plain-English narrative from the
+      # JSON forecast data.  Gracefully skips if API key is not set.
+      - name: Generate AI forecast summary
+        id: ai_summary
+        if: steps.stale_check.outputs.is_new == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          ECMWF_ARG=""
+          if [ -f ecmwf_keelung.json ]; then
+            ECMWF_ARG="--ecmwf-json ecmwf_keelung.json"
+          fi
+          WAVE_ARG=""
+          if [ -f wave_keelung.json ]; then
+            WAVE_ARG="--wave-json wave_keelung.json"
+          fi
+          python forecast_summary.py \
+            --wrf-json keelung_summary_new.json \
+            $ECMWF_ARG \
+            $WAVE_ARG \
+            --output ai_summary.html
+
+          # Prepend AI summary to both HTML outputs (web + email)
+          if [ -s ai_summary.html ]; then
+            for f in email_analysis.html email_analysis_email.html; do
+              if [ -f "$f" ]; then
+                cat ai_summary.html "$f" > "${f}.tmp" && mv "${f}.tmp" "$f"
+              fi
+            done
+            echo "  ✅  AI summary prepended to HTML outputs"
+          else
+            echo "  ⏭  No AI summary generated (API key missing or error)"
+          fi
 
       # ── Upload archive + new summary to Drive ─────────────────────────────────
       - name: Upload to Google Drive

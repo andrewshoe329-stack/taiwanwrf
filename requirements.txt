@@ -1,5 +1,6 @@
 eccodes
 numpy
+anthropic
 # Optional fallback for GRIB2 (used if eccodes Python bindings unavailable)
 # cfgrib
 # xarray
