@@ -167,7 +167,7 @@ def list_vars(grib_path: Path) -> None:
                 ec.codes_release(msg)
 
 
-def read_point(grib_path: Path, lat: float, lon: float) -> dict:
+def read_point(grib_path: Path, lat: float, lon: float) -> dict[str, float]:
     """
     Extract all configured variables at the nearest grid point.
     Returns a dict of raw values keyed by output_key.
@@ -202,7 +202,8 @@ def read_point(grib_path: Path, lat: float, lon: float) -> dict:
                                 if out_key not in raw:
                                     ni2 = ec.codes_get(msg, 'Ni')
                                     nj2 = ec.codes_get(msg, 'Nj')
-                                    ck2 = (ni2, nj2)
+                                    gt2 = ec.codes_get(msg, 'gridType')
+                                    ck2 = (gt2, ni2, nj2)
                                     if ck2 not in grid_cache:
                                         lt2 = ec.codes_get_array(msg, 'latitudes').reshape(nj2, ni2)
                                         ln2 = ec.codes_get_array(msg, 'longitudes').reshape(nj2, ni2)
@@ -233,7 +234,8 @@ def read_point(grib_path: Path, lat: float, lon: float) -> dict:
 
                 ni = ec.codes_get(msg, 'Ni')
                 nj = ec.codes_get(msg, 'Nj')
-                cache_key = (ni, nj)
+                grid_type = ec.codes_get(msg, 'gridType')
+                cache_key = (grid_type, ni, nj)
 
                 if cache_key not in grid_cache:
                     lats = ec.codes_get_array(msg, 'latitudes').reshape(nj, ni)
@@ -524,7 +526,7 @@ def _daily_summary_html(
     if not day_buckets:
         return ''
 
-    cards_html = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 14px">\n'
+    cards_html = '<div class="keelung-cards" style="display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 14px">\n'
 
     for cst_date in sorted(day_buckets):
         valids = day_buckets[cst_date]
@@ -717,10 +719,17 @@ def render_email_html(
     # HTML construction starts here
     # ═════════════════════════════════════════════════════════════════════════
     html = (
+        '<style>\n'
+        '@media (max-width: 700px) {\n'
+        '  .keelung-table { font-size: 10px !important; }\n'
+        '  .keelung-table th, .keelung-table td { padding: 2px 3px !important; }\n'
+        '  .keelung-cards > div { min-width: 100px !important; }\n'
+        '}\n'
+        '</style>\n'
         '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.4;'
         'background:#0f172a;color:#e2e8f0;padding:16px;border-radius:8px">\n'
         '<h3 style="margin:0 0 2px;font-size:15px;color:#93c5fd">\n'
-        f'  🌏 Keelung Unified Forecast\n'
+        f'  <span role="img" aria-label="Globe">🌏</span> Keelung Unified Forecast\n'
         f'  <span style="font-weight:normal;font-size:0.85em;color:#94a3b8">'
         f'&nbsp;{KEELUNG_LAT}°N {KEELUNG_LON}°E</span>\n'
         '</h3>\n'
@@ -837,8 +846,9 @@ def render_unified_html(
     )
 
     # ── Table ─────────────────────────────────────────────────────────────────
-    html += '<div style="overflow-x:auto">\n'
-    html += '<table style="border-collapse:collapse;font-size:11.5px;white-space:nowrap">\n'
+    html += '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch">\n'
+    html += '<table class="keelung-table" style="border-collapse:collapse;font-size:11.5px;white-space:nowrap">\n'
+    html += '<caption style="caption-side:top;text-align:left;font-size:10px;color:#475569;margin-bottom:4px">6-hourly forecast detail — scroll horizontally on mobile</caption>\n'
     html += '<thead>\n'
 
     wrf_th  = 'background:#2c4a7c;color:#d0e0ff'

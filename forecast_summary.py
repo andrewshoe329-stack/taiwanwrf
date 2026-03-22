@@ -135,7 +135,7 @@ def call_api(user_prompt: str) -> str:
     client = anthropic.Anthropic(api_key=api_key)
     try:
         msg = client.messages.create(
-            model='claude-sonnet-4-5-20250514',
+            model='claude-sonnet-4-5-latest',
             max_tokens=400,
             system=SYSTEM_PROMPT,
             messages=[{'role': 'user', 'content': user_prompt}],

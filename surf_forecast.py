@@ -89,7 +89,7 @@ SPOTS = [
 ]
 
 # ── Safe index access ─────────────────────────────────────────────────────
-def _safe_get(lst: list | None, idx: int) -> object:
+def _safe_get(lst: list | None, idx: int) -> object | None:
     """Return lst[idx] if in bounds, else None."""
     return lst[idx] if lst and idx < len(lst) else None
 
@@ -114,7 +114,7 @@ def deg_diff(a: float, b: float) -> float:
 
 compass = deg_to_compass  # local alias
 
-def dir_quality(actual_deg, optimal_dirs: list) -> str:
+def dir_quality(actual_deg: float | None, optimal_dirs: list[str]) -> str:
     """Returns 'good', 'ok', or 'poor' based on proximity to optimal directions."""
     if actual_deg is None:
         return 'unknown'
@@ -129,7 +129,7 @@ MARINE_API   = 'https://marine-api.open-meteo.com/v1/marine'
 RETRIES      = 3
 RETRY_DELAY  = 5
 
-def _get(url: str, label: str) -> dict:
+def _get(url: str, label: str) -> dict[str, object]:
     last_err = RuntimeError('no attempts')
     for attempt in range(1, RETRIES + 1):
         try:
@@ -142,7 +142,7 @@ def _get(url: str, label: str) -> dict:
     log.error("%s failed: %s", label, last_err)
     return {}
 
-def fetch_spot(lat: float, lon: float) -> tuple[dict, dict, dict]:
+def fetch_spot(lat: float, lon: float) -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
     common = {
         'latitude': lat, 'longitude': lon,
         'timeformat': 'iso8601', 'forecast_days': 7, 'timezone': 'UTC',
@@ -168,7 +168,7 @@ def fetch_spot(lat: float, lon: float) -> tuple[dict, dict, dict]:
     return ec, gfs, mar
 
 # ── Data processing ────────────────────────────────────────────────────────
-def process_spot(ec: dict, gfs: dict, mar: dict) -> list[dict]:
+def process_spot(ec: dict, gfs: dict, mar: dict) -> list[dict[str, object]]:
     eh = ec.get('hourly', {})
     gh = gfs.get('hourly', {})
     mh = mar.get('hourly', {})
@@ -226,7 +226,7 @@ KEELUNG = {'lat': KEELUNG_LAT, 'lon': KEELUNG_LON, 'name': 'Keelung'}
 WKDAY = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 MONTH = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
-def day_rating(day_recs: list, spot: dict) -> dict:
+def day_rating(day_recs: list[dict], spot: dict) -> dict[str, object]:
     """
     Evaluate the best conditions available during the day for this spot.
     Returns dict with: label, emoji, bg, col, best_hs, best_period, best_wind.
@@ -287,7 +287,7 @@ def day_rating(day_recs: list, spot: dict) -> dict:
     else:                  return {'label': 'Poor',     'emoji': '🔴', 'bg': '#3d1515', 'col': '#fc8181', 'best_sw_hs': br.get('sw_hs'), 'best_sw_tp': br.get('sw_tp'), 'best_wind': br.get('wind')}
 
 
-def sail_day_rating(day_recs: list) -> dict:
+def sail_day_rating(day_recs: list[dict]) -> dict[str, object]:
     """Evaluate daily sailing conditions at Keelung."""
     if not day_recs:
         return {'label': '—',          'emoji': '❓', 'bg': '#1a2236', 'col': '#475569'}
@@ -476,12 +476,15 @@ CSS = """
 }
 /* ── Mobile responsiveness ─────────────────────────────────── */
 @media (max-width: 600px) {
-  .surf-section { padding: 10px; font-size: 13px; }
-  .matrix-table th, .matrix-table td { padding: 4px 5px; font-size: 10px; }
-  .matrix-table td.spot-name { white-space: normal; }
-  .detail-table th, .detail-table td { padding: 3px 4px; font-size: 10px; }
+  .surf-section { padding: 8px; font-size: 12px; }
+  .matrix-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .matrix-table th, .matrix-table td { padding: 3px 4px; font-size: 9px; }
+  .matrix-table td.spot-name { white-space: normal; min-width: 80px !important; }
+  .detail-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .detail-table th, .detail-table td { padding: 2px 3px; font-size: 9px; }
   .detail-header { font-size: 12px; }
   .surf-nav { font-size: 11px; padding: 5px 8px; }
+  .surf-nav a { padding: 4px 10px; }  /* bigger touch targets */
 }
 /* ── Print-friendly overrides ──────────────────────────────── */
 @media print {
@@ -627,15 +630,18 @@ def generate_full_html(all_spot_data: list[dict], keelung_records: list = None) 
     now_cst = datetime.now(timezone.utc) + timedelta(hours=8)
     all_dks = sorted({r['dk'] for sd in all_spot_data for r in sd['records']})
 
+    # ── Skip navigation (accessibility) ─────────────────────────────────
+    html += '<a href="#matrix" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;color:#93c5fd" class="skip-nav">Skip to forecast overview</a>\n'
+
     # ── Sticky navigation bar ──────────────────────────────────────────────
-    html += '<div class="surf-nav">'
-    html += '<a href="#planner">Planner</a><span class="sep">·</span>'
+    html += '<nav class="surf-nav" aria-label="Surf spot navigation">'
+    html += '<a href="#planner">Planner</a><span class="sep" aria-hidden="true">·</span>'
     html += '<a href="#matrix">Overview</a>'
     for sd in all_spot_data:
         sid = sd['spot']['id']
         short = sd['spot']['name'].split()[0]
-        html += f'<span class="sep">·</span><a href="#spot-{sid}">{short}</a>'
-    html += '</div>\n'
+        html += f'<span class="sep" aria-hidden="true">·</span><a href="#spot-{sid}">{short}</a>'
+    html += '</nav>\n'
 
     # ── Rating matrix ──────────────────────────────────────────────────────
     html += '<div id="matrix" style="overflow-x:auto">\n'
