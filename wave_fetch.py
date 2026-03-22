@@ -115,7 +115,7 @@ def fetch_ecmwf_wave() -> dict:
         try:
             with urllib.request.urlopen(url, timeout=30) as r:
                 return json.load(r)
-        except urllib.error.URLError as e:
+        except (urllib.error.URLError, json.JSONDecodeError) as e:
             last_exc = e
             if attempt < _FETCH_RETRIES:
                 log.warning("Request failed (%s); retry %d/%d in %ds …",
@@ -148,6 +148,9 @@ def process_ecmwf_wave(raw: dict) -> tuple[dict, list[dict]]:
     swh = col("swell_wave_height");   swd = col("swell_wave_direction")
     swp = col("swell_wave_period")
 
+    def r2(v):
+        return round(v, 2) if v is not None else None
+
     records = []
     for i, t in enumerate(times):
         dt = datetime.fromisoformat(
@@ -155,9 +158,6 @@ def process_ecmwf_wave(raw: dict) -> tuple[dict, list[dict]]:
         ).replace(tzinfo=timezone.utc)
         if dt.hour % 6 != 0:
             continue
-
-        def r2(v):
-            return round(v, 2) if v is not None else None
 
         records.append({
             "valid_utc":           _norm_utc(t),
