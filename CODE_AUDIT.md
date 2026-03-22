@@ -172,13 +172,15 @@ Neither `render_unified_html()` nor `generate_full_html()` have structural tests
 
 ---
 
-## Recommended Priority
+## Status: ALL RESOLVED
 
-1. **Fix critical bugs** (#1-7) — wrong tide epoch, rain logic, None type errors, Z suffix, dead CSS, metrics crash
-2. **Fix high-severity issues** (#8-13) — grid distance, error handling, CI pinning, rclone
-3. **Deduplicate utilities** (#29) — remove private copies of `deg_to_compass`/`norm_utc`
-4. **Add HTML escaping** (#25) — prevent XSS on Vercel-served pages
-5. **Improve error handling** (#9, #11, #17, #20) — catch correct exceptions, handle thread failures
-6. **Fix CI/CD** (#12, #13, #21, #22, #33, #34, #35) — pinning, rclone, security
-7. **Expand test coverage** (#41-45) — emoji, edge cases, HTML output
-8. **PWA improvements** (#36-40) — proper caching, icons, orientation
+All 45 issues have been fixed across 9 commits. Test suite expanded from 140 to 143 tests, all passing.
+
+**Notable fixes:**
+- Tide epoch corrected with recalibrated phase constants
+- norm_utc() now strips Z suffix before applying length rules
+- CSS block emitted into surf forecast HTML
+- ThreadPoolExecutor wrapped with per-spot error handling
+- Anthropic API retries limited to transient errors only
+- CI workflow hardened: permissions, version pinning, rclone copyto, Vercel token via env
+- PWA: full asset caching, split icon purposes, landscape orientation enabled

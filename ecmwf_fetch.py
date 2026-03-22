@@ -70,7 +70,7 @@ def _fetch_json(params: dict, label: str) -> dict:
         try:
             with urllib.request.urlopen(url, timeout=30) as r:
                 return json.load(r)
-        except urllib.error.URLError as e:
+        except (urllib.error.URLError, json.JSONDecodeError) as e:
             last_exc = e
             if attempt < _FETCH_RETRIES:
                 log.warning("Request failed (%s); retry %d/%d in %ds …",
@@ -208,17 +208,10 @@ def process(raw: dict, raw_fill: dict | None = None) -> tuple[dict, list]:
             "cape":         safe(cape,   i),
         })
 
-    # ECMWF init time: prefer the model's actual init time from Open-Meteo's
-    # response metadata (available since ~2024) over the first hourly timestamp,
-    # which is always T00:00 of the current day regardless of the model cycle.
-    init_raw = None
-    for key in ("current", "current_weather"):
-        cw = raw.get(key, {})
-        if cw.get("time"):
-            init_raw = cw["time"]
-            break
-    if not init_raw:
-        init_raw = raw.get("hourly", {}).get("time", [""])[0]
+    # ECMWF init time: use the first hourly timestamp (model cycle start).
+    # Note: current/current_weather.time is the observation time, not the
+    # model init time, so we don't use it.
+    init_raw = raw.get("hourly", {}).get("time", [""])[0]
     meta = {
         "model_id":  "ECMWF-IFS-0.25",
         "init_utc":  _norm_utc(init_raw) if init_raw else None,
@@ -239,9 +232,12 @@ def main():
                     help="Output JSON path (default: ecmwf_keelung.json)")
     args = ap.parse_args()
 
-    raw      = fetch_ecmwf_json()
-    raw_fill = fetch_gfs_gust_vis_json()
-    meta, records = process(raw, raw_fill)
+    raw = fetch_ecmwf_json()
+    meta, records = process(raw)
+    # Only fetch GFS backfill if ECMWF returned data
+    if records:
+        raw_fill = fetch_gfs_gust_vis_json()
+        meta, records = process(raw, raw_fill)
 
     if not records:
         log.error("No records extracted from Open-Meteo response.")

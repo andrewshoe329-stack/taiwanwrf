@@ -58,3 +58,9 @@ class TestNormUtc:
 
     def test_midnight(self):
         assert norm_utc('2026-01-01T00:00') == '2026-01-01T00:00:00+00:00'
+
+    def test_z_suffix(self):
+        assert norm_utc('2026-03-22T06:00:00Z') == '2026-03-22T06:00:00+00:00'
+
+    def test_z_suffix_no_seconds(self):
+        assert norm_utc('2026-03-22T06:00Z') == '2026-03-22T06:00:00+00:00'

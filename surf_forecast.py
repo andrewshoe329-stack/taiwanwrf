@@ -91,7 +91,7 @@ SPOTS = [
 # ── Safe index access ─────────────────────────────────────────────────────
 def _safe_get(lst: list | None, idx: int) -> object | None:
     """Return lst[idx] if in bounds, else None."""
-    return lst[idx] if lst and idx < len(lst) else None
+    return lst[idx] if lst and 0 <= idx < len(lst) else None
 
 # ── Rating thresholds ─────────────────────────────────────────────────────
 MIN_SWELL_HEIGHT_M = 0.25   # below this → flat
@@ -210,7 +210,9 @@ def process_spot(ec: dict, gfs: dict, mar: dict) -> list[dict[str, object]]:
                 'sw_dir':_safe_get(mh.get('swell_wave_direction'), wi),
             }
 
-        dt_utc = datetime.fromisoformat(t.replace('Z', '+00:00')).replace(tzinfo=timezone.utc)
+        dt_utc = datetime.fromisoformat(t.replace('Z', '+00:00'))
+        if dt_utc.tzinfo is None:
+            dt_utc = dt_utc.replace(tzinfo=timezone.utc)
         dt_cst = dt_utc + timedelta(hours=8)
 
         records.append({
@@ -537,12 +539,14 @@ def _generate_planner_html(all_spot_data: list[dict], keelung_records: list = No
     # Collect all day keys across all spots
     all_dks = sorted({r['dk'] for sd in all_spot_data for r in sd['records']})
 
+    # Emit CSS for class-based styles used in matrix and detail tables
+    html = CSS + '\n'
+
     # Planner table uses inline styles for maximum compatibility
     _S = 'font-family:Arial,Helvetica Neue,sans-serif'
     _TH = f'background:#1e3a5f;color:#7db8f0;padding:6px 10px;font-size:11px;text-align:center;white-space:nowrap;border:1px solid #2d3f5a;line-height:1.4'
     _TD = f'padding:6px 10px;text-align:center;border:1px solid #1e293b;font-size:12px;white-space:nowrap;line-height:1.4'
 
-    html = ''
     html += f'<div style="{_S};font-size:14px;color:#e2e8f0;background:#0f172a;padding:16px;border-radius:8px;margin-top:20px">\n'
     html += '<div style="font-size:16px;font-weight:700;margin-bottom:4px;color:#93c5fd"><span role="img" aria-label="Surfer">🏄</span> Taiwan Surf Forecast</div>\n'
     html += f'<div style="font-size:11px;color:#475569;margin-bottom:14px">Generated {gen_str} · Data: ECMWF IFS025 + GFS + ECMWF WAM (Open-Meteo) · Source: swelleye.com</div>\n'
@@ -800,7 +804,12 @@ def main() -> None:
     with ThreadPoolExecutor(max_workers=4) as pool:
         futures = {pool.submit(_fetch_and_process, e): e for e in all_entries}
         for future in as_completed(futures):
-            entry, records = future.result()
+            try:
+                entry, records = future.result()
+            except Exception as e:
+                spot_name = futures[future].get('name', 'unknown')
+                log.error("Failed to process %s: %s", spot_name, e)
+                continue
             if entry.get('_is_keelung'):
                 keelung_records = records
             else:

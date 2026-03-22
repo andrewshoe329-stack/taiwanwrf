@@ -19,7 +19,7 @@ import logging
 import math
 from datetime import datetime, timedelta, timezone
 
-from config import setup_logging
+from config import KEELUNG_LAT, KEELUNG_LON, setup_logging
 
 log = logging.getLogger(__name__)
 
@@ -30,12 +30,13 @@ log = logging.getLogger(__name__)
 
 CONSTITUENTS = [
     # (name,  period_hours,  amplitude_m,  phase_deg)
-    ('M2',    12.4206,       0.215,        195.0),   # principal lunar semidiurnal
+    # Phases referenced to J2000.0 epoch (2000-01-01T12:00:00 UTC)
+    ('M2',    12.4206,       0.215,        299.0),   # principal lunar semidiurnal
     ('S2',    12.0000,       0.060,        220.0),   # principal solar semidiurnal
-    ('K1',    23.9345,       0.145,        155.0),   # luni-solar diurnal
-    ('O1',    25.8193,       0.105,        130.0),   # principal lunar diurnal
-    ('N2',    12.6583,       0.045,        175.0),   # larger lunar elliptic
-    ('K2',    11.9672,       0.018,        215.0),   # luni-solar semidiurnal
+    ('K1',    23.9345,       0.145,        345.3),   # luni-solar diurnal
+    ('O1',    25.8193,       0.105,         43.7),   # principal lunar diurnal
+    ('N2',    12.6583,       0.045,        141.8),   # larger lunar elliptic
+    ('K2',    11.9672,       0.018,        235.7),   # luni-solar semidiurnal
 ]
 
 # Mean sea level offset (metres above chart datum)
@@ -45,7 +46,7 @@ MSL_OFFSET = 0.45
 def predict_height(dt: datetime) -> float:
     """Predict tide height (metres above chart datum) at a given UTC datetime."""
     # Hours since epoch (J2000.0 = 2000-01-01T12:00:00 UTC)
-    epoch = datetime(2000, 1, 12, 0, 0, 0, tzinfo=timezone.utc)
+    epoch = datetime(2000, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
     hours = (dt - epoch).total_seconds() / 3600.0
 
     height = MSL_OFFSET
@@ -131,6 +132,8 @@ def _refine_extremum(approx_t: datetime, search_window: timedelta,
 
     best_t = a + (b - a) / 2
     # Round to nearest minute
+    if best_t.second >= 30:
+        best_t += timedelta(minutes=1)
     best_t = best_t.replace(second=0, microsecond=0)
     return best_t, predict_height(best_t)
 
@@ -179,8 +182,8 @@ def main() -> None:
 
     result = {
         'location': 'Keelung Harbour',
-        'latitude': 25.156,
-        'longitude': 121.788,
+        'latitude': KEELUNG_LAT,
+        'longitude': KEELUNG_LON,
         'generated_utc': now.isoformat(),
         'method': 'harmonic_analysis',
         'constituents': len(CONSTITUENTS),

@@ -1,7 +1,5 @@
 """Tests for taiwan_wrf_download.py helper functions."""
 
-import sys, os
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from taiwan_wrf_download import (
     nm_to_km, bbox_from_point, bbox_contains_point,

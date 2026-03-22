@@ -22,6 +22,7 @@ Requirements: eccodes, numpy  (already installed by the workflow)
 """
 
 import argparse
+import html as html_mod
 import json
 import logging
 import math
@@ -91,11 +92,12 @@ PARAMID_VARS: dict[int, str] = {
 DERIVED = {
     'temp_c':    ('°C',  lambda d: d['temp_k'] - 273.15),
     'wind_kt':   ('kt',  lambda d: math.sqrt(d['u10']**2 + d['v10']**2) * 1.94384),
-    'wind_dir':  ('°',   lambda d: (270 - math.degrees(math.atan2(d['v10'], d['u10']))) % 360),
+    'wind_dir':  ('°',   lambda d: (270 - math.degrees(math.atan2(d['v10'], d['u10']))) % 360
+                                   if math.sqrt(d['u10']**2 + d['v10']**2) * 1.94384 >= 0.5 else None),
     'mslp_hpa':  ('hPa', lambda d: d['mslp_pa'] / 100),
     'precip_mm': ('mm',  lambda d: d['precip_raw']),   # units normalised in read_point()
     'cloud_pct': ('%',   lambda d: d['cloud_raw'] * 100
-                                   if d['cloud_raw'] <= 1.01 else d['cloud_raw']),
+                                   if d['cloud_raw'] <= 1.0 else d['cloud_raw']),
     'vis_km':    ('km',  lambda d: d['vis_m'] / 1000),
     'gust_kt':   ('kt',  lambda d: d['gust_ms'] * 1.94384),
     'cape':      ('J/kg',lambda d: d['cape']),
@@ -134,7 +136,8 @@ def _fmt(v: float | None, fmt: str = '.1f', unit: str = '') -> str:
 
 def nearest_idx(lats2d: np.ndarray, lons2d: np.ndarray,
                 lat: float, lon: float) -> tuple[int, int]:
-    dist = np.sqrt((lats2d - lat) ** 2 + (lons2d - lon) ** 2)
+    cos_lat = np.cos(np.radians(lat))
+    dist = np.sqrt((lats2d - lat) ** 2 + ((lons2d - lon) * cos_lat) ** 2)
     return np.unravel_index(dist.argmin(), dist.shape)
 
 
@@ -167,6 +170,9 @@ def list_vars(grib_path: Path) -> None:
                 ec.codes_release(msg)
 
 
+_grid_cache: dict = {}  # module-level cache: (grid_type, ni, nj) → (j, i) index
+
+
 def read_point(grib_path: Path, lat: float, lon: float) -> dict[str, float]:
     """
     Extract all configured variables at the nearest grid point.
@@ -182,7 +188,6 @@ def read_point(grib_path: Path, lat: float, lon: float) -> dict[str, float]:
             sn_map.setdefault(sn, []).append((tol, lvl, key))
 
     raw: dict[str, float] = {}
-    grid_cache: dict = {}
 
     with open(grib_path, 'rb') as f:
         while True:
@@ -204,11 +209,11 @@ def read_point(grib_path: Path, lat: float, lon: float) -> dict[str, float]:
                                     nj2 = ec.codes_get(msg, 'Nj')
                                     gt2 = ec.codes_get(msg, 'gridType')
                                     ck2 = (gt2, ni2, nj2)
-                                    if ck2 not in grid_cache:
+                                    if ck2 not in _grid_cache:
                                         lt2 = ec.codes_get_array(msg, 'latitudes').reshape(nj2, ni2)
                                         ln2 = ec.codes_get_array(msg, 'longitudes').reshape(nj2, ni2)
-                                        grid_cache[ck2] = nearest_idx(lt2, ln2, lat, lon)
-                                    jj, ii = grid_cache[ck2]
+                                        _grid_cache[ck2] = nearest_idx(lt2, ln2, lat, lon)
+                                    jj, ii = _grid_cache[ck2]
                                     vals2 = ec.codes_get_values(msg).reshape(nj2, ni2)
                                     raw[out_key] = float(vals2[jj, ii])
                         except Exception as e:
@@ -237,12 +242,12 @@ def read_point(grib_path: Path, lat: float, lon: float) -> dict[str, float]:
                 grid_type = ec.codes_get(msg, 'gridType')
                 cache_key = (grid_type, ni, nj)
 
-                if cache_key not in grid_cache:
+                if cache_key not in _grid_cache:
                     lats = ec.codes_get_array(msg, 'latitudes').reshape(nj, ni)
                     lons = ec.codes_get_array(msg, 'longitudes').reshape(nj, ni)
-                    grid_cache[cache_key] = nearest_idx(lats, lons, lat, lon)
+                    _grid_cache[cache_key] = nearest_idx(lats, lons, lat, lon)
 
-                j, i = grid_cache[cache_key]
+                j, i = _grid_cache[cache_key]
                 vals = ec.codes_get_values(msg).reshape(nj, ni)
                 val  = float(vals[j, i])
 
@@ -259,6 +264,7 @@ def read_point(grib_path: Path, lat: float, lon: float) -> dict[str, float]:
                         # Units key unavailable: fall back to a conservative
                         # heuristic — only convert if value looks like metres
                         # (i.e. plausibly < 0.5 m of rain in 6 h).
+                        log.warning("GRIB2 units key unavailable for precip; using magnitude heuristic")
                         if 0 < val < 0.5:
                             val *= 1000.0
 
@@ -519,15 +525,15 @@ def _sail_rating(max_wind: float | None, max_gust: float | None,
     return '🟢 Good', '#0d2d1a'
 
 
-def _condition_emoji(max_wind: float, total_rain: float, max_cape: float,
-                     max_hs: float, max_gust: float | None = None) -> str:
+def _condition_emoji(max_wind: float | None, total_rain: float | None, max_cape: float | None,
+                     max_hs: float | None, max_gust: float | None = None) -> str:
     if max_hs is not None and max_hs >= 3.5:
         return '🌊'
     if max_cape is not None and max_cape >= 500:
         return '⛈️'
-    if total_rain >= 15:
+    if total_rain is not None and total_rain >= 15:
         return '🌧️'
-    if total_rain >= 3:
+    if total_rain is not None and total_rain >= 3:
         return '🌦️'
     if max_gust is not None and max_gust >= 34:
         return '💨'
@@ -783,7 +789,7 @@ def _render_summary_html(
         f'&nbsp;{KEELUNG_LAT}°N {KEELUNG_LON}°E</span>\n'
         '</h3>\n'
         f'<p style="margin:0 0 4px;color:#475569;font-size:0.88em">'
-        f'{meta.get("model_id","?")} · WRF Init: {init_str}{wave_init_str}'
+        f'{html_mod.escape(meta.get("model_id","?"))} · WRF Init: {init_str}{wave_init_str}'
         f'{"&nbsp;·&nbsp; <i>Δ vs prev WRF run in brackets</i>" if has_prev else ""}'
         '</p>\n\n'
     )
@@ -799,8 +805,7 @@ def _render_summary_html(
     # wind/MSLP: WRF primary; gust/rain/CAPE: EC (WRF never publishes these)
     max_wind   = max((r.get('wind_kt')      or 0 for r in _wrf + _ec), default=0)
     max_gust   = max((r.get('gust_kt')      or 0 for r in _wrf + _ec), default=0)
-    total_rain = (sum(r.get('precip_mm_6h') or 0 for r in _wrf)
-                  or sum(r.get('precip_mm_6h') or 0 for r in _ec))
+    total_rain = sum(r.get('precip_mm_6h') or 0 for r in (_wrf if _wrf else _ec))
     min_mslp   = min((r.get('mslp_hpa')     or 9999 for r in _wrf + _ec), default=9999)
     max_cape   = max((r.get('cape')         or 0 for r in _wrf + _ec), default=0)
     if max_wind  >= 34: alerts.append(f'⚠️ <b>Gale-force winds (B8+)</b> — {max_wind:.0f}kt — consider not sailing')
@@ -933,7 +938,8 @@ def render_unified_html(
     html += '</tr>\n</thead>\n<tbody>\n'
 
     _n_wave_cols = 4 if has_wave else 0
-    _total_cols  = 3 + 2 + _n_wave_cols + 6 + 1
+    # 3 (alert+UTC+CST) + 2 (wind+gust) + wave_cols + 6 (pressure+rain+vis+temp+cloud+CAPE)
+    _total_cols  = 3 + 2 + _n_wave_cols + 6
 
     # ── Data rows ─────────────────────────────────────────────────────────────
     temp_deltas, wind_deltas, rain_deltas, mslp_deltas = [], [], [], []

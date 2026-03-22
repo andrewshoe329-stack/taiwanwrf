@@ -1,7 +1,5 @@
 """Tests for wrf_analyze.py helper functions."""
 
-import sys, os
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from wrf_analyze import (
     deg_to_compass, _wind_arrow, _fmt,
@@ -207,7 +205,7 @@ class TestSailRating:
 
     def test_nogo_gust(self):
         label, bg = _sail_rating(20, 40, 0.5, 0)
-        assert 'No-go' in label or 'No go' in label
+        assert label == '🔴 No-go'
 
 
 # ── _condition_emoji ─────────────────────────────────────────────────────────
@@ -217,3 +215,34 @@ class TestConditionEmoji:
         result = _condition_emoji(10, 0, 50, 0.5)
         assert isinstance(result, str)
         assert len(result) >= 1
+
+    def test_high_seas(self):
+        assert _condition_emoji(10, 0, 50, 4.0) == '🌊'
+
+    def test_thunderstorm_cape(self):
+        assert _condition_emoji(10, 0, 600, 0.5) == '⛈️'
+
+    def test_heavy_rain(self):
+        assert _condition_emoji(10, 20, 50, 0.5) == '🌧️'
+
+    def test_moderate_rain(self):
+        assert _condition_emoji(10, 5, 50, 0.5) == '🌦️'
+
+    def test_gale_gust(self):
+        assert _condition_emoji(10, 0, 50, 0.5, 40) == '💨'
+
+    def test_strong_wind(self):
+        assert _condition_emoji(30, 0, 50, 0.5) == '💨'
+
+    def test_moderate_wind(self):
+        assert _condition_emoji(18, 0, 50, 0.5) == '🌬️'
+
+    def test_fine_weather(self):
+        assert _condition_emoji(5, 0, 50, 0.5) == '🌤️'
+
+    def test_all_none(self):
+        assert _condition_emoji(None, None, None, None) == '🌤️'
+
+    def test_priority_seas_over_wind(self):
+        # High seas should take priority over strong wind
+        assert _condition_emoji(30, 0, 50, 4.0) == '🌊'
