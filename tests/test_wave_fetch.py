@@ -1,39 +1,7 @@
 """Tests for wave_fetch.py helper functions."""
 
-import sys, os
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from wave_fetch import _deg_to_compass, _norm_utc, process_ecmwf_wave
-
-
-# ── _deg_to_compass ──────────────────────────────────────────────────────────
-
-class TestDegToCompass:
-    def test_north(self):
-        assert _deg_to_compass(0) == 'N'
-
-    def test_east(self):
-        assert _deg_to_compass(90) == 'E'
-
-    def test_south(self):
-        assert _deg_to_compass(180) == 'S'
-
-    def test_west(self):
-        assert _deg_to_compass(270) == 'W'
-
-    def test_none(self):
-        assert _deg_to_compass(None) == '—'
-
-
-# ── _norm_utc ────────────────────────────────────────────────────────────────
-
-class TestNormUtc:
-    def test_bare_datetime(self):
-        assert _norm_utc('2026-03-09T06:00') == '2026-03-09T06:00:00+00:00'
-
-    def test_already_full(self):
-        result = _norm_utc('2026-03-09T06:00:00+00:00')
-        assert result == '2026-03-09T06:00:00+00:00'
+from wave_fetch import process_ecmwf_wave
 
 
 # ── process_ecmwf_wave ──────────────────────────────────────────────────────

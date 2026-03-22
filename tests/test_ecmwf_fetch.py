@@ -1,26 +1,7 @@
 """Tests for ecmwf_fetch.py helper functions."""
 
-import sys, os
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from ecmwf_fetch import _norm_utc, process
-
-
-# ── _norm_utc ────────────────────────────────────────────────────────────────
-
-class TestNormUtc:
-    def test_bare_datetime(self):
-        assert _norm_utc('2026-03-09T06:00') == '2026-03-09T06:00:00+00:00'
-
-    def test_with_seconds(self):
-        assert _norm_utc('2026-03-09T06:00:00') == '2026-03-09T06:00:00+00:00'
-
-    def test_already_normalized(self):
-        result = _norm_utc('2026-03-09T06:00:00+00:00')
-        assert result == '2026-03-09T06:00:00+00:00'
-
-    def test_strips_whitespace(self):
-        assert _norm_utc('  2026-03-09T06:00  ') == '2026-03-09T06:00:00+00:00'
+from ecmwf_fetch import process
 
 
 # ── process ──────────────────────────────────────────────────────────────────

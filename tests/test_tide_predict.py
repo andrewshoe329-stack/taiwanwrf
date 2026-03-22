@@ -1,7 +1,5 @@
 """Tests for tide_predict.py harmonic tide prediction."""
 
-import sys, os
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from datetime import datetime, timedelta, timezone
 from tide_predict import predict_height, find_extrema, tide_state, CONSTITUENTS, MSL_OFFSET

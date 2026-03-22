@@ -41,7 +41,7 @@ def norm_utc(iso: str) -> str:
     """
     iso = iso.strip()
     if iso.endswith('Z'):
-        iso = iso[:-1] + '+00:00'
+        iso = iso[:-1]  # strip Z, then apply length-based rules below
     if len(iso) == 16:       # YYYY-MM-DDTHH:MM
         iso += ":00+00:00"
     elif len(iso) == 19:     # YYYY-MM-DDTHH:MM:SS

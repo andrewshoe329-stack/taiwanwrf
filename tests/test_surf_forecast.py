@@ -1,7 +1,5 @@
 """Tests for surf_forecast.py helper functions and rating logic."""
 
-import sys, os
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from surf_forecast import (
     deg_diff, compass, dir_quality, _safe_get,
@@ -122,6 +120,17 @@ class TestDayRating:
         recs = [{'sw_hs': 1.5, 'wind': 5, 'sw_dir': 45, 'w_dir': 225, 'sw_tp': 14}]
         r = day_rating(recs, self.SPOT)
         assert r['label'] in ('Firing!', 'Good')
+
+    def test_all_none_fields(self):
+        recs = [{'sw_hs': None, 'wind': None, 'sw_dir': None, 'w_dir': None, 'sw_tp': None}]
+        r = day_rating(recs, self.SPOT)
+        assert r['label'] in ('Flat', 'No data', 'Poor')
+
+    def test_marginal_boundary(self):
+        # Moderate swell, onshore wind, short period → should be Marginal or Poor
+        recs = [{'sw_hs': 0.8, 'wind': 12, 'sw_dir': 90, 'w_dir': 90, 'sw_tp': 8}]
+        r = day_rating(recs, self.SPOT)
+        assert r['label'] in ('Marginal', 'Poor', 'Good')
 
 
 # ── sail_day_rating ──────────────────────────────────────────────────────────

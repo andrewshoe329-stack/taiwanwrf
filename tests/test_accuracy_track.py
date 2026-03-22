@@ -1,7 +1,5 @@
 """Tests for accuracy_track.py."""
 
-import sys, os
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from accuracy_track import compute_accuracy
 
