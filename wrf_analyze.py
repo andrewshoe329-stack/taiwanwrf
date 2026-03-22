@@ -352,12 +352,12 @@ def extract_forecast(rundir: Path) -> tuple[dict, list[dict]]:
 # ── HTML rendering ────────────────────────────────────────────────────────────
 
 def _temp_bg(t: float | None) -> str:
-    if t is None:  return '#eee'
-    if t < 10:     return '#b3d9ff'
-    if t < 18:     return '#d4f0c0'
-    if t < 24:     return '#fff7b0'
-    if t < 29:     return '#ffd9a0'
-    return '#ffb3b3'
+    if t is None:  return '#1e293b'
+    if t < 10:     return '#1a3654'
+    if t < 18:     return '#1a3328'
+    if t < 24:     return '#3d3a00'
+    if t < 29:     return '#3d2e00'
+    return '#3d1515'
 
 def _beaufort(kt: float | None) -> int:
     """Return Beaufort force number for a wind speed in knots."""
@@ -377,44 +377,44 @@ def _beaufort(kt: float | None) -> int:
     return 12
 
 def _wind_bg(w: float | None) -> str:
-    if w is None:  return '#f4f4f4'
-    if w < 11:     return '#d4f0c0'   # B1-3  gentle/light breeze (comfortable sailing)
-    if w < 17:     return '#e8f5c0'   # B4    moderate breeze
-    if w < 22:     return '#fff7b0'   # B5    fresh breeze (start reefing)
-    if w < 28:     return '#ffd9a0'   # B6    strong breeze (reef in)
-    if w < 34:     return '#ffb080'   # B7    near-gale (consider harbour)
-    return '#ff6666'                   # B8+   gale or worse (danger)
+    if w is None:  return '#1e293b'
+    if w < 11:     return '#0d2d1a'   # B1-3  gentle/light breeze (comfortable sailing)
+    if w < 17:     return '#1a3328'   # B4    moderate breeze
+    if w < 22:     return '#3d3a00'   # B5    fresh breeze (start reefing)
+    if w < 28:     return '#3d2e00'   # B6    strong breeze (reef in)
+    if w < 34:     return '#3d2000'   # B7    near-gale (consider harbour)
+    return '#3d1515'                   # B8+   gale or worse (danger)
 
 def _precip_bg(p: float | None) -> str:
-    if p is None or p < 0.1: return '#f8f8f8'
-    if p < 2:    return '#d4f0c0'
-    if p < 10:   return '#b0d9ff'
-    if p < 25:   return '#6cb0ff'
-    return '#3070dd'
+    if p is None or p < 0.1: return '#1e293b'
+    if p < 2:    return '#0d2d1a'
+    if p < 10:   return '#1a3654'
+    if p < 25:   return '#1a2f5a'
+    return '#1a2060'
 
 def _cape_bg(c: float | None) -> str:
-    if c is None:  return '#f4f4f4'
-    if c < 100:    return '#d4f0c0'   # stable
-    if c < 500:    return '#fff7b0'   # slightly unstable
-    if c < 1500:   return '#ffd9a0'   # moderately unstable
-    return '#ffb3b3'                   # very unstable (thunderstorm risk)
+    if c is None:  return '#1e293b'
+    if c < 100:    return '#0d2d1a'   # stable
+    if c < 500:    return '#3d3a00'   # slightly unstable
+    if c < 1500:   return '#3d2e00'   # moderately unstable
+    return '#3d1515'                   # very unstable (thunderstorm risk)
 
 def _wave_height_bg(h: float | None) -> str:
     """Background colour for significant wave height (metres)."""
-    if h is None: return '#f4f4f4'
-    if h < 0.3:   return '#d4f0c0'   # glassy / rippled
-    if h < 1.0:   return '#fff7b0'   # slight
-    if h < 2.0:   return '#ffd9a0'   # moderate
-    if h < 3.5:   return '#ffb3b3'   # rough / very rough
-    return '#ff6666'                  # high / dangerous
+    if h is None: return '#1e293b'
+    if h < 0.3:   return '#0d2d1a'   # glassy / rippled
+    if h < 1.0:   return '#3d3a00'   # slight
+    if h < 2.0:   return '#3d2e00'   # moderate
+    if h < 3.5:   return '#3d1515'   # rough / very rough
+    return '#4a1010'                  # high / dangerous
 
 def _wave_period_bg(p: float | None) -> str:
     """Background colour for wave period (seconds)."""
-    if p is None: return '#f4f4f4'
-    if p < 4:     return '#f4f4f4'   # very short (local chop)
-    if p < 8:     return '#fff7b0'   # moderate wind sea
-    if p < 12:    return '#d4f0c0'   # longer period swell
-    return '#b0d9ff'                  # long-period ocean swell
+    if p is None: return '#1e293b'
+    if p < 4:     return '#1e293b'   # very short (local chop)
+    if p < 8:     return '#3d3a00'   # moderate wind sea
+    if p < 12:    return '#0d2d1a'   # longer period swell
+    return '#1a3654'                  # long-period ocean swell
 
 def _delta_span(curr: float | None, prev: float | None,
                 fmt: str = '.1f', unit: str = '', positive_bad: bool = False) -> str:
@@ -440,14 +440,14 @@ def _delta_span(curr: float | None, prev: float | None,
 def _delta_cell(d: float | None, thresh: float, positive_bad: bool = False) -> str:
     """Return a <td> element color-coded by disagreement magnitude."""
     if d is None:
-        return '<td style="padding:4px 5px;text-align:center;color:#aaa">—</td>'
+        return '<td style="padding:4px 5px;text-align:center;color:#475569">—</td>'
     abs_d = abs(d)
     if abs_d < thresh * 0.5:
-        bg, color = '#c6f6d5', '#276749'   # green  – good agreement
+        bg, color = '#0d2d1a', '#68d391'   # green  – good agreement
     elif abs_d < thresh:
-        bg, color = '#fefcbf', '#744210'   # yellow – moderate
+        bg, color = '#3d2e00', '#fbd38d'   # yellow – moderate
     else:
-        bg, color = '#fed7d7', '#9b2335'   # red    – large disagreement
+        bg, color = '#3d1515', '#fc8181'   # red    – large disagreement
     sign = '+' if d > 0 else ''
     return (f'<td style="padding:4px 5px;text-align:center;background:{bg};'
             f'color:{color};font-weight:500">{sign}{d}</td>')
@@ -480,10 +480,10 @@ def _sail_rating(max_wind: float | None, max_gust: float | None,
         total_rain >= 15                                  # significant rain
     )
     if no_go:
-        return '🔴 No-go', '#fed7d7'
+        return '🔴 No-go', '#3d1515'
     if marginal:
-        return '🟡 Marginal', '#fefcbf'
-    return '🟢 Good', '#c6f6d5'
+        return '🟡 Marginal', '#3d2e00'
+    return '🟢 Good', '#0d2d1a'
 
 
 def _condition_emoji(max_wind: float, total_rain: float, max_cape: float,
@@ -639,23 +639,23 @@ def _daily_summary_html(
         if max_cape is not None and max_cape >= 500:
             cape_level = '⚡⚡' if max_cape >= 1500 else '⚡'
             cape_badge = (
-                f'  <div style="color:#b7600a;font-size:0.85em">'
+                f'  <div style="color:#fbd38d;font-size:0.85em">'
                 f'{cape_level} CAPE {max_cape:.0f} J/kg</div>\n'
             )
 
         cards_html += (
-            f'<div style="border:1px solid #ddd;border-top:3px solid {card_border};'
-            f'border-radius:5px;padding:7px 10px;min-width:120px;background:#fafafa;'
+            f'<div style="border:1px solid #2d3f5a;border-top:3px solid {card_border};'
+            f'border-radius:5px;padding:7px 10px;min-width:120px;background:#111827;'
             f'font-size:12px;line-height:1.5">\n'
-            f'  <div style="font-weight:700;color:#333;font-size:1em">'
+            f'  <div style="font-weight:700;color:#e2e8f0;font-size:1em">'
             f'{day_label}&nbsp;<span style="font-size:1.1em">{cond_icon}</span></div>\n'
             f'  <div style="background:{sail_bg};border-radius:3px;padding:1px 5px;'
-            f'font-weight:600;font-size:0.9em;margin:2px 0 3px;display:inline-block">'
+            f'font-weight:600;font-size:0.9em;margin:2px 0 3px;display:inline-block;color:#e2e8f0">'
             f'{sail_label}</div>\n'
-            + (f'  <div style="color:#555">🌊 {wave_str}</div>\n' if wave_str else '')
-            + f'  <div style="color:#555">💨 {wind_str}</div>\n'
-            f'  <div style="color:#555">🌧️ {rain_str}</div>\n'
-            f'  <div style="color:#555">🌡️ {temp_str}</div>\n'
+            + (f'  <div style="color:#94a3b8">🌊 {wave_str}</div>\n' if wave_str else '')
+            + f'  <div style="color:#94a3b8">💨 {wind_str}</div>\n'
+            f'  <div style="color:#94a3b8">🌧️ {rain_str}</div>\n'
+            f'  <div style="color:#94a3b8">🌡️ {temp_str}</div>\n'
             + cape_badge
             + f'  <div style="margin-top:4px">'
             f'<span style="background:{src_bg};color:{src_color};font-size:0.72em;'
@@ -723,13 +723,14 @@ def render_email_html(
     # HTML construction starts here
     # ═════════════════════════════════════════════════════════════════════════
     html = (
-        '<div style="font-family:Arial,sans-serif;font-size:13px;line-height:1.4">\n'
-        '<h3 style="margin:0 0 2px;font-size:15px">\n'
+        '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.4;'
+        'background:#0f172a;color:#e2e8f0;padding:16px;border-radius:8px">\n'
+        '<h3 style="margin:0 0 2px;font-size:15px;color:#93c5fd">\n'
         f'  🌏 Keelung Unified Forecast\n'
-        f'  <span style="font-weight:normal;font-size:0.85em;color:#555">'
+        f'  <span style="font-weight:normal;font-size:0.85em;color:#94a3b8">'
         f'&nbsp;{KEELUNG_LAT}°N {KEELUNG_LON}°E</span>\n'
         '</h3>\n'
-        f'<p style="margin:0 0 4px;color:#666;font-size:0.88em">'
+        f'<p style="margin:0 0 4px;color:#475569;font-size:0.88em">'
         f'{meta.get("model_id","?")} · WRF Init: {init_str}{wave_init_str}'
         f'{"&nbsp;·&nbsp; <i>Δ vs prev WRF run in brackets</i>" if has_prev else ""}'
         '</p>\n\n'
@@ -765,8 +766,8 @@ def render_email_html(
         elif max_hs >= 2.0: alerts.append(f'🌊 Rough conditions — Hs {max_hs:.1f}m peak')
         elif max_hs >= 1.0: alerts.append(f'🌊 Moderate seas — Hs {max_hs:.1f}m')
     if alerts:
-        html += ('<div style="margin:8px 0 0;padding:8px 10px;background:#fff5f5;'
-                 'border-left:3px solid #e53e3e;font-size:0.9em">'
+        html += ('<div style="margin:8px 0 0;padding:8px 10px;background:#2d1515;'
+                 'border-left:3px solid #fc8181;font-size:0.9em;color:#fca5a5;border-radius:4px">'
                  + '<br>'.join(alerts) + '</div>\n')
 
     # ── Model shift vs prev run ───────────────────────────────────────────────
@@ -791,8 +792,8 @@ def render_email_html(
             if abs(pk_m) >= 1:
                 notes.append(f'Max MSLP shift {"+" if pk_m>0 else ""}{pk_m:.1f}hPa vs prev run')
         if notes:
-            html += ('<p style="margin:8px 0 0;padding:6px 10px;background:#fffbeb;'
-                     'border-left:3px solid #d69e2e;font-size:0.9em">'
+            html += ('<p style="margin:8px 0 0;padding:6px 10px;background:#2d2200;'
+                     'border-left:3px solid #fbd38d;font-size:0.9em;color:#fbd38d;border-radius:4px">'
                      '🔄 <b>Model shift vs prev run:</b> ' + ' · '.join(notes) + '</p>\n')
 
     html += '</div>\n'
@@ -832,11 +833,11 @@ def render_unified_html(
 
     # ── Source legend ─────────────────────────────────────────────────────────
     html += (
-        '<p style="margin:0 0 6px;font-size:0.82em;color:#555">'
+        '<p style="margin:0 0 6px;font-size:0.82em;color:#94a3b8">'
         '<span style="background:#2c4a7c;color:#d0e0ff;padding:1px 5px;border-radius:3px">WRF 3km</span>'
         '&nbsp;'
         '<span style="background:#2d6a4f;color:#d0f0e0;padding:1px 5px;border-radius:3px">ECMWF IFS</span>'
-        '&nbsp;— green <sup style="color:#276749;font-size:0.85em">EC</sup> badge = ECMWF/GFS fills in'
+        '&nbsp;— green <sup style="color:#68d391;font-size:0.85em">EC</sup> badge = ECMWF/GFS fills in'
         ' where CWA WRF is absent (gust, rain, cloud, vis, CAPE)'
         '</p>\n'
     )
@@ -854,15 +855,28 @@ def render_unified_html(
     html += f'  <th style="padding:3px 5px;{alrt_th}" title="Per-step sailing alerts">⚠</th>\n'
     html += '  <th style="padding:4px 7px;text-align:left;background:#1a1a2e;color:#fff">UTC</th>\n'
     html += '  <th style="padding:4px 7px;text-align:left;background:#1a1a2e;color:#fff">CST +8</th>\n'
-    for lbl, th in [('Wind (kt)', wrf_th), ('Gust (kt)', ec_th)]:
-        html += f'  <th style="padding:3px 5px;{th}">{lbl}</th>\n'
+    for lbl, th, tip in [
+        ('Wind (kt)', wrf_th, 'Wind speed in knots (1 kt = 1.85 km/h)'),
+        ('Gust (kt)', ec_th, 'Maximum wind gust speed in knots'),
+    ]:
+        html += f'  <th style="padding:3px 5px;{th}" title="{tip}">{lbl}</th>\n'
     if has_wave:
-        for lbl, th in [('Waves (m)', wave_th), ('Period (s)', wave_th),
-                        ('Swell (m)', wave_th), ('Wave Dir', wave_th)]:
-            html += f'  <th style="padding:3px 5px;{th}">{lbl}</th>\n'
-    for lbl, th in [('Pressure', wrf_th), ('Rain 6h', ec_th), ('Vis (km)', ec_th),
-                    ('Temp (°C)', wrf_th), ('Cloud %', ec_th), ('CAPE', ec_th)]:
-        html += f'  <th style="padding:3px 5px;{th}">{lbl}</th>\n'
+        for lbl, th, tip in [
+            ('Waves (m)', wave_th, 'Significant wave height in metres (combined sea state)'),
+            ('Period (s)', wave_th, 'Wave period in seconds — longer = more powerful swell'),
+            ('Swell (m)', wave_th, 'Swell wave height in metres (long-period waves only)'),
+            ('Wave Dir', wave_th, 'Dominant wave direction — where waves come from'),
+        ]:
+            html += f'  <th style="padding:3px 5px;{th}" title="{tip}">{lbl}</th>\n'
+    for lbl, th, tip in [
+        ('Pressure', wrf_th, 'Mean sea-level pressure in hPa'),
+        ('Rain 6h', ec_th, 'Precipitation accumulated over 6 hours in mm'),
+        ('Vis (km)', ec_th, 'Visibility in kilometres'),
+        ('Temp (°C)', wrf_th, 'Air temperature at 2m in degrees Celsius'),
+        ('Cloud %', ec_th, 'Total cloud cover percentage'),
+        ('CAPE', ec_th, 'Convective Available Potential Energy — thunderstorm indicator (J/kg)'),
+    ]:
+        html += f'  <th style="padding:3px 5px;{th}" title="{tip}">{lbl}</th>\n'
     html += '</tr>\n</thead>\n<tbody>\n'
 
     _n_wave_cols = 4 if has_wave else 0
@@ -870,8 +884,8 @@ def render_unified_html(
 
     # ── Data rows ─────────────────────────────────────────────────────────────
     temp_deltas, wind_deltas, rain_deltas, mslp_deltas = [], [], [], []
-    _EC_BADGE = '<sup style="color:#276749;font-size:0.72em;line-height:1"> EC</sup>'
-    _EC_BG    = '#f0fff4'
+    _EC_BADGE = '<sup style="color:#68d391;font-size:0.72em;line-height:1"> EC</sup>'
+    _EC_BG    = '#0d2d1a'
     _prev_cst_date = None
 
     for row_idx, vt in enumerate(all_valids):
@@ -901,11 +915,11 @@ def render_unified_html(
                      f'📅 {cst_date_str} (CST)</td></tr>\n')
 
         if not has_wrf:
-            row_bg    = '#f0f4ff' if row_idx % 2 else '#f8f9ff'
-            row_extra = 'color:#446'
+            row_bg    = '#111827' if row_idx % 2 else '#0f172a'
+            row_extra = 'color:#94a3b8'
         else:
-            row_bg    = '#f5f7fa' if row_idx % 2 else '#ffffff'
-            row_extra = ''
+            row_bg    = '#111827' if row_idx % 2 else '#0f172a'
+            row_extra = 'color:#e2e8f0'
 
         wt  = wrf.get('temp_c')       if wrf else None
         ww  = wrf.get('wind_kt')      if wrf else None
@@ -938,30 +952,30 @@ def render_unified_html(
         _eff_hs   = wav.get('wave_height') if wav else None
         _row_alerts = []
         if _eff_gust is not None and _eff_gust >= 34:
-            _row_alerts.append('<span style="color:#c53030;font-weight:700">Gale⚠</span>')
+            _row_alerts.append('<span style="color:#fc8181;font-weight:700">Gale⚠</span>')
         elif _eff_gust is not None and _eff_gust >= 28:
-            _row_alerts.append('<span style="color:#c05621">g28+</span>')
+            _row_alerts.append('<span style="color:#fbd38d">g28+</span>')
         if _eff_wind is not None and _eff_wind >= 34:
-            _row_alerts.append('<span style="color:#c53030;font-weight:700">B8+</span>')
+            _row_alerts.append('<span style="color:#fc8181;font-weight:700">B8+</span>')
         elif _eff_wind is not None and _eff_wind >= 28:
-            _row_alerts.append('<span style="color:#c05621">B7</span>')
+            _row_alerts.append('<span style="color:#fbd38d">B7</span>')
         elif _eff_wind is not None and _eff_wind >= 22:
-            _row_alerts.append('<span style="color:#975a16">B6</span>')
+            _row_alerts.append('<span style="color:#fbd38d">B6</span>')
         if _eff_hs is not None and _eff_hs >= 2.5:
-            _row_alerts.append('<span style="color:#2b6cb0">🌊⚠</span>')
+            _row_alerts.append('<span style="color:#93c5fd">🌊⚠</span>')
         elif _eff_hs is not None and _eff_hs >= 1.5:
-            _row_alerts.append('<span style="color:#2b6cb0">🌊</span>')
+            _row_alerts.append('<span style="color:#93c5fd">🌊</span>')
         if _eff_rain is not None and _eff_rain >= 10:
-            _row_alerts.append('<span style="color:#2c5282">🌧</span>')
+            _row_alerts.append('<span style="color:#93c5fd">🌧</span>')
         _alert_html = '&nbsp;'.join(_row_alerts) if _row_alerts else ''
-        _alert_bg   = '#fff5f5' if any('⚠' in a or 'Gale' in a for a in _row_alerts) else (
-                      '#fffbeb' if _row_alerts else row_bg)
+        _alert_bg   = '#2d1515' if any('⚠' in a or 'Gale' in a for a in _row_alerts) else (
+                      '#2d2200' if _row_alerts else row_bg)
 
         html += f'<tr style="background:{row_bg};{row_extra}">\n'
         html += (f'  <td style="padding:2px 5px;text-align:center;font-size:0.85em;'
                  f'background:{_alert_bg};white-space:nowrap">{_alert_html}</td>\n')
         html += f'  <td style="padding:3px 6px;font-weight:500;white-space:nowrap">{utc_str}</td>\n'
-        html += f'  <td style="padding:3px 6px;color:#666;white-space:nowrap">{cst_str}</td>\n'
+        html += f'  <td style="padding:3px 6px;color:#94a3b8;white-space:nowrap">{cst_str}</td>\n'
         if dt_ is not None: temp_deltas.append(dt_)
         if dw_ is not None: wind_deltas.append(dw_)
         if dr_ is not None: rain_deltas.append(dr_)
@@ -982,7 +996,7 @@ def render_unified_html(
             html += (f'  <td style="padding:3px 5px;text-align:center;background:{_EC_BG}">'
                      f'{ew:.0f}kt B{bf}{arrow_s}{dir_s}{_EC_BADGE}</td>\n')
         else:
-            html += '  <td style="padding:3px 5px;text-align:center;color:#bbb">—</td>\n'
+            html += '  <td style="padding:3px 5px;text-align:center;color:#475569">—</td>\n'
 
         # Gust
         g_val = wg if wg is not None else eg
@@ -992,7 +1006,7 @@ def render_unified_html(
             html += (f'  <td style="padding:3px 5px;text-align:center;background:{_wind_bg(g_val)}">'
                      f'{g_val:.0f}kt{badge}</td>\n')
         else:
-            html += '  <td style="padding:3px 5px;text-align:center;color:#bbb">—</td>\n'
+            html += '  <td style="padding:3px 5px;text-align:center;color:#475569">—</td>\n'
 
         # Wave columns
         if has_wave:
@@ -1017,7 +1031,7 @@ def render_unified_html(
             html += (f'  <td style="padding:3px 5px;text-align:center;background:{_EC_BG}">'
                      f'{ep:.1f}{_EC_BADGE}</td>\n')
         else:
-            html += '  <td style="padding:3px 5px;text-align:center;color:#bbb">—</td>\n'
+            html += '  <td style="padding:3px 5px;text-align:center;color:#475569">—</td>\n'
 
         # 6h Rain
         r_val = wr if wr is not None else er
@@ -1028,7 +1042,7 @@ def render_unified_html(
             html += (f'  <td style="padding:3px 5px;text-align:center;background:{_precip_bg(r_val)}">'
                      f'{r_val:.1f}mm{delta}{badge}</td>\n')
         else:
-            html += '  <td style="padding:3px 5px;text-align:center;color:#bbb">—</td>\n'
+            html += '  <td style="padding:3px 5px;text-align:center;color:#475569">—</td>\n'
 
         # Vis
         v_val = wvs if wvs is not None else evs
@@ -1040,7 +1054,7 @@ def render_unified_html(
             html += (f'  <td style="padding:3px 5px;text-align:center{bg_style}">'
                      f'{v_val:.0f}km{badge}</td>\n')
         else:
-            html += '  <td style="padding:3px 5px;text-align:center;color:#bbb">—</td>\n'
+            html += '  <td style="padding:3px 5px;text-align:center;color:#475569">—</td>\n'
 
         # Temp
         if wt is not None:
@@ -1050,7 +1064,7 @@ def render_unified_html(
             html += (f'  <td style="padding:3px 5px;text-align:center;background:{_EC_BG}">'
                      f'{et:.1f}°{_EC_BADGE}</td>\n')
         else:
-            html += '  <td style="padding:3px 5px;text-align:center;color:#bbb">—</td>\n'
+            html += '  <td style="padding:3px 5px;text-align:center;color:#475569">—</td>\n'
 
         # Cloud
         cl_val = wcl if wcl is not None else ecl
@@ -1062,7 +1076,7 @@ def render_unified_html(
             html += (f'  <td style="padding:3px 5px;text-align:center{bg_style}">'
                      f'{cl_val:.0f}%{badge}</td>\n')
         else:
-            html += '  <td style="padding:3px 5px;text-align:center;color:#bbb">—</td>\n'
+            html += '  <td style="padding:3px 5px;text-align:center;color:#475569">—</td>\n'
 
         # CAPE
         cp_val = wcp if wcp is not None else ecp
@@ -1072,7 +1086,7 @@ def render_unified_html(
             html += (f'  <td style="padding:3px 5px;text-align:center;background:{_cape_bg(cp_val)}">'
                      f'{cp_val:.0f}{badge}</td>\n')
         else:
-            html += '  <td style="padding:3px 5px;text-align:center;color:#bbb">—</td>\n'
+            html += '  <td style="padding:3px 5px;text-align:center;color:#475569">—</td>\n'
 
         html += '</tr>\n'
 
@@ -1096,14 +1110,14 @@ def render_unified_html(
                 items.append(f'{icon} <b>{lbl}</b> MAE {mae:.1f}{unit} (bias {s}{bias:.1f}{unit})')
         if items:
             n = sum(1 for vt in all_valids if vt in wrf_by_valid and vt in ec_by_valid)
-            html += ('<div style="margin:8px 0 0;padding:8px 12px;background:#ebf8ff;'
-                     'border-left:3px solid #3182ce;font-size:0.9em">'
+            html += ('<div style="margin:8px 0 0;padding:8px 12px;background:#1a2744;'
+                     'border-left:3px solid #93c5fd;font-size:0.9em;color:#e2e8f0;border-radius:4px">'
                      f'<b>WRF vs ECMWF</b> — {n} overlapping steps: '
                      + ' · '.join(items) + '</div>\n')
 
     # ── Legend ────────────────────────────────────────────────────────────────
     html += (
-        '<p style="margin:8px 0 0;font-size:0.78em;color:#888">'
+        '<p style="margin:8px 0 0;font-size:0.78em;color:#475569">'
         '<b>Wind (Beaufort):</b> '
         '<span style="background:#d4f0c0;padding:1px 3px">B1-3 &lt;11kt</span> '
         '<span style="background:#e8f5c0;padding:1px 3px">B4 11–16</span> '

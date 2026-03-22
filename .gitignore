@@ -10,3 +10,5 @@ wave_downloads/
 *.nc
 *.tar.gz
 .env
+public/
+.vercel/
