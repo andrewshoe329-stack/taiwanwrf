@@ -570,12 +570,13 @@ Models available:
         help="Forecast hours to download, e.g. --hours 0 6 12 18 24 "
              "(default: all 15 files, 0–84h)",
     )
-    p.add_argument(
+    domain_group = p.add_mutually_exclusive_group()
+    domain_group.add_argument(
         "--full-domain",
         action="store_true",
         help="Skip Keelung subsetting and keep only the full-domain GRIB2 files.",
     )
-    p.add_argument(
+    domain_group.add_argument(
         "--keelung-only",
         action="store_true",
         help="Delete full-domain files after subsetting (keep only the Keelung subset). "
@@ -649,6 +650,13 @@ def main() -> None:
         info["init_time"] = info["init_time"].isoformat()
         log.info("%s", json.dumps(info, indent=4, ensure_ascii=False))
         return
+
+    if args.radius <= 0:
+        log.error("--radius must be positive (got %s)", args.radius)
+        sys.exit(1)
+    if args.workers < 1:
+        log.error("--workers must be >= 1 (got %s)", args.workers)
+        sys.exit(1)
 
     # Subsetting is on by default; --full-domain disables it.
     keelung = not args.full_domain

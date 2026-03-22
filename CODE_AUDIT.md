@@ -70,11 +70,8 @@ The `.suffix != ".nc"` condition means GRIB2 files (`.grb2`) are always skipped 
 ### H2. No retry logic on S3 metadata fetch (taiwan_wrf_download.py:170)
 `fetch_json()` for the S3 model run JSON has no retry/error handling, unlike `download_file()` which has 3-attempt retry with exponential backoff.
 
-### H3. Rain 6h calculation uses wrong window size (surf_forecast.py:196-199)
-```python
-for k in range(max(0, i - 5), i + 1)
-```
-`range(i-5, i+1)` is 6 elements (indices i-5 through i inclusive), but this sums hourly precip for indices 0-based. When `i < 5`, the window shrinks silently, producing underestimates for early records.
+### H3. ~~Rain 6h calculation uses wrong window size~~ ✅ FIXED
+Early forecast hours now scale up proportionally to represent 6-hour equivalent accumulation.
 
 ### H4. Fragile time format detection (ecmwf_fetch.py:173, wave_fetch.py:156-157)
 ```python
@@ -85,23 +82,23 @@ Doesn't handle `Z` suffix, fractional seconds, or non-UTC offsets. Should use `n
 ### H5. Grid cache key missing grid_type in wave_fetch.py (wave_fetch.py:312)
 Cache key is `(ni, nj)` only — known latent bug per CLAUDE.md. If messages have different projections with same dimensions, cached grid coordinates would be wrong.
 
-### H6. Silent error masking in ecmwf_fetch.py (ecmwf_fetch.py:81)
-`_fetch_json()` returns `{}` on failure, which is indistinguishable from "no data available." Downstream code logs "No records extracted" without knowing the API actually failed.
+### H6. ~~Silent error masking in ecmwf_fetch.py~~ ✅ FIXED
+`_fetch_json()` now returns `None` on failure. Callers distinguish failure from empty data.
 
-### H7. ThreadPoolExecutor silently drops failed spots (surf_forecast.py:804-818)
-If the Keelung fetch fails, `keelung_records` stays empty, producing a blank sailing forecast with no user-visible warning.
+### H7. ~~ThreadPoolExecutor silently drops failed spots~~ ✅ FIXED
+Now tracks failure count and aborts if >50% of spots fail or if no spot data is fetched.
 
-### H8. No timeouts on most CI workflow steps (.github/workflows/main.yml)
-Only the download step has `timeout-minutes: 30`. All other network-dependent steps (ECMWF fetch, wave fetch, AI summary, rclone upload, Vercel deploy) have no timeout, risking 6-hour runner hangs.
+### H8. ~~No timeouts on most CI workflow steps~~ ✅ FIXED
+All workflow steps now have `timeout-minutes` set (2–30 min depending on step).
 
-### H9. `_trim_records()` silent fallback on malformed dates (forecast_summary.py:52-58)
-When `datetime.fromisoformat()` fails, falls back to `records[:max_days * 4]` — invalid records with malformed `valid_utc` pass through to the LLM prompt.
+### H9. ~~`_trim_records()` silent fallback on malformed dates~~ ✅ FIXED
+Now logs a warning when falling back to slice-based trimming.
 
-### H10. Array reshape without size validation (wrf_analyze.py:213-214, 246-251)
-`codes_get_array().reshape(nj, ni)` will raise `ValueError` if array size doesn't match `ni*nj`, caught only by a broad `except Exception`.
+### H10. ~~Array reshape without size validation~~ ✅ FIXED
+Both paramId and main paths now validate array size against `ni*nj` before reshape.
 
-### H11. No validation of Ni/Nj grid dimensions (wrf_analyze.py:240-241)
-If GRIB2 returns zero or negative dimensions, reshape produces wrong results.
+### H11. ~~No validation of Ni/Nj grid dimensions~~ ✅ FIXED
+Grid dimensions are validated to be positive before use.
 
 ### H12. Anthropic API retry doesn't catch all network errors (forecast_summary.py:148-149)
 Only catches `APIConnectionError`, `RateLimitError`, `InternalServerError`, and `ValueError`. Misses `socket.timeout`, `ssl.SSLError`, and generic `OSError`.
@@ -125,17 +122,17 @@ Input `2026-03-09T06:00:00+05:30` passes through unchanged — violates the func
 ### M5. No JSON schema validation on input files (wrf_analyze.py:1265-1295)
 External JSON files are loaded without type/structure checks.
 
-### M6. Unescaped tide data in HTML output (wrf_analyze.py:695-696)
-Tide `cst` field from JSON embedded in HTML without `html.escape()`.
+### M6. ~~Unescaped tide data in HTML output~~ ✅ FIXED
+Tide data now escaped with `html_mod.escape()` and uses `.get()` for safe access.
 
 ### M7. Fragile string slicing for time extraction (wrf_analyze.py:695)
 `ex.get('cst', '')[-9:-4]` assumes exact string format — breaks silently if format changes.
 
-### M8. No validation of --radius and --workers args (taiwan_wrf_download.py:587, 610)
-Negative radius or zero workers would cause runtime errors instead of user-friendly validation.
+### M8. ~~No validation of --radius and --workers args~~ ✅ FIXED
+`main()` now validates `--radius > 0` and `--workers >= 1` before calling `run()`.
 
-### M9. Mutually exclusive flags not enforced (taiwan_wrf_download.py:579-582)
-`--keelung-only` and `--full-domain` can both be passed; behavior is ambiguous.
+### M9. ~~Mutually exclusive flags not enforced~~ ✅ FIXED
+`--keelung-only` and `--full-domain` now use `add_mutually_exclusive_group()`.
 
 ### M10. Inconsistent logging wrapper usage (taiwan_wrf_download.py:116-118)
 `_log()` wrapper defined but used inconsistently alongside direct `log.info()` calls.
@@ -173,8 +170,8 @@ Acknowledged in CLAUDE.md — hard to test, maintain, and prone to typos.
 ### M21. Thread-safety gap in grid cache (taiwan_wrf_download.py:112-113, 264)
 Shared `_grid_cache` dict is written by multiple threads without locking.
 
-### M22. Missing test suite for forecast_summary.py
-Zero test coverage for the AI summary module — prompt building, API retry, HTML output all untested.
+### M22. ~~Missing test suite for forecast_summary.py~~ ✅ FIXED
+Added `tests/test_forecast_summary.py` with 17 tests covering `_trim_records`, `build_user_prompt`, `render_html`, and `SYSTEM_PROMPT`.
 
 ---
 
@@ -225,7 +222,7 @@ Zero test coverage for the AI summary module — prompt building, API retry, HTM
 | surf_forecast.py | Scoring, ratings, compass (34 tests) | HTML generation, `_recommend()`, thread pool |
 | tide_predict.py | Semidiurnal pattern, extrema | `tide_state()`, edge cases |
 | accuracy_track.py | Error metrics | Observation fetch, stale data pruning |
-| **forecast_summary.py** | **NONE** | **Everything** |
+| forecast_summary.py | `_trim_records`, `build_user_prompt`, `render_html`, `SYSTEM_PROMPT` | `call_api`, `main` |
 
 ---
 

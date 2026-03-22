@@ -55,6 +55,8 @@ def _trim_records(records: list, max_days: int = 7) -> list:
         return [r for r in records
                 if datetime.fromisoformat(r.get('valid_utc', '')) <= cutoff]
     except (ValueError, TypeError):
+        log.warning("Malformed valid_utc in records — falling back to first %d entries",
+                    max_days * 4)
         return records[:max_days * 4]  # ~4 records/day at 6h intervals
 
 

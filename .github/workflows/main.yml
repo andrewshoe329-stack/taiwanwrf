@@ -68,6 +68,7 @@ jobs:
       # On the very first run this step silently produces nothing.
       - name: Fetch previous run summary
         id: prev_summary
+        timeout-minutes: 5
         run: |
           rclone copy gdrive:WRF_Taiwan/keelung_summary.json . \
             --no-traverse 2>/dev/null || true
@@ -110,6 +111,7 @@ jobs:
       - name: Fetch ECMWF forecast
         id: ecmwf
         if: steps.stale_check.outputs.is_new == 'true'
+        timeout-minutes: 5
         run: |
           python ecmwf_fetch.py --output ecmwf_keelung.json
           echo "ecmwf_json=ecmwf_keelung.json" >> "$GITHUB_OUTPUT"
@@ -123,6 +125,7 @@ jobs:
       - name: Fetch wave forecast
         id: wave
         if: steps.stale_check.outputs.is_new == 'true'
+        timeout-minutes: 5
         run: |
           python wave_fetch.py --output wave_keelung.json
           echo "wave_json=wave_keelung.json" >> "$GITHUB_OUTPUT"
@@ -132,6 +135,7 @@ jobs:
       - name: Predict tides
         id: tide
         if: steps.stale_check.outputs.is_new == 'true'
+        timeout-minutes: 2
         run: |
           python tide_predict.py --output tide_keelung.json --days 7
 
@@ -142,6 +146,7 @@ jobs:
       - name: List GRIB2 variables (diagnostic)
         id: grib_vars
         if: steps.stale_check.outputs.is_new == 'true'
+        timeout-minutes: 5
         run: |
           RUNDIR="${{ steps.download.outputs.rundir }}"
           FIRST=$(ls "$RUNDIR"/*_keelung*.grb2 2>/dev/null | sort | head -1)
@@ -167,6 +172,7 @@ jobs:
       - name: Analyze Keelung forecast
         id: analyze
         if: steps.stale_check.outputs.is_new == 'true'
+        timeout-minutes: 10
         run: |
           RUNDIR="${{ steps.download.outputs.rundir }}"
           PREV_ARG=""
@@ -200,6 +206,7 @@ jobs:
       - name: Generate surf forecast
         id: surf
         if: steps.stale_check.outputs.is_new == 'true'
+        timeout-minutes: 10
         run: |
           python surf_forecast.py --output surf_forecast.html
           cat surf_forecast.html >> forecast.html
@@ -210,6 +217,7 @@ jobs:
       - name: Generate AI forecast summary
         id: ai_summary
         if: steps.stale_check.outputs.is_new == 'true'
+        timeout-minutes: 5
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
@@ -239,6 +247,7 @@ jobs:
       - name: Upload to Google Drive
         id: upload
         if: steps.stale_check.outputs.is_new == 'true'
+        timeout-minutes: 15
         run: |
           # Upload the GRIB2 archive
           rclone copy "${{ steps.download.outputs.archive_path }}" gdrive:WRF_Taiwan/ \
@@ -268,6 +277,7 @@ jobs:
       # download link for the WRF GRIB2 archive, then deploys to Vercel.
       - name: Build Vercel site
         if: steps.stale_check.outputs.is_new == 'true'
+        timeout-minutes: 5
         run: |
           DRIVE_LINK="${{ steps.upload.outputs.drive_link }}"
           ARCHIVE_NAME="${{ steps.download.outputs.archive_name }}"
@@ -373,6 +383,7 @@ jobs:
 
       - name: Deploy to Vercel
         if: steps.stale_check.outputs.is_new == 'true'
+        timeout-minutes: 10
         run: |
           npm install -g vercel@39
           vercel deploy --prod --yes
