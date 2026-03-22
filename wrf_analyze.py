@@ -543,6 +543,7 @@ def _daily_summary_html(
     ec_by_valid:  dict,
     wave_by_valid: dict,
     all_valids: list,
+    tide_data: dict | None = None,
 ) -> str:
     """
     Compact day-by-day summary cards (one per CST calendar day).
@@ -676,6 +677,19 @@ def _daily_summary_html(
                 f'{cape_level} CAPE {max_cape:.0f} J/kg</div>\n'
             )
 
+        # Tide info for this day
+        tide_str = ''
+        if tide_data:
+            day_tides = [ex for ex in tide_data.get('extrema', [])
+                         if ex.get('cst', '').startswith(cst_date)]
+            if day_tides:
+                parts = []
+                for ex in day_tides[:4]:  # max 4 extrema per day
+                    arrow = '▲' if ex['type'] == 'high' else '▼'
+                    t_str = ex.get('cst', '')[-9:-4]  # "HH:MM" from "YYYY-MM-DD HH:MM CST"
+                    parts.append(f'{arrow}{t_str} {ex["height_m"]:.1f}m')
+                tide_str = ' '.join(parts)
+
         cards_html += (
             f'<div style="border:1px solid #2d3f5a;border-top:3px solid {card_border};'
             f'border-radius:5px;padding:7px 10px;min-width:120px;background:#111827;'
@@ -689,6 +703,7 @@ def _daily_summary_html(
             + f'  <div style="color:#94a3b8">💨 {wind_str}</div>\n'
             f'  <div style="color:#94a3b8">🌧️ {rain_str}</div>\n'
             f'  <div style="color:#94a3b8">🌡️ {temp_str}</div>\n'
+            + (f'  <div style="color:#7db8f0;font-size:0.85em">🌙 {tide_str}</div>\n' if tide_str else '')
             + cape_badge
             + f'  <div style="margin-top:4px">'
             f'<span style="background:{src_bg};color:{src_color};font-size:0.72em;'
@@ -708,6 +723,7 @@ def _render_summary_html(
     prev_records: list,
     ecmwf_records: list,
     wave_data: dict | None,
+    tide_data: dict | None = None,
 ) -> str:
     """
     Compact summary section: daily cards, alerts, model shift note.
@@ -773,7 +789,7 @@ def _render_summary_html(
     )
 
     # ── Daily summary cards ───────────────────────────────────────────────────
-    html += _daily_summary_html(wrf_by_valid, ec_by_valid, wave_by_valid, all_valids)
+    html += _daily_summary_html(wrf_by_valid, ec_by_valid, wave_by_valid, all_valids, tide_data)
 
 
     # ── Alerts (WRF primary; ECMWF fills in gust/rain/CAPE) ──────────────────
@@ -842,6 +858,7 @@ def render_unified_html(
     prev_records: list,
     ecmwf_records: list,
     wave_data: dict | None,
+    tide_data: dict | None = None,
 ) -> str:
     """
     Full web-app HTML: daily summary cards + complete hourly table
@@ -862,7 +879,7 @@ def render_unified_html(
 
     # Start with the summary section (header + daily cards + alerts + model shift),
     # then strip its closing </div> so we can append the full table.
-    html = _render_summary_html(meta, records, prev_records, ecmwf_records, wave_data)
+    html = _render_summary_html(meta, records, prev_records, ecmwf_records, wave_data, tide_data)
     if html.endswith('</div>\n'):
         html = html[:-len('</div>\n')]
 
@@ -1178,6 +1195,8 @@ def main() -> None:
                    help='ECMWF IFS JSON produced by ecmwf_fetch.py (enables comparison table)')
     p.add_argument('--wave-json',   default=None,
                    help='Wave JSON produced by wave_fetch.py (adds wave forecast section)')
+    p.add_argument('--tide-json',   default=None,
+                   help='Tide JSON produced by tide_predict.py (adds tide info to daily cards)')
     p.add_argument('--list-vars',   action='store_true',
                    help='Diagnostic: list all GRIB2 shortNames in the first file and exit')
     args = p.parse_args()
@@ -1258,8 +1277,20 @@ def main() -> None:
         except Exception as e:
             log.warning("Could not load wave JSON: %s", e)
 
+    # ── Load tide data ──────────────────────────────────────────────────────
+    tide_data = None
+    if args.tide_json and Path(args.tide_json).exists():
+        try:
+            with open(args.tide_json) as f:
+                tide_data = json.load(f)
+            n_extrema = len(tide_data.get('extrema', []))
+            log.info("Tide data: %d extrema", n_extrema)
+        except Exception as e:
+            log.warning("Could not load tide JSON: %s", e)
+
     # ── Write HTML ────────────────────────────────────────────────────────────
-    html_full = render_unified_html(meta, records, prev_records, ecmwf_records, wave_data)
+    html_full = render_unified_html(meta, records, prev_records, ecmwf_records, wave_data,
+                                    tide_data=tide_data)
     out_html = Path(args.output_html)
     out_html.write_text(html_full)
     log.info("HTML → %s", out_html)

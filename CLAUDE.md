@@ -26,18 +26,24 @@ GitHub Actions (cron 4x/day)
   ├─ 3b. wave_fetch.py            → ECMWF WAM wave forecast (Open-Meteo marine, free)
   │      Output: wave_keelung.json
   │
+  ├─ 3c. tide_predict.py           → Harmonic tide prediction (no API, offline)
+  │      Output: tide_keelung.json
+  │
   ├─ 4. wrf_analyze.py            → Extract Keelung point from GRIB2, compare WRF vs ECMWF
-  │     Outputs: keelung_summary_new.json, forecast.html
+  │     Inputs: GRIB2 + ecmwf + wave + tide JSONs
+  │     Outputs: keelung_summary_new.json, forecast.html (with tide in daily cards)
   │
   ├─ 5. surf_forecast.py          → 7-spot surf ratings + daily planner (parallel API calls)
   │     Output: surf_forecast.html (appended to forecast.html)
   │
-  ├─ 6. forecast_summary.py       → AI narrative via Anthropic Claude API
+  ├─ 6. forecast_summary.py       → AI narrative via Anthropic Claude API (3-attempt retry)
   │     Output: ai_summary.html (prepended to forecast.html)
   │
   ├─ 7. rclone upload             → Archive + summary JSON to Google Drive
   │
-  └─ 8. Vercel deploy             → public/index.html (assembled from all HTML fragments)
+  ├─ 8. accuracy_track.py         → Compare past forecast vs observations (optional)
+  │
+  └─ 9. Vercel deploy             → PWA-enabled public/index.html (manifest + service worker)
 ```
 
 ---
@@ -52,11 +58,14 @@ GitHub Actions (cron 4x/day)
 | `ecmwf_fetch.py` | ~263 | Fetch ECMWF IFS from Open-Meteo, 6-hourly conversion, GFS gust/vis backfill |
 | `wave_fetch.py` | ~452 | Fetch ECMWF WAM from Open-Meteo marine API, optional CWA wave probe |
 | `surf_forecast.py` | ~810 | 7 surf spots scoring, daily activity planner, matrix + detail HTML |
-| `forecast_summary.py` | ~224 | Anthropic API call, prompt construction, HTML fragment output |
+| `tide_predict.py` | ~170 | Harmonic tide prediction for Keelung (no API key needed) |
+| `accuracy_track.py` | ~180 | Forecast accuracy tracking vs Open-Meteo observations |
+| `forecast_summary.py` | ~224 | Anthropic API call (3-attempt retry), prompt construction, HTML output |
 | `.github/workflows/main.yml` | ~340 | Full CI/CD pipeline with concurrency control |
+| `pwa/` | 4 files | PWA manifest, service worker, icon generator, icons |
 | `vercel.json` | ~8 | Static site config (rewrites `/` → `/index.html`) |
 | `requirements.txt` | ~6 | `eccodes>=1.5,<2`, `numpy>=1.24,<3`, `anthropic>=0.40,<1` |
-| `tests/` | 6 files, 113 tests | Unit tests for pure functions (pytest) |
+| `tests/` | 8 files, 140 tests | Unit tests for pure functions (pytest) |
 
 ---
 
@@ -138,7 +147,7 @@ pip install pytest
 python -m pytest tests/ -v
 ```
 
-All 113 tests should pass. Tests cover: compass conversion, Beaufort scale, color functions, direction quality scoring, day ratings, sail ratings, time normalization, bbox geometry, and GRIB2 constant validation.
+All 140 tests should pass. Tests cover: compass conversion, Beaufort scale, color functions, direction quality scoring, day ratings, sail ratings, time normalization, bbox geometry, GRIB2 constant validation, tide prediction (semidiurnal pattern, extrema detection), and accuracy tracking (error metrics).
 
 **No integration tests exist.** Tests don't require network access or GRIB2 files — they only test pure functions.
 
@@ -192,11 +201,11 @@ python forecast_summary.py --wrf-json keelung_summary_new.json \
 - No accessibility features beyond basic skip-nav and aria-labels (no colorblind-safe indicators yet)
 - No way to detect stale data on the Vercel site if the workflow fails silently (timestamp bar helps but isn't a full solution)
 
-### Planned Features (from AUDIT.md)
-1. **Tide integration** — CWA tide API or WorldTides; critical for surf/sail accuracy
-2. **PWA conversion** — manifest.json, service worker, offline caching
-3. **Historical accuracy tracking** — compare forecasts to observations
-4. **Multi-model ensemble** — GFS, ICON, JMA via Open-Meteo
+### Potential Future Features
+1. **Multi-model ensemble** — GFS, ICON, JMA via Open-Meteo for confidence indicators
+2. **Push notifications** — LINE/Telegram alerts when conditions cross thresholds
+3. **Route weather** — interpolate WRF grid along sailing waypoints
+4. **Spot webcam links** — embed or link to surf spot cameras
 
 ---
 

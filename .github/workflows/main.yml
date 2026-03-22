@@ -122,6 +122,14 @@ jobs:
           python wave_fetch.py --output wave_keelung.json
           echo "wave_json=wave_keelung.json" >> "$GITHUB_OUTPUT"
 
+      # ── Predict tides for Keelung harbour ─────────────────────────────────────
+      # Uses harmonic analysis (no API key needed). Produces tide_keelung.json.
+      - name: Predict tides
+        id: tide
+        if: steps.stale_check.outputs.is_new == 'true'
+        run: |
+          python tide_predict.py --output tide_keelung.json --days 7
+
       # ── Diagnostic: list GRIB2 variables in first subset file ────────────────
       # Captures the (shortName, typeOfLevel, level) inventory to a file so it
       # can be included in the HTML output.  Helps diagnose missing variables (gusts,
@@ -168,11 +176,16 @@ jobs:
           if [ -f wave_keelung.json ]; then
             WAVE_ARG="--wave-json wave_keelung.json"
           fi
+          TIDE_ARG=""
+          if [ -f tide_keelung.json ]; then
+            TIDE_ARG="--tide-json tide_keelung.json"
+          fi
           python wrf_analyze.py \
             --rundir "$RUNDIR" \
             $PREV_ARG \
             $ECMWF_ARG \
             $WAVE_ARG \
+            $TIDE_ARG \
             --output-json keelung_summary_new.json \
             --output-html forecast.html
 
@@ -257,6 +270,8 @@ jobs:
           BUILD_UTC=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
           mkdir -p public
+          # PWA assets
+          cp pwa/manifest.json pwa/sw.js pwa/icon-192.png pwa/icon-512.png public/
           cat <<HEADER > public/index.html
           <!DOCTYPE html>
           <html lang="en">
@@ -264,6 +279,11 @@ jobs:
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <meta http-equiv="refresh" content="1800">
+            <meta name="theme-color" content="#0f172a">
+            <meta name="apple-mobile-web-app-capable" content="yes">
+            <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+            <link rel="manifest" href="/manifest.json">
+            <link rel="apple-touch-icon" href="/icon-192.png">
             <title>Taiwan Sail & Surf Forecast</title>
             <style>
               body { margin: 0; padding: 0; background: #0f172a; }
@@ -337,6 +357,13 @@ jobs:
           fi
 
           cat forecast.html >> public/index.html
+          cat <<'SWREG' >> public/index.html
+          <script>
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(function(){});
+          }
+          </script>
+          SWREG
           echo '</body></html>' >> public/index.html
 
       - name: Deploy to Vercel
