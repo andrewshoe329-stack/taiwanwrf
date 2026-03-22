@@ -545,17 +545,9 @@ def _generate_planner_html(all_spot_data: list[dict], keelung_records: list = No
     # Collect all day keys across all spots
     all_dks = sorted({r['dk'] for sd in all_spot_data for r in sd['records']})
 
-    # Emit CSS for class-based styles used in matrix and detail tables
-    html = CSS + '\n'
-
-    # Planner table uses inline styles for maximum compatibility
-    _S = 'font-family:Arial,Helvetica Neue,sans-serif'
-    _TH = f'background:#1e3a5f;color:#7db8f0;padding:6px 10px;font-size:11px;text-align:center;white-space:nowrap;border:1px solid #2d3f5a;line-height:1.4'
-    _TD = f'padding:6px 10px;text-align:center;border:1px solid #1e293b;font-size:12px;white-space:nowrap;line-height:1.4'
-
-    html += f'<div style="{_S};font-size:14px;color:#e2e8f0;background:#0f172a;padding:16px;border-radius:8px;margin-top:20px">\n'
-    html += '<div style="font-size:16px;font-weight:700;margin-bottom:4px;color:#93c5fd"><span role="img" aria-label="Surfer">🏄</span> Taiwan Surf Forecast</div>\n'
-    html += f'<div style="font-size:11px;color:#475569;margin-bottom:14px">Generated {gen_str} · Data: ECMWF IFS025 + GFS + ECMWF WAM (Open-Meteo) · Source: swelleye.com</div>\n'
+    html = '<section id="surf" class="section surf-section">\n'
+    html += '<h2 class="section-title"><span role="img" aria-label="Surfer">🏄</span> Taiwan Surf Forecast</h2>\n'
+    html += f'<p class="section-subtitle">Generated {gen_str} · Data: ECMWF IFS025 + GFS + ECMWF WAM (Open-Meteo) · Source: swelleye.com</p>\n'
 
     # ── Daily Activity Planner ─────────────────────────────────────────────
     # Pre-bucket keelung records and surf records by day
@@ -572,15 +564,15 @@ def _generate_planner_html(all_spot_data: list[dict], keelung_records: list = No
         for dk, recs in by_day.items():
             surf_by_day_spot.setdefault(dk, []).append((sd['spot'], recs))
 
-    html += '<div style="margin-bottom:20px">\n'
-    html += '<div style="font-size:14px;font-weight:700;color:#93c5fd;margin-bottom:6px"><span role="img" aria-label="Calendar">📅</span> Daily Activity Planner</div>\n'
+    html += '<div id="planner" style="margin-bottom:20px">\n'
+    html += '<h3 style="font-size:14px;font-weight:700;color:#93c5fd;margin:0 0 6px"><span role="img" aria-label="Calendar">📅</span> Daily Activity Planner</h3>\n'
     html += '<div style="overflow-x:auto">\n'
-    html += ('<table style="border-collapse:collapse;width:100%;margin-bottom:20px">\n'
+    html += ('<table class="planner-table">\n'
              '<thead><tr>'
-             f'<th scope="col" style="{_TH};text-align:left;min-width:90px">Day</th>'
-             f'<th scope="col" style="{_TH};min-width:110px">⛵ Keelung Sailing</th>'
-             f'<th scope="col" style="{_TH};min-width:130px">🏄 Best Surf Spot</th>'
-             f'<th scope="col" style="{_TH};min-width:160px">Recommendation</th>'
+             '<th scope="col" style="text-align:left;min-width:90px">Day</th>'
+             '<th scope="col" style="min-width:110px">⛵ Keelung Sailing</th>'
+             '<th scope="col" style="min-width:130px">🏄 Best Surf Spot</th>'
+             '<th scope="col" style="min-width:160px">Recommendation</th>'
              '</tr></thead>\n<tbody>\n')
 
     for dk in all_dks:
@@ -615,18 +607,17 @@ def _generate_planner_html(all_spot_data: list[dict], keelung_records: list = No
             sail_detail = f'<small style="color:#64748b;display:block">{round(max_w)}/{round(max_g)}kt · {max_hs:.1f}m</small>'
 
         html += (f'<tr>'
-                 f'<td style="{_TD};text-align:left;font-weight:700;color:#cbd5e1;background:#111827">{dlbl}</td>'
-                 f'<td style="{_TD};background:{sail_rat["bg"]};color:{sail_rat["col"]}">'
+                 f'<td style="text-align:left;font-weight:700;color:#cbd5e1">{dlbl}</td>'
+                 f'<td style="background:{sail_rat["bg"]};color:{sail_rat["col"]}">'
                  f'{sail_rat["label"]}{sail_detail}</td>'
-                 f'<td style="{_TD};background:{best_surf_rat["bg"]};color:{best_surf_rat["col"]}">'
+                 f'<td style="background:{best_surf_rat["bg"]};color:{best_surf_rat["col"]}">'
                  f'{best_surf_rat["emoji"]} {best_surf_name}'
                  f'<small style="color:#64748b;display:block">{best_surf_rat["label"]}</small></td>'
-                 f'<td style="{_TD};background:{rec_bg};color:#e2e8f0;font-weight:600">{rec_text}</td>'
+                 f'<td style="background:{rec_bg};color:#e2e8f0;font-weight:600">{rec_text}</td>'
                  f'</tr>\n')
 
     html += '</tbody></table>\n</div>\n</div>\n'
 
-    html += '</div>\n'  # surf-section
     return html
 
 
@@ -635,28 +626,11 @@ def generate_full_html(all_spot_data: list[dict], keelung_records: list = None) 
     Full HTML: Daily Activity Planner + 7-spot rating matrix
     + per-spot hourly detail tables + legend.
     """
-    # Start with the planner table, then strip the closing </div>
-    # (surf-section wrapper) so we can append matrix + detail sections.
+    # Start with the planner section
     html = _generate_planner_html(all_spot_data, keelung_records=keelung_records)
-    html = html.rstrip()
-    if html.endswith('</div>'):
-        html = html[:-len('</div>')] + '\n'
 
     now_cst = datetime.now(timezone.utc) + timedelta(hours=8)
     all_dks = sorted({r['dk'] for sd in all_spot_data for r in sd['records']})
-
-    # ── Skip navigation (accessibility) ─────────────────────────────────
-    html += '<a href="#matrix" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;color:#93c5fd" class="skip-nav">Skip to forecast overview</a>\n'
-
-    # ── Sticky navigation bar ──────────────────────────────────────────────
-    html += '<nav class="surf-nav" aria-label="Surf spot navigation">'
-    html += '<a href="#planner">Planner</a><span class="sep" aria-hidden="true">·</span>'
-    html += '<a href="#matrix">Overview</a>'
-    for sd in all_spot_data:
-        sid = sd['spot']['id']
-        short = sd['spot']['name'].split()[0]
-        html += f'<span class="sep" aria-hidden="true">·</span><a href="#spot-{sid}">{short}</a>'
-    html += '</nav>\n'
 
     # ── Rating matrix ──────────────────────────────────────────────────────
     html += '<div id="matrix" style="overflow-x:auto">\n'
@@ -698,7 +672,8 @@ def generate_full_html(all_spot_data: list[dict], keelung_records: list = None) 
         if not records:
             continue
 
-        html += f'<div id="spot-{spot["id"]}" class="detail-header">{spot["name"]} — Detailed Forecast</div>\n'
+        html += f'<details id="spot-{spot["id"]}" class="detail-section">\n'
+        html += f'<summary class="detail-header">{spot["name"]} — Detailed Forecast</summary>\n'
         html += '<div style="overflow-x:auto">\n'
         html += '<table class="detail-table">\n'
         html += ('<thead><tr>'
@@ -760,8 +735,7 @@ def generate_full_html(all_spot_data: list[dict], keelung_records: list = None) 
             row_i += 1
 
         html += '</tbody></table>\n</div>\n'  # close table + overflow wrapper
-
-    html += '</div>\n'  # detail-section
+        html += '</details>\n'  # close detail collapsible
 
     # ── Legend ─────────────────────────────────────────────────────────────
     html += ('<div class="legend-block">'
@@ -780,7 +754,7 @@ def generate_full_html(all_spot_data: list[dict], keelung_records: list = None) 
              'B5 17-21kt fresh · B6 22-27kt strong · B7 28-33kt near-gale · B8+ ≥34kt gale'
              '</div>\n')
 
-    html += '</div>\n'  # surf-section
+    html += '</section>\n'  # close surf section
     return html
 
 

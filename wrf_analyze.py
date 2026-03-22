@@ -590,7 +590,7 @@ def _daily_summary_html(
     if not day_buckets:
         return ''
 
-    cards_html = '<div class="keelung-cards" style="display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 14px">\n'
+    cards_html = '<div class="daily-cards">\n'
 
     for cst_date in sorted(day_buckets):
         valids = day_buckets[cst_date]
@@ -718,23 +718,19 @@ def _daily_summary_html(
                 tide_str = ' '.join(parts)
 
         cards_html += (
-            f'<div style="border:1px solid #2d3f5a;border-top:3px solid {card_border};'
-            f'border-radius:5px;padding:7px 10px;min-width:120px;background:#111827;'
-            f'font-size:12px;line-height:1.5">\n'
-            f'  <div style="font-weight:700;color:#e2e8f0;font-size:1em">'
-            f'{day_label}&nbsp;<span style="font-size:1.1em">{cond_icon}</span></div>\n'
-            f'  <div style="background:{sail_bg};border-radius:3px;padding:1px 5px;'
-            f'font-weight:600;font-size:0.9em;margin:2px 0 3px;display:inline-block;color:#e2e8f0">'
+            f'<div class="daily-card" style="border-top:3px solid {card_border}">\n'
+            f'  <div class="day-label">'
+            f'{day_label}<span class="day-icon">{cond_icon}</span></div>\n'
+            f'  <div class="sail-badge" style="background:{sail_bg}">'
             f'{sail_label}</div>\n'
-            + (f'  <div style="color:#94a3b8">🌊 {wave_str}</div>\n' if wave_str else '')
-            + f'  <div style="color:#94a3b8">💨 {wind_str}</div>\n'
-            f'  <div style="color:#94a3b8">🌧️ {rain_str}</div>\n'
-            f'  <div style="color:#94a3b8">🌡️ {temp_str}</div>\n'
-            + (f'  <div style="color:#7db8f0;font-size:0.85em">🌙 {tide_str}</div>\n' if tide_str else '')
+            + (f'  <div class="metric">🌊 {wave_str}</div>\n' if wave_str else '')
+            + f'  <div class="metric">💨 {wind_str}</div>\n'
+            f'  <div class="metric">🌧️ {rain_str}</div>\n'
+            f'  <div class="metric">🌡️ {temp_str}</div>\n'
+            + (f'  <div class="metric" style="color:#7db8f0;font-size:0.85em">🌙 {tide_str}</div>\n' if tide_str else '')
             + cape_badge
             + f'  <div style="margin-top:4px">'
-            f'<span style="background:{src_bg};color:{src_color};font-size:0.72em;'
-            f'padding:1px 5px;border-radius:3px">{src_label}</span></div>\n'
+            f'<span class="badge" style="background:{src_bg};color:{src_color}">{src_label}</span></div>\n'
             f'</div>\n'
         )
 
@@ -795,21 +791,14 @@ def _render_summary_html(
     # HTML construction starts here
     # ═════════════════════════════════════════════════════════════════════════
     html = (
-        '<style>\n'
-        '@media (max-width: 700px) {\n'
-        '  .keelung-table { font-size: 10px !important; }\n'
-        '  .keelung-table th, .keelung-table td { padding: 2px 3px !important; }\n'
-        '  .keelung-cards > div { min-width: 100px !important; }\n'
-        '}\n'
-        '</style>\n'
-        '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.4;'
-        'background:#0f172a;color:#e2e8f0;padding:16px;border-radius:8px">\n'
-        '<h3 style="margin:0 0 2px;font-size:15px;color:#93c5fd">\n'
+        '<section id="forecast" class="section">\n'
+        '<div class="card-glass">\n'
+        '<h2 class="section-title">\n'
         f'  <span role="img" aria-label="Globe">🌏</span> Keelung Unified Forecast\n'
-        f'  <span style="font-weight:normal;font-size:0.85em;color:#94a3b8">'
+        f'  <span style="font-weight:normal;font-size:0.75em;color:#94a3b8">'
         f'&nbsp;{KEELUNG_LAT}°N {KEELUNG_LON}°E</span>\n'
-        '</h3>\n'
-        f'<p style="margin:0 0 4px;color:#475569;font-size:0.88em">'
+        '</h2>\n'
+        f'<p class="section-subtitle">'
         f'{html_mod.escape(meta.get("model_id","?"))} · WRF Init: {init_str}{wave_init_str}'
         f'{"&nbsp;·&nbsp; <i>Δ vs prev WRF run in brackets</i>" if has_prev else ""}'
         '</p>\n\n'
@@ -844,8 +833,7 @@ def _render_summary_html(
         elif max_hs >= 2.0: alerts.append(f'🌊 Rough conditions — Hs {max_hs:.1f}m peak')
         elif max_hs >= 1.0: alerts.append(f'🌊 Moderate seas — Hs {max_hs:.1f}m')
     if alerts:
-        html += ('<div style="margin:8px 0 0;padding:8px 10px;background:#2d1515;'
-                 'border-left:3px solid #fc8181;font-size:0.9em;color:#fca5a5;border-radius:4px">'
+        html += ('<div class="alert-box alert-danger">'
                  + '<br>'.join(alerts) + '</div>\n')
 
     # ── Model shift vs prev run ───────────────────────────────────────────────
@@ -870,9 +858,8 @@ def _render_summary_html(
             if abs(pk_m) >= 1:
                 notes.append(f'Max MSLP shift {"+" if pk_m>0 else ""}{pk_m:.1f}hPa vs prev run')
         if notes:
-            html += ('<p style="margin:8px 0 0;padding:6px 10px;background:#2d2200;'
-                     'border-left:3px solid #fbd38d;font-size:0.9em;color:#fbd38d;border-radius:4px">'
-                     '🔄 <b>Model shift vs prev run:</b> ' + ' · '.join(notes) + '</p>\n')
+            html += ('<div class="alert-box alert-warning">'
+                     '🔄 <b>Model shift vs prev run:</b> ' + ' · '.join(notes) + '</div>\n')
 
     html += '</div>\n'
     return html
@@ -912,50 +899,46 @@ def render_unified_html(
     # ── Source legend ─────────────────────────────────────────────────────────
     html += (
         '<p style="margin:0 0 6px;font-size:0.82em;color:#94a3b8">'
-        '<span style="background:#2c4a7c;color:#d0e0ff;padding:1px 5px;border-radius:3px">WRF 3km</span>'
+        '<span class="badge badge-wrf">WRF 3km</span>'
         '&nbsp;'
-        '<span style="background:#2d6a4f;color:#d0f0e0;padding:1px 5px;border-radius:3px">ECMWF IFS</span>'
-        '&nbsp;— green <sup style="color:#68d391;font-size:0.85em">EC</sup> badge = ECMWF/GFS fills in'
+        '<span class="badge badge-ec">ECMWF IFS</span>'
+        '&nbsp;— green <sup class="ec-sup">EC</sup> badge = ECMWF/GFS fills in'
         ' where CWA WRF is absent (gust, rain, cloud, vis, CAPE)'
         '</p>\n'
     )
 
-    # ── Table ─────────────────────────────────────────────────────────────────
-    html += '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch">\n'
-    html += '<table class="keelung-table" style="border-collapse:collapse;font-size:11.5px;white-space:nowrap">\n'
-    html += '<caption style="caption-side:top;text-align:left;font-size:10px;color:#475569;margin-bottom:4px">6-hourly forecast detail — scroll horizontally on mobile</caption>\n'
+    # ── Table (desktop) ──────────────────────────────────────────────────────
+    html += '<div class="fc-desktop">\n'
+    html += '<table class="fc-table">\n'
+    html += '<caption>6-hourly forecast detail — scroll horizontally on mobile</caption>\n'
     html += '<thead>\n'
 
-    wrf_th  = 'background:#2c4a7c;color:#d0e0ff'
-    ec_th   = 'background:#2d6a4f;color:#d0f0e0'
-    wave_th = 'background:#1e4d7a;color:#d0e8ff'
-    alrt_th = 'background:#2d3748;color:#e2e8f0'
-    html += '<tr style="text-align:center;font-size:0.9em">\n'
-    html += f'  <th style="padding:3px 5px;{alrt_th}" title="Per-step sailing alerts">⚠</th>\n'
-    html += '  <th style="padding:4px 7px;text-align:left;background:#1a1a2e;color:#fff">UTC</th>\n'
-    html += '  <th style="padding:4px 7px;text-align:left;background:#1a1a2e;color:#fff">CST +8</th>\n'
-    for lbl, th, tip in [
-        ('Wind (kt)', wrf_th, 'Wind speed in knots (1 kt = 1.85 km/h)'),
-        ('Gust (kt)', ec_th, 'Maximum wind gust speed in knots'),
+    html += '<tr>\n'
+    html += '  <th class="th-time" title="Per-step sailing alerts">⚠</th>\n'
+    html += '  <th class="th-time" style="text-align:left">UTC</th>\n'
+    html += '  <th class="th-time" style="text-align:left">CST +8</th>\n'
+    for lbl, cls, tip in [
+        ('Wind (kt)', 'th-wrf', 'Wind speed in knots (1 kt = 1.85 km/h)'),
+        ('Gust (kt)', 'th-ec', 'Maximum wind gust speed in knots'),
     ]:
-        html += f'  <th style="padding:3px 5px;{th}" title="{tip}">{lbl}</th>\n'
+        html += f'  <th class="{cls}" title="{tip}">{lbl}</th>\n'
     if has_wave:
-        for lbl, th, tip in [
-            ('Waves (m)', wave_th, 'Significant wave height in metres (combined sea state)'),
-            ('Period (s)', wave_th, 'Wave period in seconds — longer = more powerful swell'),
-            ('Swell (m)', wave_th, 'Swell wave height in metres (long-period waves only)'),
-            ('Wave Dir', wave_th, 'Dominant wave direction — where waves come from'),
+        for lbl, cls, tip in [
+            ('Waves (m)', 'th-wave', 'Significant wave height in metres (combined sea state)'),
+            ('Period (s)', 'th-wave', 'Wave period in seconds — longer = more powerful swell'),
+            ('Swell (m)', 'th-wave', 'Swell wave height in metres (long-period waves only)'),
+            ('Wave Dir', 'th-wave', 'Dominant wave direction — where waves come from'),
         ]:
-            html += f'  <th style="padding:3px 5px;{th}" title="{tip}">{lbl}</th>\n'
-    for lbl, th, tip in [
-        ('Pressure', wrf_th, 'Mean sea-level pressure in hPa'),
-        ('Rain 6h', ec_th, 'Precipitation accumulated over 6 hours in mm'),
-        ('Vis (km)', ec_th, 'Visibility in kilometres'),
-        ('Temp (°C)', wrf_th, 'Air temperature at 2m in degrees Celsius'),
-        ('Cloud %', ec_th, 'Total cloud cover percentage'),
-        ('CAPE', ec_th, 'Convective Available Potential Energy — thunderstorm indicator (J/kg)'),
+            html += f'  <th class="{cls}" title="{tip}">{lbl}</th>\n'
+    for lbl, cls, tip in [
+        ('Pressure', 'th-wrf', 'Mean sea-level pressure in hPa'),
+        ('Rain 6h', 'th-ec', 'Precipitation accumulated over 6 hours in mm'),
+        ('Vis (km)', 'th-ec', 'Visibility in kilometres'),
+        ('Temp (°C)', 'th-wrf', 'Air temperature at 2m in degrees Celsius'),
+        ('Cloud %', 'th-ec', 'Total cloud cover percentage'),
+        ('CAPE', 'th-ec', 'Convective Available Potential Energy — thunderstorm indicator (J/kg)'),
     ]:
-        html += f'  <th style="padding:3px 5px;{th}" title="{tip}">{lbl}</th>\n'
+        html += f'  <th class="{cls}" title="{tip}">{lbl}</th>\n'
     html += '</tr>\n</thead>\n<tbody>\n'
 
     _n_wave_cols = 4 if has_wave else 0
@@ -964,7 +947,7 @@ def render_unified_html(
 
     # ── Data rows ─────────────────────────────────────────────────────────────
     temp_deltas, wind_deltas, rain_deltas, mslp_deltas = [], [], [], []
-    _EC_BADGE = '<sup style="color:#68d391;font-size:0.72em;line-height:1"> EC</sup>'
+    _EC_BADGE = '<sup class="ec-sup"> EC</sup>'
     _EC_BG    = '#0d2d1a'
     _prev_cst_date = None
 
@@ -989,17 +972,16 @@ def render_unified_html(
 
         if cst_date_key != _prev_cst_date:
             _prev_cst_date = cst_date_key
-            html += (f'<tr style="background:#2d3748">'
-                     f'<td colspan="{_total_cols}" style="padding:4px 10px;'
-                     f'font-weight:700;color:#e2e8f0;font-size:0.88em;letter-spacing:0.03em">'
+            html += (f'<tr class="date-sep">'
+                     f'<td colspan="{_total_cols}">'
                      f'📅 {cst_date_str} (CST)</td></tr>\n')
 
+        row_cls = 'row-alt' if row_idx % 2 else ''
+        row_bg  = '#111827' if row_idx % 2 else '#0f172a'
         if not has_wrf:
-            row_bg    = '#111827' if row_idx % 2 else '#0f172a'
             row_extra = 'color:#94a3b8'
         else:
-            row_bg    = '#111827' if row_idx % 2 else '#0f172a'
-            row_extra = 'color:#e2e8f0'
+            row_extra = ''
 
         wt  = wrf.get('temp_c')       if wrf else None
         ww  = wrf.get('wind_kt')      if wrf else None
@@ -1034,11 +1016,11 @@ def render_unified_html(
         if not _alert_bg:
             _alert_bg = row_bg
 
-        html += f'<tr style="background:{row_bg};{row_extra}">\n'
-        html += (f'  <td style="padding:2px 5px;text-align:center;font-size:0.85em;'
-                 f'background:{_alert_bg};white-space:nowrap">{_alert_html}</td>\n')
-        html += f'  <td style="padding:3px 6px;font-weight:500;white-space:nowrap">{utc_str}</td>\n'
-        html += f'  <td style="padding:3px 6px;color:#94a3b8;white-space:nowrap">{cst_str}</td>\n'
+        style_attr = f' style="{row_extra}"' if row_extra else ''
+        html += f'<tr class="{row_cls}"{style_attr}>\n'
+        html += (f'  <td style="background:{_alert_bg};font-size:0.85em">{_alert_html}</td>\n')
+        html += f'  <td style="font-weight:500">{utc_str}</td>\n'
+        html += f'  <td style="color:#94a3b8">{cst_str}</td>\n'
         if dt_ is not None: temp_deltas.append(dt_)
         if dw_ is not None: wind_deltas.append(dw_)
         if dr_ is not None: rain_deltas.append(dr_)
@@ -1049,27 +1031,27 @@ def render_unified_html(
             bf = _beaufort(ww)
             arrow_s = f' {_wind_arrow(wwd)}' if wwd is not None else ''
             dir_s   = f' {deg_to_compass(wwd)}' if wwd is not None else ''
-            html += (f'  <td style="padding:3px 5px;text-align:center;background:{_wind_bg(ww)}">'
+            html += (f'  <td style="background:{_wind_bg(ww)}">'
                      f'{ww:.0f}kt B{bf}{arrow_s}{dir_s}'
                      f'{_delta_span(ww, prev.get("wind_kt"), ".0f", "kt", True)}</td>\n')
         elif ew is not None:
             bf = _beaufort(ew)
             arrow_s = f' {_wind_arrow(ewd)}' if ewd is not None else ''
             dir_s   = f' {deg_to_compass(ewd)}' if ewd is not None else ''
-            html += (f'  <td style="padding:3px 5px;text-align:center;background:{_EC_BG}">'
+            html += (f'  <td style="background:{_EC_BG}">'
                      f'{ew:.0f}kt B{bf}{arrow_s}{dir_s}{_EC_BADGE}</td>\n')
         else:
-            html += '  <td style="padding:3px 5px;text-align:center;color:#475569">—</td>\n'
+            html += '  <td class="c-muted">—</td>\n'
 
         # Gust
         g_val = wg if wg is not None else eg
         g_ec  = (wg is None and eg is not None)
         if g_val is not None:
             badge = _EC_BADGE if g_ec else ''
-            html += (f'  <td style="padding:3px 5px;text-align:center;background:{_wind_bg(g_val)}">'
+            html += (f'  <td style="background:{_wind_bg(g_val)}">'
                      f'{g_val:.0f}kt{badge}</td>\n')
         else:
-            html += '  <td style="padding:3px 5px;text-align:center;color:#475569">—</td>\n'
+            html += '  <td class="c-muted">—</td>\n'
 
         # Wave columns
         if has_wave:
@@ -1077,24 +1059,24 @@ def render_unified_html(
             tp   = wav.get('wave_period')       if wav else None
             swhs = wav.get('swell_wave_height') if wav else None
             wdir = wav.get('wave_direction')    if wav else None
-            html += (f'  <td style="padding:3px 5px;text-align:center;background:{_wave_height_bg(hs)}">'
+            html += (f'  <td style="background:{_wave_height_bg(hs)}">'
                      f'{_fmt(hs)}</td>\n')
-            html += (f'  <td style="padding:3px 5px;text-align:center;background:{_wave_period_bg(tp)}">'
+            html += (f'  <td style="background:{_wave_period_bg(tp)}">'
                      f'{_fmt(tp, ".0f", "s") if tp is not None else "—"}</td>\n')
-            html += (f'  <td style="padding:3px 5px;text-align:center;background:{_wave_height_bg(swhs)}">'
+            html += (f'  <td style="background:{_wave_height_bg(swhs)}">'
                      f'{_fmt(swhs)}</td>\n')
-            html += (f'  <td style="padding:3px 5px;text-align:center">'
+            html += (f'  <td>'
                      f'{_wave_dir_str(wdir)}</td>\n')
 
         # MSLP
         if wp is not None:
-            html += (f'  <td style="padding:3px 5px;text-align:center">'
+            html += (f'  <td>'
                      f'{wp:.1f}{_delta_span(wp, prev.get("mslp_hpa"), ".1f", "")}</td>\n')
         elif ep is not None:
-            html += (f'  <td style="padding:3px 5px;text-align:center;background:{_EC_BG}">'
+            html += (f'  <td style="background:{_EC_BG}">'
                      f'{ep:.1f}{_EC_BADGE}</td>\n')
         else:
-            html += '  <td style="padding:3px 5px;text-align:center;color:#475569">—</td>\n'
+            html += '  <td class="c-muted">—</td>\n'
 
         # 6h Rain
         r_val = wr if wr is not None else er
@@ -1102,10 +1084,10 @@ def render_unified_html(
         if r_val is not None:
             badge = _EC_BADGE if r_ec else ''
             delta = _delta_span(wr, prev.get('precip_mm_6h'), '.1f', 'mm', True) if not r_ec else ''
-            html += (f'  <td style="padding:3px 5px;text-align:center;background:{_precip_bg(r_val)}">'
+            html += (f'  <td style="background:{_precip_bg(r_val)}">'
                      f'{r_val:.1f}mm{delta}{badge}</td>\n')
         else:
-            html += '  <td style="padding:3px 5px;text-align:center;color:#475569">—</td>\n'
+            html += '  <td class="c-muted">—</td>\n'
 
         # Vis
         v_val = wvs if wvs is not None else evs
@@ -1113,21 +1095,21 @@ def render_unified_html(
         if v_val is not None:
             bg_v = _EC_BG if v_ec else ''
             badge = _EC_BADGE if v_ec else ''
-            bg_style = f';background:{bg_v}' if bg_v else ''
-            html += (f'  <td style="padding:3px 5px;text-align:center{bg_style}">'
+            bg_attr = f' style="background:{bg_v}"' if bg_v else ''
+            html += (f'  <td{bg_attr}>'
                      f'{v_val:.0f}km{badge}</td>\n')
         else:
-            html += '  <td style="padding:3px 5px;text-align:center;color:#475569">—</td>\n'
+            html += '  <td class="c-muted">—</td>\n'
 
         # Temp
         if wt is not None:
-            html += (f'  <td style="padding:3px 5px;text-align:center;background:{_temp_bg(wt)}">'
+            html += (f'  <td style="background:{_temp_bg(wt)}">'
                      f'{wt:.1f}°{_delta_span(wt, prev.get("temp_c"), ".1f", "°")}</td>\n')
         elif et is not None:
-            html += (f'  <td style="padding:3px 5px;text-align:center;background:{_EC_BG}">'
+            html += (f'  <td style="background:{_EC_BG}">'
                      f'{et:.1f}°{_EC_BADGE}</td>\n')
         else:
-            html += '  <td style="padding:3px 5px;text-align:center;color:#475569">—</td>\n'
+            html += '  <td class="c-muted">—</td>\n'
 
         # Cloud
         cl_val = wcl if wcl is not None else ecl
@@ -1135,21 +1117,21 @@ def render_unified_html(
         if cl_val is not None:
             bg_cl = _EC_BG if cl_ec else ''
             badge = _EC_BADGE if cl_ec else ''
-            bg_style = f';background:{bg_cl}' if bg_cl else ''
-            html += (f'  <td style="padding:3px 5px;text-align:center{bg_style}">'
+            bg_attr = f' style="background:{bg_cl}"' if bg_cl else ''
+            html += (f'  <td{bg_attr}>'
                      f'{cl_val:.0f}%{badge}</td>\n')
         else:
-            html += '  <td style="padding:3px 5px;text-align:center;color:#475569">—</td>\n'
+            html += '  <td class="c-muted">—</td>\n'
 
         # CAPE
         cp_val = wcp if wcp is not None else ecp
         cp_ec  = (wcp is None and ecp is not None)
         if cp_val is not None:
             badge = _EC_BADGE if cp_ec else ''
-            html += (f'  <td style="padding:3px 5px;text-align:center;background:{_cape_bg(cp_val)}">'
+            html += (f'  <td style="background:{_cape_bg(cp_val)}">'
                      f'{cp_val:.0f}{badge}</td>\n')
         else:
-            html += '  <td style="padding:3px 5px;text-align:center;color:#475569">—</td>\n'
+            html += '  <td class="c-muted">—</td>\n'
 
         html += '</tr>\n'
 
@@ -1173,34 +1155,142 @@ def render_unified_html(
                 items.append(f'{icon} <b>{lbl}</b> MAE {mae:.1f}{unit} (bias {s}{bias:.1f}{unit})')
         if items:
             n = sum(1 for vt in all_valids if vt in wrf_by_valid and vt in ec_by_valid)
-            html += ('<div style="margin:8px 0 0;padding:8px 12px;background:#1a2744;'
-                     'border-left:3px solid #93c5fd;font-size:0.9em;color:#e2e8f0;border-radius:4px">'
+            html += ('<div class="alert-box alert-info">'
                      f'<b>WRF vs ECMWF</b> — {n} overlapping steps: '
                      + ' · '.join(items) + '</div>\n')
 
     # ── Legend ────────────────────────────────────────────────────────────────
     html += (
-        '<p style="margin:8px 0 0;font-size:0.78em;color:#475569">'
+        '<div class="legend-block">'
         '<b>Wind (Beaufort):</b> '
-        '<span style="background:#d4f0c0;padding:1px 3px">B1-3 &lt;11kt</span> '
-        '<span style="background:#e8f5c0;padding:1px 3px">B4 11–16</span> '
-        '<span style="background:#fff7b0;padding:1px 3px">B5 17–21 reef</span> '
-        '<span style="background:#ffd9a0;padding:1px 3px">B6 22–27 reef in</span> '
-        '<span style="background:#ffb080;padding:1px 3px">B7 28–33 harbour</span> '
-        '<span style="background:#ff6666;color:#fff;padding:1px 3px">B8+ ≥34 gale</span>'
+        '<span style="background:#d4f0c0;padding:1px 4px;border-radius:3px">B1-3 &lt;11kt</span> '
+        '<span style="background:#e8f5c0;padding:1px 4px;border-radius:3px">B4 11–16</span> '
+        '<span style="background:#fff7b0;padding:1px 4px;border-radius:3px">B5 17–21 reef</span> '
+        '<span style="background:#ffd9a0;padding:1px 4px;border-radius:3px">B6 22–27 reef in</span> '
+        '<span style="background:#ffb080;padding:1px 4px;border-radius:3px">B7 28–33 harbour</span> '
+        '<span style="background:#ff6666;color:#fff;padding:1px 4px;border-radius:3px">B8+ ≥34 gale</span>'
         '&nbsp;&nbsp;<b>Hs:</b> '
-        '<span style="background:#d4f0c0;padding:1px 3px">&lt;0.3m</span> '
-        '<span style="background:#fff7b0;padding:1px 3px">0.3–1m slight</span> '
-        '<span style="background:#ffd9a0;padding:1px 3px">1–2m moderate</span> '
-        '<span style="background:#ffb3b3;padding:1px 3px">2–3.5m rough</span> '
-        '<span style="background:#ff6666;color:#fff;padding:1px 3px">&gt;3.5m dangerous</span>'
+        '<span style="background:#d4f0c0;padding:1px 4px;border-radius:3px">&lt;0.3m</span> '
+        '<span style="background:#fff7b0;padding:1px 4px;border-radius:3px">0.3–1m slight</span> '
+        '<span style="background:#ffd9a0;padding:1px 4px;border-radius:3px">1–2m moderate</span> '
+        '<span style="background:#ffb3b3;padding:1px 4px;border-radius:3px">2–3.5m rough</span> '
+        '<span style="background:#ff6666;color:#fff;padding:1px 4px;border-radius:3px">&gt;3.5m dangerous</span>'
         '&nbsp;&nbsp;<b>Tp:</b> '
-        '<span style="background:#fff7b0;padding:1px 3px">&lt;8s wind sea</span> '
-        '<span style="background:#d4f0c0;padding:1px 3px">8–12s swell</span> '
-        '<span style="background:#b0d9ff;padding:1px 3px">&gt;12s ocean swell</span>'
-        '</p>\n'
+        '<span style="background:#fff7b0;padding:1px 4px;border-radius:3px">&lt;8s wind sea</span> '
+        '<span style="background:#d4f0c0;padding:1px 4px;border-radius:3px">8–12s swell</span> '
+        '<span style="background:#b0d9ff;padding:1px 4px;border-radius:3px">&gt;12s ocean swell</span>'
         '</div>\n'
+        '</div>\n'  # close card-glass
     )
+
+    # ── Mobile forecast cards ──────────────────────────────────────────────
+    html += '<div class="fc-cards">\n'
+    _prev_card_date = None
+    for row_idx, vt in enumerate(all_valids):
+        wrf  = wrf_by_valid.get(vt)
+        ec   = ec_by_valid.get(vt)
+        wav  = wave_by_valid.get(vt)
+
+        try:
+            dt_u = datetime.fromisoformat(vt)
+            dt_c = dt_u + timedelta(hours=8)
+            cst_str      = dt_c.strftime('%H:%M')
+            cst_date_str = dt_c.strftime('%a %-d %b')
+            cst_date_key = dt_c.strftime('%Y-%m-%d')
+        except (ValueError, TypeError):
+            cst_str = vt
+            cst_date_str = ''
+            cst_date_key = vt[:10]
+
+        # Date header for cards
+        if cst_date_key != _prev_card_date:
+            _prev_card_date = cst_date_key
+            html += f'<h3 style="color:#93c5fd;font-size:14px;margin:16px 0 8px;border-bottom:1px solid #2d3f5a;padding-bottom:4px">📅 {cst_date_str}</h3>\n'
+
+        # Effective values
+        ww  = (wrf.get('wind_kt')  if wrf else None) or (ec.get('wind_kt')  if ec else None)
+        wwd = (wrf.get('wind_dir') if wrf else None) or (ec.get('wind_dir') if ec else None)
+        g_v = (wrf.get('gust_kt')  if wrf else None) or (ec.get('gust_kt')  if ec else None)
+        wt  = (wrf.get('temp_c')   if wrf else None) or (ec.get('temp_c')   if ec else None)
+        r_v = (wrf.get('precip_mm_6h') if wrf else None) or (ec.get('precip_mm_6h') if ec else None)
+        hs  = wav.get('wave_height')       if wav else None
+        tp  = wav.get('wave_period')       if wav else None
+        swh = wav.get('swell_wave_height') if wav else None
+        wdr = wav.get('wave_direction')    if wav else None
+        wp  = (wrf.get('mslp_hpa')  if wrf else None) or (ec.get('mslp_hpa')  if ec else None)
+        vs  = (wrf.get('vis_km')    if wrf else None) or (ec.get('vis_km')    if ec else None)
+        cl  = (wrf.get('cloud_pct') if wrf else None) or (ec.get('cloud_pct') if ec else None)
+        cp  = (wrf.get('cape')      if wrf else None) or (ec.get('cape')      if ec else None)
+
+        _eff_hs   = hs
+        _alert_html, _alert_bg = _row_alerts(ww, g_v, _eff_hs, r_v)
+
+        wind_display = f'{ww:.0f}kt' if ww is not None else '—'
+        wind_dir_display = f' {deg_to_compass(wwd)}' if wwd is not None else ''
+        bf_display = f' B{_beaufort(ww)}' if ww is not None else ''
+        gust_display = f'{g_v:.0f}kt' if g_v is not None else '—'
+        temp_display = f'{wt:.1f}°C' if wt is not None else '—'
+        rain_display = f'{r_v:.1f}mm' if r_v is not None else '—'
+        wave_display = f'{hs:.1f}m' if hs is not None else '—'
+        period_display = f'{tp:.0f}s' if tp is not None else '—'
+        swell_display = f'{swh:.1f}m' if swh is not None else '—'
+        wave_dir_display = _wave_dir_str(wdr) if wdr is not None else '—'
+
+        card_border_style = f' style="border-left:3px solid {_alert_bg}"' if _alert_bg else ''
+
+        html += f'<div class="fc-card"{card_border_style}>\n'
+        html += f'  <div class="fc-card-header">\n'
+        html += f'    <span class="fc-card-time">{cst_str} {_alert_html}</span>\n'
+        html += f'    <span class="fc-card-date">{cst_date_str}</span>\n'
+        html += f'  </div>\n'
+        html += f'  <div class="fc-card-metrics">\n'
+        html += f'    <div class="fc-card-metric" style="background:{_wind_bg(ww)};padding:6px 8px;border-radius:8px">\n'
+        html += f'      <span class="label">Wind</span>\n'
+        html += f'      <span class="value">{wind_display}{bf_display}<span class="unit">{wind_dir_display}</span></span>\n'
+        html += f'    </div>\n'
+        html += f'    <div class="fc-card-metric" style="background:{_wind_bg(g_v)};padding:6px 8px;border-radius:8px">\n'
+        html += f'      <span class="label">Gust</span>\n'
+        html += f'      <span class="value">{gust_display}</span>\n'
+        html += f'    </div>\n'
+        if has_wave:
+            html += f'    <div class="fc-card-metric" style="background:{_wave_height_bg(hs)};padding:6px 8px;border-radius:8px">\n'
+            html += f'      <span class="label">Waves</span>\n'
+            html += f'      <span class="value">{wave_display} <span class="unit">{period_display}</span></span>\n'
+            html += f'    </div>\n'
+            html += f'    <div class="fc-card-metric" style="background:{_wave_height_bg(swh)};padding:6px 8px;border-radius:8px">\n'
+            html += f'      <span class="label">Swell</span>\n'
+            html += f'      <span class="value">{swell_display} <span class="unit">{wave_dir_display}</span></span>\n'
+            html += f'    </div>\n'
+        html += f'    <div class="fc-card-metric" style="background:{_temp_bg(wt)};padding:6px 8px;border-radius:8px">\n'
+        html += f'      <span class="label">Temp</span>\n'
+        html += f'      <span class="value">{temp_display}</span>\n'
+        html += f'    </div>\n'
+        html += f'    <div class="fc-card-metric" style="background:{_precip_bg(r_v)};padding:6px 8px;border-radius:8px">\n'
+        html += f'      <span class="label">Rain 6h</span>\n'
+        html += f'      <span class="value">{rain_display}</span>\n'
+        html += f'    </div>\n'
+        html += f'  </div>\n'
+
+        # Expandable details
+        pressure_display = f'{wp:.1f} hPa' if wp is not None else '—'
+        vis_display = f'{vs:.0f} km' if vs is not None else '—'
+        cloud_display = f'{cl:.0f}%' if cl is not None else '—'
+        cape_display = f'{cp:.0f} J/kg' if cp is not None else '—'
+
+        html += f'  <details>\n'
+        html += f'    <summary></summary>\n'
+        html += f'    <div class="extra-metrics">\n'
+        html += f'      <span>Pressure: {pressure_display}</span>\n'
+        html += f'      <span>Vis: {vis_display}</span>\n'
+        html += f'      <span>Cloud: {cloud_display}</span>\n'
+        html += f'      <span>CAPE: {cape_display}</span>\n'
+        html += f'    </div>\n'
+        html += f'  </details>\n'
+        html += f'</div>\n'
+
+    html += '</div>\n'  # close fc-cards
+
+    html += '</section>\n'  # close forecast section
     return html
 
 
