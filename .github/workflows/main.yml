@@ -1,5 +1,8 @@
 name: Taiwan WRF Download
 
+permissions:
+  contents: read
+
 on:
   schedule:
     # Runs 45 min after each CWA model cycle (00/06/12/18 UTC)
@@ -23,7 +26,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: pip-eccodes-numpy-${{ runner.os }}
+          key: pip-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
 
       # Install ALL system deps + Python deps in a single apt pass.
       # --no-install-recommends shaves ~15 MB of docs/extras off the download.
@@ -31,7 +34,7 @@ jobs:
         run: |
           sudo apt-get update -q
           sudo apt-get install -y --no-install-recommends libeccodes-dev rclone
-          pip install --quiet eccodes numpy anthropic
+          pip install --quiet -r requirements.txt
 
       # Download, subset, and capture outputs for later steps.
       # taiwan_wrf_download.py writes rundir + init_utc to GITHUB_OUTPUT directly;
@@ -43,6 +46,7 @@ jobs:
       # within the same step) to add the human-readable archive_size.
       - name: Download and subset WRF data
         id: download
+        timeout-minutes: 30
         run: |
           python taiwan_wrf_download.py --keelung-only --workers 8
           ARCHIVE=$(grep '^archive_path=' "$GITHUB_OUTPUT" | tail -1 | cut -d= -f2-)
@@ -243,7 +247,7 @@ jobs:
             --stats-one-line
 
           # Overwrite the persistent summary (used as prev-json next run)
-          rclone copy keelung_summary_new.json \
+          rclone copyto keelung_summary_new.json \
             gdrive:WRF_Taiwan/keelung_summary.json \
             --no-traverse
 
@@ -370,7 +374,8 @@ jobs:
         if: steps.stale_check.outputs.is_new == 'true'
         run: |
           npm install -g vercel
-          vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} --yes
+          vercel deploy --prod --yes
         env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
