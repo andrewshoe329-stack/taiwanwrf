@@ -26,7 +26,7 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from config import KEELUNG_LAT, KEELUNG_LON, setup_logging
+from config import KEELUNG_LAT, KEELUNG_LON, norm_utc, setup_logging
 
 log = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ def fetch_observations(start_date: str, end_date: str) -> dict:
     params = {
         'latitude':        KEELUNG_LAT,
         'longitude':       KEELUNG_LON,
-        'hourly':          'temperature_2m,windspeed_10m,winddirection_10m,precipitation',
+        'hourly':          'temperature_2m,wind_speed_10m,wind_direction_10m,precipitation',
         'wind_speed_unit': 'kn',
         'timezone':        'UTC',
         'start_date':      start_date,
@@ -69,15 +69,12 @@ def compute_accuracy(forecast_records: list, obs_raw: dict) -> dict | None:
     # Build observation lookup by normalised time
     obs_by_time = {}
     obs_temp = obs_h.get('temperature_2m', [])
-    obs_wind = obs_h.get('windspeed_10m', [])
-    obs_wdir = obs_h.get('winddirection_10m', [])
+    obs_wind = obs_h.get('wind_speed_10m', [])
+    obs_wdir = obs_h.get('wind_direction_10m', [])
     obs_rain = obs_h.get('precipitation', [])
 
     for i, t in enumerate(obs_times):
-        # Normalise to match forecast format
-        key = t if len(t) >= 19 else t + ':00'
-        if len(key) == 19:
-            key += '+00:00'
+        key = norm_utc(t)
         obs_by_time[key] = {
             'temp_c': obs_temp[i] if i < len(obs_temp) else None,
             'wind_kt': obs_wind[i] if i < len(obs_wind) else None,
@@ -197,7 +194,7 @@ def main() -> None:
     }
 
     log.info("Accuracy: Temp MAE %.1f°C, Wind MAE %.1fkt (%d steps)",
-             metrics.get('temp_mae_c', 0), metrics.get('wind_mae_kt', 0),
+             metrics.get('temp_mae_c') or 0, metrics.get('wind_mae_kt') or 0,
              metrics['n_compared'])
 
     # Load existing log and append
@@ -206,8 +203,8 @@ def main() -> None:
         try:
             with open(args.existing_log) as f:
                 log_entries = json.load(f)
-        except Exception:
-            pass
+        except json.JSONDecodeError as e:
+            log.warning("Existing accuracy log corrupted (%s); starting fresh", e)
 
     # Avoid duplicate entries for the same init_utc
     existing_inits = {e.get('init_utc') for e in log_entries}
