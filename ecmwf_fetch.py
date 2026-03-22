@@ -70,7 +70,8 @@ def _fetch_json(params: dict, label: str) -> dict:
         try:
             with urllib.request.urlopen(url, timeout=30) as r:
                 return json.load(r)
-        except (urllib.error.URLError, json.JSONDecodeError) as e:
+        except (urllib.error.HTTPError, urllib.error.URLError,
+                json.JSONDecodeError) as e:
             last_exc = e
             if attempt < _FETCH_RETRIES:
                 log.warning("Request failed (%s); retry %d/%d in %ds …",

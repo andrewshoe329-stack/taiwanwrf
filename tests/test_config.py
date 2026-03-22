@@ -37,7 +37,7 @@ class TestDegToCompass:
     def test_all_16_points(self):
         """Each 22.5° increment should map to a unique compass name."""
         results = [deg_to_compass(i * 22.5) for i in range(16)]
-        assert results == COMPASS_NAMES
+        assert results == list(COMPASS_NAMES)
 
 
 # ── norm_utc ──────────────────────────────────────────────────────────────

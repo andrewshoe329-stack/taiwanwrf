@@ -398,7 +398,7 @@ def _process_file(
     subset_name = f"{model_id}-{fh:03d}_keelung{int(radius_nm)}nm.grb2"
     subset_dest = outdir / subset_name
 
-    if subset_dest.exists() and subset_dest.suffix != ".nc" and not force:
+    if subset_dest.exists() and not force:
         _log(f"  {tag}  ⏭  Subset exists — skipping")
         result = subset_dest
     else:

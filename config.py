@@ -10,6 +10,7 @@ def setup_logging(level: int = logging.INFO) -> None:
         datefmt="%H:%M:%S",
         level=level,
     )
+    logging.getLogger().setLevel(level)
 
 
 # Keelung harbour target point (WRF grid extraction, ECMWF/wave API queries)
@@ -18,10 +19,10 @@ KEELUNG_LON = 121.78782946186699
 
 # ── Shared direction / compass utilities ─────────────────────────────────────
 
-COMPASS_NAMES = [
+COMPASS_NAMES = (
     'N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
     'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW',
-]
+)
 
 
 def deg_to_compass(deg: float | None) -> str:
@@ -33,11 +34,14 @@ def deg_to_compass(deg: float | None) -> str:
 
 def norm_utc(iso: str) -> str:
     """
-    Normalise any ISO-8601 string to the canonical format used throughout
-    the pipeline: 'YYYY-MM-DDTHH:MM:SS+00:00'.
+    Normalise a bare or Z-suffixed ISO-8601 UTC timestamp to the canonical
+    format used throughout the pipeline: 'YYYY-MM-DDTHH:MM:SS+00:00'.
 
-    Open-Meteo returns bare 'YYYY-MM-DDTHH:MM' with timezone=UTC, so we
-    add the explicit offset so string comparison with WRF valid_utc works.
+    Assumes the input is already in UTC.  Open-Meteo returns bare
+    'YYYY-MM-DDTHH:MM' with timezone=UTC, so we append the explicit
+    offset so string comparison with WRF valid_utc works.
+
+    Does NOT validate date correctness or convert non-UTC offsets.
     """
     iso = iso.strip()
     if iso.endswith('Z'):
