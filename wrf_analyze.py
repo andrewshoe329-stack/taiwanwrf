@@ -22,6 +22,7 @@ Requirements: eccodes, numpy  (already installed by the workflow)
 """
 
 import argparse
+import html as html_mod
 import json
 import logging
 import math
@@ -788,7 +789,7 @@ def _render_summary_html(
         f'&nbsp;{KEELUNG_LAT}°N {KEELUNG_LON}°E</span>\n'
         '</h3>\n'
         f'<p style="margin:0 0 4px;color:#475569;font-size:0.88em">'
-        f'{meta.get("model_id","?")} · WRF Init: {init_str}{wave_init_str}'
+        f'{html_mod.escape(meta.get("model_id","?"))} · WRF Init: {init_str}{wave_init_str}'
         f'{"&nbsp;·&nbsp; <i>Δ vs prev WRF run in brackets</i>" if has_prev else ""}'
         '</p>\n\n'
     )

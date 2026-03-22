@@ -78,7 +78,7 @@ WAVE_VARS = [
     (['swd1', 'SWD1', 'swdir', 'SWDIR', 'dirsw'],      None, None, 'swell_wave_direction'),
 ]
 
-_deg_to_compass = deg_to_compass  # local alias for backward compatibility
+_deg_to_compass = deg_to_compass  # kept for any external callers
 
 
 # ── ECMWF via Open-Meteo marine API ──────────────────────────────────────────
@@ -126,7 +126,7 @@ def fetch_ecmwf_wave() -> dict:
     )
 
 
-_norm_utc = norm_utc  # local alias for backward compatibility
+_norm_utc = norm_utc  # kept for any external callers
 
 
 def process_ecmwf_wave(raw: dict) -> tuple[dict, list[dict]]:

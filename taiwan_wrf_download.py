@@ -336,9 +336,11 @@ def _subset_cfgrib(src: Path, dst: Path, bbox: dict, cfgrib, xr) -> Path:
     for ds in datasets:
         lat_k = "latitude" if "latitude" in ds.dims else "lat"
         lon_k = "longitude" if "longitude" in ds.dims else "lon"
+        lat_lo, lat_hi = sorted([bbox["lat_min"], bbox["lat_max"]])
+        lon_lo, lon_hi = sorted([bbox["lon_min"], bbox["lon_max"]])
         sub = ds.sel(
-            {lat_k: slice(bbox["lat_min"], bbox["lat_max"]),
-             lon_k: slice(bbox["lon_min"], bbox["lon_max"])}
+            {lat_k: slice(lat_lo, lat_hi),
+             lon_k: slice(lon_lo, lon_hi)}
         )
         merged.append(sub)
     xr.merge(merged, compat="override").to_netcdf(dst)
