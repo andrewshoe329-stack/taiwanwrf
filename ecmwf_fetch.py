@@ -61,8 +61,12 @@ _FETCH_RETRIES    = 3
 _FETCH_RETRY_DELAY = 5   # seconds between attempts
 
 
-def _fetch_json(params: dict, label: str) -> dict:
-    """Low-level fetch helper with retry logic. Returns parsed JSON or {} on failure."""
+def _fetch_json(params: dict, label: str) -> dict | None:
+    """Low-level fetch helper with retry logic.
+
+    Returns parsed JSON dict on success, or ``None`` on failure (so callers
+    can distinguish a network/API error from an empty-but-valid response).
+    """
     url = OPEN_METEO_URL + "?" + urllib.parse.urlencode(params)
     log.info("Fetching %s from Open-Meteo …", label)
     last_exc: Exception = RuntimeError("no attempts made")
@@ -70,7 +74,8 @@ def _fetch_json(params: dict, label: str) -> dict:
         try:
             with urllib.request.urlopen(url, timeout=30) as r:
                 return json.load(r)
-        except (urllib.error.URLError, json.JSONDecodeError) as e:
+        except (urllib.error.HTTPError, urllib.error.URLError,
+                json.JSONDecodeError) as e:
             last_exc = e
             if attempt < _FETCH_RETRIES:
                 log.warning("Request failed (%s); retry %d/%d in %ds …",
@@ -78,10 +83,10 @@ def _fetch_json(params: dict, label: str) -> dict:
                 time.sleep(_FETCH_RETRY_DELAY)
     log.error("%s fetch failed after %d attempts: %s",
               label, _FETCH_RETRIES, last_exc)
-    return {}
+    return None
 
 
-def fetch_ecmwf_json() -> dict:
+def fetch_ecmwf_json() -> dict | None:
     params = {
         "latitude":           KEELUNG_LAT,
         "longitude":          KEELUNG_LON,
@@ -97,7 +102,7 @@ def fetch_ecmwf_json() -> dict:
     return _fetch_json(params, "ECMWF IFS")
 
 
-def fetch_gfs_gust_vis_json() -> dict:
+def fetch_gfs_gust_vis_json() -> dict | None:
     """GFS fallback for windgusts_10m and visibility (often null in ECMWF IFS)."""
     params = {
         "latitude":        KEELUNG_LAT,
@@ -233,11 +238,15 @@ def main():
     args = ap.parse_args()
 
     raw = fetch_ecmwf_json()
+    if raw is None:
+        log.error("ECMWF fetch failed — cannot proceed.")
+        sys.exit(1)
     meta, records = process(raw)
     # Only fetch GFS backfill if ECMWF returned data
     if records:
         raw_fill = fetch_gfs_gust_vis_json()
-        meta, records = process(raw, raw_fill)
+        if raw_fill is not None:
+            meta, records = process(raw, raw_fill)
 
     if not records:
         log.error("No records extracted from Open-Meteo response.")

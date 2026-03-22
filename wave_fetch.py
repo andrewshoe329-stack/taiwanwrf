@@ -115,7 +115,8 @@ def fetch_ecmwf_wave() -> dict:
         try:
             with urllib.request.urlopen(url, timeout=30) as r:
                 return json.load(r)
-        except (urllib.error.URLError, json.JSONDecodeError) as e:
+        except (urllib.error.HTTPError, urllib.error.URLError,
+                json.JSONDecodeError) as e:
             last_exc = e
             if attempt < _FETCH_RETRIES:
                 log.warning("Request failed (%s); retry %d/%d in %ds …",
@@ -207,9 +208,19 @@ def probe_cwa_wave_model(model_id: str) -> dict | None:
 
 
 def _download_file(url: str, dest: Path) -> None:
-    req = urllib.request.Request(url)
-    with urllib.request.urlopen(req, timeout=120) as resp:
-        dest.write_bytes(resp.read())
+    last_exc: Exception = RuntimeError("no attempts made")
+    for attempt in range(1, 4):
+        try:
+            req = urllib.request.Request(url)
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                dest.write_bytes(resp.read())
+            return
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError) as e:
+            last_exc = e
+            if attempt < 3:
+                log.warning("Download %s failed (%s); retry %d/3 …", url, e, attempt)
+                import time as _t; _t.sleep(5 * attempt)
+    raise RuntimeError(f"Download {url} failed after 3 attempts: {last_exc}")
 
 
 def download_cwa_wave_grib(model_id: str, forecast_hours: list[int], outdir: Path) -> list[Path]:
@@ -309,7 +320,8 @@ def read_wave_point(grib_path: Path, lat: float, lon: float) -> dict:
 
                 ni = ec.codes_get(msg, 'Ni')
                 nj = ec.codes_get(msg, 'Nj')
-                cache_key = (ni, nj)
+                grid_type = ec.codes_get_string(msg, 'gridType') if ec.codes_is_defined(msg, 'gridType') else 'unknown'
+                cache_key = (grid_type, ni, nj)
 
                 if cache_key not in grid_cache:
                     lats = ec.codes_get_array(msg, 'latitudes').reshape(nj, ni)

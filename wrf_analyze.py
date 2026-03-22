@@ -207,15 +207,22 @@ def read_point(grib_path: Path, lat: float, lon: float) -> dict[str, float]:
                                 if out_key not in raw:
                                     ni2 = ec.codes_get(msg, 'Ni')
                                     nj2 = ec.codes_get(msg, 'Nj')
+                                    if ni2 <= 0 or nj2 <= 0:
+                                        raise ValueError(f"Invalid grid dims Ni={ni2}, Nj={nj2}")
                                     gt2 = ec.codes_get(msg, 'gridType')
                                     ck2 = (gt2, ni2, nj2)
                                     if ck2 not in _grid_cache:
-                                        lt2 = ec.codes_get_array(msg, 'latitudes').reshape(nj2, ni2)
-                                        ln2 = ec.codes_get_array(msg, 'longitudes').reshape(nj2, ni2)
-                                        _grid_cache[ck2] = nearest_idx(lt2, ln2, lat, lon)
+                                        lt2 = ec.codes_get_array(msg, 'latitudes')
+                                        ln2 = ec.codes_get_array(msg, 'longitudes')
+                                        if len(lt2) != ni2 * nj2 or len(ln2) != ni2 * nj2:
+                                            raise ValueError(f"Grid array size {len(lt2)} != {ni2}*{nj2}")
+                                        _grid_cache[ck2] = nearest_idx(lt2.reshape(nj2, ni2),
+                                                                       ln2.reshape(nj2, ni2), lat, lon)
                                     jj, ii = _grid_cache[ck2]
-                                    vals2 = ec.codes_get_values(msg).reshape(nj2, ni2)
-                                    raw[out_key] = float(vals2[jj, ii])
+                                    vals2 = ec.codes_get_values(msg)
+                                    if len(vals2) != ni2 * nj2:
+                                        raise ValueError(f"Values array size {len(vals2)} != {ni2}*{nj2}")
+                                    raw[out_key] = float(vals2.reshape(nj2, ni2)[jj, ii])
                         except Exception as e:
                             log.warning("paramId fallback failed: %s", e)
                     continue
@@ -239,17 +246,30 @@ def read_point(grib_path: Path, lat: float, lon: float) -> dict[str, float]:
 
                 ni = ec.codes_get(msg, 'Ni')
                 nj = ec.codes_get(msg, 'Nj')
+                if ni <= 0 or nj <= 0:
+                    log.warning("Invalid grid dims Ni=%s, Nj=%s — skipping", ni, nj)
+                    continue
                 grid_type = ec.codes_get(msg, 'gridType')
                 cache_key = (grid_type, ni, nj)
+                expected_size = ni * nj
 
                 if cache_key not in _grid_cache:
-                    lats = ec.codes_get_array(msg, 'latitudes').reshape(nj, ni)
-                    lons = ec.codes_get_array(msg, 'longitudes').reshape(nj, ni)
-                    _grid_cache[cache_key] = nearest_idx(lats, lons, lat, lon)
+                    lats = ec.codes_get_array(msg, 'latitudes')
+                    lons = ec.codes_get_array(msg, 'longitudes')
+                    if len(lats) != expected_size or len(lons) != expected_size:
+                        log.warning("Grid array size %d != %d*%d — skipping",
+                                    len(lats), ni, nj)
+                        continue
+                    _grid_cache[cache_key] = nearest_idx(lats.reshape(nj, ni),
+                                                         lons.reshape(nj, ni), lat, lon)
 
                 j, i = _grid_cache[cache_key]
-                vals = ec.codes_get_values(msg).reshape(nj, ni)
-                val  = float(vals[j, i])
+                vals = ec.codes_get_values(msg)
+                if len(vals) != expected_size:
+                    log.warning("Values array size %d != %d*%d — skipping",
+                                len(vals), ni, nj)
+                    continue
+                val  = float(vals.reshape(nj, ni)[j, i])
 
                 # For precipitation, read the GRIB2 units key to decide whether
                 # to convert from metres to mm.  This is more reliable than the
@@ -691,9 +711,10 @@ def _daily_summary_html(
             if day_tides:
                 parts = []
                 for ex in day_tides[:4]:  # max 4 extrema per day
-                    arrow = '▲' if ex['type'] == 'high' else '▼'
-                    t_str = ex.get('cst', '')[-9:-4]  # "HH:MM" from "YYYY-MM-DD HH:MM CST"
-                    parts.append(f'{arrow}{t_str} {ex["height_m"]:.1f}m')
+                    arrow = '▲' if ex.get('type') == 'high' else '▼'
+                    t_str = html_mod.escape(ex.get('cst', '')[-9:-4])  # "HH:MM"
+                    ht = ex.get('height_m', 0)
+                    parts.append(f'{arrow}{t_str} {ht:.1f}m')
                 tide_str = ' '.join(parts)
 
         cards_html += (

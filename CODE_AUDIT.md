@@ -1,186 +1,240 @@
 # Code Audit Report — Taiwan WRF Forecast Pipeline
 
 **Date:** 2026-03-22
-**Scope:** Full codebase audit covering all Python scripts, tests, CI/CD, and PWA files.
+**Scope:** Full codebase audit covering all Python modules, tests, CI/CD, and PWA files.
 
 ---
 
-## Critical Bugs
+## Executive Summary
 
-### 1. `tide_predict.py:48` — Wrong J2000.0 epoch
-The J2000.0 epoch is defined as `datetime(2000, 1, 12, 0, 0, 0)` (January 12 at midnight) but the correct value is **January 1 at noon** (`2000-01-01T12:00:00`). This is a 10.5-day offset that shifts all tide predictions. The harmonic constants may have been calibrated against this wrong epoch (masking the error in practice), but the phases are non-standard and non-portable.
+Audited 10 Python modules (~4,900 LOC), 8 test files (140 tests), 1 CI/CD workflow, and PWA assets. Found **68 issues** across severity levels:
 
-### 2. `wrf_analyze.py:802-803` — `total_rain` uses logical `or` instead of conditional
-```python
-total_rain = (sum(r.get('precip_mm_6h') or 0 for r in _wrf)
-              or sum(r.get('precip_mm_6h') or 0 for r in _ec))
+| Severity | Count | Description |
+|----------|-------|-------------|
+| Critical | 6     | Bugs, security issues, or missing safeguards that affect correctness or CI reliability |
+| High     | 12    | Logic errors, missing error handling, or resilience gaps |
+| Medium   | 22    | Code quality, validation, performance, or UX issues |
+| Low      | 28    | Style, documentation, minor robustness improvements |
+
+---
+
+## Critical Issues
+
+### C1. `setup_logging()` cannot reconfigure log level (config.py:8-11)
+`logging.basicConfig()` only takes effect on the **first** call. Subsequent calls with different levels are silently ignored. If multiple scripts or tests call `setup_logging()` with different levels, only the first wins.
+
+**Fix:** Call `logging.getLogger().setLevel(level)` after `basicConfig()`.
+
+### C2. `norm_utc()` performs zero validation (config.py:34-49)
+- Accepts invalid dates like `2026-13-01T06:00` without error
+- Does not convert non-UTC offsets (e.g., `+05:30` passes through unchanged)
+- Docstring claims normalization but only does string concatenation
+
+**Fix:** Add minimal validation with `datetime.fromisoformat()` or update docstring to document limitations.
+
+### C3. HTTPError not caught in API fetch functions (ecmwf_fetch.py:73, wave_fetch.py:118)
+Both files catch `URLError` and `JSONDecodeError` but not `HTTPError` explicitly. While `HTTPError` is a subclass of `URLError`, some urllib usage patterns require explicit handling. Server 4xx/5xx responses may not retry properly.
+
+**Fix:** Add `urllib.error.HTTPError` to exception tuples.
+
+### C4. `_download_file()` in wave_fetch.py has no error handling (wave_fetch.py:209-212)
+Bare `urllib.request.urlopen()` and `.read()` with no try/except, no retry logic. Any HTTP error or timeout crashes the script.
+
+**Fix:** Add try/except with retry logic consistent with other fetchers.
+
+### C5. Rclone config written without restrictive file permissions (.github/workflows/main.yml:62-63)
+```bash
+printf '%s' "$RCLONE_CONFIG_CONTENT" > ~/.config/rclone/rclone.conf
 ```
-If WRF predicts exactly 0mm rain (falsy), Python falls through to the ECMWF sum. A dry WRF forecast with 50mm ECMWF rain would trigger false rain warnings. Fix: `sum(... for r in (_wrf if _wrf else _ec))`.
+No `chmod 600` — credentials file may be world-readable on the runner.
 
-### 3. `wrf_analyze.py:522+` — `_condition_emoji` receives `None` for typed `float` params
-The function signature declares `max_wind: float` etc., but callers pass `None` when no data exists. Comparisons like `max_wind >= 25` raise `TypeError` in Python 3 when `max_wind is None`.
+**Fix:** Add `chmod 600 ~/.config/rclone/rclone.conf` after writing.
 
-### 4. `config.py:42-47` — `norm_utc()` doesn't handle `Z` suffix
-Timestamps like `2026-03-22T06:00:00Z` (length 20) fall through unmodified. These won't match `+00:00`-suffixed timestamps in downstream string comparisons, silently breaking time-based joins in `wrf_analyze.py`. Additionally, `datetime.fromisoformat()` doesn't parse `Z` on Python < 3.11.
+### C6. npm install without version pinning (.github/workflows/main.yml:376)
+`npm install -g vercel` installs latest version without a lock file. Supply chain risk and potential for breaking changes.
 
-### 5. `wrf_analyze.py:261-263` — Precipitation unit heuristic can misfire
-```python
-if 0 < val < 0.5:
-    val *= 1000.0
-```
-Legitimate sub-0.5mm precipitation (light drizzle) would be multiplied to 500mm when the GRIB2 `units` key is missing.
-
-### 6. `surf_forecast.py:346-509` — CSS variable defined but never emitted
-The `CSS` constant defines styles for `.matrix-table`, `.detail-table`, `.c-good`, `.c-warn`, `.c-danger`, etc. but is never injected into the HTML output. All class-based styling in the matrix and detail tables is silently non-functional, falling back to browser defaults.
-
-### 7. `accuracy_track.py:199` — `metrics.get('wind_mae_kt', 0)` returns `None`, not `0`
-When the key exists with value `None` (empty error list), `.get()` returns `None` rather than the default. The `%.1f` format string then crashes with `TypeError`.
+**Fix:** Pin to a specific version: `npm install -g vercel@<version>`.
 
 ---
 
 ## High-Severity Issues
 
-### 8. `wrf_analyze.py:137` — `nearest_idx` uses Euclidean distance on lat/lon
-At 25°N, 1° longitude ≈ 100km but 1° latitude ≈ 111km. The distance calculation is biased, potentially selecting the wrong grid point. Fix: weight longitude by `cos(lat)`.
+### H1. `--force` flag doesn't force re-subsetting of GRIB2 (taiwan_wrf_download.py:401)
+```python
+if subset_dest.exists() and subset_dest.suffix != ".nc" and not force:
+```
+The `.suffix != ".nc"` condition means GRIB2 files (`.grb2`) are always skipped when they exist, regardless of `--force`. The `not force` check is ANDed, not a separate condition.
 
-### 9. `ecmwf_fetch.py:73` — `_fetch_json` only catches `URLError`, not `JSONDecodeError`
-If the server returns 200 OK with invalid JSON (HTML error page), the function crashes instead of retrying. Same issue in `wave_fetch.py:117`.
+**Fix:** Simplify to `if subset_dest.exists() and not force:`.
 
-### 10. `ecmwf_fetch.py:214-221` — ECMWF init time detection uses observation time
-The `current_weather.time` field is the current observation time, not the model initialization time. This produces wrong `init_utc` metadata.
+### H2. No retry logic on S3 metadata fetch (taiwan_wrf_download.py:170)
+`fetch_json()` for the S3 model run JSON has no retry/error handling, unlike `download_file()` which has 3-attempt retry with exponential backoff.
 
-### 11. `surf_forecast.py:800-803` — ThreadPoolExecutor has no exception handling
-If any single spot fetch fails, `future.result()` raises an unhandled exception that crashes the entire pipeline. Should catch per-spot failures.
+### H3. ~~Rain 6h calculation uses wrong window size~~ ✅ FIXED
+Early forecast hours now scale up proportionally to represent 6-hour equivalent accumulation.
 
-### 12. `.github/workflows/main.yml:34` — `pip install` ignores `requirements.txt` pinning
-`pip install --quiet eccodes numpy anthropic` installs latest versions, not the pinned ranges from `requirements.txt`. Could break with numpy 2.x API changes.
+### H4. Fragile time format detection (ecmwf_fetch.py:173, wave_fetch.py:156-157)
+```python
+datetime.fromisoformat(t if len(t) >= 19 else t + ':00')
+```
+Doesn't handle `Z` suffix, fractional seconds, or non-UTC offsets. Should use `norm_utc()` from config.py instead of ad-hoc parsing.
 
-### 13. `.github/workflows/main.yml:246-248` — `rclone copy` vs `rclone copyto`
-`rclone copy src.json gdrive:path/dest.json` treats the destination as a directory, creating `dest.json/src.json`. Should use `rclone copyto` for single-file rename-and-copy.
+### H5. Grid cache key missing grid_type in wave_fetch.py (wave_fetch.py:312)
+Cache key is `(ni, nj)` only — known latent bug per CLAUDE.md. If messages have different projections with same dimensions, cached grid coordinates would be wrong.
+
+### H6. ~~Silent error masking in ecmwf_fetch.py~~ ✅ FIXED
+`_fetch_json()` now returns `None` on failure. Callers distinguish failure from empty data.
+
+### H7. ~~ThreadPoolExecutor silently drops failed spots~~ ✅ FIXED
+Now tracks failure count and aborts if >50% of spots fail or if no spot data is fetched.
+
+### H8. ~~No timeouts on most CI workflow steps~~ ✅ FIXED
+All workflow steps now have `timeout-minutes` set (2–30 min depending on step).
+
+### H9. ~~`_trim_records()` silent fallback on malformed dates~~ ✅ FIXED
+Now logs a warning when falling back to slice-based trimming.
+
+### H10. ~~Array reshape without size validation~~ ✅ FIXED
+Both paramId and main paths now validate array size against `ni*nj` before reshape.
+
+### H11. ~~No validation of Ni/Nj grid dimensions~~ ✅ FIXED
+Grid dimensions are validated to be positive before use.
+
+### H12. Anthropic API retry doesn't catch all network errors (forecast_summary.py:148-149)
+Only catches `APIConnectionError`, `RateLimitError`, `InternalServerError`, and `ValueError`. Misses `socket.timeout`, `ssl.SSLError`, and generic `OSError`.
 
 ---
 
 ## Medium-Severity Issues
 
-### 14. `wrf_analyze.py:936` — Column count off by 2
-`_total_cols = 3 + 2 + _n_wave_cols + 6 + 1` overcounts columns, causing day-separator `colspan` to be too wide. Browsers tolerate this but it's incorrect.
+### M1. `deg_to_compass()` rounding ambiguity at boundaries (config.py:31)
+Python's `round()` uses banker's rounding. At exact boundaries (11.25, 33.75, etc.), direction assignment is unpredictable.
 
-### 15. `wrf_analyze.py:185` — Grid cache is per-call, not shared
-`read_point()` creates a local `grid_cache` dict on each invocation. All 15 Keelung subset files share the same grid, so the expensive lat/lon computation is repeated unnecessarily. A module-level cache would save significant work.
+### M2. COMPASS_NAMES is mutable list (config.py:21-24)
+Could be accidentally mutated. Should be a tuple.
 
-### 16. `ecmwf_fetch.py:243` — GFS fetch runs unconditionally
-The GFS backfill fetch happens even when ECMWF data is complete, adding unnecessary latency and API calls.
+### M3. `norm_utc()` doesn't handle non-UTC offsets (config.py:43-49)
+Input `2026-03-09T06:00:00+05:30` passes through unchanged — violates the function's contract.
 
-### 17. `forecast_summary.py:146-148` — Overly broad exception catch on API calls
-`except Exception` catches `AuthenticationError` and `PermissionDeniedError` which should not be retried. Only transient errors (rate limits, timeouts) should trigger retry.
+### M4. Double-processing of ECMWF data on GFS backfill (ecmwf_fetch.py:236-240)
+`process(raw, raw_fill)` rebuilds all records from scratch instead of just backfilling.
 
-### 18. `forecast_summary.py:145` — No bounds check on `msg.content`
-`msg.content[0].text.strip()` assumes at least one content block. An empty response (content filter) would raise `IndexError`, caught by the broad except and wasted across all 3 retries.
+### M5. No JSON schema validation on input files (wrf_analyze.py:1265-1295)
+External JSON files are loaded without type/structure checks.
 
-### 19. `accuracy_track.py:46` — Deprecated API parameter name
-Uses `'windspeed_10m'` which Open-Meteo renamed to `'wind_speed_10m'`. May break without warning.
+### M6. ~~Unescaped tide data in HTML output~~ ✅ FIXED
+Tide data now escaped with `html_mod.escape()` and uses `.get()` for safe access.
 
-### 20. `accuracy_track.py:207-209` — Corrupted accuracy log silently discarded
-`except Exception: pass` when loading the existing log means a corrupted JSON file is silently overwritten, losing all historical data.
+### M7. Fragile string slicing for time extraction (wrf_analyze.py:695)
+`ex.get('cst', '')[-9:-4]` assumes exact string format — breaks silently if format changes.
 
-### 21. `.github/workflows/main.yml:85` — Shell injection via unquoted step outputs
-`NEW_INIT="${{ steps.download.outputs.init_utc }}"` — if the Python script writes a malformed value, this could inject shell commands. Unquoted `${{ }}` in shell `run:` blocks is a known GitHub Actions anti-pattern.
+### M8. ~~No validation of --radius and --workers args~~ ✅ FIXED
+`main()` now validates `--radius > 0` and `--workers >= 1` before calling `run()`.
 
-### 22. `.github/workflows/main.yml:373` — Vercel token on command line
-`vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }}` exposes the token in the process list. Vercel CLI reads `VERCEL_TOKEN` from environment automatically.
+### M9. ~~Mutually exclusive flags not enforced~~ ✅ FIXED
+`--keelung-only` and `--full-domain` now use `add_mutually_exclusive_group()`.
 
-### 23. `tide_predict.py:79` — Extrema detection misses plateaus
-The condition `curr_h >= prev_h and curr_h >= next_h and curr_h != prev_h` has an asymmetry: rise-then-flat is not detected as a high, but flat-then-drop is.
+### M10. Inconsistent logging wrapper usage (taiwan_wrf_download.py:116-118)
+`_log()` wrapper defined but used inconsistently alongside direct `log.info()` calls.
 
-### 24. `surf_forecast.py:213` — Timezone double-set
-`datetime.fromisoformat(t.replace('Z', '+00:00')).replace(tzinfo=timezone.utc)` — if the string already has `+00:00`, `.replace(tzinfo=...)` silently overwrites. A non-UTC offset would be discarded without error.
+### M11. Missing return type hints on many functions
+Scattered across all modules. Reduces IDE support and type-checking.
 
----
+### M12. Broad exception catching (wave_fetch.py:204, 260, 325)
+`except Exception` swallows real errors like KeyboardInterrupt (Python < 3.8).
 
-## Low-Severity / Code Quality Issues
+### M13. No retry logic for CWA wave probe/download (wave_fetch.py:196, 211)
+Unlike ECMWF fetch, S3 downloads have no retry logic.
 
-### 25. No HTML escaping anywhere
-All scripts generating HTML use f-strings without escaping. Data comes from APIs (generally numeric) but model metadata or error messages could contain `<`, `>`, `&` — an XSS vector since the output is served via Vercel.
+### M14. isoformat() may lack +00:00 offset (wave_fetch.py:354)
+If `init_time` is naive datetime, output won't include UTC offset.
 
-### 26. `wrf_analyze.py:94` — Wind direction for calm winds
-`atan2(0, 0)` returns 0 → direction 270° for zero wind. Should return `None` or be suppressed for calm conditions.
+### M15. Incomplete regex for GRIB2 filename (wave_fetch.py:343)
+`r'-(\d{3})\.grb2$'` requires exactly 3 digits — non-zero-padded filenames silently skipped.
 
-### 27. `wrf_analyze.py:97-98` — Cloud cover double-conversion edge case
-1% cloud cover (as percentage from GRIB2) would be multiplied by 100 since `1.0 <= 1.01`.
+### M16. Service worker may serve stale forecasts offline (pwa/sw.js:27-42)
+Network-first with cache fallback, but no staleness warning if data is >6 hours old.
 
-### 28. `taiwan_wrf_download.py:339-341` — cfgrib fallback latitude slice may return empty data
-Ascending latitude slice on descending-ordered GRIB2 data returns an empty dataset.
+### M17. Duplicate init_utc check prevents forecast updates (accuracy_track.py:210-212)
+Same `init_utc` with different `verified_utc` — newer accuracy data is discarded.
 
-### 29. Duplicated utility functions across modules
-`deg_to_compass` and `norm_utc` are duplicated as private functions in `wave_fetch.py`, `surf_forecast.py`, and `wrf_analyze.py` despite being defined in `config.py`. CLAUDE.md warns against this. Tests validate the duplicates rather than the canonical versions.
+### M18. String-based date cutoff comparison (accuracy_track.py:215-216)
+ISO string comparison works but fragile with varying formats.
 
-### 30. `wave_fetch.py:159-160` — Helper function `r2` redefined every loop iteration
-Should be defined once outside the loop.
+### M19. Non-portable strftime format (wrf_analyze.py:637)
+`%-m` and `%-d` flags don't work on Windows.
 
-### 31. `tide_predict.py:182-183` — Hardcoded coordinates differ from `config.py`
-Output uses `25.156, 121.788` (rounded) instead of importing from `config.py`.
+### M20. HTML generation via 340+ lines of string concatenation (wrf_analyze.py:860-1183)
+Acknowledged in CLAUDE.md — hard to test, maintain, and prone to typos.
 
-### 32. `tide_predict.py:134` — Truncation instead of rounding
-`best_t.replace(second=0, microsecond=0)` truncates, introducing up to 59 seconds of error.
+### M21. Thread-safety gap in grid cache (taiwan_wrf_download.py:112-113, 264)
+Shared `_grid_cache` dict is written by multiple threads without locking.
 
-### 33. `.github/workflows/main.yml:24-26` — Cache key missing `requirements.txt` hash
-Fixed key `pip-eccodes-numpy-${{ runner.os }}` never updates when dependencies change.
-
-### 34. No `permissions:` block in workflow
-Uses default token permissions. Should set `permissions: contents: read` for least-privilege.
-
-### 35. No `timeout-minutes` on download step
-If S3 hangs, the job runs for the GitHub Actions default (6 hours).
+### M22. ~~Missing test suite for forecast_summary.py~~ ✅ FIXED
+Added `tests/test_forecast_summary.py` with 17 tests covering `_trim_records`, `build_user_prompt`, `render_html`, and `SYSTEM_PROMPT`.
 
 ---
 
-## PWA Issues
+## Low-Severity Issues (Summary)
 
-### 36. Service worker only caches the root page, not assets
-Icons, manifest, and other static assets are not pre-cached. Offline experience will have broken assets.
-
-### 37. Cache version `tw-forecast-v1` is never incremented
-Users may get stale cached content. The activate handler's old-cache cleanup never triggers.
-
-### 38. `manifest.json` uses deprecated `"purpose": "any maskable"`
-Combined purpose values are deprecated per W3C spec. Should use separate icon entries.
-
-### 39. Generated PWA icons are solid-color rectangles with no visible symbol
-Indistinguishable from a broken icon on home screens.
-
-### 40. `orientation: portrait-primary` fights the wide data tables
-Locking to portrait makes the already non-responsive forecast tables harder to read on tablets.
+| ID | File | Issue |
+|----|------|-------|
+| L1 | config.py | `deg_to_compass()` accepts booleans silently |
+| L2 | config.py | Magic numbers (22.5, 16) not extracted as constants |
+| L3 | config.py | `norm_utc()` docstring overstates guarantees |
+| L4 | wrf_analyze.py | Module-level `_grid_cache` grows unbounded |
+| L5 | wrf_analyze.py | Repeated `.get()` calls in wave data (minor perf) |
+| L6 | wrf_analyze.py | Incomplete docstring for `render_unified_html()` |
+| L7 | wrf_analyze.py | Unescaped model_id in HTML (low risk in practice) |
+| L8 | taiwan_wrf_download.py | Misleading RuntimeError init in download_file() |
+| L9 | taiwan_wrf_download.py | Redundant file existence check (line 387) |
+| L10 | taiwan_wrf_download.py | Hardcoded timeout (120s) not configurable |
+| L11 | taiwan_wrf_download.py | Magic numbers (chunk_size, MB conversion) |
+| L12 | taiwan_wrf_download.py | Missing failure mode documentation |
+| L13 | taiwan_wrf_download.py | `__import__()` instead of `importlib.import_module()` |
+| L14 | ecmwf_fetch.py | Unsafe array indexing for first timestamp |
+| L15 | ecmwf_fetch.py | No coordinate proximity validation |
+| L16 | wave_fetch.py | Semicolons as statement separators (style) |
+| L17 | wave_fetch.py | Missing return type annotations |
+| L18 | wave_fetch.py | No coordinate validation on API response |
+| L19 | surf_forecast.py | Config import alias (`compass = deg_to_compass`) |
+| L20 | surf_forecast.py | Spot ordering silently handles unknown IDs |
+| L21 | surf_forecast.py | Missing HTML entity escaping throughout |
+| L22 | surf_forecast.py | Recommendation logic uses emoji string comparison |
+| L23 | surf_forecast.py | 600px mobile breakpoint is arbitrary |
+| L24 | tide_predict.py | String comparison instead of datetime in tide_state() |
+| L25 | tide_predict.py | No runtime validation of CONSTITUENTS phases |
+| L26 | accuracy_track.py | Mismatched observation array lengths handled silently |
+| L27 | forecast_summary.py | Empty summary writes empty file (no error indicator) |
+| L28 | forecast_summary.py | Hardcoded model ID inconsistent with CLAUDE.md |
 
 ---
 
 ## Test Coverage Gaps
 
-### 41. No tests for `_condition_emoji` return values
-`TestConditionEmoji` only checks the return is a non-empty string, not that the correct emoji is returned.
-
-### 42. No edge-case tests for `day_rating` scoring
-Missing: boundary swell values at `MIN_SWELL_HEIGHT_M`/`MAX_SWELL_HEIGHT_M`, `None` fields, mixed conditions.
-
-### 43. No tests for HTML generation functions
-Neither `render_unified_html()` nor `generate_full_html()` have structural tests.
-
-### 44. Fragile `_sail_rating` test
-`assert 'No-go' in label or 'No go' in label` — should match the implementation precisely.
-
-### 45. Inconsistent `sys.path` manipulation in tests
-`test_config.py` doesn't use `sys.path.insert` while all others do. A `conftest.py` would be cleaner.
+| Module | Covered | Not Covered |
+|--------|---------|-------------|
+| config.py | `deg_to_compass`, `norm_utc` | `setup_logging` reconfiguration |
+| wrf_analyze.py | Formatting helpers, emoji, colors | `read_point`, `extract_forecast`, `render_unified_html`, `nearest_idx` |
+| taiwan_wrf_download.py | Geometry helpers, constants | `download_file`, `_subset_eccodes`, `_make_archive`, `run()` |
+| ecmwf_fetch.py | GFS backfill null handling | Network errors, timeouts, rate limits |
+| wave_fetch.py | Basic processing (1 test) | Null fields, missing swell data, timezone handling |
+| surf_forecast.py | Scoring, ratings, compass (34 tests) | HTML generation, `_recommend()`, thread pool |
+| tide_predict.py | Semidiurnal pattern, extrema | `tide_state()`, edge cases |
+| accuracy_track.py | Error metrics | Observation fetch, stale data pruning |
+| forecast_summary.py | `_trim_records`, `build_user_prompt`, `render_html`, `SYSTEM_PROMPT` | `call_api`, `main` |
 
 ---
 
-## Status: ALL RESOLVED
+## Top 10 Priority Fixes
 
-All 45 issues have been fixed across 9 commits. Test suite expanded from 140 to 143 tests, all passing.
-
-**Notable fixes:**
-- Tide epoch corrected with recalibrated phase constants
-- norm_utc() now strips Z suffix before applying length rules
-- CSS block emitted into surf forecast HTML
-- ThreadPoolExecutor wrapped with per-spot error handling
-- Anthropic API retries limited to transient errors only
-- CI workflow hardened: permissions, version pinning, rclone copyto, Vercel token via env
-- PWA: full asset caching, split icon purposes, landscape orientation enabled
+1. **C1** — Fix `setup_logging()` to actually set the level
+2. **C3** — Add `HTTPError` to fetch exception handlers
+3. **C5** — `chmod 600` on rclone config in CI
+4. **H1** — Fix `--force` flag logic in download script
+5. **H4** — Use `norm_utc()` instead of ad-hoc time parsing
+6. **H5** — Include grid_type in wave_fetch cache key
+7. **H8** — Add timeout-minutes to all CI workflow steps
+8. **C2** — Add validation to `norm_utc()` or update docstring
+9. **H6** — Distinguish fetch failure from empty data in ecmwf_fetch
+10. **M22** — Create test suite for forecast_summary.py

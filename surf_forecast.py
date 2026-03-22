@@ -193,10 +193,16 @@ def process_spot(ec: dict, gfs: dict, mar: dict) -> list[dict[str, object]]:
             gust = _safe_get(gh.get('windgusts_10m'), gi)
 
         _precip = eh.get('precipitation', [])
-        rain6h = sum(
+        # Sum the preceding 6 hourly precipitation values.  When fewer than 6
+        # values are available (early forecast hours), scale up proportionally
+        # so the result always represents a 6-hour equivalent accumulation.
+        window_start = max(0, i - 5)
+        window_len = i + 1 - window_start          # actual number of values
+        raw_sum = sum(
             (_precip[k] or 0) if k < len(_precip) else 0
-            for k in range(max(0, i - 5), i + 1)
+            for k in range(window_start, i + 1)
         )
+        rain6h = raw_sum * (6 / window_len) if window_len < 6 else raw_sum
 
         wi = wave_by_t.get(t)
         wv = {}
@@ -801,6 +807,7 @@ def main() -> None:
 
     keelung_records = []
     all_spot_data = []
+    failed_count = 0
     with ThreadPoolExecutor(max_workers=4) as pool:
         futures = {pool.submit(_fetch_and_process, e): e for e in all_entries}
         for future in as_completed(futures):
@@ -809,6 +816,7 @@ def main() -> None:
             except Exception as e:
                 spot_name = futures[future].get('name', 'unknown')
                 log.error("Failed to process %s: %s", spot_name, e)
+                failed_count += 1
                 continue
             if entry.get('_is_keelung'):
                 keelung_records = records
@@ -816,6 +824,14 @@ def main() -> None:
                 # Reconstruct the original spot dict (without internal keys)
                 spot = {k: v for k, v in entry.items() if not k.startswith('_')}
                 all_spot_data.append({'spot': spot, 'records': records})
+
+    if failed_count > len(all_entries) // 2:
+        log.error("More than half of spot fetches failed (%d/%d) — aborting",
+                  failed_count, len(all_entries))
+        sys.exit(1)
+    if not all_spot_data:
+        log.error("No surf spot data fetched — aborting")
+        sys.exit(1)
 
     # Preserve original spot ordering
     spot_order = {s['id']: i for i, s in enumerate(SPOTS)}

@@ -55,6 +55,8 @@ def _trim_records(records: list, max_days: int = 7) -> list:
         return [r for r in records
                 if datetime.fromisoformat(r.get('valid_utc', '')) <= cutoff]
     except (ValueError, TypeError):
+        log.warning("Malformed valid_utc in records — falling back to first %d entries",
+                    max_days * 4)
         return records[:max_days * 4]  # ~4 records/day at 6h intervals
 
 
@@ -146,7 +148,7 @@ def call_api(user_prompt: str) -> str:
                 raise ValueError("Empty response from API")
             return msg.content[0].text.strip()
         except (anthropic.APIConnectionError, anthropic.RateLimitError,
-                anthropic.InternalServerError, ValueError) as e:
+                anthropic.InternalServerError, ValueError, OSError) as e:
             last_exc = e
             if attempt < 3:
                 delay = 5 * attempt
