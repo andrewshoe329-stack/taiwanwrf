@@ -511,7 +511,7 @@ def run(
         log.info("Archive → %s  (%.1f MB)", archive.name, arc_mb)
 
         # Expose archive details to GitHub Actions via $GITHUB_OUTPUT so
-        # downstream steps (rclone upload, email notification) can use them.
+        # downstream steps (rclone upload, Vercel deploy) can use them.
         github_output = os.environ.get("GITHUB_OUTPUT")
         if github_output:
             with open(github_output, "a") as gho:

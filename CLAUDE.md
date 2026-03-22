@@ -27,13 +27,13 @@ GitHub Actions (cron 4x/day)
   │      Output: wave_keelung.json
   │
   ├─ 4. wrf_analyze.py            → Extract Keelung point from GRIB2, compare WRF vs ECMWF
-  │     Outputs: keelung_summary_new.json, email_analysis.html, email_analysis_email.html
+  │     Outputs: keelung_summary_new.json, forecast.html
   │
   ├─ 5. surf_forecast.py          → 7-spot surf ratings + daily planner (parallel API calls)
-  │     Outputs: surf_forecast.html, surf_forecast_email.html (appended to email_analysis)
+  │     Output: surf_forecast.html (appended to forecast.html)
   │
   ├─ 6. forecast_summary.py       → AI narrative via Anthropic Claude API
-  │     Output: ai_summary.html (prepended to email_analysis)
+  │     Output: ai_summary.html (prepended to forecast.html)
   │
   ├─ 7. rclone upload             → Archive + summary JSON to Google Drive
   │
@@ -80,10 +80,10 @@ All scripts import coordinates, compass functions, and `norm_utc()` from here. *
 - WRF valid times derived from init_time + forecast_hour
 
 ### HTML Generation
-- Two versions per report: **full web-app** (with `<style>` blocks, class names, interactive nav) and **compact email** (inline styles only, Gmail-compatible)
+- Single web-app output: `forecast.html` (with `<style>` blocks, class names, interactive nav)
 - Dark theme: `#0f172a` base, `#1e293b` cards, `#93c5fd` accents
 - Color coding: Beaufort wind scale (green→red), temperature, wave height, CAPE
-- Both versions are assembled by concatenation in the workflow (cat surf >> email_analysis)
+- Assembled by concatenation in the workflow (cat surf >> forecast.html), then wrapped in index.html for Vercel
 
 ### Surf Spot Scoring
 Scoring system (0–14 max) evaluates each 6h timestep:
@@ -189,8 +189,7 @@ python forecast_summary.py --wrf-json keelung_summary_new.json \
 
 ### UX Debt
 - Unified forecast table (12+ columns) is not mobile-responsive — needs card layout on narrow viewports
-- Full surf HTML uses `<style>` blocks that Gmail strips — only the email version uses inline styles
-- No accessibility features (skip-nav, aria-labels on emoji, colorblind-safe indicators)
+- No accessibility features beyond basic skip-nav and aria-labels (no colorblind-safe indicators yet)
 - No way to detect stale data on the Vercel site if the workflow fails silently (timestamp bar helps but isn't a full solution)
 
 ### Planned Features (from AUDIT.md)
@@ -206,7 +205,7 @@ python forecast_summary.py --wrf-json keelung_summary_new.json \
 - **Logging:** All scripts use `config.setup_logging()` + `logging.getLogger(__name__)`
 - **CLI:** All scripts have `argparse` CLIs with `--help`
 - **Output coordination:** Scripts write to `GITHUB_OUTPUT` for inter-step communication in Actions
-- **File naming:** `keelung_summary_new.json` (current run), `keelung_summary.json` (previous, on Drive)
-- **HTML fragments:** Scripts output HTML fragments, not full documents. The workflow assembles `public/index.html`
+- **File naming:** `keelung_summary_new.json` (current run), `keelung_summary.json` (previous, on Drive), `forecast.html` (main HTML output)
+- **HTML fragments:** Scripts output HTML fragments, not full documents. The workflow assembles `public/index.html` from `forecast.html`
 - **Units:** Wind in knots, temp in Celsius, pressure in hPa, waves in metres, visibility in km, precipitation in mm
 - **Time format:** ISO-8601 with `+00:00` offset everywhere (use `norm_utc()` from config)

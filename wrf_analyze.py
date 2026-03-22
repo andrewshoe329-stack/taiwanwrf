@@ -7,7 +7,7 @@ compare with the previous run (run-to-run model drift), and emit:
 
   --output-json  keelung_summary.json   machine-readable, stored on Drive
                                         so the next run can diff against it
-  --output-html  email_analysis.html    HTML fragment embedded in the email
+  --output-html  forecast.html          HTML fragment for the web app
 
 Usage:
   python wrf_analyze.py \\
@@ -15,7 +15,7 @@ Usage:
       [--prev-json keelung_summary_prev.json] \\
       [--ecmwf-json ecmwf_keelung.json] \\
       [--output-json keelung_summary.json] \\
-      [--output-html email_analysis.html] \\
+      [--output-html forecast.html] \\
       [--list-vars]           # diagnostic: list all GRIB2 variables in first file
 
 Requirements: eccodes, numpy  (already installed by the workflow)
@@ -70,7 +70,7 @@ VARS = [
 # ── paramId fallback ──────────────────────────────────────────────────────────
 # Some CWA GRIB2 fields decode as shortName='unknown' because eccodes doesn't
 # have their local table entries.  Map paramId → output_key so they can still
-# be captured.  Populate this once you've seen the actual paramIds in the email
+# be captured.  Populate this once you've seen the actual paramIds in the
 # diagnostic (look for lines like:  shortName=unknown  paramId=<N>).
 #
 # Common NCEP WRF GRIB2 paramIds to try:
@@ -80,10 +80,10 @@ VARS = [
 #   59  → CAPE (J/kg)               → 'cape'
 #   20  → visibility (m)            → 'vis_m'
 #
-# Example — once you see "shortName=unknown  paramId=61" in the email, add:
+# Example — once you see "shortName=unknown  paramId=61" in the diagnostic, add:
 #   61: 'precip_raw',
 PARAMID_VARS: dict[int, str] = {
-    # Add entries here after the next email diagnostic shows actual paramIds.
+    # Add entries here after the next diagnostic shows actual paramIds.
     # e.g.:  61: 'precip_raw',
 }
 
@@ -665,7 +665,7 @@ def _daily_summary_html(
 
 # ── Unified table (all sources, JS-togglable column groups) ──────────────────
 
-def render_email_html(
+def _render_summary_html(
     meta: dict,
     records: list,
     prev_records: list,
@@ -673,12 +673,8 @@ def render_email_html(
     wave_data: dict | None,
 ) -> str:
     """
-    Compact 7-day sailing summary for Keelung.
-
-    Emits:
-      - Daily summary cards (Good/Marginal/No-go) with wind, wave, rain, temp
-      - Alerts for significant hazards (gale, heavy rain, rough seas)
-      - Model shift note if prev run is available and drift is significant
+    Compact summary section: daily cards, alerts, model shift note.
+    Used as the header section of render_unified_html().
     """
     # ── Lookups ───────────────────────────────────────────────────────────────
     init_str = ''
@@ -811,11 +807,10 @@ def render_unified_html(
     wave_data: dict | None,
 ) -> str:
     """
-    Full web-app version: daily summary cards + complete hourly table
+    Full web-app HTML: daily summary cards + complete hourly table
     (WRF + ECMWF IFS + wave columns) + WRF vs ECMWF agreement stats + legend.
-    render_email_html() produces the compact email-only summary.
     """
-    # Build lookups (same as render_email_html)
+    # Build lookups (same as _render_summary_html)
     prev_by_valid = {r['valid_utc']: r for r in (prev_records or []) if r.get('valid_utc')}
     has_prev = bool(prev_by_valid)
     ec_by_valid = {r['valid_utc']: r for r in (ecmwf_records or []) if r.get('valid_utc')}
@@ -828,9 +823,9 @@ def render_unified_html(
     wrf_by_valid = {r['valid_utc']: r for r in records if r.get('valid_utc')}
     all_valids = sorted(set(wrf_by_valid) | set(ec_by_valid) | set(wave_by_valid))
 
-    # Start with the email summary (header + daily cards + alerts + model shift),
+    # Start with the summary section (header + daily cards + alerts + model shift),
     # then strip its closing </div> so we can append the full table.
-    html = render_email_html(meta, records, prev_records, ecmwf_records, wave_data)
+    html = _render_summary_html(meta, records, prev_records, ecmwf_records, wave_data)
     if html.endswith('</div>\n'):
         html = html[:-len('</div>\n')]
 
@@ -1157,14 +1152,12 @@ def main() -> None:
                    help='Previous run summary JSON for delta comparison')
     p.add_argument('--output-json', default='keelung_summary.json',
                    help='Output summary JSON path (default: keelung_summary.json)')
-    p.add_argument('--output-html', default='email_analysis.html',
-                   help='Full web-app HTML path (default: email_analysis.html)')
-    p.add_argument('--email-html', default='email_analysis_email.html',
-                   help='Simple email summary HTML path (default: email_analysis_email.html)')
+    p.add_argument('--output-html', default='forecast.html',
+                   help='Output HTML path (default: forecast.html)')
     p.add_argument('--ecmwf-json',  default=None,
                    help='ECMWF IFS JSON produced by ecmwf_fetch.py (enables comparison table)')
     p.add_argument('--wave-json',   default=None,
-                   help='Wave JSON produced by wave_fetch.py (adds wave forecast section to email)')
+                   help='Wave JSON produced by wave_fetch.py (adds wave forecast section)')
     p.add_argument('--list-vars',   action='store_true',
                    help='Diagnostic: list all GRIB2 shortNames in the first file and exit')
     args = p.parse_args()
@@ -1246,17 +1239,10 @@ def main() -> None:
             log.warning("Could not load wave JSON: %s", e)
 
     # ── Write HTML ────────────────────────────────────────────────────────────
-    # Full web-app version (phone drill-down)
     html_full = render_unified_html(meta, records, prev_records, ecmwf_records, wave_data)
     out_html = Path(args.output_html)
     out_html.write_text(html_full)
-    log.info("HTML (full)  → %s", out_html)
-
-    # Simple email summary
-    html_email = render_email_html(meta, records, prev_records, ecmwf_records, wave_data)
-    out_email_html = Path(args.email_html)
-    out_email_html.write_text(html_email)
-    log.info("HTML (email) → %s", out_email_html)
+    log.info("HTML → %s", out_html)
 
     # ── Expose to GitHub Actions ──────────────────────────────────────────────
     gha = os.environ.get('GITHUB_OUTPUT')

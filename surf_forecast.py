@@ -3,7 +3,7 @@
 surf_forecast.py — Taiwan surf spot 7-day forecast
 Fetches ECMWF + GFS wind/gust and ECMWF WAM swell data for each spot,
 evaluates conditions against each spot's optimal wind/swell directions,
-and writes surf_forecast.html for appending to the email report.
+and writes surf_forecast.html for the web app.
 
 Usage:
     python3 surf_forecast.py [--output surf_forecast.html]
@@ -520,7 +520,7 @@ def _hs_cls(hs, is_swell=True):
     if hs < 0.3: return 'c-muted'
     return ''
 
-def generate_html(all_spot_data: list[dict], keelung_records: list = None) -> str:
+def _generate_planner_html(all_spot_data: list[dict], keelung_records: list = None) -> str:
     """
     all_spot_data:    list of { 'spot': spot_dict, 'records': [record, ...] }
     keelung_records:  list of sailing records for Keelung (optional, for planner)
@@ -531,7 +531,7 @@ def generate_html(all_spot_data: list[dict], keelung_records: list = None) -> st
     # Collect all day keys across all spots
     all_dks = sorted({r['dk'] for sd in all_spot_data for r in sd['records']})
 
-    # Email version: use inline styles (Gmail strips <style> blocks)
+    # Planner table uses inline styles for maximum compatibility
     _S = 'font-family:Arial,Helvetica Neue,sans-serif'
     _TH = f'background:#1e3a5f;color:#7db8f0;padding:6px 10px;font-size:11px;text-align:center;white-space:nowrap;border:1px solid #2d3f5a;line-height:1.4'
     _TD = f'padding:6px 10px;text-align:center;border:1px solid #1e293b;font-size:12px;white-space:nowrap;line-height:1.4'
@@ -616,12 +616,11 @@ def generate_html(all_spot_data: list[dict], keelung_records: list = None) -> st
 
 def generate_full_html(all_spot_data: list[dict], keelung_records: list = None) -> str:
     """
-    Full web-app version: Daily Activity Planner + 7-spot rating matrix
-    + per-spot hourly detail tables + legend.  Used for the phone web app.
-    generate_html() produces the compact email-only summary.
+    Full HTML: Daily Activity Planner + 7-spot rating matrix
+    + per-spot hourly detail tables + legend.
     """
-    # Start with the email summary (planner table)
-    html = generate_html(all_spot_data, keelung_records=keelung_records)
+    # Start with the planner table
+    html = _generate_planner_html(all_spot_data, keelung_records=keelung_records)
 
     # Strip the closing </div> (surf-section) so we can append more content
     if html.endswith('</div>\n'):
@@ -771,11 +770,9 @@ def generate_full_html(all_spot_data: list[dict], keelung_records: list = None) 
 
 # ── Main ───────────────────────────────────────────────────────────────────
 def main() -> None:
-    ap = argparse.ArgumentParser(description='Taiwan surf forecast for email')
+    ap = argparse.ArgumentParser(description='Taiwan surf forecast')
     ap.add_argument('--output', default='surf_forecast.html',
-                    help='Full web-app HTML (default: surf_forecast.html)')
-    ap.add_argument('--email-output', default='surf_forecast_email.html',
-                    help='Simple email summary HTML (default: surf_forecast_email.html)')
+                    help='Output HTML path (default: surf_forecast.html)')
     args = ap.parse_args()
 
     # ── Fetch all spots in parallel (Keelung sailing + 7 surf spots) ─────
@@ -809,17 +806,10 @@ def main() -> None:
     spot_order = {s['id']: i for i, s in enumerate(SPOTS)}
     all_spot_data.sort(key=lambda d: spot_order.get(d['spot'].get('id'), 99))
 
-    # Full web-app version (phone drill-down)
     html_full = generate_full_html(all_spot_data, keelung_records=keelung_records)
     with open(args.output, 'w', encoding='utf-8') as f:
         f.write(html_full)
     log.info("Wrote %s (%s chars)", args.output, f"{len(html_full):,}")
-
-    # Simple email summary
-    html_email = generate_html(all_spot_data, keelung_records=keelung_records)
-    with open(args.email_output, 'w', encoding='utf-8') as f:
-        f.write(html_email)
-    log.info("Wrote %s (%s chars)", args.email_output, f"{len(html_email):,}")
 
 if __name__ == '__main__':
     setup_logging()

@@ -77,7 +77,7 @@ jobs:
       # ── Stale-run detection ───────────────────────────────────────────────────
       # Compare the CWA init_utc just downloaded against the one stored in the
       # previous summary.  If they match, the model hasn't published a new cycle
-      # yet — skip everything downstream so we don't send duplicate emails or
+      # yet — skip everything downstream so we don't re-deploy or
       # re-upload identical data.
       - name: Check for new CWA run
         id: stale_check
@@ -124,7 +124,7 @@ jobs:
 
       # ── Diagnostic: list GRIB2 variables in first subset file ────────────────
       # Captures the (shortName, typeOfLevel, level) inventory to a file so it
-      # can be included in the email.  Helps diagnose missing variables (gusts,
+      # can be included in the HTML output.  Helps diagnose missing variables (gusts,
       # rain, cloud, vis, CAPE) without having to dig through Actions logs.
       - name: List GRIB2 variables (diagnostic)
         id: grib_vars
@@ -139,7 +139,7 @@ jobs:
             echo "No keelung grb2 files found." | tee /tmp/grib_vars.txt
           fi
           # Wrap in an HTML <details> block and write to a temp file (not GITHUB_OUTPUT)
-          # so it can be cat'd into the email body without hitting output size limits.
+          # so it can be cat'd into the HTML output without hitting output size limits.
           {
             printf '<details style="margin-top:16px"><summary style="font-family:Arial,sans-serif;font-size:12px;color:#718096;cursor:pointer">🔍 GRIB2 variable inventory (click to expand)</summary>'
             printf '<pre style="font-family:monospace;font-size:11px;background:#f7fafc;border:1px solid #e2e8f0;border-radius:4px;padding:8px;overflow-x:auto;margin:4px 0">'
@@ -149,8 +149,8 @@ jobs:
 
       # ── Run GRIB2 point-forecast analysis ────────────────────────────────────
       # Reads the Keelung subset .grb2 files, extracts the point forecast,
-      # diffs against the previous run, and writes email_analysis.html.
-      # Appends: WRF vs ECMWF atmospheric comparison, and wave forecast section.
+      # diffs against the previous run, and writes forecast.html.
+      # Includes: WRF vs ECMWF atmospheric comparison, and wave forecast section.
       - name: Analyze Keelung forecast
         id: analyze
         if: steps.stale_check.outputs.is_new == 'true'
@@ -174,25 +174,17 @@ jobs:
             $ECMWF_ARG \
             $WAVE_ARG \
             --output-json keelung_summary_new.json \
-            --output-html email_analysis.html \
-            --email-html  email_analysis_email.html
+            --output-html forecast.html
 
       # ── Generate surf forecast & daily planner ────────────────────────────────
       # Fetches ECMWF + marine data for all 7 surf spots plus Keelung sailing,
-      # writes surf_forecast.html, then appends it to email_analysis.html.
-      # Runs independently of the WRF GRIB analysis (Open-Meteo only).
+      # writes surf_forecast.html, then appends it to forecast.html.
       - name: Generate surf forecast
         id: surf
         if: steps.stale_check.outputs.is_new == 'true'
         run: |
-          # Full web-app version (both outputs combined into email_analysis.html for Drive/phone)
-          python surf_forecast.py \
-            --output surf_forecast.html \
-            --email-output surf_forecast_email.html
-          cat surf_forecast.html >> email_analysis.html
-
-          # Simple email version (compact summary only)
-          cat surf_forecast_email.html >> email_analysis_email.html
+          python surf_forecast.py --output surf_forecast.html
+          cat surf_forecast.html >> forecast.html
 
       # ── Generate AI forecast summary ──────────────────────────────────────────
       # Calls Anthropic API to produce a plain-English narrative from the
@@ -217,14 +209,10 @@ jobs:
             $WAVE_ARG \
             --output ai_summary.html
 
-          # Prepend AI summary to both HTML outputs (web + email)
-          if [ -s ai_summary.html ]; then
-            for f in email_analysis.html email_analysis_email.html; do
-              if [ -f "$f" ]; then
-                cat ai_summary.html "$f" > "${f}.tmp" && mv "${f}.tmp" "$f"
-              fi
-            done
-            echo "  ✅  AI summary prepended to HTML outputs"
+          # Prepend AI summary to the forecast HTML
+          if [ -s ai_summary.html ] && [ -f forecast.html ]; then
+            cat ai_summary.html forecast.html > forecast.html.tmp && mv forecast.html.tmp forecast.html
+            echo "  ✅  AI summary prepended to forecast HTML"
           else
             echo "  ⏭  No AI summary generated (API key missing or error)"
           fi
@@ -348,7 +336,7 @@ jobs:
           DLBAR
           fi
 
-          cat email_analysis.html >> public/index.html
+          cat forecast.html >> public/index.html
           echo '</body></html>' >> public/index.html
 
       - name: Deploy to Vercel

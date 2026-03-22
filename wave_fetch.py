@@ -7,7 +7,7 @@ Fetch wave forecasts for the Keelung point.
 Source: ECMWF WAM via the Open-Meteo *marine* API (no key required).
 
 Outputs wave_keelung.json, which wrf_analyze.py ingests via --wave-json to
-render a wave-forecast table in the email.
+render a wave-forecast table in the HTML output.
 
 Note on CWA wave data
 ---------------------

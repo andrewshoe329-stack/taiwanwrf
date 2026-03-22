@@ -1,6 +1,6 @@
 # Taiwan Sail & Surf Forecast
 
-Automated weather forecasting pipeline for Taiwan sailing and surfing conditions. Downloads CWA (Central Weather Administration) WRF model data, combines it with ECMWF IFS and WAM wave forecasts, and delivers HTML email reports with 7-day surf spot forecasts for northern Taiwan.
+Automated weather forecasting pipeline for Taiwan sailing and surfing conditions. Downloads CWA (Central Weather Administration) WRF model data, combines it with ECMWF IFS and WAM wave forecasts, generates an HTML forecast with AI summary, and deploys to Vercel. Includes 7-day surf spot forecasts for northern Taiwan.
 
 Runs 4x daily via GitHub Actions (00, 06, 12, 18 UTC).
 
