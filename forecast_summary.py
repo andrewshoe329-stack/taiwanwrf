@@ -14,7 +14,7 @@ Usage:
         --output ai_summary.html
 """
 
-import argparse, json, logging, os, sys
+import argparse, json, logging, os, sys, time
 from datetime import datetime, timedelta, timezone
 
 from config import setup_logging
@@ -133,17 +133,25 @@ def call_api(user_prompt: str) -> str:
         return ''
 
     client = anthropic.Anthropic(api_key=api_key)
-    try:
-        msg = client.messages.create(
-            model='claude-sonnet-4-5-latest',
-            max_tokens=400,
-            system=SYSTEM_PROMPT,
-            messages=[{'role': 'user', 'content': user_prompt}],
-        )
-        return msg.content[0].text.strip()
-    except Exception as e:
-        log.error("Anthropic API call failed: %s", e)
-        return ''
+    last_exc: Exception = RuntimeError("no attempts made")
+    for attempt in range(1, 4):
+        try:
+            msg = client.messages.create(
+                model='claude-sonnet-4-5-latest',
+                max_tokens=400,
+                system=SYSTEM_PROMPT,
+                messages=[{'role': 'user', 'content': user_prompt}],
+            )
+            return msg.content[0].text.strip()
+        except Exception as e:
+            last_exc = e
+            if attempt < 3:
+                delay = 5 * attempt
+                log.warning("Anthropic API attempt %d failed (%s); retrying in %ds …",
+                            attempt, e, delay)
+                time.sleep(delay)
+    log.error("Anthropic API failed after 3 attempts: %s", last_exc)
+    return ''
 
 
 def render_html(summary_text: str) -> str:

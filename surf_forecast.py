@@ -178,8 +178,14 @@ def process_spot(ec: dict, gfs: dict, mar: dict) -> list[dict[str, object]]:
 
     records = []
     for i, t in enumerate(eh.get('time', [])):
-        if i % 6 != 0:
-            continue  # 6-hourly only
+        # Filter to 6-hourly timestamps by checking the actual hour,
+        # not the index — robust if the API response doesn't start at 00:00.
+        try:
+            _hour = int(t[11:13]) if len(t) >= 13 else -1
+        except (ValueError, TypeError):
+            _hour = -1
+        if _hour % 6 != 0:
+            continue
 
         gust = _safe_get(eh.get('windgusts_10m'), i)
         gi   = gfs_by_t.get(t)
@@ -619,12 +625,12 @@ def generate_full_html(all_spot_data: list[dict], keelung_records: list = None) 
     Full HTML: Daily Activity Planner + 7-spot rating matrix
     + per-spot hourly detail tables + legend.
     """
-    # Start with the planner table
+    # Start with the planner table, then strip the closing </div>
+    # (surf-section wrapper) so we can append matrix + detail sections.
     html = _generate_planner_html(all_spot_data, keelung_records=keelung_records)
-
-    # Strip the closing </div> (surf-section) so we can append more content
-    if html.endswith('</div>\n'):
-        html = html[:-len('</div>\n')]
+    html = html.rstrip()
+    if html.endswith('</div>'):
+        html = html[:-len('</div>')] + '\n'
 
     now_cst = datetime.now(timezone.utc) + timedelta(hours=8)
     all_dks = sorted({r['dk'] for sd in all_spot_data for r in sd['records']})

@@ -174,7 +174,10 @@ def process(raw: dict, raw_fill: dict | None = None) -> tuple[dict, list]:
         if dt.hour % 6 != 0:
             continue
 
-        # Precipitation: sum hours [i-5 .. i] inclusive (6-hour window)
+        # Precipitation: sum hours [i-5 .. i] inclusive (6-hour window).
+        # Note: at i=0 (first record), the window is only 1 hour — this is
+        # inherent to the first available timestamp and matches WRF convention
+        # where F000 typically reports near-zero accumulation.
         precip_6h = sum(
             (safe(precip, j) or 0.0)
             for j in range(max(0, i - 5), i + 1)

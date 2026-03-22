@@ -12,26 +12,26 @@ Each model: 15 forecast files at 6-hour intervals (0 → 84 h), updated 4×/day.
 
 Usage examples
 --------------
-  # Download all forecast hours of the 3km WRF (default)
+  # Download all forecast hours + Keelung subset (default behaviour)
   python3 taiwan_wrf_download.py
 
   # Download only 0h, 6h, and 12h forecasts
   python3 taiwan_wrf_download.py --hours 0 6 12
 
-  # Download AND produce a 50nm-around-Keelung subset GRIB2 per file
-  python3 taiwan_wrf_download.py --keelung
-
   # Keelung subset only, skip saving the full-domain files
   python3 taiwan_wrf_download.py --keelung-only
 
+  # Full-domain files only, no subsetting
+  python3 taiwan_wrf_download.py --full-domain
+
   # Use the 15km model, custom output dir, custom radius
-  python3 taiwan_wrf_download.py --model M-A0061 --keelung --radius 75 --outdir ~/weather/wrf
+  python3 taiwan_wrf_download.py --model M-A0061 --radius 75 --outdir ~/weather/wrf
 
   # Print current model run info and exit
   python3 taiwan_wrf_download.py --info
 
-Subsetting requirements (optional — only needed for --keelung)
---------------------------------------------------------------
+Subsetting requirements (optional — only needed when subsetting is enabled)
+---------------------------------------------------------------------------
   pip install eccodes          # GRIB2 → GRIB2 subset  (recommended)
   pip install cfgrib xarray    # GRIB2 → NetCDF subset (fallback)
   If neither is installed the full-domain GRIB2 is kept as-is.

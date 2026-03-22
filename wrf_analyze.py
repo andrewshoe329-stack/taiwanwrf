@@ -458,6 +458,43 @@ def _wave_dir_str(deg: float | None) -> str:
     return deg_to_compass(deg)
 
 
+_TD = 'padding:3px 5px;text-align:center'
+_EMPTY_TD = f'  <td style="{_TD};color:#475569">—</td>\n'
+
+
+def _td(content: str, bg: str = '', extra: str = '') -> str:
+    """Generate a styled <td> for the unified forecast table."""
+    bg_s = f';background:{bg}' if bg else ''
+    ex_s = f';{extra}' if extra else ''
+    return f'  <td style="{_TD}{bg_s}{ex_s}">{content}</td>\n'
+
+
+def _row_alerts(wind: float | None, gust: float | None,
+                hs: float | None, rain: float | None) -> tuple[str, str]:
+    """Return (alert_html, alert_bg) for a forecast row."""
+    alerts = []
+    if gust is not None and gust >= 34:
+        alerts.append('<span style="color:#fc8181;font-weight:700">Gale⚠</span>')
+    elif gust is not None and gust >= 28:
+        alerts.append('<span style="color:#fbd38d">g28+</span>')
+    if wind is not None and wind >= 34:
+        alerts.append('<span style="color:#fc8181;font-weight:700">B8+</span>')
+    elif wind is not None and wind >= 28:
+        alerts.append('<span style="color:#fbd38d">B7</span>')
+    elif wind is not None and wind >= 22:
+        alerts.append('<span style="color:#fbd38d">B6</span>')
+    if hs is not None and hs >= 2.5:
+        alerts.append('<span style="color:#93c5fd">🌊⚠</span>')
+    elif hs is not None and hs >= 1.5:
+        alerts.append('<span style="color:#93c5fd">🌊</span>')
+    if rain is not None and rain >= 10:
+        alerts.append('<span style="color:#93c5fd">🌧</span>')
+    alert_html = '&nbsp;'.join(alerts) if alerts else ''
+    alert_bg = ('#2d1515' if any('⚠' in a or 'Gale' in a for a in alerts)
+                else '#2d2200' if alerts else '')
+    return alert_html, alert_bg
+
+
 
 # ── Daily summary cards ───────────────────────────────────────────────────────
 
@@ -949,26 +986,9 @@ def render_unified_html(
         _eff_gust = wg if wg is not None else eg
         _eff_rain = wr if wr is not None else er
         _eff_hs   = wav.get('wave_height') if wav else None
-        _row_alerts = []
-        if _eff_gust is not None and _eff_gust >= 34:
-            _row_alerts.append('<span style="color:#fc8181;font-weight:700">Gale⚠</span>')
-        elif _eff_gust is not None and _eff_gust >= 28:
-            _row_alerts.append('<span style="color:#fbd38d">g28+</span>')
-        if _eff_wind is not None and _eff_wind >= 34:
-            _row_alerts.append('<span style="color:#fc8181;font-weight:700">B8+</span>')
-        elif _eff_wind is not None and _eff_wind >= 28:
-            _row_alerts.append('<span style="color:#fbd38d">B7</span>')
-        elif _eff_wind is not None and _eff_wind >= 22:
-            _row_alerts.append('<span style="color:#fbd38d">B6</span>')
-        if _eff_hs is not None and _eff_hs >= 2.5:
-            _row_alerts.append('<span style="color:#93c5fd">🌊⚠</span>')
-        elif _eff_hs is not None and _eff_hs >= 1.5:
-            _row_alerts.append('<span style="color:#93c5fd">🌊</span>')
-        if _eff_rain is not None and _eff_rain >= 10:
-            _row_alerts.append('<span style="color:#93c5fd">🌧</span>')
-        _alert_html = '&nbsp;'.join(_row_alerts) if _row_alerts else ''
-        _alert_bg   = '#2d1515' if any('⚠' in a or 'Gale' in a for a in _row_alerts) else (
-                      '#2d2200' if _row_alerts else row_bg)
+        _alert_html, _alert_bg = _row_alerts(_eff_wind, _eff_gust, _eff_hs, _eff_rain)
+        if not _alert_bg:
+            _alert_bg = row_bg
 
         html += f'<tr style="background:{row_bg};{row_extra}">\n'
         html += (f'  <td style="padding:2px 5px;text-align:center;font-size:0.85em;'
