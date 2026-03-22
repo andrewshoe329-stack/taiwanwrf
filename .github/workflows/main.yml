@@ -7,7 +7,13 @@ on:
   schedule:
     # Runs 45 min after each CWA model cycle (00/06/12/18 UTC)
     - cron: '45 0,6,12,18 * * *'
-  workflow_dispatch:  # also allows manual trigger from GitHub UI
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force run even if CWA cycle is unchanged'
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: wrf-pipeline
@@ -89,7 +95,10 @@ jobs:
         id: stale_check
         run: |
           NEW_INIT="${{ steps.download.outputs.init_utc }}"
-          if [ "${{ steps.prev_summary.outputs.found }}" = "true" ] && [ -f keelung_summary.json ]; then
+          if [ "${{ inputs.force }}" = "true" ]; then
+            echo "  ✅  Force flag set — skipping stale check."
+            echo "is_new=true" >> "$GITHUB_OUTPUT"
+          elif [ "${{ steps.prev_summary.outputs.found }}" = "true" ] && [ -f keelung_summary.json ]; then
             PREV_INIT=$(python3 -c \
               "import json,sys; d=json.load(open('keelung_summary.json')); print(d.get('meta',{}).get('init_utc',''))" \
               2>/dev/null || echo "")
