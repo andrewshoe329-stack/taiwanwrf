@@ -44,7 +44,7 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from config import KEELUNG_LAT, KEELUNG_LON, setup_logging
+from config import KEELUNG_LAT, KEELUNG_LON, deg_to_compass, norm_utc, setup_logging
 
 log = logging.getLogger(__name__)
 
@@ -78,12 +78,7 @@ WAVE_VARS = [
     (['swd1', 'SWD1', 'swdir', 'SWDIR', 'dirsw'],      None, None, 'swell_wave_direction'),
 ]
 
-COMPASS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW']
-
-def _deg_to_compass(deg: float | None) -> str:
-    if deg is None:
-        return '—'
-    return COMPASS[round(deg / 22.5) % 16]
+_deg_to_compass = deg_to_compass  # local alias for backward compatibility
 
 
 # ── ECMWF via Open-Meteo marine API ──────────────────────────────────────────
@@ -131,13 +126,7 @@ def fetch_ecmwf_wave() -> dict:
     )
 
 
-def _norm_utc(iso: str) -> str:
-    iso = iso.strip()
-    if len(iso) == 16:
-        iso += ":00+00:00"
-    elif len(iso) == 19:
-        iso += "+00:00"
-    return iso
+_norm_utc = norm_utc  # local alias for backward compatibility
 
 
 def process_ecmwf_wave(raw: dict) -> tuple[dict, list[dict]]:

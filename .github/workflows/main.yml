@@ -6,6 +6,10 @@ on:
     - cron: '45 0,6,12,18 * * *'
   workflow_dispatch:  # also allows manual trigger from GitHub UI
 
+concurrency:
+  group: wrf-pipeline
+  cancel-in-progress: true
+
 jobs:
   download-and-upload:
     runs-on: ubuntu-latest
@@ -258,6 +262,7 @@ jobs:
           DRIVE_LINK="${{ steps.upload.outputs.drive_link }}"
           ARCHIVE_NAME="${{ steps.download.outputs.archive_name }}"
           ARCHIVE_SIZE="${{ steps.download.outputs.archive_size }}"
+          BUILD_UTC=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
           mkdir -p public
           cat <<HEADER > public/index.html
@@ -266,6 +271,7 @@ jobs:
           <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
+            <meta http-equiv="refresh" content="1800">
             <title>Taiwan Sail & Surf Forecast</title>
             <style>
               body { margin: 0; padding: 0; background: #0f172a; }
@@ -291,9 +297,41 @@ jobs:
                 font-size: 13px;
               }
               .download-bar a:hover { background: #3b5998; }
+              .timestamp-bar {
+                font-family: Arial, sans-serif;
+                background: #111827;
+                padding: 6px 16px;
+                font-size: 12px;
+                color: #64748b;
+                border-bottom: 1px solid #1e293b;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                flex-wrap: wrap;
+              }
+              .timestamp-bar .age { font-weight: 600; }
+              .age-fresh { color: #68d391; }
+              .age-stale { color: #fbd38d; }
+              .age-old   { color: #fc8181; }
             </style>
           </head>
           <body>
+          <div class="timestamp-bar">
+            <span>Last updated: <span id="ts">${BUILD_UTC}</span></span>
+            <span class="age" id="age"></span>
+          </div>
+          <script>
+          (function(){
+            var ts = new Date("${BUILD_UTC}");
+            var el = document.getElementById("age");
+            function update(){
+              var h = Math.round((Date.now() - ts.getTime()) / 3600000);
+              el.textContent = h < 1 ? "< 1h ago" : h + "h ago";
+              el.className = "age " + (h < 8 ? "age-fresh" : h < 24 ? "age-stale" : "age-old");
+            }
+            update(); setInterval(update, 60000);
+          })();
+          </script>
           HEADER
 
           # Add download bar if Drive link is available

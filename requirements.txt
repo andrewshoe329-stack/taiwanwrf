@@ -1,6 +1,6 @@
-eccodes
-numpy
-anthropic
+eccodes>=1.5,<2
+numpy>=1.24,<3
+anthropic>=0.40,<1
 # Optional fallback for GRIB2 (used if eccodes Python bindings unavailable)
 # cfgrib
 # xarray

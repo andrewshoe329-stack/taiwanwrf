@@ -33,7 +33,7 @@ from datetime import datetime, timedelta, timezone
 
 import numpy as np
 
-from config import KEELUNG_LAT, KEELUNG_LON, setup_logging
+from config import KEELUNG_LAT, KEELUNG_LON, COMPASS_NAMES, deg_to_compass, setup_logging
 
 log = logging.getLogger(__name__)
 
@@ -101,16 +101,23 @@ DERIVED = {
     'cape':      ('J/kg',lambda d: d['cape']),
 }
 
-COMPASS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW']
+# Maps each DERIVED key to the raw keys it needs present before computing
+_NEEDED_RAW_KEYS: dict[str, list[str]] = {
+    'temp_c':    ['temp_k'],
+    'wind_kt':   ['u10', 'v10'],
+    'wind_dir':  ['u10', 'v10'],
+    'mslp_hpa':  ['mslp_pa'],
+    'precip_mm': ['precip_raw'],
+    'cloud_pct': ['cloud_raw'],
+    'vis_km':    ['vis_m'],
+    'gust_kt':   ['gust_ms'],
+    'cape':      ['cape'],
+}
 
 # Unicode arrows showing the direction the wind is blowing TOWARD
 # (opposite of the "from" direction stored in the GRIB2 wind_dir field).
 # 0° = FROM North → blows southward → ↓, 90° = FROM East → blows west → ←, etc.
 _WIND_ARROWS = ['↓', '↙', '←', '↖', '↑', '↗', '→', '↘']
-
-
-def deg_to_compass(deg: float) -> str:
-    return COMPASS[round(deg / 22.5) % 16]
 
 
 def _wind_arrow(deg: float) -> str:
@@ -313,18 +320,7 @@ def extract_forecast(rundir: Path) -> tuple[dict, list[dict]]:
 
         for key, (unit, fn) in DERIVED.items():
             try:
-                needed_raw_keys = {
-                    'temp_c':    ['temp_k'],
-                    'wind_kt':   ['u10', 'v10'],
-                    'wind_dir':  ['u10', 'v10'],
-                    'mslp_hpa':  ['mslp_pa'],
-                    'precip_mm': ['precip_raw'],
-                    'cloud_pct': ['cloud_raw'],
-                    'vis_km':    ['vis_m'],
-                    'gust_kt':   ['gust_ms'],
-                    'cape':      ['cape'],
-                }
-                if all(k in raw for k in needed_raw_keys.get(key, [])):
+                if all(k in raw for k in _NEEDED_RAW_KEYS.get(key, [])):
                     val = fn(raw)
                     rec[key] = round(val, 2) if val is not None else None
                 else:
@@ -333,7 +329,10 @@ def extract_forecast(rundir: Path) -> tuple[dict, list[dict]]:
                 rec[key] = None
 
         # Convert accumulated precip to 6-hourly incremental
-        if rec.get('precip_mm') is not None and prev_precip_mm is not None:
+        if fh == 0:
+            # Analysis hour: no accumulation period yet
+            rec['precip_mm_6h'] = 0.0
+        elif rec.get('precip_mm') is not None and prev_precip_mm is not None:
             if rec['precip_mm'] >= prev_precip_mm:
                 rec['precip_mm_6h'] = round(rec['precip_mm'] - prev_precip_mm, 2)
             else:
@@ -453,13 +452,8 @@ def _delta_cell(d: float | None, thresh: float, positive_bad: bool = False) -> s
             f'color:{color};font-weight:500">{sign}{d}</td>')
 
 
-_WAVE_COMPASS = ['N','NNE','NE','ENE','E','ESE','SE','SSE',
-                 'S','SSW','SW','WSW','W','WNW','NW','NNW']
-
 def _wave_dir_str(deg: float | None) -> str:
-    if deg is None:
-        return '—'
-    return _WAVE_COMPASS[round(deg / 22.5) % 16]
+    return deg_to_compass(deg)
 
 
 

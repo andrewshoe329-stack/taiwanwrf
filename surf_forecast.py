@@ -10,9 +10,10 @@ Usage:
 """
 
 import argparse, json, logging, time, urllib.request, urllib.parse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone, timedelta
 
-from config import setup_logging
+from config import KEELUNG_LAT, KEELUNG_LON, deg_to_compass, setup_logging
 
 log = logging.getLogger(__name__)
 
@@ -107,16 +108,11 @@ DIR_DEG = {
     'S': 180, 'SSW': 202, 'SW': 225, 'WSW': 247,
     'W': 270, 'WNW': 292, 'NW': 315, 'NNW': 337,
 }
-DIR_NAMES = ['N','NNE','NE','ENE','E','ESE','SE','SSE',
-             'S','SSW','SW','WSW','W','WNW','NW','NNW']
-
 def deg_diff(a: float, b: float) -> float:
     d = abs(a - b) % 360
     return min(d, 360 - d)
 
-def compass(deg: float | None) -> str:
-    if deg is None: return '—'
-    return DIR_NAMES[round(deg / 22.5) % 16]
+compass = deg_to_compass  # local alias
 
 def dir_quality(actual_deg, optimal_dirs: list) -> str:
     """Returns 'good', 'ok', or 'poor' based on proximity to optimal directions."""
@@ -190,8 +186,9 @@ def process_spot(ec: dict, gfs: dict, mar: dict) -> list[dict]:
         if gust is None and gi is not None:
             gust = _safe_get(gh.get('windgusts_10m'), gi)
 
+        _precip = eh.get('precipitation', [])
         rain6h = sum(
-            (eh.get('precipitation', [0]) + [0] * 10)[k]
+            (_precip[k] or 0) if k < len(_precip) else 0
             for k in range(max(0, i - 5), i + 1)
         )
 
@@ -223,10 +220,10 @@ def process_spot(ec: dict, gfs: dict, mar: dict) -> list[dict]:
     return records
 
 # ── Sailing location (for daily planner) ───────────────────────────────────
-KEELUNG = {'lat': 25.128, 'lon': 121.740, 'name': 'Keelung'}
+KEELUNG = {'lat': KEELUNG_LAT, 'lon': KEELUNG_LON, 'name': 'Keelung'}
 
 # ── Condition scoring ──────────────────────────────────────────────────────
-WKDAY = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+WKDAY = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 MONTH = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
 def day_rating(day_recs: list, spot: dict) -> dict:
@@ -775,20 +772,36 @@ def main() -> None:
                     help='Simple email summary HTML (default: surf_forecast_email.html)')
     args = ap.parse_args()
 
-    # ── Fetch Keelung sailing data (for daily planner) ─────────────────────
-    log.info("Fetching Keelung sailing (for daily planner) …")
-    ec_k, gfs_k, mar_k = fetch_spot(KEELUNG['lat'], KEELUNG['lon'])
-    keelung_records = process_spot(ec_k, gfs_k, mar_k)
-    log.info("  → %d timesteps", len(keelung_records))
+    # ── Fetch all spots in parallel (Keelung sailing + 7 surf spots) ─────
+    def _fetch_and_process(spot_entry):
+        lat, lon = spot_entry['lat'], spot_entry['lon']
+        name = spot_entry.get('name', 'Keelung')
+        log.info("Fetching %s …", name)
+        ec, gfs, mar = fetch_spot(lat, lon)
+        records = process_spot(ec, gfs, mar)
+        log.info("  %s → %d timesteps", name, len(records))
+        return spot_entry, records
 
-    # ── Fetch each surf spot ────────────────────────────────────────────────
+    all_entries = [{'lat': KEELUNG['lat'], 'lon': KEELUNG['lon'],
+                    'name': 'Keelung (sailing)', '_is_keelung': True}]
+    all_entries += [{'_is_keelung': False, **s} for s in SPOTS]
+
+    keelung_records = []
     all_spot_data = []
-    for spot in SPOTS:
-        log.info("Fetching %s …", spot["name"])
-        ec, gfs, mar = fetch_spot(spot['lat'], spot['lon'])
-        records      = process_spot(ec, gfs, mar)
-        log.info("  → %d timesteps", len(records))
-        all_spot_data.append({'spot': spot, 'records': records})
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        futures = {pool.submit(_fetch_and_process, e): e for e in all_entries}
+        for future in as_completed(futures):
+            entry, records = future.result()
+            if entry.get('_is_keelung'):
+                keelung_records = records
+            else:
+                # Reconstruct the original spot dict (without internal keys)
+                spot = {k: v for k, v in entry.items() if not k.startswith('_')}
+                all_spot_data.append({'spot': spot, 'records': records})
+
+    # Preserve original spot ordering
+    spot_order = {s['id']: i for i, s in enumerate(SPOTS)}
+    all_spot_data.sort(key=lambda d: spot_order.get(d['spot'].get('id'), 99))
 
     # Full web-app version (phone drill-down)
     html_full = generate_full_html(all_spot_data, keelung_records=keelung_records)
