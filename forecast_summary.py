@@ -139,7 +139,7 @@ def call_api(user_prompt: str) -> str:
     for attempt in range(1, 4):
         try:
             msg = client.messages.create(
-                model='claude-sonnet-4-5-latest',
+                model='claude-sonnet-4-5-20250514',
                 max_tokens=400,
                 system=SYSTEM_PROMPT,
                 messages=[{'role': 'user', 'content': user_prompt}],
