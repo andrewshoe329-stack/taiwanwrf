@@ -247,6 +247,7 @@ jobs:
       - name: Upload to Google Drive
         id: upload
         if: steps.stale_check.outputs.is_new == 'true'
+        continue-on-error: true
         timeout-minutes: 15
         run: |
           # Upload the GRIB2 archive
@@ -257,6 +258,9 @@ jobs:
             --stats-one-line
 
           # Overwrite the persistent summary (used as prev-json next run)
+          # First remove any conflicting directory (Drive may have a folder named
+          # keelung_summary.json from a past rclone copy — copyto needs a file target)
+          rclone purge gdrive:WRF_Taiwan/keelung_summary.json 2>/dev/null || true
           rclone copyto keelung_summary_new.json \
             gdrive:WRF_Taiwan/keelung_summary.json \
             --no-traverse
@@ -276,7 +280,7 @@ jobs:
       # Wraps the generated HTML fragments in a proper HTML5 document with a
       # download link for the WRF GRIB2 archive, then deploys to Vercel.
       - name: Build Vercel site
-        if: steps.stale_check.outputs.is_new == 'true'
+        if: steps.stale_check.outputs.is_new == 'true' && !cancelled()
         timeout-minutes: 5
         run: |
           DRIVE_LINK="${{ steps.upload.outputs.drive_link }}"
@@ -382,7 +386,7 @@ jobs:
           echo '</body></html>' >> public/index.html
 
       - name: Deploy to Vercel
-        if: steps.stale_check.outputs.is_new == 'true'
+        if: steps.stale_check.outputs.is_new == 'true' && !cancelled()
         timeout-minutes: 10
         run: |
           npm install -g vercel@39
