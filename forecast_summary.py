@@ -142,14 +142,20 @@ def call_api(user_prompt: str) -> str:
                 system=SYSTEM_PROMPT,
                 messages=[{'role': 'user', 'content': user_prompt}],
             )
+            if not msg.content:
+                raise ValueError("Empty response from API")
             return msg.content[0].text.strip()
-        except Exception as e:
+        except (anthropic.APIConnectionError, anthropic.RateLimitError,
+                anthropic.InternalServerError, ValueError) as e:
             last_exc = e
             if attempt < 3:
                 delay = 5 * attempt
                 log.warning("Anthropic API attempt %d failed (%s); retrying in %ds …",
                             attempt, e, delay)
                 time.sleep(delay)
+        except (anthropic.AuthenticationError, anthropic.BadRequestError) as e:
+            log.error("Non-retryable API error: %s", e)
+            return ''
     log.error("Anthropic API failed after 3 attempts: %s", last_exc)
     return ''
 
