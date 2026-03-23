@@ -263,6 +263,29 @@ class TestFetchTideObs:
         result = fetch_tide_obs("test-key")
         assert result is None
 
+    @patch('cwa_fetch.urllib.request.urlopen')
+    def test_real_ob0075_structure(self, mock_open):
+        """Test with actual O-B0075-001 response structure (StationID uppercase)."""
+        response = {
+            "Success": "true",
+            "Result": {"ResourceId": "O-B0075-001"},
+            "Records": {"SeaSurfaceObs": {"Location": [{
+                "Station": {"StationID": "C4B01", "StationName": "基隆"},
+                "StationObsTimes": {"StationObsTime": [{
+                    "DateTime": "2026-03-23T09:00:00+08:00",
+                    "WeatherElements": {
+                        "TideHeight": "0.44",
+                        "TideLevel": "退潮",
+                    },
+                }]},
+            }]}},
+        }
+        mock_open.return_value = _mock_urlopen(response)
+        result = fetch_tide_obs("test-key")
+        assert result is not None
+        assert result["station_id"] == "C4B01"
+        assert result["tide_height_m"] == 0.44
+
 
 class TestFetchWarnings:
     @patch('cwa_fetch.urllib.request.urlopen')
