@@ -916,6 +916,71 @@ def _render_summary_html(
     return html
 
 
+def _render_accuracy_badge(accuracy_log: list) -> str:
+    """Render a small accuracy badge from the rolling accuracy log.
+
+    Shows 7-day rolling averages for temp, wind, and wave MAE.
+    """
+    if not accuracy_log:
+        return ''
+    from datetime import datetime, timedelta, timezone
+    cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+    recent = []
+    for e in accuracy_log:
+        try:
+            vt = datetime.fromisoformat(e.get('verified_utc', ''))
+            if vt >= cutoff:
+                recent.append(e)
+        except (ValueError, TypeError):
+            pass
+    if not recent:
+        return ''
+
+    # Average each metric across recent entries
+    def avg_metric(entries, key):
+        vals = [e.get(key) for e in entries if e.get(key) is not None]
+        return round(sum(vals) / len(vals), 1) if vals else None
+
+    temp_mae = avg_metric(recent, 'temp_mae_c')
+    wind_mae = avg_metric(recent, 'wind_mae_kt')
+    wdir_mae = avg_metric(recent, 'wdir_mae_deg')
+    wave_mae = None
+    wave_entries = [e.get('wave', {}) for e in recent if e.get('wave')]
+    if wave_entries:
+        wave_vals = [w.get('hs_mae_m') for w in wave_entries if w.get('hs_mae_m') is not None]
+        wave_mae = round(sum(wave_vals) / len(wave_vals), 2) if wave_vals else None
+
+    def _color(val, green_lt, yellow_lt):
+        if val is None:
+            return '#94a3b8'
+        return '#48bb78' if val < green_lt else '#fbd38d' if val < yellow_lt else '#fc8181'
+
+    parts = []
+    if temp_mae is not None:
+        c = _color(temp_mae, 1.0, 2.0)
+        parts.append(f'<span style="color:{c}">Temp \u00b1{temp_mae}\u00b0C</span>')
+    if wind_mae is not None:
+        c = _color(wind_mae, 3.0, 5.0)
+        parts.append(f'<span style="color:{c}">Wind \u00b1{wind_mae}kt</span>')
+    if wdir_mae is not None:
+        c = _color(wdir_mae, 20, 40)
+        parts.append(f'<span style="color:{c}">Dir \u00b1{wdir_mae}\u00b0</span>')
+    if wave_mae is not None:
+        c = _color(wave_mae, 0.3, 0.5)
+        parts.append(f'<span style="color:{c}">Wave \u00b1{wave_mae}m</span>')
+
+    if not parts:
+        return ''
+
+    return (
+        '<p style="margin:0 0 6px;font-size:0.82em;color:#94a3b8">'
+        '\U0001f3af <strong>Model Accuracy</strong> (7d avg): '
+        + ' \u00b7 '.join(parts)
+        + f' <span style="color:#64748b">({len(recent)} runs)</span>'
+        '</p>\n'
+    )
+
+
 def render_unified_html(
     meta: dict,
     records: list,
@@ -925,6 +990,7 @@ def render_unified_html(
     tide_data: dict | None = None,
     surf_planner: dict | None = None,
     ensemble_data: dict | None = None,
+    accuracy_log: list | None = None,
 ) -> str:
     """
     Full web-app HTML: daily summary cards + complete hourly table
@@ -968,6 +1034,10 @@ def render_unified_html(
         ' where CWA WRF is absent (gust, rain, cloud, vis, CAPE)'
         '</p>\n'
     )
+
+    # ── Accuracy badge (optional) ────────────────────────────────────────────
+    if accuracy_log:
+        html += _render_accuracy_badge(accuracy_log)
 
     # ── Table (desktop) ──────────────────────────────────────────────────────
     html += '<div class="fc-desktop">\n'
@@ -1389,6 +1459,8 @@ def main() -> None:
                    help='Surf planner JSON produced by surf_forecast.py (adds surf info to day cards)')
     p.add_argument('--ensemble-json', default=None,
                    help='Ensemble JSON produced by ensemble_fetch.py (adds model spread indicators)')
+    p.add_argument('--accuracy-log', default=None,
+                   help='Accuracy log JSON from accuracy_track.py (adds accuracy badge)')
     p.add_argument('--list-vars',   action='store_true',
                    help='Diagnostic: list all GRIB2 shortNames in the first file and exit')
     args = p.parse_args()
@@ -1502,10 +1574,21 @@ def main() -> None:
         except Exception as e:
             log.warning("Could not load ensemble JSON: %s", e)
 
+    # ── Load accuracy log (optional) ──────────────────────────────────────────
+    accuracy_log = None
+    if args.accuracy_log and Path(args.accuracy_log).exists():
+        try:
+            with open(args.accuracy_log) as f:
+                accuracy_log = json.load(f)
+            log.info("Accuracy log: %d entries", len(accuracy_log))
+        except Exception as e:
+            log.warning("Could not load accuracy log: %s", e)
+
     # ── Write HTML ────────────────────────────────────────────────────────────
     html_full = render_unified_html(meta, records, prev_records, ecmwf_records, wave_data,
                                     tide_data=tide_data, surf_planner=surf_planner,
-                                    ensemble_data=ensemble_data)
+                                    ensemble_data=ensemble_data,
+                                    accuracy_log=accuracy_log)
     out_html = Path(args.output_html)
     out_html.write_text(html_full)
     log.info("HTML → %s", out_html)

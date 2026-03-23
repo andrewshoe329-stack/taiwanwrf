@@ -194,8 +194,12 @@ def process(raw: dict, raw_fill: dict | None = None) -> tuple[dict, list]:
         vis_val = safe(vis, i)
         vis_km  = round(vis_val / 1000, 1) if vis_val is not None else None
 
-        # Gust from ECMWF; fall back to GFS fill if null
-        gust_val = safe(gust, i)
+        # Gust: take the max within the 6h window (not just the snapshot)
+        # This captures peak gusts that may occur between 6-hourly timestamps.
+        gust_vals_window = [safe(gust, j) for j in range(window_start, i + 1)
+                           if safe(gust, j) is not None]
+        gust_val = max(gust_vals_window) if gust_vals_window else None
+
         norm_t   = _norm_utc(t)
         if gust_val is None and norm_t in fill_gust_by_time:
             gust_val = fill_gust_by_time[norm_t]
