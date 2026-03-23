@@ -233,7 +233,11 @@ All endpoints use base URL `https://opendata.cwa.gov.tw/api/v1/rest/datastore/{I
 
 **Note on F-D0047 numbering:** Odd numbers are 3-day, even+1 are 1-week. Key city codes: 049=基隆市, 061=臺北市, 069=新北市. Full list at CWA Open Data portal.
 
-**CWA REST API key casing:** The REST API uses **capitalized** top-level keys (`"Success"`, `"Result"`, `"Records"`) while older docs show lowercase (`"success"`, `"records"`). All parsing functions check both. The `Records` key is **top-level** (sibling of `Result`), not nested inside it.
+**CWA REST API key casing:** Some endpoints use **capitalized** top-level keys (`"Success"`, `"Result"`, `"Records"`) while others use lowercase (`"success"`, `"records"`). All parsing functions check both. For O-B0075-001, `Records` is **top-level** (sibling of `Result`). For F-A0021-001 and F-D0047-049, lowercase `records` is used.
+
+**F-A0021-001 (tide forecast) structure:** `records.TideForecasts[]` is a list where each item wraps a `Location` dict: `TideForecasts[i].Location.{LocationName, TimePeriods.Daily[].Time[].{DateTime, Tide, TideHeights.{AboveLocalMSL, AboveTWVD}}}`. Heights are in **cm** (integers), code converts to metres.
+
+**F-D0047-049 (township forecast) structure:** `records.Locations[].Location[]` — extra `Locations` wrapper array (contains `LocationsName: "基隆市"`, `Location[]` with per-district data). Each Location has `WeatherElement[]` with `ElementName` (Chinese) and `Time[]`.
 
 **O-B0075-001 response structure:**
 ```
