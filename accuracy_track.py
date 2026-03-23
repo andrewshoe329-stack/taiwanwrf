@@ -23,6 +23,7 @@ import argparse
 import json
 import logging
 import math
+import os
 import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
@@ -89,6 +90,36 @@ def fetch_wave_observations(start_date: str, end_date: str) -> dict:
     except Exception as e:
         log.error("Failed to fetch wave observations: %s", e)
         return {}
+
+
+def fetch_cwa_observations(api_key: str) -> dict | None:
+    """Fetch current CWA station + buoy observations for live verification.
+
+    Returns a dict that can overlay/supplement Open-Meteo obs, keyed the same
+    way as the Open-Meteo obs_by_time dict.  If the CWA API is unavailable,
+    returns None (caller falls back to Open-Meteo).
+    """
+    try:
+        from cwa_fetch import fetch_station_obs, fetch_buoy_obs
+    except ImportError:
+        log.debug("cwa_fetch module not available")
+        return None
+
+    result = {"station": None, "buoy": None}
+
+    station = fetch_station_obs(api_key)
+    if station and station.get("obs_time"):
+        result["station"] = station
+        log.info("CWA station obs: %s at %s", station.get("station_name"),
+                 station["obs_time"])
+
+    buoy = fetch_buoy_obs(api_key)
+    if buoy and buoy.get("obs_time"):
+        result["buoy"] = buoy
+        log.info("CWA buoy obs: %s Hs=%.1fm",
+                 buoy.get("buoy_name"), buoy.get("wave_height_m") or 0)
+
+    return result
 
 
 # ── Metric helpers ────────────────────────────────────────────────────────
@@ -343,6 +374,8 @@ def main() -> None:
                     help='Output accuracy log JSON (default: accuracy_log.json)')
     ap.add_argument('--existing-log', default=None,
                     help='Existing accuracy log to append to')
+    ap.add_argument('--cwa-key', default=os.environ.get('CWA_OPENDATA_KEY'),
+                    help='CWA Open Data API key (or set CWA_OPENDATA_KEY env)')
     args = ap.parse_args()
 
     # Load forecast
@@ -401,6 +434,15 @@ def main() -> None:
         except Exception as e:
             log.warning("Could not load wave JSON: %s", e)
 
+    # Fetch CWA real-time observations (station + buoy) if API key available
+    cwa_obs = None
+    if args.cwa_key:
+        cwa_obs = fetch_cwa_observations(args.cwa_key)
+        if cwa_obs:
+            log.info("CWA observations fetched successfully")
+    else:
+        log.debug("No CWA API key — using Open-Meteo observations only")
+
     # Compute accuracy
     metrics = compute_accuracy(past_records, obs, wave_forecast, wave_obs)
     if not metrics:
@@ -418,6 +460,30 @@ def main() -> None:
     }
     if 'wave' in metrics:
         entry['wave'] = metrics['wave']
+
+    # Attach CWA real-time snapshot for archiving
+    if cwa_obs:
+        entry['cwa_snapshot'] = {}
+        if cwa_obs.get('station'):
+            stn = cwa_obs['station']
+            entry['cwa_snapshot']['station'] = {
+                'obs_time': stn.get('obs_time'),
+                'temp_c': stn.get('temp_c'),
+                'wind_kt': stn.get('wind_kt'),
+                'wind_dir': stn.get('wind_dir'),
+                'gust_kt': stn.get('gust_kt'),
+                'pressure_hpa': stn.get('pressure_hpa'),
+                'humidity_pct': stn.get('humidity_pct'),
+            }
+        if cwa_obs.get('buoy'):
+            buoy = cwa_obs['buoy']
+            entry['cwa_snapshot']['buoy'] = {
+                'obs_time': buoy.get('obs_time'),
+                'wave_height_m': buoy.get('wave_height_m'),
+                'wave_period_s': buoy.get('wave_period_s'),
+                'wave_dir': buoy.get('wave_dir'),
+                'water_temp_c': buoy.get('water_temp_c'),
+            }
 
     log.info("Accuracy: Temp MAE %.1f°C, Wind MAE %.1fkt, WDir MAE %.0f° (%d steps)",
              overall.get('temp_mae_c') or 0,

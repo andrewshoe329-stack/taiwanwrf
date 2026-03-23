@@ -14,6 +14,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone, timedelta
 
 from config import KEELUNG_LAT, KEELUNG_LON, deg_to_compass, setup_logging, sail_rating
+from tide_predict import predict_height, find_extrema, tide_state
 
 log = logging.getLogger(__name__)
 
@@ -287,6 +288,48 @@ KEELUNG = {'lat': KEELUNG_LAT, 'lon': KEELUNG_LON, 'name': 'Keelung'}
 WKDAY = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 MONTH = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
+def _score_timestep(r: dict, spot: dict, tide_height_m: float | None = None) -> int:
+    """Score a single 6-hourly timestep for a given surf spot. Returns integer score."""
+    sw_hs   = r.get('sw_hs') or 0
+    sw_dir  = r.get('sw_dir')
+    wind_kt = r.get('wind')  or 0
+    w_dir   = r.get('w_dir')
+    sw_tp   = r.get('sw_tp') or 0
+
+    score = 0
+
+    # Swell direction — weighted by swell height (full credit at ≥0.6m)
+    sq = dir_quality(sw_dir, spot['opt_swell'])
+    swell_dir_base = {'good': 4, 'ok': 2, 'poor': 0, 'unknown': 1}[sq]
+    swell_factor = min(sw_hs / 0.6, 1.0) if sw_hs > 0 else 0
+    score += round(swell_dir_base * swell_factor)
+
+    # Wind direction (offshore) — weighted by wind speed (full credit at ≥LIGHT_WIND_KT)
+    wq = dir_quality(w_dir, spot['opt_wind'])
+    wind_dir_base = {'good': 3, 'ok': 1, 'poor': 0, 'unknown': 1}[wq]
+    wind_factor = min(wind_kt / LIGHT_WIND_KT, 1.0) if wind_kt > 0 else 0
+    score += round(wind_dir_base * wind_factor)
+
+    # Wind speed (light is better)
+    if wind_kt < LIGHT_WIND_KT:   score += 2
+    elif wind_kt < 15:            score += 1
+    elif wind_kt > ONSHORE_WIND_KT: score -= 2
+
+    # Wave energy — height² × period (replaces independent height + period)
+    energy = sw_hs ** 2 * sw_tp
+    if energy >= 12:    score += 5   # e.g. 1.0m @ 12s, 1.5m @ 5.3s
+    elif energy >= 5:   score += 3   # e.g. 0.7m @ 10s
+    elif energy >= 1.5: score += 2   # e.g. 0.5m @ 6s
+    elif energy > 0:    score += 1
+
+    # Tide preference
+    opt_tide = spot.get('opt_tide', 'any')
+    tide_class = classify_tide(tide_height_m)
+    score += tide_score(tide_class, opt_tide)
+
+    return score
+
+
 def day_rating(day_recs: list[dict], spot: dict,
                tide_height_m: float | None = None,
                ensemble_spread: dict | None = None) -> dict[str, object]:
@@ -317,48 +360,20 @@ def day_rating(day_recs: list[dict], spot: dict,
         return {'label': 'Dangerous', 'emoji': '🔴', 'bg': '#3d1515', 'col': '#fc8181',
                 'best_sw_hs': max_sw_hs, 'best_sw_tp': None, 'best_wind': max_wind_kt}
 
-    opt_tide = spot.get('opt_tide', 'any')
-
     # Score each timestep, keep the best
+    # Use per-timestep tide height when records have dt_utc, otherwise fall back
     best_score = 0
     best_rec   = None
 
     for r in day_recs:
-        sw_hs   = r.get('sw_hs') or 0
-        sw_dir  = r.get('sw_dir')
-        wind_kt = r.get('wind')  or 0
-        w_dir   = r.get('w_dir')
-        sw_tp   = r.get('sw_tp') or 0
+        # Compute tide at this timestep if possible
+        dt_utc = r.get('dt_utc')
+        if dt_utc is not None:
+            th = predict_height(dt_utc)
+        else:
+            th = tide_height_m
 
-        score = 0
-
-        # Swell direction — weighted by swell height (full credit at ≥0.6m)
-        sq = dir_quality(sw_dir, spot['opt_swell'])
-        swell_dir_base = {'good': 4, 'ok': 2, 'poor': 0, 'unknown': 1}[sq]
-        swell_factor = min(sw_hs / 0.6, 1.0) if sw_hs > 0 else 0
-        score += round(swell_dir_base * swell_factor)
-
-        # Wind direction (offshore) — weighted by wind speed (full credit at ≥LIGHT_WIND_KT)
-        wq = dir_quality(w_dir, spot['opt_wind'])
-        wind_dir_base = {'good': 3, 'ok': 1, 'poor': 0, 'unknown': 1}[wq]
-        wind_factor = min(wind_kt / LIGHT_WIND_KT, 1.0) if wind_kt > 0 else 0
-        score += round(wind_dir_base * wind_factor)
-
-        # Wind speed (light is better)
-        if wind_kt < LIGHT_WIND_KT:   score += 2
-        elif wind_kt < 15:            score += 1
-        elif wind_kt > ONSHORE_WIND_KT: score -= 2
-
-        # Wave energy — height² × period (replaces independent height + period)
-        energy = sw_hs ** 2 * sw_tp
-        if energy >= 12:    score += 5   # e.g. 1.0m @ 12s, 1.5m @ 5.3s
-        elif energy >= 5:   score += 3   # e.g. 0.7m @ 10s
-        elif energy >= 1.5: score += 2   # e.g. 0.5m @ 6s
-        elif energy > 0:    score += 1
-
-        # Tide preference
-        tide_class = classify_tide(tide_height_m)
-        score += tide_score(tide_class, opt_tide)
+        score = _score_timestep(r, spot, tide_height_m=th)
 
         if score > best_score:
             best_score = score
@@ -382,6 +397,93 @@ def day_rating(day_recs: list[dict], spot: dict,
     elif best_score >= 7:  return {'label': 'Good',     'emoji': '🟢', 'bg': '#0d2d1a', 'col': '#68d391', **base}
     elif best_score >= 4:  return {'label': 'Marginal', 'emoji': '🟡', 'bg': '#3d2e00', 'col': '#fbd38d', **base}
     else:                  return {'label': 'Poor',     'emoji': '🔴', 'bg': '#3d1515', 'col': '#fc8181', **base}
+
+
+def best_time_for_day(day_recs: list[dict], spot: dict) -> dict[str, object] | None:
+    """
+    Find the optimal 6-hourly window to surf at *spot* on a given day.
+
+    Returns a dict with timing, conditions, tide info, and score — or None if
+    no surfable conditions exist (flat / dangerous / no data).
+    """
+    if not day_recs:
+        return None
+
+    max_sw_hs   = max((r.get('sw_hs') or 0) for r in day_recs)
+    max_wind_kt = max((r.get('wind')  or 0) for r in day_recs)
+    if max_sw_hs < MIN_SWELL_HEIGHT_M or max_sw_hs > MAX_SWELL_HEIGHT_M or max_wind_kt > MAX_WIND_KT:
+        return None
+
+    scored = []
+    for r in day_recs:
+        dt_utc = r.get('dt_utc')
+        th = predict_height(dt_utc) if dt_utc is not None else None
+        score = _score_timestep(r, spot, tide_height_m=th)
+        scored.append((score, r, th))
+
+    if not scored:
+        return None
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    best_score, best_rec, best_tide_h = scored[0]
+
+    dt_utc = best_rec.get('dt_utc')
+    dt_cst = best_rec.get('dt_cst')
+
+    # Label the window as a 6-hour block in CST
+    if dt_cst is not None:
+        h = dt_cst.hour
+        window_lbl = f'{h:02d}:00–{(h+6)%24:02d}:00 CST'
+        time_lbl   = dt_cst.strftime('%H:%M CST')
+    else:
+        window_lbl = '—'
+        time_lbl   = '—'
+
+    # Tide info at best time
+    tide_class = classify_tide(best_tide_h)
+    tide_str = f'{best_tide_h:.2f}m ({tide_class})' if best_tide_h is not None else '—'
+
+    # Nearby tide extrema (high/low) for context
+    tide_context = ''
+    if dt_utc is not None:
+        try:
+            nearby_ext = find_extrema(
+                dt_utc - timedelta(hours=6),
+                dt_utc + timedelta(hours=6),
+            )
+            tstate = tide_state(dt_utc, nearby_ext)
+            tide_context = tstate
+            # Find nearest high/low for display
+            for ex in nearby_ext:
+                tide_context += f' · {ex["type"].title()} {ex["cst"]} ({ex["height_m"]:.2f}m)'
+        except Exception:
+            pass
+
+    # Wind quality at best time
+    wq = dir_quality(best_rec.get('w_dir'), spot['opt_wind'])
+    sq = dir_quality(best_rec.get('sw_dir'), spot['opt_swell'])
+
+    return {
+        'score': best_score,
+        'window': window_lbl,
+        'time': time_lbl,
+        'sw_hs': best_rec.get('sw_hs'),
+        'sw_tp': best_rec.get('sw_tp'),
+        'sw_dir': best_rec.get('sw_dir'),
+        'sw_dir_compass': compass(best_rec.get('sw_dir')),
+        'swell_quality': sq,
+        'wind_kt': best_rec.get('wind'),
+        'w_dir': best_rec.get('w_dir'),
+        'w_dir_compass': compass(best_rec.get('w_dir')),
+        'wind_quality': wq,
+        'gust_kt': best_rec.get('gust'),
+        'tide_height_m': best_tide_h,
+        'tide_class': tide_class,
+        'tide_str': tide_str,
+        'tide_context': tide_context,
+        'dt_utc': dt_utc,
+        'dt_cst': dt_cst,
+    }
 
 
 def sail_day_rating(day_recs: list[dict]) -> dict[str, object]:
@@ -467,6 +569,24 @@ def generate_planner_json(all_spot_data: list[dict], keelung_records: list = Non
 
         rec_text, rec_bg = _recommend(sail_rat, best_surf_rat, best_surf_name)
 
+        # Best time per spot for this day
+        spot_times = []
+        for spot, recs in surf_by_day_spot.get(dk, []):
+            bt = best_time_for_day(recs, spot)
+            if bt is not None:
+                spot_times.append({
+                    'spot': spot['name'].split()[0],
+                    'window': bt['window'],
+                    'score': bt['score'],
+                    'sw_hs': bt['sw_hs'],
+                    'sw_tp': bt['sw_tp'],
+                    'wind_kt': bt['wind_kt'],
+                    'tide_height_m': bt['tide_height_m'],
+                    'tide_class': bt['tide_class'],
+                })
+        # Sort by score descending
+        spot_times.sort(key=lambda x: x['score'], reverse=True)
+
         days[dk] = {
             'sail': sail_rat,
             'best_surf': {
@@ -477,6 +597,7 @@ def generate_planner_json(all_spot_data: list[dict], keelung_records: list = Non
                 'col': best_surf_rat['col'],
             },
             'recommendation': {'text': rec_text, 'bg': rec_bg},
+            'spot_times': spot_times,
         }
 
     return {'days': days}
@@ -753,6 +874,127 @@ def _generate_planner_html(all_spot_data: list[dict], keelung_records: list = No
     return html
 
 
+def _render_best_times(all_spot_data: list[dict], all_dks: list[str]) -> str:
+    """Render a 'Best Time to Surf' section showing optimal window per spot per day."""
+    html = '<div id="best-times" style="margin-bottom:20px">\n'
+    html += '<h3 style="font-size:14px;font-weight:700;color:#93c5fd;margin:0 0 6px">'
+    html += 'Best Time to Surf</h3>\n'
+    html += '<p style="font-size:10px;color:#64748b;margin:0 0 8px">'
+    html += 'Optimal 6-hour window per spot per day · Tide heights from harmonic prediction (Keelung datum)</p>\n'
+
+    for dk in all_dks:
+        d = datetime.strptime(dk, '%Y-%m-%d')
+        dlbl = f'{WKDAY[d.weekday()]} {d.day} {MONTH[d.month-1]}'
+
+        html += f'<div style="margin-bottom:12px">\n'
+        html += f'<h4 style="font-size:12px;font-weight:700;color:#cbd5e1;margin:0 0 4px">{dlbl}</h4>\n'
+
+        # Compute tide extrema for this day (CST-based)
+        try:
+            day_start = datetime(d.year, d.month, d.day, tzinfo=timezone.utc) - timedelta(hours=8)
+            day_end = day_start + timedelta(hours=24)
+            day_extrema = find_extrema(day_start, day_end)
+            if day_extrema:
+                tide_pills = []
+                for ex in day_extrema:
+                    arrow = '&#9650;' if ex['type'] == 'high' else '&#9660;'
+                    clr = '#93c5fd' if ex['type'] == 'high' else '#64748b'
+                    tide_pills.append(
+                        f'<span style="color:{clr};font-size:10px">'
+                        f'{arrow} {ex["type"].title()} {ex["cst"]} ({ex["height_m"]:.2f}m)</span>')
+                html += f'<div style="margin-bottom:4px;font-size:10px;color:#475569">Tides: {" · ".join(tide_pills)}</div>\n'
+        except Exception:
+            pass
+
+        html += '<div style="overflow-x:auto">\n'
+        html += '<table class="detail-table" style="margin-bottom:4px">\n'
+        html += ('<thead><tr>'
+                 '<th scope="col" style="text-align:left;min-width:100px">Spot</th>'
+                 '<th scope="col">Best Window</th>'
+                 '<th scope="col">Rating</th>'
+                 '<th scope="col" title="Swell height (m)">Swell</th>'
+                 '<th scope="col" title="Swell period (s)">Period</th>'
+                 '<th scope="col">Swell Dir</th>'
+                 '<th scope="col" title="Wind speed (kt)">Wind</th>'
+                 '<th scope="col">Wind Dir</th>'
+                 '<th scope="col" title="Tide height above chart datum">Tide</th>'
+                 '<th scope="col">Tide State</th>'
+                 '</tr></thead>\n<tbody>\n')
+
+        row_i = 0
+        for sd in all_spot_data:
+            spot = sd['spot']
+            day_recs = [r for r in sd['records'] if r['dk'] == dk]
+            bt = best_time_for_day(day_recs, spot)
+
+            cls = 'r-alt' if row_i % 2 else ''
+
+            if bt is None:
+                # Flat / dangerous / no data
+                rating = day_rating(day_recs, spot)
+                html += (f'<tr class="{cls}">'
+                         f'<td style="text-align:left;color:#94a3b8">{spot["name"]}</td>'
+                         f'<td colspan="9" style="color:{rating["col"]};background:{rating["bg"]}">'
+                         f'{rating["emoji"]} {rating["label"]}</td></tr>\n')
+            else:
+                # Determine rating label from score
+                s = bt['score']
+                if s >= 9:
+                    rlbl, remoji, rbg, rcol = 'Firing!', '🔥', '#0d3320', '#48bb78'
+                elif s >= 7:
+                    rlbl, remoji, rbg, rcol = 'Good', '🟢', '#0d2d1a', '#68d391'
+                elif s >= 4:
+                    rlbl, remoji, rbg, rcol = 'Marginal', '🟡', '#3d2e00', '#fbd38d'
+                else:
+                    rlbl, remoji, rbg, rcol = 'Poor', '🔴', '#3d1515', '#fc8181'
+
+                # Swell direction styling
+                sw_dir_str = bt['sw_dir_compass']
+                if bt['swell_quality'] == 'good':
+                    sw_dir_str = f'<b class="c-good">{sw_dir_str}</b>'
+                elif bt['swell_quality'] == 'poor':
+                    sw_dir_str = f'<span class="c-danger">{sw_dir_str}</span>'
+
+                # Wind direction styling
+                w_dir_str = bt['w_dir_compass']
+                if bt['wind_quality'] == 'good':
+                    w_dir_str = f'<b class="c-good">{w_dir_str}</b>'
+                elif bt['wind_quality'] == 'poor':
+                    w_dir_str = f'<span class="c-warn">{w_dir_str}</span>'
+
+                # Tide class styling
+                opt_tide = spot.get('opt_tide', 'any')
+                ts = tide_score(bt['tide_class'], opt_tide)
+                if ts > 0:
+                    tide_cls = 'c-good'
+                elif ts < 0:
+                    tide_cls = 'c-danger'
+                else:
+                    tide_cls = ''
+
+                # Tide state (rising/falling)
+                tstate = bt.get('tide_context', '').split(' · ')[0] if bt.get('tide_context') else ''
+
+                html += (f'<tr class="{cls}">'
+                         f'<td style="text-align:left;color:#94a3b8">{spot["name"]}</td>'
+                         f'<td style="font-weight:700;color:#e2e8f0">{bt["window"]}</td>'
+                         f'<td style="background:{rbg};color:{rcol}">{remoji} {rlbl}</td>'
+                         f'<td class="{_hs_cls(bt["sw_hs"])}">{_f1(bt["sw_hs"])}</td>'
+                         f'<td>{_f1(bt["sw_tp"])}</td>'
+                         f'<td>{sw_dir_str}</td>'
+                         f'<td class="{_wind_cls(bt["wind_kt"])}">{_f0(bt["wind_kt"])}</td>'
+                         f'<td>{w_dir_str}</td>'
+                         f'<td class="{tide_cls}">{bt["tide_str"]}</td>'
+                         f'<td style="font-size:10px;color:#94a3b8">{tstate}</td>'
+                         f'</tr>\n')
+            row_i += 1
+
+        html += '</tbody></table>\n</div>\n</div>\n'
+
+    html += '</div>\n'
+    return html
+
+
 def _render_rating_matrix(all_spot_data: list[dict], all_dks: list[str]) -> str:
     """Return the 7-day rating matrix table HTML."""
     html = '<div id="matrix" style="overflow-x:auto">\n'
@@ -810,6 +1052,7 @@ def _render_spot_detail(sd: dict) -> str:
              '<th scope="col" title="Wind speed in knots (1 kt = 1.85 km/h)">Wind kt</th>'
              '<th scope="col" title="Wind direction — where wind blows from">W Dir</th>'
              '<th scope="col" title="Maximum wind gust speed in knots">Gust</th>'
+             '<th scope="col" title="Tide height above chart datum">Tide</th>'
              '</tr></thead>\n<tbody>\n')
 
     prev_dk = None
@@ -821,7 +1064,7 @@ def _render_spot_detail(sd: dict) -> str:
             row_i   = 0
             d       = datetime.strptime(dk, '%Y-%m-%d')
             dl      = f'{WKDAY[d.weekday()]} {d.day} {MONTH[d.month-1]}'
-            html += f'<tr><td class="date-sep" colspan="9">📅 {dl}</td></tr>\n'
+            html += f'<tr><td class="date-sep" colspan="10">📅 {dl}</td></tr>\n'
 
         rating = day_rating([r], spot)
         tstr   = r['dt_cst'].strftime('%H:%M')
@@ -845,6 +1088,15 @@ def _render_spot_detail(sd: dict) -> str:
         if wq == 'good': w_dir_str = f'<b class="c-good">{w_dir_str}✓</b>'
         elif wq == 'poor': w_dir_str = f'<span class="c-warn">{w_dir_str}</span>'
 
+        # Tide at this timestep
+        dt_utc = r.get('dt_utc')
+        tide_h = predict_height(dt_utc) if dt_utc is not None else None
+        tide_cls_str = classify_tide(tide_h)
+        opt_tide = spot.get('opt_tide', 'any')
+        ts_val = tide_score(tide_cls_str, opt_tide)
+        tide_css = 'c-good' if ts_val > 0 else ('c-danger' if ts_val < 0 else '')
+        tide_disp = f'{tide_h:.2f}m' if tide_h is not None else '—'
+
         html += (f'<tr class="{cls}">'
                  f'<td><b>{tstr}</b></td>'
                  f'<td style="background:{rating["bg"]};color:{rating["col"]}">{rating["emoji"]}</td>'
@@ -855,6 +1107,7 @@ def _render_spot_detail(sd: dict) -> str:
                  f'<td class="{_wind_cls(wind)}">{_f0(wind)}</td>'
                  f'<td>{w_dir_str}</td>'
                  f'<td class="{_wind_cls(gust)}">{_f0(gust)}</td>'
+                 f'<td class="{tide_css}">{tide_disp}</td>'
                  f'</tr>\n')
         row_i += 1
 
@@ -895,6 +1148,9 @@ def generate_full_html(all_spot_data: list[dict], keelung_records: list = None) 
     html = '<section id="spots" class="section surf-section">\n'
     html += '<h2 class="section-title"><span role="img" aria-label="Surfer">🏄</span> Surf Spots</h2>\n'
     html += f'<p class="section-subtitle">Generated {gen_str} · Data: ECMWF IFS025 + GFS + ECMWF WAM (Open-Meteo)</p>\n'
+
+    # ── Best time to surf ─────────────────────────────────────────────────
+    html += _render_best_times(all_spot_data, all_dks)
 
     # ── Rating matrix ──────────────────────────────────────────────────────
     html += _render_rating_matrix(all_spot_data, all_dks)

@@ -148,6 +148,9 @@ jobs:
         run: |
           python tide_predict.py --output tide_keelung.json --days 7
 
+      # CWA observations (station + wave buoy) are fetched inline by
+      # accuracy_track.py when CWA_OPENDATA_KEY is set — no separate step needed.
+
       # ── Diagnostic: list GRIB2 variables in first subset file ────────────────
       # Captures the (shortName, typeOfLevel, level) inventory to a file so it
       # can be included in the HTML output.  Helps diagnose missing variables (gusts,
@@ -274,10 +277,15 @@ jobs:
           if [ -f wave_keelung.json ]; then
             WAVE_ARG="--wave-json wave_keelung.json"
           fi
+          ACCURACY_ARG=""
+          if [ -f accuracy_log.json ]; then
+            ACCURACY_ARG="--accuracy-log accuracy_log.json"
+          fi
           python forecast_summary.py \
             --wrf-json keelung_summary_new.json \
             $ECMWF_ARG \
             $WAVE_ARG \
+            $ACCURACY_ARG \
             --output ai_summary.html
 
           # Prepend AI summary to the forecast HTML
@@ -310,16 +318,18 @@ jobs:
             $WAVE_ARG
 
       # ── Track forecast accuracy ──────────────────────────────────────────────
-      # Compares past forecast records against Open-Meteo observations.
+      # Compares past forecast records against Open-Meteo + CWA observations.
       # Non-blocking: pipeline continues if accuracy check fails.
       - name: Track forecast accuracy
         id: accuracy
         if: steps.stale_check.outputs.is_new == 'true'
         continue-on-error: true
         timeout-minutes: 3
+        env:
+          CWA_OPENDATA_KEY: ${{ secrets.CWA_OPENDATA_KEY }}
         run: |
-          # Download existing log from Drive (ignore if missing)
-          rclone copy gdrive:WRF_Taiwan/accuracy_log.json . 2>/dev/null || true
+          # accuracy_log.json was already downloaded by the Analyze step above;
+          # reuse it from the working directory instead of re-downloading.
           EXISTING=""
           if [ -f accuracy_log.json ]; then
             EXISTING="--existing-log accuracy_log.json"
