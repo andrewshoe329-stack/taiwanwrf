@@ -1,7 +1,10 @@
 """Tests for forecast_summary.py — pure functions only (no API calls)."""
 
 import pytest
-from forecast_summary import _trim_records, build_user_prompt, render_html, SYSTEM_PROMPT
+from forecast_summary import (
+    _trim_records, build_user_prompt, render_html, SYSTEM_PROMPT,
+    _summarise_accuracy,
+)
 
 
 # ── _trim_records ────────────────────────────────────────────────────────────
@@ -175,3 +178,110 @@ class TestSystemPrompt:
     def test_mentions_units(self):
         assert "knots" in SYSTEM_PROMPT
         assert "metres" in SYSTEM_PROMPT
+
+    def test_mentions_accuracy_instructions(self):
+        assert "accuracy" in SYSTEM_PROMPT.lower()
+        assert "bias" in SYSTEM_PROMPT.lower()
+
+
+# ── _summarise_accuracy ─────────────────────────────────────────────────────
+
+class TestSummariseAccuracy:
+    SAMPLE_LOG = [
+        {
+            "init_utc": "2026-03-20T00:00:00+00:00",
+            "temp_mae_c": 1.2,
+            "temp_bias_c": 0.8,
+            "wind_mae_kt": 3.5,
+            "wind_bias_kt": -1.1,
+            "wdir_mae_deg": 28.0,
+            "mslp_mae_hpa": 0.9,
+            "wave": {"hs_mae_m": 0.3, "hs_bias_m": 0.1},
+        },
+        {
+            "init_utc": "2026-03-20T06:00:00+00:00",
+            "temp_mae_c": 1.4,
+            "temp_bias_c": 1.0,
+            "wind_mae_kt": 4.0,
+            "wind_bias_kt": -0.5,
+            "wdir_mae_deg": 32.0,
+            "mslp_mae_hpa": 1.1,
+            "wave": {"hs_mae_m": 0.4, "hs_bias_m": 0.2},
+        },
+    ]
+
+    def test_returns_none_for_empty(self):
+        assert _summarise_accuracy([]) is None
+        assert _summarise_accuracy(None) is None
+
+    def test_returns_none_for_no_metrics(self):
+        assert _summarise_accuracy([{"init_utc": "2026-03-20T00:00:00+00:00"}]) is None
+
+    def test_contains_temp_info(self):
+        result = _summarise_accuracy(self.SAMPLE_LOG)
+        assert result is not None
+        assert "Temp" in result
+        assert "MAE" in result
+        assert "warm" in result  # positive bias → "runs warm"
+
+    def test_contains_wind_info(self):
+        result = _summarise_accuracy(self.SAMPLE_LOG)
+        assert "Wind" in result
+        assert "underforecasts" in result  # negative bias
+
+    def test_contains_wave_info(self):
+        result = _summarise_accuracy(self.SAMPLE_LOG)
+        assert "Wave Hs" in result
+
+    def test_contains_run_count(self):
+        result = _summarise_accuracy(self.SAMPLE_LOG)
+        assert "2 verified runs" in result or "last 2" in result
+
+    def test_averages_correctly(self):
+        result = _summarise_accuracy(self.SAMPLE_LOG)
+        # Temp MAE = (1.2 + 1.4) / 2 = 1.3
+        assert "1.3" in result
+
+    def test_uses_last_10_only(self):
+        # Create 15 entries
+        big_log = [
+            {
+                "init_utc": f"2026-03-{i:02d}T00:00:00+00:00",
+                "temp_mae_c": float(i),
+                "temp_bias_c": 0.0,
+                "wind_mae_kt": 3.0,
+                "wind_bias_kt": 0.0,
+            }
+            for i in range(1, 16)
+        ]
+        result = _summarise_accuracy(big_log)
+        assert "last 10" in result
+
+
+class TestBuildUserPromptWithAccuracy:
+    def _make_wrf(self):
+        return {
+            "meta": {"init_utc": "2026-03-20T00:00:00+00:00"},
+            "records": [
+                {
+                    "valid_utc": "2026-03-20T00:00:00+00:00",
+                    "temp_c": 22.0,
+                    "wind_kt": 12.0,
+                    "wind_dir": 45,
+                }
+            ],
+        }
+
+    def test_accuracy_included_in_prompt(self):
+        log = [{"temp_mae_c": 1.5, "temp_bias_c": 0.5,
+                "wind_mae_kt": 3.0, "wind_bias_kt": -1.0}]
+        prompt = build_user_prompt(self._make_wrf(), None, None, accuracy_log=log)
+        assert "model accuracy" in prompt.lower() or "Recent model" in prompt
+
+    def test_no_accuracy_without_log(self):
+        prompt = build_user_prompt(self._make_wrf(), None, None, accuracy_log=None)
+        assert "accuracy" not in prompt.lower()
+
+    def test_no_accuracy_with_empty_log(self):
+        prompt = build_user_prompt(self._make_wrf(), None, None, accuracy_log=[])
+        assert "accuracy" not in prompt.lower()

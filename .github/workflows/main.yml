@@ -277,10 +277,15 @@ jobs:
           if [ -f wave_keelung.json ]; then
             WAVE_ARG="--wave-json wave_keelung.json"
           fi
+          ACCURACY_ARG=""
+          if [ -f accuracy_log.json ]; then
+            ACCURACY_ARG="--accuracy-log accuracy_log.json"
+          fi
           python forecast_summary.py \
             --wrf-json keelung_summary_new.json \
             $ECMWF_ARG \
             $WAVE_ARG \
+            $ACCURACY_ARG \
             --output ai_summary.html
 
           # Prepend AI summary to the forecast HTML
