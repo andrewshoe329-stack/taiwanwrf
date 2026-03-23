@@ -670,22 +670,9 @@ def _generate_planner_html(all_spot_data: list[dict], keelung_records: list = No
     return html
 
 
-def generate_full_html(all_spot_data: list[dict], keelung_records: list = None) -> str:
-    """
-    Full HTML: 7-spot rating matrix + per-spot hourly detail tables + legend.
-    The planner data is now output as JSON (generate_planner_json) and merged
-    into the unified day cards by wrf_analyze.py.
-    """
-    now_cst = datetime.now(timezone.utc) + timedelta(hours=8)
-    gen_str = now_cst.strftime('%Y-%m-%d %H:%M CST')
-    all_dks = sorted({r['dk'] for sd in all_spot_data for r in sd['records']})
-
-    html = '<section id="spots" class="section surf-section">\n'
-    html += '<h2 class="section-title"><span role="img" aria-label="Surfer">🏄</span> Surf Spots</h2>\n'
-    html += f'<p class="section-subtitle">Generated {gen_str} · Data: ECMWF IFS025 + GFS + ECMWF WAM (Open-Meteo)</p>\n'
-
-    # ── Rating matrix ──────────────────────────────────────────────────────
-    html += '<div id="matrix" style="overflow-x:auto">\n'
+def _render_rating_matrix(all_spot_data: list[dict], all_dks: list[str]) -> str:
+    """Return the 7-day rating matrix table HTML."""
+    html = '<div id="matrix" style="overflow-x:auto">\n'
     html += '<table class="matrix-table">\n'
     html += '<caption class="c-muted" style="caption-side:top;text-align:left;font-size:10px;margin-bottom:4px">7-day surf spot ratings</caption>\n'
     html += '<thead><tr>'
@@ -714,97 +701,126 @@ def generate_full_html(all_spot_data: list[dict], keelung_records: list = None) 
         html += '</tr>\n'
 
     html += '</tbody></table>\n</div>\n'
+    return html
+
+
+def _render_spot_detail(sd: dict) -> str:
+    """Return the collapsible detail table HTML for one spot."""
+    spot    = sd['spot']
+    records = sd['records']
+    if not records:
+        return ''
+
+    html = f'<details id="spot-{spot["id"]}" class="detail-section">\n'
+    html += f'<summary class="detail-header">{spot["name"]} — Detailed Forecast</summary>\n'
+    html += '<div style="overflow-x:auto">\n'
+    html += '<table class="detail-table">\n'
+    html += ('<thead><tr>'
+             '<th scope="col">CST</th>'
+             '<th scope="col">Rating</th>'
+             '<th scope="col" title="Swell wave height in metres">Swell m</th>'
+             '<th scope="col" title="Wave period in seconds — longer = more powerful">T s</th>'
+             '<th scope="col" title="Swell direction — where waves come from">Sw Dir</th>'
+             '<th scope="col" title="Significant wave height in metres (combined sea state)">Hs m</th>'
+             '<th scope="col" title="Wind speed in knots (1 kt = 1.85 km/h)">Wind kt</th>'
+             '<th scope="col" title="Wind direction — where wind blows from">W Dir</th>'
+             '<th scope="col" title="Maximum wind gust speed in knots">Gust</th>'
+             '</tr></thead>\n<tbody>\n')
+
+    prev_dk = None
+    row_i   = 0
+    for r in records:
+        dk = r['dk']
+        if dk != prev_dk:
+            prev_dk = dk
+            row_i   = 0
+            d       = datetime.strptime(dk, '%Y-%m-%d')
+            dl      = f'{WKDAY[d.weekday()]} {d.day} {MONTH[d.month-1]}'
+            html += f'<tr><td class="date-sep" colspan="9">📅 {dl}</td></tr>\n'
+
+        rating = day_rating([r], spot)
+        tstr   = r['dt_cst'].strftime('%H:%M')
+        cls    = 'r-alt' if row_i % 2 else ''
+
+        sw_hs  = r.get('sw_hs')
+        sw_tp  = r.get('sw_tp')
+        sw_dir = r.get('sw_dir')
+        hs     = r.get('hs')
+        wind   = r.get('wind')
+        w_dir  = r.get('w_dir')
+        gust   = r.get('gust')
+
+        sq = dir_quality(sw_dir, spot['opt_swell'])
+        wq = dir_quality(w_dir,  spot['opt_wind'])
+        sw_dir_str = f'{compass(sw_dir)}'
+        if sq == 'good': sw_dir_str = f'<b class="c-good">{sw_dir_str}✓</b>'
+        elif sq == 'poor': sw_dir_str = f'<span class="c-danger">{sw_dir_str}✗</span>'
+
+        w_dir_str = compass(w_dir)
+        if wq == 'good': w_dir_str = f'<b class="c-good">{w_dir_str}✓</b>'
+        elif wq == 'poor': w_dir_str = f'<span class="c-warn">{w_dir_str}</span>'
+
+        html += (f'<tr class="{cls}">'
+                 f'<td><b>{tstr}</b></td>'
+                 f'<td style="background:{rating["bg"]};color:{rating["col"]}">{rating["emoji"]}</td>'
+                 f'<td class="{_hs_cls(sw_hs)}">{_f1(sw_hs)}</td>'
+                 f'<td>{_f1(sw_tp)}</td>'
+                 f'<td>{sw_dir_str}</td>'
+                 f'<td class="{_hs_cls(hs)}">{_f1(hs)}</td>'
+                 f'<td class="{_wind_cls(wind)}">{_f0(wind)}</td>'
+                 f'<td>{w_dir_str}</td>'
+                 f'<td class="{_wind_cls(gust)}">{_f0(gust)}</td>'
+                 f'</tr>\n')
+        row_i += 1
+
+    html += '</tbody></table>\n</div>\n'  # close table + overflow wrapper
+    html += '</details>\n'  # close detail collapsible
+    return html
+
+
+def _render_surf_legend() -> str:
+    """Return the surf legend block HTML."""
+    return ('<div class="legend-block">'
+            '<b>Surf conditions key:</b> '
+            '<span role="img" aria-label="Firing">🔥</span> Firing (optimal dir + good swell + light wind) · '
+            '<span role="img" aria-label="Good">🟢</span> Good · '
+            '<span role="img" aria-label="Marginal">🟡</span> Marginal · '
+            '<span role="img" aria-label="Poor or Dangerous">🔴</span> Poor/Dangerous · '
+            '<span role="img" aria-label="Flat">😴</span> Flat (&lt;0.25m swell)<br>'
+            'Direction ticks: <b class="c-good">✓ optimal</b> · '
+            '<span class="c-danger">✗ unfavourable</span><br>'
+            'Swell colour: <span class="c-good">green 0.6–2.5m</span> · '
+            '<span class="c-warn">amber &gt;2.5m</span> · '
+            '<span class="c-danger">red &gt;3.5m</span><br>'
+            '<b>Wind (Beaufort):</b> B1-3 &lt;11kt gentle · B4 11-16kt moderate · '
+            'B5 17-21kt fresh · B6 22-27kt strong · B7 28-33kt near-gale · B8+ ≥34kt gale'
+            '</div>\n')
+
+
+def generate_full_html(all_spot_data: list[dict], keelung_records: list = None) -> str:
+    """
+    Full HTML: 7-spot rating matrix + per-spot hourly detail tables + legend.
+    The planner data is now output as JSON (generate_planner_json) and merged
+    into the unified day cards by wrf_analyze.py.
+    """
+    now_cst = datetime.now(timezone.utc) + timedelta(hours=8)
+    gen_str = now_cst.strftime('%Y-%m-%d %H:%M CST')
+    all_dks = sorted({r['dk'] for sd in all_spot_data for r in sd['records']})
+
+    html = '<section id="spots" class="section surf-section">\n'
+    html += '<h2 class="section-title"><span role="img" aria-label="Surfer">🏄</span> Surf Spots</h2>\n'
+    html += f'<p class="section-subtitle">Generated {gen_str} · Data: ECMWF IFS025 + GFS + ECMWF WAM (Open-Meteo)</p>\n'
+
+    # ── Rating matrix ──────────────────────────────────────────────────────
+    html += _render_rating_matrix(all_spot_data, all_dks)
 
     # ── Per-spot detail tables ─────────────────────────────────────────────
     html += '<div class="detail-section">\n'
-
     for sd in all_spot_data:
-        spot    = sd['spot']
-        records = sd['records']
-        if not records:
-            continue
-
-        html += f'<details id="spot-{spot["id"]}" class="detail-section">\n'
-        html += f'<summary class="detail-header">{spot["name"]} — Detailed Forecast</summary>\n'
-        html += '<div style="overflow-x:auto">\n'
-        html += '<table class="detail-table">\n'
-        html += ('<thead><tr>'
-                 '<th scope="col">CST</th>'
-                 '<th scope="col">Rating</th>'
-                 '<th scope="col" title="Swell wave height in metres">Swell m</th>'
-                 '<th scope="col" title="Wave period in seconds — longer = more powerful">T s</th>'
-                 '<th scope="col" title="Swell direction — where waves come from">Sw Dir</th>'
-                 '<th scope="col" title="Significant wave height in metres (combined sea state)">Hs m</th>'
-                 '<th scope="col" title="Wind speed in knots (1 kt = 1.85 km/h)">Wind kt</th>'
-                 '<th scope="col" title="Wind direction — where wind blows from">W Dir</th>'
-                 '<th scope="col" title="Maximum wind gust speed in knots">Gust</th>'
-                 '</tr></thead>\n<tbody>\n')
-
-        prev_dk = None
-        row_i   = 0
-        for r in records:
-            dk = r['dk']
-            if dk != prev_dk:
-                prev_dk = dk
-                row_i   = 0
-                d       = datetime.strptime(dk, '%Y-%m-%d')
-                dl      = f'{WKDAY[d.weekday()]} {d.day} {MONTH[d.month-1]}'
-                html += f'<tr><td class="date-sep" colspan="9">📅 {dl}</td></tr>\n'
-
-            rating = day_rating([r], spot)
-            tstr   = r['dt_cst'].strftime('%H:%M')
-            cls    = 'r-alt' if row_i % 2 else ''
-
-            sw_hs  = r.get('sw_hs')
-            sw_tp  = r.get('sw_tp')
-            sw_dir = r.get('sw_dir')
-            hs     = r.get('hs')
-            wind   = r.get('wind')
-            w_dir  = r.get('w_dir')
-            gust   = r.get('gust')
-
-            sq = dir_quality(sw_dir, spot['opt_swell'])
-            wq = dir_quality(w_dir,  spot['opt_wind'])
-            sw_dir_str = f'{compass(sw_dir)}'
-            if sq == 'good': sw_dir_str = f'<b class="c-good">{sw_dir_str}✓</b>'
-            elif sq == 'poor': sw_dir_str = f'<span class="c-danger">{sw_dir_str}✗</span>'
-
-            w_dir_str = compass(w_dir)
-            if wq == 'good': w_dir_str = f'<b class="c-good">{w_dir_str}✓</b>'
-            elif wq == 'poor': w_dir_str = f'<span class="c-warn">{w_dir_str}</span>'
-
-            html += (f'<tr class="{cls}">'
-                     f'<td><b>{tstr}</b></td>'
-                     f'<td style="background:{rating["bg"]};color:{rating["col"]}">{rating["emoji"]}</td>'
-                     f'<td class="{_hs_cls(sw_hs)}">{_f1(sw_hs)}</td>'
-                     f'<td>{_f1(sw_tp)}</td>'
-                     f'<td>{sw_dir_str}</td>'
-                     f'<td class="{_hs_cls(hs)}">{_f1(hs)}</td>'
-                     f'<td class="{_wind_cls(wind)}">{_f0(wind)}</td>'
-                     f'<td>{w_dir_str}</td>'
-                     f'<td class="{_wind_cls(gust)}">{_f0(gust)}</td>'
-                     f'</tr>\n')
-            row_i += 1
-
-        html += '</tbody></table>\n</div>\n'  # close table + overflow wrapper
-        html += '</details>\n'  # close detail collapsible
+        html += _render_spot_detail(sd)
 
     # ── Legend ─────────────────────────────────────────────────────────────
-    html += ('<div class="legend-block">'
-             '<b>Surf conditions key:</b> '
-             '<span role="img" aria-label="Firing">🔥</span> Firing (optimal dir + good swell + light wind) · '
-             '<span role="img" aria-label="Good">🟢</span> Good · '
-             '<span role="img" aria-label="Marginal">🟡</span> Marginal · '
-             '<span role="img" aria-label="Poor or Dangerous">🔴</span> Poor/Dangerous · '
-             '<span role="img" aria-label="Flat">😴</span> Flat (&lt;0.25m swell)<br>'
-             'Direction ticks: <b class="c-good">✓ optimal</b> · '
-             '<span class="c-danger">✗ unfavourable</span><br>'
-             'Swell colour: <span class="c-good">green 0.6–2.5m</span> · '
-             '<span class="c-warn">amber &gt;2.5m</span> · '
-             '<span class="c-danger">red &gt;3.5m</span><br>'
-             '<b>Wind (Beaufort):</b> B1-3 &lt;11kt gentle · B4 11-16kt moderate · '
-             'B5 17-21kt fresh · B6 22-27kt strong · B7 28-33kt near-gale · B8+ ≥34kt gale'
-             '</div>\n')
+    html += _render_surf_legend()
 
     html += '</section>\n'  # close spots section
     return html

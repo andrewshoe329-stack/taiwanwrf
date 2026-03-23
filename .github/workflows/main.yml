@@ -174,6 +174,21 @@ jobs:
             printf '</pre></details>\n'
           } > /tmp/grib_vars_wrapped.html
 
+      # ── Fetch multi-model ensemble ─────────────────────────────────────────
+      # GFS + ICON + JMA global models for confidence indicators.
+      # Non-blocking: pipeline continues if ensemble fetch fails.
+      - name: Fetch ensemble models
+        id: ensemble
+        if: steps.stale_check.outputs.is_new == 'true'
+        timeout-minutes: 5
+        continue-on-error: true
+        run: |
+          ECMWF_ARG=""
+          if [ -f ecmwf_keelung.json ]; then
+            ECMWF_ARG="--ecmwf-json ecmwf_keelung.json"
+          fi
+          python ensemble_fetch.py $ECMWF_ARG --output ensemble_keelung.json
+
       # ── Generate surf forecast & planner JSON ───────────────────────────────
       # Fetches ECMWF + marine data for all 7 surf spots plus Keelung sailing.
       # Outputs: surf_forecast.html (spots section) + surf_planner.json (for day cards).
@@ -215,6 +230,10 @@ jobs:
           if [ -f surf_planner.json ]; then
             SURF_ARG="--surf-json surf_planner.json"
           fi
+          ENSEMBLE_ARG=""
+          if [ -f ensemble_keelung.json ]; then
+            ENSEMBLE_ARG="--ensemble-json ensemble_keelung.json"
+          fi
           python wrf_analyze.py \
             --rundir "$RUNDIR" \
             $PREV_ARG \
@@ -222,6 +241,7 @@ jobs:
             $WAVE_ARG \
             $TIDE_ARG \
             $SURF_ARG \
+            $ENSEMBLE_ARG \
             --output-json keelung_summary_new.json \
             --output-html forecast.html
           # Append surf spots HTML to forecast
@@ -260,6 +280,27 @@ jobs:
           else
             echo "  ⏭  No AI summary generated (API key missing or error)"
           fi
+
+      # ── Send threshold-based alerts ─────────────────────────────────────────
+      # Sends LINE/Telegram notifications when dangerous conditions are forecast.
+      # Non-blocking: pipeline continues if notification fails or no tokens set.
+      - name: Send forecast alerts
+        id: notify
+        if: steps.stale_check.outputs.is_new == 'true'
+        timeout-minutes: 2
+        continue-on-error: true
+        env:
+          LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          WAVE_ARG=""
+          if [ -f wave_keelung.json ]; then
+            WAVE_ARG="--wave-json wave_keelung.json"
+          fi
+          python notify.py \
+            --wrf-json keelung_summary_new.json \
+            $WAVE_ARG
 
       # ── Upload archive + new summary to Drive ─────────────────────────────────
       - name: Upload to Google Drive
@@ -356,8 +397,18 @@ jobs:
             var el = document.getElementById("age");
             function update(){
               var h = Math.round((Date.now() - ts.getTime()) / 3600000);
-              el.textContent = h < 1 ? "< 1h ago" : h + "h ago";
+              var m = Math.round((Date.now() - ts.getTime()) / 60000);
+              if (m < 60) el.textContent = m + "m ago";
+              else el.textContent = h + "h ago";
               el.className = "age " + (h < 8 ? "age-fresh" : h < 24 ? "age-stale" : "age-old");
+              // Show prominent stale banner if data is very old (>12h)
+              if (h >= 12) {
+                var sw = document.getElementById("stale-warning");
+                if (sw && !sw.classList.contains("visible")) {
+                  sw.querySelector("span").textContent = "Forecast data is " + h + "h old. The pipeline may have failed.";
+                  sw.classList.add("visible");
+                }
+              }
             }
             update(); setInterval(update, 60000);
 

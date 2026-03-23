@@ -522,6 +522,46 @@ def _row_alerts(wind: float | None, gust: float | None,
 
 
 
+# ── Colorblind-safe helpers ────────────────────────────────────────────────────
+
+def _wind_cb(kt: float | None) -> str:
+    """Colorblind-safe CSS class for wind speed."""
+    if kt is None: return ''
+    if kt < 17:   return 'cb-ok'
+    if kt < 28:   return 'cb-warn'
+    return 'cb-danger'
+
+
+def _wave_cb(hs: float | None) -> str:
+    """Colorblind-safe CSS class for wave height."""
+    if hs is None: return ''
+    if hs < 1.0:   return 'cb-ok'
+    if hs < 2.5:   return 'cb-warn'
+    return 'cb-danger'
+
+
+def _spread_class(spread: float | None, low_thresh: float, high_thresh: float) -> str:
+    """Return CSS class for ensemble spread magnitude."""
+    if spread is None: return ''
+    if spread < low_thresh:  return 'spread-low'
+    if spread < high_thresh: return 'spread-medium'
+    return 'spread-high'
+
+
+def _spread_html(ens_rec: dict | None, var: str, low: float, high: float) -> str:
+    """Return inline HTML for ensemble spread indicator, or '' if not available."""
+    if not ens_rec:
+        return ''
+    stats = ens_rec.get(var)
+    if not stats or stats.get('n', 0) < 2:
+        return ''
+    spread = stats.get('spread')
+    if spread is None:
+        return ''
+    cls = _spread_class(spread, low, high)
+    return f'<span class="spread-indicator {cls}" title="Model spread: ±{spread:.0f}"> ±{spread:.0f}</span>'
+
+
 # ── Daily summary cards ───────────────────────────────────────────────────────
 
 def _sail_rating(max_wind: float | None, max_gust: float | None,
@@ -884,10 +924,12 @@ def render_unified_html(
     wave_data: dict | None,
     tide_data: dict | None = None,
     surf_planner: dict | None = None,
+    ensemble_data: dict | None = None,
 ) -> str:
     """
     Full web-app HTML: daily summary cards + complete hourly table
     (WRF + ECMWF IFS + wave columns) + WRF vs ECMWF agreement stats + legend.
+    Optionally includes ensemble spread indicators when ensemble_data is provided.
     """
     # Build lookups (same as _render_summary_html)
     prev_by_valid = {r['valid_utc']: r for r in (prev_records or []) if r.get('valid_utc')}
@@ -901,6 +943,13 @@ def render_unified_html(
     has_wave = bool(wave_by_valid)
     wrf_by_valid = {r['valid_utc']: r for r in records if r.get('valid_utc')}
     all_valids = sorted(set(wrf_by_valid) | set(ec_by_valid) | set(wave_by_valid))
+
+    # Ensemble spread lookup
+    ens_by_valid: dict = {}
+    if ensemble_data:
+        for er in ensemble_data.get('ensemble', {}).get('records', []):
+            if er.get('valid_utc'):
+                ens_by_valid[er['valid_utc']] = er
 
     # Start with the summary section (header + daily cards + alerts + model shift),
     # then strip its closing </div> so we can append the full table.
@@ -1338,6 +1387,8 @@ def main() -> None:
                    help='Tide JSON produced by tide_predict.py (adds tide info to daily cards)')
     p.add_argument('--surf-json',   default=None,
                    help='Surf planner JSON produced by surf_forecast.py (adds surf info to day cards)')
+    p.add_argument('--ensemble-json', default=None,
+                   help='Ensemble JSON produced by ensemble_fetch.py (adds model spread indicators)')
     p.add_argument('--list-vars',   action='store_true',
                    help='Diagnostic: list all GRIB2 shortNames in the first file and exit')
     args = p.parse_args()
@@ -1439,9 +1490,22 @@ def main() -> None:
         except Exception as e:
             log.warning("Could not load surf JSON: %s", e)
 
+    # ── Load ensemble data (optional) ─────────────────────────────────────────
+    ensemble_data = None
+    if args.ensemble_json and Path(args.ensemble_json).exists():
+        try:
+            with open(args.ensemble_json) as f:
+                ensemble_data = json.load(f)
+            n_models = len(ensemble_data.get('models', {}))
+            n_ens = len(ensemble_data.get('ensemble', {}).get('records', []))
+            log.info("Ensemble data: %d models, %d timesteps", n_models, n_ens)
+        except Exception as e:
+            log.warning("Could not load ensemble JSON: %s", e)
+
     # ── Write HTML ────────────────────────────────────────────────────────────
     html_full = render_unified_html(meta, records, prev_records, ecmwf_records, wave_data,
-                                    tide_data=tide_data, surf_planner=surf_planner)
+                                    tide_data=tide_data, surf_planner=surf_planner,
+                                    ensemble_data=ensemble_data)
     out_html = Path(args.output_html)
     out_html.write_text(html_full)
     log.info("HTML → %s", out_html)
