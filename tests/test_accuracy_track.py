@@ -6,6 +6,7 @@ from accuracy_track import (
     _circular_diff,
     _circular_mae,
     _fh_bin,
+    _compute_buoy_verification,
 )
 
 
@@ -185,3 +186,83 @@ class TestComputeAccuracy:
         assert m['wave']['hs_mae_m'] == 0.3
         assert m['wave']['tp_mae_s'] == 1.0
         assert m['wave']['wdir_mae_deg'] == 5.0
+
+    def test_buoy_verification(self):
+        """CWA buoy observation should produce buoy_verification in metrics."""
+        vt = '2026-03-22T06:00:00+00:00'
+        forecast = [{'valid_utc': vt, 'temp_c': 20.0, 'wind_kt': 10.0, 'fh': 6}]
+        obs = {'hourly': {'time': ['2026-03-22T06:00'], 'temperature_2m': [20.0],
+                          'wind_speed_10m': [10.0], 'wind_direction_10m': [180],
+                          'precipitation': [0], 'pressure_msl': [1013]}}
+        wave_forecast = [{'valid_utc': vt, 'wave_height': 1.5, 'wave_period': 10.0,
+                          'wave_direction': 90.0}]
+        cwa_buoy = {
+            'buoy_id': '46694A',
+            'obs_time': '2026-03-22T06:30:00+00:00',
+            'wave_height_m': 1.2,
+            'wave_period_s': 8.5,
+            'wave_dir': 85.0,
+        }
+        m = compute_accuracy(forecast, obs, wave_forecast, None, cwa_buoy=cwa_buoy)
+        assert m is not None
+        assert 'buoy_verification' in m
+        bv = m['buoy_verification']
+        assert bv['buoy_id'] == '46694A'
+        assert bv['hs_obs_m'] == 1.2
+        assert bv['hs_fc_m'] == 1.5
+        assert bv['hs_error_m'] == 0.3
+
+
+class TestBuoyVerification:
+    def test_basic_comparison(self):
+        wave_fc = [{'valid_utc': '2026-03-22T06:00:00+00:00',
+                     'wave_height': 1.5, 'wave_period': 10.0, 'wave_direction': 90.0}]
+        buoy = {
+            'obs_time': '2026-03-22T06:00:00+00:00',
+            'wave_height_m': 1.2,
+            'wave_period_s': 9.0,
+            'wave_dir': 85.0,
+        }
+        result = _compute_buoy_verification(wave_fc, buoy)
+        assert result is not None
+        assert result['hs_error_m'] == 0.3
+        assert result['tp_error_s'] == 1.0
+        assert result['dir_error'] == 5.0
+
+    def test_no_buoy_time(self):
+        result = _compute_buoy_verification(
+            [{'valid_utc': '2026-03-22T06:00:00+00:00', 'wave_height': 1.5}],
+            {'wave_height_m': 1.2}  # no obs_time
+        )
+        assert result is None
+
+    def test_no_buoy_hs(self):
+        result = _compute_buoy_verification(
+            [{'valid_utc': '2026-03-22T06:00:00+00:00', 'wave_height': 1.5}],
+            {'obs_time': '2026-03-22T06:00:00+00:00'}  # no wave_height_m
+        )
+        assert result is None
+
+    def test_too_far_in_time(self):
+        """Buoy obs >3h from nearest forecast should return None."""
+        wave_fc = [{'valid_utc': '2026-03-22T06:00:00+00:00', 'wave_height': 1.5}]
+        buoy = {
+            'obs_time': '2026-03-22T12:00:00+00:00',  # 6h away
+            'wave_height_m': 1.2,
+        }
+        result = _compute_buoy_verification(wave_fc, buoy)
+        assert result is None
+
+    def test_finds_closest_timestep(self):
+        wave_fc = [
+            {'valid_utc': '2026-03-22T00:00:00+00:00', 'wave_height': 2.0},
+            {'valid_utc': '2026-03-22T06:00:00+00:00', 'wave_height': 1.5},
+            {'valid_utc': '2026-03-22T12:00:00+00:00', 'wave_height': 1.0},
+        ]
+        buoy = {
+            'obs_time': '2026-03-22T05:30:00+00:00',
+            'wave_height_m': 1.3,
+        }
+        result = _compute_buoy_verification(wave_fc, buoy)
+        assert result is not None
+        assert result['hs_fc_m'] == 1.5  # should match the 06:00 timestep

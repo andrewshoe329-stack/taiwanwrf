@@ -5,8 +5,10 @@ from unittest.mock import patch, MagicMock
 
 from cwa_fetch import (
     fetch_station_obs, fetch_buoy_obs, fetch_all,
+    fetch_tide_obs, fetch_warnings,
     KEELUNG_STATION_ID, KEELUNG_BUOY_IDS,
     CWA_BASE, STATION_ENDPOINT, WAVE_BUOY_ENDPOINT,
+    TIDE_OBS_ENDPOINT, WARNING_ENDPOINT,
 )
 
 
@@ -173,6 +175,115 @@ class TestFetchAll:
         assert result["buoy"] is None
 
 
+MOCK_TIDE_RESPONSE = {
+    "success": "true",
+    "records": {
+        "Station": [{
+            "StationId": "KL01",
+            "StationName": "基隆",
+            "ObsTime": {"DateTime": "2026-03-23T14:00:00+08:00"},
+            "WeatherElement": {
+                "TideHeight": {"value": "0.85"},
+            },
+        }],
+    },
+}
+
+MOCK_WARNING_RESPONSE = {
+    "success": "true",
+    "records": {
+        "record": [{
+            "datasetDescription": "豪雨特報",
+            "phenomena": "Heavy Rain",
+            "significance": "warning",
+            "affectedAreas": "基隆市,新北市",
+            "startTime": "2026-03-23T06:00:00+08:00",
+            "endTime": "2026-03-24T06:00:00+08:00",
+            "contents": {"content": {"contentText": "北部地區有豪雨 Heavy rain in northern Taiwan"}},
+        }],
+    },
+}
+
+
+class TestFetchTideObs:
+    @patch('cwa_fetch.urllib.request.urlopen')
+    def test_returns_parsed_data(self, mock_open):
+        mock_open.return_value = _mock_urlopen(MOCK_TIDE_RESPONSE)
+        result = fetch_tide_obs("test-key")
+        assert result is not None
+        assert result["station_id"] == "KL01"
+        assert result["tide_height_m"] == 0.85
+        assert result["obs_time"] is not None
+
+    @patch('cwa_fetch.urllib.request.urlopen')
+    def test_handles_api_failure(self, mock_open):
+        mock_open.side_effect = Exception("API timeout")
+        result = fetch_tide_obs("test-key")
+        assert result is None
+
+    @patch('cwa_fetch.urllib.request.urlopen')
+    def test_handles_empty_response(self, mock_open):
+        mock_open.return_value = _mock_urlopen({"success": "true", "records": {"Station": []}})
+        result = fetch_tide_obs("test-key")
+        assert result is None
+
+
+class TestFetchWarnings:
+    @patch('cwa_fetch.urllib.request.urlopen')
+    def test_returns_relevant_warnings(self, mock_open):
+        mock_open.return_value = _mock_urlopen(MOCK_WARNING_RESPONSE)
+        result = fetch_warnings("test-key")
+        assert len(result) == 1
+        assert result[0]["type"] == "Heavy Rain"
+        assert result[0]["severity"] == "warning"
+        assert "基隆" in result[0]["area"]
+
+    @patch('cwa_fetch.urllib.request.urlopen')
+    def test_handles_api_failure(self, mock_open):
+        mock_open.side_effect = Exception("Network error")
+        result = fetch_warnings("test-key")
+        assert result == []
+
+    @patch('cwa_fetch.urllib.request.urlopen')
+    def test_filters_irrelevant_areas(self, mock_open):
+        resp = {
+            "success": "true",
+            "records": {
+                "record": [{
+                    "datasetDescription": "Warning",
+                    "affectedAreas": "高雄市,屏東縣",
+                    "contents": "Southern Taiwan warning",
+                }],
+            },
+        }
+        mock_open.return_value = _mock_urlopen(resp)
+        result = fetch_warnings("test-key")
+        assert len(result) == 0
+
+    @patch('cwa_fetch.urllib.request.urlopen')
+    def test_empty_warnings(self, mock_open):
+        mock_open.return_value = _mock_urlopen({"success": "true", "records": {"record": []}})
+        result = fetch_warnings("test-key")
+        assert result == []
+
+
+class TestFetchAllExpanded:
+    @patch('cwa_fetch.fetch_warnings')
+    @patch('cwa_fetch.fetch_tide_obs')
+    @patch('cwa_fetch.fetch_buoy_obs')
+    @patch('cwa_fetch.fetch_station_obs')
+    def test_returns_all_sources(self, mock_station, mock_buoy, mock_tide, mock_warnings):
+        mock_station.return_value = {"temp_c": 22.5, "obs_time": "2026-03-23T06:00:00+00:00"}
+        mock_buoy.return_value = {"wave_height_m": 1.2, "obs_time": "2026-03-23T06:00:00+00:00"}
+        mock_tide.return_value = {"tide_height_m": 0.85, "obs_time": "2026-03-23T06:00:00+00:00"}
+        mock_warnings.return_value = [{"type": "Gale", "severity": "warning"}]
+        result = fetch_all("test-key")
+        assert result["station"] is not None
+        assert result["buoy"] is not None
+        assert result["tide"] is not None
+        assert len(result["warnings"]) == 1
+
+
 class TestConstants:
     def test_station_id(self):
         assert KEELUNG_STATION_ID == "466940"
@@ -183,3 +294,5 @@ class TestConstants:
     def test_endpoints_defined(self):
         assert STATION_ENDPOINT
         assert WAVE_BUOY_ENDPOINT
+        assert TIDE_OBS_ENDPOINT
+        assert WARNING_ENDPOINT

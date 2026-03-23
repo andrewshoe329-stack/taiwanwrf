@@ -302,3 +302,113 @@ class TestBuildUserPromptWithAccuracy:
     def test_no_accuracy_with_empty_log(self):
         prompt = build_user_prompt(self._make_wrf(), None, None, accuracy_log=[])
         assert "accuracy" not in prompt.lower()
+
+
+class TestBuildUserPromptWithCWAObs:
+    def _make_wrf(self):
+        return {
+            "meta": {"init_utc": "2026-03-20T00:00:00+00:00"},
+            "records": [
+                {
+                    "valid_utc": "2026-03-20T00:00:00+00:00",
+                    "temp_c": 22.0,
+                    "wind_kt": 12.0,
+                    "wind_dir": 45,
+                }
+            ],
+        }
+
+    def test_cwa_station_included(self):
+        cwa_obs = {
+            "station": {
+                "obs_time": "2026-03-20T00:00:00+00:00",
+                "temp_c": 20.5,
+                "wind_kt": 8.0,
+                "wind_dir": 225,
+                "gust_kt": 12.0,
+                "pressure_hpa": 1013.2,
+                "humidity_pct": 78,
+            },
+        }
+        prompt = build_user_prompt(self._make_wrf(), None, None, cwa_obs=cwa_obs)
+        assert "CWA Keelung station" in prompt
+        assert "20.5" in prompt
+        assert "humidity=78" in prompt
+
+    def test_cwa_buoy_included(self):
+        cwa_obs = {
+            "buoy": {
+                "buoy_name": "龍洞",
+                "obs_time": "2026-03-20T00:00:00+00:00",
+                "wave_height_m": 1.2,
+                "peak_period_s": 12.3,
+                "wave_dir": 45,
+                "water_temp_c": 21.5,
+            },
+        }
+        prompt = build_user_prompt(self._make_wrf(), None, None, cwa_obs=cwa_obs)
+        assert "CWA wave buoy" in prompt
+        assert "1.2m" in prompt
+        assert "龍洞" in prompt
+
+    def test_cwa_warnings_included(self):
+        cwa_obs = {
+            "warnings": [
+                {
+                    "type": "Gale Warning",
+                    "description": "Strong winds in northern Taiwan waters",
+                }
+            ],
+        }
+        prompt = build_user_prompt(self._make_wrf(), None, None, cwa_obs=cwa_obs)
+        assert "CWA WARNING" in prompt
+        assert "Gale Warning" in prompt
+
+    def test_no_cwa_obs(self):
+        prompt = build_user_prompt(self._make_wrf(), None, None, cwa_obs=None)
+        assert "CWA" not in prompt
+
+    def test_empty_cwa_obs(self):
+        prompt = build_user_prompt(self._make_wrf(), None, None, cwa_obs={})
+        assert "Real-time observations" not in prompt
+
+
+class TestBuildUserPromptWithEnsemble:
+    def _make_wrf(self):
+        return {
+            "meta": {"init_utc": "2026-03-20T00:00:00+00:00"},
+            "records": [
+                {
+                    "valid_utc": "2026-03-20T00:00:00+00:00",
+                    "temp_c": 22.0,
+                    "wind_kt": 12.0,
+                }
+            ],
+        }
+
+    def test_ensemble_spread_included(self):
+        ensemble = {
+            "spread": {
+                "wind_spread_kt": 4.5,
+                "temp_spread_c": 2.0,
+                "precip_spread_mm": 3.0,
+            },
+        }
+        prompt = build_user_prompt(self._make_wrf(), None, None, ensemble=ensemble)
+        assert "ensemble spread" in prompt.lower()
+        assert "4.5" in prompt
+        assert "confidence" in prompt.lower()
+
+    def test_high_confidence_wind(self):
+        ensemble = {"spread": {"wind_spread_kt": 1.5}}
+        prompt = build_user_prompt(self._make_wrf(), None, None, ensemble=ensemble)
+        assert "high" in prompt.lower()
+
+    def test_low_confidence_wind(self):
+        ensemble = {"spread": {"wind_spread_kt": 8.0}}
+        prompt = build_user_prompt(self._make_wrf(), None, None, ensemble=ensemble)
+        assert "low" in prompt.lower()
+
+    def test_no_ensemble(self):
+        prompt = build_user_prompt(self._make_wrf(), None, None, ensemble=None)
+        assert "ensemble" not in prompt.lower()

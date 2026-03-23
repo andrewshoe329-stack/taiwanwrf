@@ -37,9 +37,17 @@ STATION_ENDPOINT = "O-A0001-001"
 STATION_HOURLY_ENDPOINT = "O-A0003-001"
 # Wave buoy observations
 WAVE_BUOY_ENDPOINT = "O-A0017-001"
+# Tide observations (actual sea level at tide stations)
+TIDE_OBS_ENDPOINT = "O-A0019-001"
+# Weather warnings & advisories
+WARNING_ENDPOINT = "W-C0033-002"
 
 # Keelung station ID (CWA conventional station)
 KEELUNG_STATION_ID = "466940"
+
+# Keelung tide station ID (for sea level observations)
+KEELUNG_TIDE_STATION_ID = "KL01"
+KEELUNG_TIDE_NAMES = ["基隆", "Keelung"]
 
 # Wave buoy station near Keelung
 # Longdong buoy (龍洞) is closest to the surf spots on the northeast coast
@@ -259,18 +267,170 @@ def fetch_buoy_obs(api_key: str,
         return None
 
 
+# ── Tide observations ────────────────────────────────────────────────────────
+
+def fetch_tide_obs(api_key: str,
+                   station_id: str = KEELUNG_TIDE_STATION_ID) -> dict | None:
+    """
+    Fetch current tide (sea level) observations from a CWA tide station.
+
+    Returns a dict with:
+        station_id, obs_time, tide_height_m, station_name
+    """
+    data = _cwa_get(
+        TIDE_OBS_ENDPOINT, api_key,
+        label=f"CWA-Tide-{station_id}",
+    )
+    if not data:
+        return None
+
+    try:
+        records = data.get("records", {})
+        stations = records.get("Station", records.get("location",
+                    records.get("TideStation", records.get("tide", []))))
+        if not stations:
+            log.warning("No tide station data in CWA response")
+            return None
+
+        # Find target station by ID or name
+        target = None
+        for stn in stations if isinstance(stations, list) else [stations]:
+            stn_id = stn.get("StationId", stn.get("stationId", ""))
+            stn_name = stn.get("StationName", stn.get("locationName", ""))
+            if stn_id == station_id or any(n in stn_name for n in KEELUNG_TIDE_NAMES):
+                target = stn
+                break
+
+        if target is None:
+            avail = [f'{s.get("StationId", "?")}:{s.get("StationName", "?")}'
+                     for s in (stations[:10] if isinstance(stations, list) else [])]
+            log.warning("Keelung tide station not found. Available: %s", avail)
+            return None
+
+        obs = (target.get("WeatherElement") or target.get("weatherElement")
+               or target.get("TideData") or target.get("tideData") or {})
+        obs_time_raw = (target.get("ObsTime", {}).get("DateTime", "")
+                        or target.get("DataTime", "")
+                        or target.get("time", {}).get("obsTime", ""))
+
+        def _val(key):
+            v = obs.get(key)
+            if isinstance(v, dict):
+                v = v.get("value") or v.get("Value")
+            if v is None or v == "" or v == "-99":
+                return None
+            try:
+                return float(v)
+            except (ValueError, TypeError):
+                return None
+
+        height = (_val("TideHeights") or _val("TideHeight")
+                  or _val("WaterLevel") or _val("SeaLevel"))
+
+        result = {
+            "station_id": target.get("StationId", target.get("stationId", "")),
+            "station_name": target.get("StationName", target.get("locationName", "")),
+            "obs_time": norm_utc(obs_time_raw) if obs_time_raw else None,
+            "tide_height_m": height,
+        }
+        log.info("CWA tide station %s: height=%.2fm at %s",
+                 result["station_id"],
+                 result["tide_height_m"] or 0,
+                 result["obs_time"] or "?")
+        return result
+
+    except Exception as e:
+        log.error("Failed to parse CWA tide response: %s", e)
+        return None
+
+
+# ── Weather warnings ─────────────────────────────────────────────────────────
+
+def fetch_warnings(api_key: str) -> list[dict]:
+    """
+    Fetch active weather warnings/advisories from CWA.
+
+    Returns a list of dicts with:
+        type, severity, area, description, issued_utc, expires_utc
+    """
+    data = _cwa_get(
+        WARNING_ENDPOINT, api_key,
+        label="CWA-Warnings",
+    )
+    if not data:
+        return []
+
+    try:
+        records = data.get("records", {})
+        # CWA warning format nests under different keys depending on version
+        warnings_raw = (records.get("record", [])
+                        or records.get("Warning", [])
+                        or records.get("warning", []))
+        if not warnings_raw:
+            log.debug("No active CWA warnings")
+            return []
+
+        results = []
+        now = datetime.now(timezone.utc)
+        for w in warnings_raw:
+            # Extract warning content
+            content = w.get("contents", w.get("content", {}))
+            if isinstance(content, str):
+                desc = content
+            else:
+                desc = content.get("content", {}).get("contentText",
+                       content.get("text", str(content)[:200]))
+
+            # Check if this warning is relevant to northern Taiwan / Keelung
+            area = w.get("affectedAreas", w.get("area", ""))
+            if isinstance(area, list):
+                area = ", ".join(area)
+
+            # Only include warnings relevant to our area (north coast, Keelung, marine)
+            northern_keywords = ("基隆", "北部", "北海岸", "宜蘭", "新北",
+                                 "Keelung", "northern", "marine", "海上",
+                                 "全臺", "全台", "豪雨", "颱風", "typhoon")
+            if area and not any(kw in area for kw in northern_keywords):
+                if not any(kw in desc for kw in northern_keywords):
+                    continue
+
+            issued = w.get("startTime", w.get("issued_time", ""))
+            expires = w.get("endTime", w.get("valid_time", ""))
+
+            results.append({
+                "type": w.get("phenomena", w.get("type",
+                        w.get("datasetDescription", "Weather Warning"))),
+                "severity": w.get("significance", w.get("severity", "advisory")),
+                "area": area,
+                "description": desc[:500] if isinstance(desc, str) else "",
+                "issued_utc": norm_utc(issued) if issued else None,
+                "expires_utc": norm_utc(expires) if expires else None,
+            })
+
+        log.info("CWA warnings: %d relevant to northern Taiwan", len(results))
+        return results
+
+    except Exception as e:
+        log.error("Failed to parse CWA warnings response: %s", e)
+        return []
+
+
 # ── Combined fetch (for pipeline use) ────────────────────────────────────────
 
 def fetch_all(api_key: str) -> dict:
-    """Fetch both station and buoy observations. Returns combined dict."""
+    """Fetch station, buoy, tide, and warning observations. Returns combined dict."""
     station = fetch_station_obs(api_key)
     buoy = fetch_buoy_obs(api_key)
+    tide = fetch_tide_obs(api_key)
+    warnings = fetch_warnings(api_key)
 
     return {
         "source": "CWA Open Data",
         "fetched_utc": datetime.now(timezone.utc).isoformat(),
         "station": station,
         "buoy": buoy,
+        "tide": tide,
+        "warnings": warnings,
     }
 
 
@@ -284,8 +444,12 @@ def main() -> None:
                     help="Fetch weather station data")
     ap.add_argument("--buoy", action="store_true",
                     help="Fetch wave buoy data")
+    ap.add_argument("--tide", action="store_true",
+                    help="Fetch tide observation data")
+    ap.add_argument("--warnings", action="store_true",
+                    help="Fetch active weather warnings")
     ap.add_argument("--all", action="store_true", default=True,
-                    help="Fetch both station and buoy (default)")
+                    help="Fetch all data sources (default)")
     ap.add_argument("--output", default="cwa_obs.json",
                     help="Output JSON path")
     args = ap.parse_args()
@@ -294,10 +458,17 @@ def main() -> None:
         log.error("No API key. Set CWA_OPENDATA_KEY or use --api-key")
         return
 
-    if args.station and not args.buoy:
-        result = {"station": fetch_station_obs(args.api_key)}
-    elif args.buoy and not args.station:
-        result = {"buoy": fetch_buoy_obs(args.api_key)}
+    specific = args.station or args.buoy or args.tide or args.warnings
+    if specific:
+        result = {}
+        if args.station:
+            result["station"] = fetch_station_obs(args.api_key)
+        if args.buoy:
+            result["buoy"] = fetch_buoy_obs(args.api_key)
+        if args.tide:
+            result["tide"] = fetch_tide_obs(args.api_key)
+        if args.warnings:
+            result["warnings"] = fetch_warnings(args.api_key)
     else:
         result = fetch_all(args.api_key)
 

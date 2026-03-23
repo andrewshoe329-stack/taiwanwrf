@@ -55,6 +55,13 @@ Chinese names (e.g. "Fulong 福隆").
 For example, if temperature bias is +1.5°C, actual temps will likely be ~1.5° \
 cooler than the model shows. If wind MAE is high (>5kt), hedge your confidence. \
 Don't quote the raw error numbers — just let them inform your interpretation.
+- If real-time CWA observations are provided (station + buoy), use them as \
+ground truth to validate or contrast the model forecast. If the station reads \
+20°C but the model says 23°C, note the discrepancy and lean toward reality.
+- If ensemble model spread is provided, use it to assess confidence. \
+High wind spread (>5kt) means models disagree — hedge your language. \
+Low spread (<2kt) means high confidence. Same for temperature and waves.
+- If active CWA weather warnings exist, mention them prominently.
 """
 
 
@@ -140,13 +147,47 @@ def _summarise_accuracy(log_entries: list) -> str | None:
 
 
 def build_user_prompt(wrf: dict, ecmwf: dict | None, wave: dict | None,
-                      accuracy_log: list | None = None) -> str:
+                      accuracy_log: list | None = None,
+                      cwa_obs: dict | None = None,
+                      ensemble: dict | None = None) -> str:
     """Assemble forecast data into a compact prompt for the LLM."""
     parts = []
 
     meta = wrf.get('meta', {})
     init = meta.get('init_utc', 'unknown')
     parts.append(f"Model init: {init}")
+
+    # CWA real-time observations — ground truth for the AI to reference
+    if cwa_obs:
+        obs_parts = []
+        stn = cwa_obs.get('station')
+        if stn and stn.get('obs_time'):
+            obs_parts.append(
+                f"CWA Keelung station ({stn.get('obs_time', '?')}): "
+                f"temp={stn.get('temp_c')}°C, wind={stn.get('wind_kt')}kt "
+                f"dir={stn.get('wind_dir')}°, gust={stn.get('gust_kt')}kt, "
+                f"pressure={stn.get('pressure_hpa')}hPa, "
+                f"humidity={stn.get('humidity_pct')}%"
+            )
+        buoy = cwa_obs.get('buoy')
+        if buoy and buoy.get('obs_time'):
+            obs_parts.append(
+                f"CWA wave buoy ({buoy.get('buoy_name', '?')}, "
+                f"{buoy.get('obs_time', '?')}): "
+                f"Hs={buoy.get('wave_height_m')}m, "
+                f"Tp={buoy.get('peak_period_s') or buoy.get('wave_period_s')}s, "
+                f"dir={buoy.get('wave_dir')}°, "
+                f"water temp={buoy.get('water_temp_c')}°C"
+            )
+        warnings = cwa_obs.get('warnings', [])
+        if warnings:
+            for w in warnings[:3]:
+                obs_parts.append(
+                    f"CWA WARNING: {w.get('type', 'Advisory')} — "
+                    f"{w.get('description', '')[:200]}"
+                )
+        if obs_parts:
+            parts.append("Real-time observations:\n" + "\n".join(obs_parts))
 
     # WRF records (trimmed)
     wrf_recs = _trim_records(wrf.get('records', []))
@@ -192,6 +233,25 @@ def build_user_prompt(wrf: dict, ecmwf: dict | None, wave: dict | None,
                     ) if k in r and r[k] is not None
                 })
             parts.append(f"ECMWF WAM waves at Keelung (6-hourly):\n{json.dumps(slim, indent=None)}")
+
+    # Ensemble spread — model agreement indicators
+    if ensemble:
+        spread = ensemble.get('spread', {})
+        if spread:
+            spread_lines = ["Multi-model ensemble spread (GFS/ICON/JMA/ECMWF):"]
+            wind_spread = spread.get('wind_spread_kt')
+            temp_spread = spread.get('temp_spread_c')
+            rain_spread = spread.get('precip_spread_mm')
+            if wind_spread is not None:
+                confidence = "high" if wind_spread < 3 else "moderate" if wind_spread < 6 else "low"
+                spread_lines.append(f"- Wind: ±{wind_spread}kt spread ({confidence} confidence)")
+            if temp_spread is not None:
+                confidence = "high" if temp_spread < 1.5 else "moderate" if temp_spread < 3 else "low"
+                spread_lines.append(f"- Temp: ±{temp_spread}°C spread ({confidence} confidence)")
+            if rain_spread is not None:
+                spread_lines.append(f"- Precip: ±{rain_spread}mm spread")
+            if len(spread_lines) > 1:
+                parts.append("\n".join(spread_lines))
 
     # Accuracy context — lets the LLM adjust confidence based on known biases
     if accuracy_log:
@@ -293,6 +353,10 @@ def main() -> None:
     ap.add_argument('--wave-json', default=None, help='Wave JSON')
     ap.add_argument('--accuracy-log', default=None,
                     help='Accuracy log JSON (rolling verification metrics)')
+    ap.add_argument('--cwa-obs', default=None,
+                    help='CWA observations JSON (real-time station + buoy)')
+    ap.add_argument('--ensemble-json', default=None,
+                    help='Ensemble spread JSON (multi-model agreement)')
     ap.add_argument('--output', default='ai_summary.html', help='Output HTML fragment')
     args = ap.parse_args()
 
@@ -328,8 +392,25 @@ def main() -> None:
         except Exception as e:
             log.warning("Could not load accuracy log: %s", e)
 
+    cwa_obs = None
+    if args.cwa_obs:
+        try:
+            with open(args.cwa_obs) as f:
+                cwa_obs = json.load(f)
+        except Exception as e:
+            log.warning("Could not load CWA obs JSON: %s", e)
+
+    ensemble = None
+    if args.ensemble_json:
+        try:
+            with open(args.ensemble_json) as f:
+                ensemble = json.load(f)
+        except Exception as e:
+            log.warning("Could not load ensemble JSON: %s", e)
+
     # Build prompt and call API
-    user_prompt = build_user_prompt(wrf, ecmwf, wave, accuracy_log)
+    user_prompt = build_user_prompt(wrf, ecmwf, wave, accuracy_log,
+                                    cwa_obs=cwa_obs, ensemble=ensemble)
     log.info("Prompt size: %d chars", len(user_prompt))
 
     summary = call_api(user_prompt)

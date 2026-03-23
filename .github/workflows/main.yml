@@ -148,8 +148,28 @@ jobs:
         run: |
           python tide_predict.py --output tide_keelung.json --days 7
 
-      # CWA observations (station + wave buoy) are fetched inline by
-      # accuracy_track.py when CWA_OPENDATA_KEY is set — no separate step needed.
+      # ── Fetch CWA real-time observations ──────────────────────────────────────
+      # Station (Keelung #466940) + wave buoy (Longdong) + tide + warnings.
+      # These are used by: AI summary (ground truth), accuracy tracking (buoy
+      # verification), and the HTML display (current conditions).
+      # Non-blocking: pipeline continues if CWA API is unavailable.
+      - name: Fetch CWA observations
+        id: cwa_obs
+        if: steps.stale_check.outputs.is_new == 'true'
+        continue-on-error: true
+        timeout-minutes: 3
+        env:
+          CWA_OPENDATA_KEY: ${{ secrets.CWA_OPENDATA_KEY }}
+        run: |
+          if [ -n "$CWA_OPENDATA_KEY" ]; then
+            python cwa_fetch.py --output cwa_obs.json
+            if [ -f cwa_obs.json ]; then
+              echo "  ✅  CWA observations fetched"
+              echo "cwa_obs_json=cwa_obs.json" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "  ⏭  No CWA_OPENDATA_KEY — skipping CWA observations"
+          fi
 
       # ── Diagnostic: list GRIB2 variables in first subset file ────────────────
       # Captures the (shortName, typeOfLevel, level) inventory to a file so it
@@ -281,11 +301,21 @@ jobs:
           if [ -f accuracy_log.json ]; then
             ACCURACY_ARG="--accuracy-log accuracy_log.json"
           fi
+          CWA_ARG=""
+          if [ -f cwa_obs.json ]; then
+            CWA_ARG="--cwa-obs cwa_obs.json"
+          fi
+          ENSEMBLE_ARG=""
+          if [ -f ensemble_keelung.json ]; then
+            ENSEMBLE_ARG="--ensemble-json ensemble_keelung.json"
+          fi
           python forecast_summary.py \
             --wrf-json keelung_summary_new.json \
             $ECMWF_ARG \
             $WAVE_ARG \
             $ACCURACY_ARG \
+            $CWA_ARG \
+            $ENSEMBLE_ARG \
             --output ai_summary.html
 
           # Prepend AI summary to the forecast HTML
@@ -338,6 +368,8 @@ jobs:
           if [ -f wave_keelung.json ]; then
             WAVE_ARG="--wave-json wave_keelung.json"
           fi
+          # If CWA obs were already fetched earlier, pass the key so
+          # accuracy_track can use live buoy data for wave verification
           python accuracy_track.py \
             --forecast-json keelung_summary_new.json \
             $EXISTING \
