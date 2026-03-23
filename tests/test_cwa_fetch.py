@@ -336,6 +336,36 @@ class TestFetchTideForecast:
         mock_open.side_effect = urllib.error.URLError("API timeout")
         assert fetch_tide_forecast("test-key") == []
 
+    @patch('cwa_fetch.urllib.request.urlopen')
+    def test_handles_list_items_in_tide_data(self, mock_open):
+        """Regression: tide_data may contain list items instead of dicts."""
+        resp = {
+            "success": "true",
+            "records": {
+                "TideForecasts": {
+                    "Location": [{
+                        "LocationName": "基隆",
+                        "TimePeriods": {
+                            "Daily": [
+                                ["unexpected", "list", "item"],
+                                {
+                                    "TideInfo": [{
+                                        "DateTime": "2026-03-23T06:00:00+08:00",
+                                        "Tide": "滿潮",
+                                        "AboveLocalMSL": {"value": "0.80"},
+                                    }],
+                                },
+                            ],
+                        },
+                    }],
+                },
+            },
+        }
+        mock_open.return_value = _mock_urlopen(resp)
+        result = fetch_tide_forecast("test-key")
+        assert len(result) == 1
+        assert result[0]["type"] == "high"
+
 
 class TestFetchTownshipForecast:
     @patch('cwa_fetch.urllib.request.urlopen')

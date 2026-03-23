@@ -38,9 +38,11 @@ STATION_HOURLY_ENDPOINT = "O-A0003-001"
 # Automatic rain gauge — rainfall obs (denser network than weather stations)
 RAIN_GAUGE_ENDPOINT = "O-A0002-001"
 # Wave buoy observations (Hs, period, direction, water temp)
-WAVE_BUOY_ENDPOINT = "O-A0017-001"
-# Tide observations (actual sea level at tide stations)
-TIDE_OBS_ENDPOINT = "O-A0019-001"
+# O-A0018-001 = 即時海況-海象海溫-浮標站監測資料 (buoy wave/temp data)
+WAVE_BUOY_ENDPOINT = "O-A0018-001"
+# Tide observations (actual sea level at coastal tide stations)
+# O-A0017-001 = 即時海況-潮位-沿岸潮位站監測資料 (coastal tide level)
+TIDE_OBS_ENDPOINT = "O-A0017-001"
 # Official CWA tide forecast — 1 month ahead (high/low times + heights)
 TIDE_FORECAST_ENDPOINT = "F-A0021-001"
 # Township weather forecast — 7-day (for Keelung-specific CWA forecast text)
@@ -488,6 +490,8 @@ def fetch_tide_forecast(api_key: str,
                      or target.get("TideData", []))
 
         for day in tide_data if isinstance(tide_data, list) else [tide_data]:
+            if not isinstance(day, dict):
+                continue
             # Try nested tide extrema within each day
             tides = (day.get("TideInfo", [])
                      or day.get("Time", [])
