@@ -243,19 +243,21 @@ def _parse_buoy_station(stn: dict) -> dict | None:
             except (ValueError, TypeError):
                 pass
 
-    hs = _val("SignificantWaveHeight")
+    # O-B0075-001 uses WaveHeight; older endpoints used SignificantWaveHeight
+    hs = _val("SignificantWaveHeight") or _val("WaveHeight")
     if hs is None:
         return None  # buoy has no wave data
 
     return {
-        "buoy_id": stn.get("StationId", stn.get("stationId", "")),
+        "buoy_id": stn.get("StationId", stn.get("stationId",
+                    stn.get("StationID", ""))),
         "buoy_name": stn.get("StationName", stn.get("locationName", "")),
         "lat": lat,
         "lon": lon,
         "obs_time": norm_utc(obs_time_raw) if obs_time_raw else None,
         "wave_height_m": hs,
-        "wave_period_s": _val("MeanWavePeriod"),
-        "wave_dir": _val("MeanWaveDirection"),
+        "wave_period_s": _val("MeanWavePeriod") or _val("WavePeriod"),
+        "wave_dir": _val("MeanWaveDirection") or _val("WaveDirection"),
         "max_wave_height_m": _val("MaximumWaveHeight"),
         "peak_period_s": _val("PeakWavePeriod"),
         "water_temp_c": _val("SeaTemperature"),
@@ -402,21 +404,31 @@ def _fetch_marine_stations(api_key: str) -> list[dict]:
                 merged.update(stn["Station"])
 
             # Extract latest observation from StationObsTimes if present
-            obs_status = stn.get("StationObsStatus") or {}
-            obs_times = obs_status.get("StationObsTimes")
+            obs_times = stn.get("StationObsTimes")
             if obs_times is None:
-                # Try StationObsTimes at top level
-                obs_times = stn.get("StationObsTimes")
+                obs_status = stn.get("StationObsStatus") or {}
+                obs_times = obs_status.get("StationObsTimes")
             if isinstance(obs_times, dict):
                 obs_times = obs_times.get("StationObsTime", [])
             if isinstance(obs_times, list) and obs_times:
-                # Take the first (most recent) observation
-                latest = obs_times[0] if isinstance(obs_times[0], dict) else {}
-                dt = latest.get("DataTime", "")
-                we = latest.get("WeatherElements", {})
-                if isinstance(we, dict):
-                    merged["WeatherElement"] = we
-                    merged.setdefault("ObsTime", {"DateTime": dt})
+                # Sort by DateTime descending, skip entries with all-None data
+                valid_obs = [
+                    o for o in obs_times
+                    if isinstance(o, dict)
+                    and o.get("DateTime")
+                    and o.get("WeatherElements", {}).get("WaveHeight", "None") != "None"
+                    or o.get("WeatherElements", {}).get("TideHeight", "None") != "None"
+                ]
+                if not valid_obs:
+                    valid_obs = [o for o in obs_times if isinstance(o, dict)]
+                valid_obs.sort(key=lambda o: o.get("DateTime", ""), reverse=True)
+                if valid_obs:
+                    latest = valid_obs[0]
+                    dt = latest.get("DateTime", "")
+                    we = latest.get("WeatherElements", {})
+                    if isinstance(we, dict):
+                        merged["WeatherElement"] = we
+                        merged.setdefault("ObsTime", {"DateTime": dt})
 
             # Also try extracting lat/lon from Station sub-dict
             for lat_key in ("StationLatitude", "Latitude"):
