@@ -3,7 +3,7 @@
 
 from surf_forecast import (
     deg_diff, compass, dir_quality, _safe_get,
-    day_rating, sail_day_rating,
+    day_rating, sail_day_rating, _recommend, generate_planner_json,
     SPOTS, MIN_SWELL_HEIGHT_M, MAX_SWELL_HEIGHT_M, MAX_WIND_KT,
     LIGHT_WIND_KT, ONSHORE_WIND_KT,
 )
@@ -170,3 +170,124 @@ class TestConstants:
             assert 'lon' in spot
             assert 'opt_wind' in spot
             assert 'opt_swell' in spot
+
+
+# ── _recommend ──────────────────────────────────────────────────────────────
+
+class TestRecommend:
+    """Tests for the _recommend() recommendation logic."""
+
+    def _sail(self, emoji, label):
+        return {'emoji': emoji, 'label': label, 'bg': '#000', 'col': '#fff'}
+
+    def _surf(self, emoji, label):
+        return {'emoji': emoji, 'label': label, 'bg': '#000', 'col': '#fff'}
+
+    def test_sail_and_fire_surf(self):
+        text, bg = _recommend(self._sail('🟢', 'Good'), self._surf('🔥', 'Firing!'), 'Fulong')
+        assert '⛵' in text and '🏄' in text and 'Fulong' in text
+        assert bg == '#0d2d1a'
+
+    def test_sail_and_good_surf(self):
+        text, bg = _recommend(self._sail('🟢', 'Good'), self._surf('🟢', 'Good'), 'Jinshan')
+        assert '⛵' in text and 'Jinshan' in text
+
+    def test_sail_only(self):
+        text, bg = _recommend(self._sail('🟢', 'Good'), self._surf('😴', 'Flat'), 'Fulong')
+        assert text == '⛵ Go sailing'
+        assert bg == '#0d2d1a'
+
+    def test_fire_surf_no_sail(self):
+        text, bg = _recommend(self._sail('🔴', 'No-go'), self._surf('🔥', 'Firing!'), 'Daxi')
+        assert '🏄' in text and 'Daxi' in text
+
+    def test_marginal_both(self):
+        text, bg = _recommend(self._sail('🟡', 'Marginal'), self._surf('🟡', 'Marginal'), 'Wushih')
+        assert '🟡' in text and 'Wushih' in text
+        assert bg == '#3d2e00'
+
+    def test_marginal_sail_only(self):
+        text, bg = _recommend(self._sail('🟡', 'Marginal'), self._surf('😴', 'Flat'), 'Fulong')
+        assert 'Marginal sailing' in text
+
+    def test_stay_home(self):
+        text, bg = _recommend(self._sail('🔴', 'No-go'), self._surf('🔴', 'Poor'), 'Fulong')
+        assert text == '🔴 Stay home'
+        assert bg == '#3d1515'
+
+
+# ── generate_planner_json ──────────────────────────────────────────────────
+
+class TestGeneratePlannerJson:
+    """Tests for generate_planner_json() sidecar data output."""
+
+    SPOT = SPOTS[0]  # Fulong
+
+    def _make_spot_data(self, days=None):
+        """Create minimal all_spot_data for one spot over given date keys."""
+        if days is None:
+            days = ['2026-03-22']
+        records = []
+        for dk in days:
+            records.append({
+                'dk': dk, 'sw_hs': 1.2, 'wind': 8, 'sw_dir': 45,
+                'w_dir': 225, 'sw_tp': 12, 'hs': 0.8,
+            })
+        return [{'spot': self.SPOT, 'records': records}]
+
+    def _make_keelung(self, days=None):
+        """Create minimal keelung_records."""
+        if days is None:
+            days = ['2026-03-22']
+        return [
+            {'dk': dk, 'wind': 10, 'gust': 15, 'hs': 0.5, 'rain6h': 0}
+            for dk in days
+        ]
+
+    def test_basic_structure(self):
+        result = generate_planner_json(self._make_spot_data(), self._make_keelung())
+        assert 'days' in result
+        assert '2026-03-22' in result['days']
+
+    def test_day_has_required_keys(self):
+        result = generate_planner_json(self._make_spot_data(), self._make_keelung())
+        day = result['days']['2026-03-22']
+        assert 'sail' in day
+        assert 'best_surf' in day
+        assert 'recommendation' in day
+
+    def test_sail_rating_populated(self):
+        result = generate_planner_json(self._make_spot_data(), self._make_keelung())
+        sail = result['days']['2026-03-22']['sail']
+        assert 'label' in sail
+        assert 'emoji' in sail
+
+    def test_best_surf_populated(self):
+        result = generate_planner_json(self._make_spot_data(), self._make_keelung())
+        bs = result['days']['2026-03-22']['best_surf']
+        assert 'spot' in bs
+        assert 'label' in bs
+        assert 'emoji' in bs
+
+    def test_recommendation_populated(self):
+        result = generate_planner_json(self._make_spot_data(), self._make_keelung())
+        rec = result['days']['2026-03-22']['recommendation']
+        assert 'text' in rec
+        assert 'bg' in rec
+
+    def test_multiple_days(self):
+        days = ['2026-03-22', '2026-03-23', '2026-03-24']
+        result = generate_planner_json(self._make_spot_data(days), self._make_keelung(days))
+        assert len(result['days']) == 3
+        for dk in days:
+            assert dk in result['days']
+
+    def test_no_keelung_records(self):
+        result = generate_planner_json(self._make_spot_data(), None)
+        assert 'days' in result
+        day = result['days']['2026-03-22']
+        assert day['sail']['label'] == '—'  # no data → dash
+
+    def test_empty_spot_data(self):
+        result = generate_planner_json([{'spot': self.SPOT, 'records': []}])
+        assert result == {'days': {}}

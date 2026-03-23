@@ -7,7 +7,7 @@ from wrf_analyze import (
     _wave_height_bg, _wave_period_bg,
     _delta_span, _delta_cell, _wave_dir_str,
     _sail_rating, _condition_emoji,
-    _parse_init_time,
+    _parse_init_time, _daily_summary_html,
 )
 
 
@@ -246,3 +246,165 @@ class TestConditionEmoji:
     def test_priority_seas_over_wind(self):
         # High seas should take priority over strong wind
         assert _condition_emoji(30, 0, 50, 4.0) == '🌊'
+
+
+# ── _daily_summary_html ────────────────────────────────────────────────────
+
+class TestDailySummaryHtml:
+    """Tests for the unified day cards HTML generator."""
+
+    def _make_valids(self, date='2026-03-22'):
+        """Return 4 valid times (UTC) that map to one CST day."""
+        # CST = UTC+8, so UTC 16:00 on 3/21 → CST 00:00 on 3/22
+        return [
+            f'{date}T{h:02d}:00:00+00:00'
+            for h in (0, 6, 12, 18)
+        ]
+
+    def _make_wrf(self, valids):
+        return {
+            vt: {
+                'temp_c': 24.0, 'wind_kt': 12.0, 'wind_dir': 45,
+                'gust_kt': 18.0, 'precip_mm_6h': 1.0, 'cape': 100,
+            }
+            for vt in valids
+        }
+
+    def _make_ec(self, valids):
+        return {
+            vt: {
+                'temp_c': 23.0, 'wind_kt': 11.0, 'wind_dir': 50,
+                'gust_kt': 16.0, 'precip_mm_6h': 0.5, 'cape': 80,
+            }
+            for vt in valids
+        }
+
+    def _make_wave(self, valids):
+        return {
+            vt: {'wave_height': 1.2, 'wave_period': 10.0, 'wave_direction': 45}
+            for vt in valids
+        }
+
+    def test_basic_output_has_cards(self):
+        valids = self._make_valids()
+        html = _daily_summary_html(self._make_wrf(valids), {}, {}, valids)
+        assert 'daily-card' in html
+        assert 'daily-cards' in html
+
+    def test_empty_valids_returns_empty(self):
+        assert _daily_summary_html({}, {}, {}, []) == ''
+
+    def test_wrf_source_tag(self):
+        valids = self._make_valids()
+        html = _daily_summary_html(self._make_wrf(valids), {}, {}, valids)
+        assert 'WRF' in html
+
+    def test_ecmwf_fallback_source_tag(self):
+        valids = self._make_valids()
+        html = _daily_summary_html({}, self._make_ec(valids), {}, valids)
+        assert 'EC' in html
+
+    def test_wave_data_shown(self):
+        valids = self._make_valids()
+        html = _daily_summary_html(
+            self._make_wrf(valids), {}, self._make_wave(valids), valids
+        )
+        assert 'Hs' in html
+        assert '1.2' in html
+
+    def test_wind_display(self):
+        valids = self._make_valids()
+        html = _daily_summary_html(self._make_wrf(valids), {}, {}, valids)
+        assert 'kt' in html
+        assert 'NE' in html  # wind_dir=45 → NE
+
+    def test_rain_display(self):
+        valids = self._make_valids()
+        html = _daily_summary_html(self._make_wrf(valids), {}, {}, valids)
+        assert 'mm' in html  # 4 x 1.0mm = 4mm
+
+    def test_dry_day(self):
+        valids = self._make_valids()
+        wrf = {
+            vt: {'temp_c': 24.0, 'wind_kt': 8.0, 'wind_dir': 90,
+                 'gust_kt': 12.0, 'precip_mm_6h': 0.0, 'cape': 50}
+            for vt in valids
+        }
+        html = _daily_summary_html(wrf, {}, {}, valids)
+        assert 'dry' in html
+
+    def test_surf_planner_integration(self):
+        valids = self._make_valids()
+        planner = {
+            'days': {
+                '2026-03-22': {
+                    'best_surf': {
+                        'spot': 'Fulong', 'label': 'Good',
+                        'emoji': '🟢', 'bg': '#0d3320', 'col': '#fff',
+                    },
+                    'recommendation': {
+                        'text': 'Go surf at Fulong', 'bg': '#0d2d1a',
+                    },
+                }
+            }
+        }
+        html = _daily_summary_html(
+            self._make_wrf(valids), {}, {}, valids, surf_planner=planner
+        )
+        assert 'Fulong' in html
+        assert 'surf-pick' in html
+
+    def test_surf_planner_flat(self):
+        valids = self._make_valids()
+        planner = {
+            'days': {
+                '2026-03-22': {
+                    'best_surf': {
+                        'spot': '—', 'label': '—',
+                        'emoji': '😴', 'bg': '#1a2236', 'col': '#475569',
+                    },
+                    'recommendation': {
+                        'text': 'Stay home', 'bg': '#3d1515',
+                    },
+                }
+            }
+        }
+        html = _daily_summary_html(
+            self._make_wrf(valids), {}, {}, valids, surf_planner=planner
+        )
+        assert 'Flat' in html
+
+    def test_tide_data_shown(self):
+        valids = self._make_valids()
+        tide = {
+            'extrema': [
+                {'cst': '2026-03-22T06:12:00+08:00', 'type': 'high', 'height_m': 1.2},
+                {'cst': '2026-03-22T12:30:00+08:00', 'type': 'low', 'height_m': 0.3},
+            ]
+        }
+        html = _daily_summary_html(
+            self._make_wrf(valids), {}, {}, valids, tide_data=tide
+        )
+        assert '▲' in html
+        assert '▼' in html
+        assert '1.2m' in html
+
+    def test_multiple_days(self):
+        v1 = self._make_valids('2026-03-22')
+        v2 = self._make_valids('2026-03-23')
+        all_v = v1 + v2
+        wrf = self._make_wrf(all_v)
+        html = _daily_summary_html(wrf, {}, {}, all_v)
+        # Should have two daily cards
+        assert html.count('daily-card') >= 2
+
+    def test_cape_badge_shown(self):
+        valids = self._make_valids()
+        wrf = {
+            vt: {'temp_c': 24.0, 'wind_kt': 12.0, 'wind_dir': 45,
+                 'gust_kt': 18.0, 'precip_mm_6h': 0.0, 'cape': 600}
+            for vt in valids
+        }
+        html = _daily_summary_html(wrf, {}, {}, valids)
+        assert 'CAPE' in html
+        assert '⚡' in html
