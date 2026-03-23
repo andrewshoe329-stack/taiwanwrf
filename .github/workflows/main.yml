@@ -580,7 +580,14 @@ jobs:
         timeout-minutes: 10
         run: |
           npm install -g vercel@39.3.0
-          vercel deploy --prod --yes --token "$VERCEL_TOKEN"
+          if vercel deploy --prod --yes --token "$VERCEL_TOKEN" 2>&1 | tee /tmp/vercel_output.txt; then
+            echo "Deploy succeeded"
+          elif grep -qi 'rate\|429\|too many\|throttl' /tmp/vercel_output.txt; then
+            echo "::warning::Vercel deploy rate limited — will retry on next scheduled run"
+          else
+            echo "::error::Vercel deploy failed"
+            exit 1
+          fi
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
