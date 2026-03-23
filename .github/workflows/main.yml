@@ -402,7 +402,7 @@ jobs:
           cp pwa/manifest.json pwa/sw.js pwa/icon-192.png pwa/icon-512.png pwa/styles.css public/
           cat <<HEADER > public/index.html
           <!DOCTYPE html>
-          <html lang="en">
+          <html lang="en" id="html-root">
           <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -413,7 +413,16 @@ jobs:
             <link rel="manifest" href="/manifest.json">
             <link rel="apple-touch-icon" href="/icon-192.png">
             <link rel="stylesheet" href="/styles.css">
-            <title>Taiwan Sail & Surf Forecast</title>
+            <title>Taiwan Sail & Surf Forecast | 台灣帆船衝浪預報</title>
+            <script>
+            // Language auto-detect: saved pref > browser language > English default
+            (function(){
+              var saved = localStorage.getItem('tw-forecast-lang');
+              if (saved) { document.documentElement.setAttribute('lang', saved); return; }
+              var bLang = (navigator.language || '').toLowerCase();
+              if (bLang.startsWith('zh')) document.documentElement.setAttribute('lang', 'zh');
+            })();
+            </script>
           </head>
           <body>
           <a href="#main-content" class="skip-nav">Skip to content</a>
@@ -421,27 +430,38 @@ jobs:
           <header class="site-header">
             <div class="header-inner">
               <h1 class="site-title">
-                <span class="highlight">Taiwan</span> Sail &amp; Surf
+                <span lang="en"><span class="highlight">Taiwan</span> Sail &amp; Surf</span>
+                <span lang="zh"><span class="highlight">台灣</span> 帆船衝浪</span>
               </h1>
               <nav class="site-nav" aria-label="Main navigation">
-                <a href="#summary">Summary</a>
-                <a href="#week">This Week</a>
-                <a href="#spots">Spots</a>
-                <a href="#detail">Detail</a>
+                <a href="#summary"><span lang="en">Summary</span><span lang="zh">摘要</span></a>
+                <a href="#week"><span lang="en">This Week</span><span lang="zh">本週</span></a>
+                <a href="#spots"><span lang="en">Spots</span><span lang="zh">浪點</span></a>
+                <a href="#detail"><span lang="en">Detail</span><span lang="zh">細節</span></a>
               </nav>
+              <button class="lang-toggle" onclick="toggleLang()" aria-label="Switch language">
+                <span lang="en">中文</span><span lang="zh">English</span>
+              </button>
             </div>
             <div class="timestamp-bar">
-              <span>Last updated: <span id="ts">${BUILD_UTC}</span></span>
+              <span><span lang="en">Last updated</span><span lang="zh">最後更新</span>: <span id="ts">${BUILD_UTC}</span></span>
               <span class="age" id="age"></span>
             </div>
           </header>
 
           <div class="stale-warning" id="stale-warning" role="alert">
-            <span>You are viewing cached data. Tap to refresh for the latest forecast.</span>
-            <button onclick="location.reload()">Refresh</button>
+            <span lang="en">You are viewing cached data. Tap to refresh for the latest forecast.</span>
+            <span lang="zh">您正在查看快取資料，點擊重新整理以獲取最新預報。</span>
+            <button onclick="location.reload()"><span lang="en">Refresh</span><span lang="zh">重新整理</span></button>
           </div>
 
           <script>
+          function toggleLang() {
+            var html = document.documentElement;
+            var next = html.getAttribute('lang') === 'zh' ? 'en' : 'zh';
+            html.setAttribute('lang', next);
+            localStorage.setItem('tw-forecast-lang', next);
+          }
           (function(){
             var ts = new Date("${BUILD_UTC}");
             var el = document.getElementById("age");
@@ -455,7 +475,11 @@ jobs:
               if (h >= 12) {
                 var sw = document.getElementById("stale-warning");
                 if (sw && !sw.classList.contains("visible")) {
-                  sw.querySelector("span").textContent = "Forecast data is " + h + "h old. The pipeline may have failed.";
+                  var lang = document.documentElement.getAttribute('lang') || 'en';
+                  var msg = lang === 'zh'
+                    ? "預報資料已 " + h + " 小時未更新，系統可能發生錯誤。"
+                    : "Forecast data is " + h + "h old. The pipeline may have failed.";
+                  sw.querySelector("span[lang='" + lang + "']").textContent = msg;
                   sw.classList.add("visible");
                 }
               }
@@ -494,7 +518,7 @@ jobs:
           if [ -n "$DRIVE_LINK" ]; then
             cat <<DLBAR >> public/index.html
           <div class="download-bar">
-            <a href="$DRIVE_LINK">Download WRF Data</a>
+            <a href="$DRIVE_LINK"><span lang="en">Download WRF Data</span><span lang="zh">下載 WRF 資料</span></a>
             <span>$ARCHIVE_NAME · $ARCHIVE_SIZE</span>
           </div>
           DLBAR

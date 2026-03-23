@@ -30,6 +30,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from config import setup_logging
+from i18n import T_str
 
 log = logging.getLogger(__name__)
 
@@ -142,15 +143,16 @@ def check_alerts(wrf_data: dict, wave_data: dict | None = None) -> list[dict]:
 
 
 def format_notification(alerts: list[dict], init_utc: str | None = None) -> str:
-    """Format alerts into a notification message."""
+    """Format alerts into a bilingual notification message (English + Chinese)."""
     if not alerts:
         return ''
 
-    lines = ['⚠️ Taiwan Sail & Surf Alert']
+    lines = [T_str('notif_title', 'en')]
+    lines.append(T_str('notif_title', 'zh'))
     if init_utc:
         try:
             dt = datetime.fromisoformat(init_utc)
-            lines.append(f'Model run: {dt.strftime("%Y-%m-%d %H:%M UTC")}')
+            lines.append(f'{T_str("notif_model_run", "en")}: {dt.strftime("%Y-%m-%d %H:%M UTC")}')
         except (ValueError, TypeError):
             pass
     lines.append('')
@@ -159,11 +161,11 @@ def format_notification(alerts: list[dict], init_utc: str | None = None) -> str:
     warning = [a for a in alerts if a['severity'] == 'warning']
 
     if danger:
-        lines.append('🔴 DANGER:')
+        lines.append(f'🔴 {T_str("notif_danger", "en")} / {T_str("notif_danger", "zh")}:')
         for a in danger:
             lines.append(f'  {a["message"]}')
     if warning:
-        lines.append('🟡 WARNING:')
+        lines.append(f'🟡 {T_str("notif_warning", "en")} / {T_str("notif_warning", "zh")}:')
         for a in warning:
             lines.append(f'  {a["message"]}')
 

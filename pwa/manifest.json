@@ -1,7 +1,7 @@
 {
-  "name": "Taiwan Sail & Surf Forecast",
+  "name": "Taiwan Sail & Surf Forecast 台灣帆船衝浪預報",
   "short_name": "TW Forecast",
-  "description": "7-day sailing and surfing forecast for northern Taiwan",
+  "description": "7-day sailing and surfing forecast for northern Taiwan | 北台灣7天帆船衝浪預報",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",

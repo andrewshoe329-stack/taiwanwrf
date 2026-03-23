@@ -205,7 +205,8 @@ class TestSailRating:
 
     def test_nogo_gust(self):
         label, bg = _sail_rating(20, 40, 0.5, 0)
-        assert label == '🔴 No-go'
+        assert '🔴' in label and 'No-go' in label
+        assert '不宜出海' in label  # bilingual Chinese
 
 
 # ── _condition_emoji ─────────────────────────────────────────────────────────

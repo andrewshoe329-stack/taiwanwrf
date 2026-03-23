@@ -197,7 +197,8 @@ class TestRecommend:
 
     def test_sail_only(self):
         text, bg = _recommend(self._sail('🟢', 'Good'), self._surf('😴', 'Flat'), 'Fulong')
-        assert text == '⛵ Go sailing'
+        assert '⛵' in text and 'Go sailing' in text
+        assert '適合航行' in text  # bilingual Chinese
         assert bg == '#0d2d1a'
 
     def test_fire_surf_no_sail(self):
@@ -211,11 +212,12 @@ class TestRecommend:
 
     def test_marginal_sail_only(self):
         text, bg = _recommend(self._sail('🟡', 'Marginal'), self._surf('😴', 'Flat'), 'Fulong')
-        assert 'Marginal sailing' in text
+        assert 'Marginal sailing' in text or '勉強可航行' in text
 
     def test_stay_home(self):
         text, bg = _recommend(self._sail('🔴', 'No-go'), self._surf('🔴', 'Poor'), 'Fulong')
-        assert text == '🔴 Stay home'
+        assert '🔴' in text and 'Stay home' in text
+        assert '建議留港' in text  # bilingual Chinese
         assert bg == '#3d1515'
 
 

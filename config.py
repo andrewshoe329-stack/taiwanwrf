@@ -185,10 +185,13 @@ def sail_rating(
         'max_w': max_wind, 'max_g': max_gust, 'max_hs': max_hs,
     }
     if no_go:
-        return {**base, 'label': '🔴 No-go', 'emoji': '🔴',
+        return {**base, 'label': '🔴 No-go', 'label_en': 'No-go',
+                'label_zh': '不宜出海', 'emoji': '🔴',
                 'bg': THEME['danger_bg'], 'col': THEME['danger_text']}
     if marginal:
-        return {**base, 'label': '🟡 Marginal', 'emoji': '🟡',
+        return {**base, 'label': '🟡 Marginal', 'label_en': 'Marginal',
+                'label_zh': '勉強', 'emoji': '🟡',
                 'bg': THEME['warn_bg'], 'col': THEME['warn_text']}
-    return {**base, 'label': '🟢 Good', 'emoji': '🟢',
+    return {**base, 'label': '🟢 Good', 'label_en': 'Good',
+            'label_zh': '適航', 'emoji': '🟢',
             'bg': THEME['good_bg'], 'col': THEME['good_text']}
