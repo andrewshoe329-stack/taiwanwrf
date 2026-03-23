@@ -948,14 +948,10 @@ a:focus-visible {
 .rating-pill[data-level="danger"]  { border-left: 3px solid var(--danger-text); }
 
 /* ── Language toggle ──────────────────────────────────────────────────── */
-/* Hide inactive language: default is English */
-html:not([lang="zh"]) [lang="zh"] { display: none; }
-html[lang="zh"] [lang="en"] { display: none; }
-
-/* Ensure bilingual spans are inline */
-[lang="en"], [lang="zh"] { display: inline; }
-html:not([lang="zh"]) [lang="zh"],
-html[lang="zh"] [lang="en"] { display: none !important; }
+/* Hide inactive language spans. Default is English (html lang="en").
+   Only two rules needed — !important ensures override of any inline styles. */
+html:not([lang="zh"]) [lang="zh"] { display: none !important; }
+html[lang="zh"] [lang="en"]       { display: none !important; }
 
 .lang-toggle {
   cursor: pointer;
