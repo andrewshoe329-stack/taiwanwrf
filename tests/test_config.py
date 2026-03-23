@@ -1,6 +1,6 @@
 """Tests for config.py shared constants and utilities."""
 
-from config import KEELUNG_LAT, KEELUNG_LON, COMPASS_NAMES, deg_to_compass, norm_utc, setup_logging
+from config import KEELUNG_LAT, KEELUNG_LON, COMPASS_NAMES, deg_to_compass, norm_utc, setup_logging, sail_rating
 
 
 def test_keelung_coordinates_in_range():
@@ -64,3 +64,48 @@ class TestNormUtc:
 
     def test_z_suffix_no_seconds(self):
         assert norm_utc('2026-03-22T06:00Z') == '2026-03-22T06:00:00+00:00'
+
+
+# ── sail_rating ──────────────────────────────────────────────────────────
+
+class TestSailRating:
+    def test_good_conditions(self):
+        r = sail_rating(10, 15, 0.5, 2)
+        assert '🟢' in r['label']
+        assert r['emoji'] == '🟢'
+        assert r['max_w'] == 10
+
+    def test_marginal_wind(self):
+        r = sail_rating(25, 30, 1.0, 5)
+        assert 'Marginal' in r['label']
+        assert r['emoji'] == '🟡'
+
+    def test_marginal_rain(self):
+        r = sail_rating(10, 15, 0.5, 20)
+        assert 'Marginal' in r['label']
+
+    def test_marginal_waves(self):
+        r = sail_rating(10, 15, 1.8, 2)
+        assert 'Marginal' in r['label']
+
+    def test_nogo_gust(self):
+        r = sail_rating(20, 40, 0.5, 0)
+        assert r['label'] == '🔴 No-go'
+        assert r['emoji'] == '🔴'
+
+    def test_nogo_wind(self):
+        r = sail_rating(30, 20, 0.5, 0)
+        assert 'No-go' in r['label']
+
+    def test_nogo_waves(self):
+        r = sail_rating(10, 15, 3.0, 0)
+        assert 'No-go' in r['label']
+
+    def test_none_values(self):
+        r = sail_rating(None, None, None, 0)
+        assert '🟢' in r['label']
+
+    def test_returns_dict_keys(self):
+        r = sail_rating(10, 15, 0.5, 2)
+        for key in ('label', 'emoji', 'bg', 'col', 'max_w', 'max_g', 'max_hs'):
+            assert key in r

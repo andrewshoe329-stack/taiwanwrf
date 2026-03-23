@@ -142,6 +142,24 @@ class TestRenderHtml:
         html = render_html("")
         assert "AI Forecast Summary" in html
 
+    def test_section_id(self):
+        html = render_html("test")
+        assert 'id="summary"' in html
+
+    def test_has_section_class(self):
+        html = render_html("test")
+        assert 'class="section"' in html
+
+    def test_disclaimer_present(self):
+        html = render_html("test")
+        assert "ai-disclaimer" in html
+
+    def test_multiline_summary(self):
+        text = "Line one.\nLine two.\nLine three."
+        html = render_html(text)
+        assert "Line one." in html
+        assert "Line three." in html
+
 
 # ── SYSTEM_PROMPT ────────────────────────────────────────────────────────────
 

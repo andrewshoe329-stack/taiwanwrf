@@ -13,7 +13,7 @@ import argparse, json, logging, time, urllib.request, urllib.parse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone, timedelta
 
-from config import KEELUNG_LAT, KEELUNG_LON, deg_to_compass, setup_logging
+from config import KEELUNG_LAT, KEELUNG_LON, deg_to_compass, setup_logging, sail_rating
 
 log = logging.getLogger(__name__)
 
@@ -309,14 +309,7 @@ def sail_day_rating(day_recs: list[dict]) -> dict[str, object]:
     max_g  = max((r.get('gust')   or 0) for r in day_recs)
     max_hs = max((r.get('hs')     or 0) for r in day_recs)
     tot_r  = sum((r.get('rain6h') or 0) for r in day_recs)
-    if max_g >= 34 or max_w >= 28 or max_hs >= 2.5:
-        return {'label': '🔴 No-go',   'emoji': '🔴', 'bg': '#3d1515', 'col': '#fc8181',
-                'max_w': max_w, 'max_g': max_g, 'max_hs': max_hs}
-    if max_g >= 22 or max_w >= 17 or max_hs >= 1.5 or tot_r >= 15:
-        return {'label': '🟡 Marginal', 'emoji': '🟡', 'bg': '#3d2e00', 'col': '#fbd38d',
-                'max_w': max_w, 'max_g': max_g, 'max_hs': max_hs}
-    return {'label': '🟢 Good',    'emoji': '🟢', 'bg': '#0d2d1a', 'col': '#68d391',
-            'max_w': max_w, 'max_g': max_g, 'max_hs': max_hs}
+    return sail_rating(max_w, max_g, max_hs, tot_r)
 
 
 def _recommend(sail_rat: dict, best_surf_rat: dict, best_surf_name: str) -> tuple[str, str]:
@@ -348,6 +341,62 @@ def _recommend(sail_rat: dict, best_surf_rat: dict, best_surf_name: str) -> tupl
     if marg_surf:
         return f'🟡 Maybe surf: {best_surf_name}', '#3d2e00'
     return '🔴 Stay home', '#3d1515'
+
+
+# ── Planner JSON output ────────────────────────────────────────────────────
+
+def generate_planner_json(all_spot_data: list[dict], keelung_records: list = None) -> dict:
+    """
+    Generate machine-readable planner data for each day.
+    Returns dict: {"days": {"2026-03-22": {"sail": {...}, "best_surf": {...}, "recommendation": {...}}, ...}}
+    """
+    all_dks = sorted({r['dk'] for sd in all_spot_data for r in sd['records']})
+
+    keelung_by_day = {}
+    if keelung_records:
+        for r in keelung_records:
+            keelung_by_day.setdefault(r['dk'], []).append(r)
+
+    surf_by_day_spot = {}
+    for sd in all_spot_data:
+        by_day = {}
+        for r in sd['records']:
+            by_day.setdefault(r['dk'], []).append(r)
+        for dk, recs in by_day.items():
+            surf_by_day_spot.setdefault(dk, []).append((sd['spot'], recs))
+
+    days = {}
+    for dk in all_dks:
+        sail_recs = keelung_by_day.get(dk, [])
+        sail_rat = sail_day_rating(sail_recs)
+
+        best_surf_rat = {'label': '—', 'emoji': '😴', 'bg': '#1a2236', 'col': '#475569'}
+        best_surf_name = '—'
+        rank_order = {'🔥': 4, '🟢': 3, '🟡': 2, '🔴': 1, '😴': 0, '❓': 0}
+        best_rank = -1
+        for spot, recs in surf_by_day_spot.get(dk, []):
+            rat = day_rating(recs, spot)
+            rank = rank_order.get(rat['emoji'], 0)
+            if rank > best_rank:
+                best_rank = rank
+                best_surf_rat = rat
+                best_surf_name = spot['name'].split()[0]
+
+        rec_text, rec_bg = _recommend(sail_rat, best_surf_rat, best_surf_name)
+
+        days[dk] = {
+            'sail': sail_rat,
+            'best_surf': {
+                'spot': best_surf_name,
+                'label': best_surf_rat['label'],
+                'emoji': best_surf_rat['emoji'],
+                'bg': best_surf_rat['bg'],
+                'col': best_surf_rat['col'],
+            },
+            'recommendation': {'text': rec_text, 'bg': rec_bg},
+        }
+
+    return {'days': days}
 
 
 # ── HTML generation ────────────────────────────────────────────────────────
@@ -623,14 +672,17 @@ def _generate_planner_html(all_spot_data: list[dict], keelung_records: list = No
 
 def generate_full_html(all_spot_data: list[dict], keelung_records: list = None) -> str:
     """
-    Full HTML: Daily Activity Planner + 7-spot rating matrix
-    + per-spot hourly detail tables + legend.
+    Full HTML: 7-spot rating matrix + per-spot hourly detail tables + legend.
+    The planner data is now output as JSON (generate_planner_json) and merged
+    into the unified day cards by wrf_analyze.py.
     """
-    # Start with the planner section
-    html = _generate_planner_html(all_spot_data, keelung_records=keelung_records)
-
     now_cst = datetime.now(timezone.utc) + timedelta(hours=8)
+    gen_str = now_cst.strftime('%Y-%m-%d %H:%M CST')
     all_dks = sorted({r['dk'] for sd in all_spot_data for r in sd['records']})
+
+    html = '<section id="spots" class="section surf-section">\n'
+    html += '<h2 class="section-title"><span role="img" aria-label="Surfer">🏄</span> Surf Spots</h2>\n'
+    html += f'<p class="section-subtitle">Generated {gen_str} · Data: ECMWF IFS025 + GFS + ECMWF WAM (Open-Meteo)</p>\n'
 
     # ── Rating matrix ──────────────────────────────────────────────────────
     html += '<div id="matrix" style="overflow-x:auto">\n'
@@ -754,7 +806,7 @@ def generate_full_html(all_spot_data: list[dict], keelung_records: list = None) 
              'B5 17-21kt fresh · B6 22-27kt strong · B7 28-33kt near-gale · B8+ ≥34kt gale'
              '</div>\n')
 
-    html += '</section>\n'  # close surf section
+    html += '</section>\n'  # close spots section
     return html
 
 
@@ -763,6 +815,8 @@ def main() -> None:
     ap = argparse.ArgumentParser(description='Taiwan surf forecast')
     ap.add_argument('--output', default='surf_forecast.html',
                     help='Output HTML path (default: surf_forecast.html)')
+    ap.add_argument('--output-json', default=None,
+                    help='Output planner JSON path (optional, for unified day cards)')
     args = ap.parse_args()
 
     # ── Fetch all spots in parallel (Keelung sailing + 7 surf spots) ─────
@@ -815,6 +869,13 @@ def main() -> None:
     with open(args.output, 'w', encoding='utf-8') as f:
         f.write(html_full)
     log.info("Wrote %s (%s chars)", args.output, f"{len(html_full):,}")
+
+    if args.output_json:
+        import json as json_mod
+        planner_data = generate_planner_json(all_spot_data, keelung_records=keelung_records)
+        with open(args.output_json, 'w', encoding='utf-8') as f:
+            json_mod.dump(planner_data, f, ensure_ascii=False, indent=2)
+        log.info("Wrote planner JSON: %s", args.output_json)
 
 if __name__ == '__main__':
     setup_logging()

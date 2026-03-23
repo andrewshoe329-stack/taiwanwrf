@@ -174,10 +174,21 @@ jobs:
             printf '</pre></details>\n'
           } > /tmp/grib_vars_wrapped.html
 
+      # ── Generate surf forecast & planner JSON ───────────────────────────────
+      # Fetches ECMWF + marine data for all 7 surf spots plus Keelung sailing.
+      # Outputs: surf_forecast.html (spots section) + surf_planner.json (for day cards).
+      # Runs BEFORE wrf_analyze so the planner JSON is available for unified day cards.
+      - name: Generate surf forecast
+        id: surf
+        if: steps.stale_check.outputs.is_new == 'true'
+        timeout-minutes: 10
+        run: |
+          python surf_forecast.py --output surf_forecast.html --output-json surf_planner.json
+
       # ── Run GRIB2 point-forecast analysis ────────────────────────────────────
       # Reads the Keelung subset .grb2 files, extracts the point forecast,
       # diffs against the previous run, and writes forecast.html.
-      # Includes: WRF vs ECMWF atmospheric comparison, and wave forecast section.
+      # Consumes surf_planner.json to build unified day cards (sailing + surf).
       - name: Analyze Keelung forecast
         id: analyze
         if: steps.stale_check.outputs.is_new == 'true'
@@ -200,25 +211,23 @@ jobs:
           if [ -f tide_keelung.json ]; then
             TIDE_ARG="--tide-json tide_keelung.json"
           fi
+          SURF_ARG=""
+          if [ -f surf_planner.json ]; then
+            SURF_ARG="--surf-json surf_planner.json"
+          fi
           python wrf_analyze.py \
             --rundir "$RUNDIR" \
             $PREV_ARG \
             $ECMWF_ARG \
             $WAVE_ARG \
             $TIDE_ARG \
+            $SURF_ARG \
             --output-json keelung_summary_new.json \
             --output-html forecast.html
-
-      # ── Generate surf forecast & daily planner ────────────────────────────────
-      # Fetches ECMWF + marine data for all 7 surf spots plus Keelung sailing,
-      # writes surf_forecast.html, then appends it to forecast.html.
-      - name: Generate surf forecast
-        id: surf
-        if: steps.stale_check.outputs.is_new == 'true'
-        timeout-minutes: 10
-        run: |
-          python surf_forecast.py --output surf_forecast.html
-          cat surf_forecast.html >> forecast.html
+          # Append surf spots HTML to forecast
+          if [ -f surf_forecast.html ]; then
+            cat surf_forecast.html >> forecast.html
+          fi
 
       # ── Generate AI forecast summary ──────────────────────────────────────────
       # Calls Anthropic API to produce a plain-English narrative from the
@@ -325,8 +334,9 @@ jobs:
               </h1>
               <nav class="site-nav" aria-label="Main navigation">
                 <a href="#summary">Summary</a>
-                <a href="#forecast">Forecast</a>
-                <a href="#surf">Surf</a>
+                <a href="#week">This Week</a>
+                <a href="#spots">Spots</a>
+                <a href="#detail">Detail</a>
               </nav>
             </div>
             <div class="timestamp-bar">
