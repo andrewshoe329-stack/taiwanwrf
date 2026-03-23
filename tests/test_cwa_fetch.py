@@ -8,11 +8,12 @@ from cwa_fetch import (
     fetch_station_obs, fetch_buoy_obs, fetch_all, fetch_all_buoys,
     fetch_tide_obs, fetch_tide_forecast, fetch_township_forecast,
     fetch_warnings, find_nearest_buoy,
-    _parse_buoy_station, _haversine_km,
+    _parse_buoy_station, _haversine_km, _fetch_marine_stations,
     KEELUNG_STATION_ID, KEELUNG_BUOY_IDS,
     CWA_BASE, STATION_ENDPOINT, WAVE_BUOY_ENDPOINT,
     TIDE_OBS_ENDPOINT, TIDE_FORECAST_ENDPOINT,
     TOWNSHIP_FORECAST_ENDPOINT, WARNING_ENDPOINT,
+    MARINE_OBS_ENDPOINT,
 )
 
 
@@ -162,17 +163,27 @@ class TestFetchAll:
     @patch('cwa_fetch.fetch_warnings')
     @patch('cwa_fetch.fetch_township_forecast')
     @patch('cwa_fetch.fetch_tide_forecast')
-    @patch('cwa_fetch.fetch_tide_obs')
-    @patch('cwa_fetch.fetch_all_buoys')
+    @patch('cwa_fetch._fetch_marine_stations')
     @patch('cwa_fetch.fetch_station_obs')
-    def test_returns_combined(self, mock_station, mock_all_buoys, mock_tide,
-                               mock_tide_fc, mock_township, mock_warn):
+    def test_returns_combined(self, mock_station, mock_marine, mock_tide_fc,
+                               mock_township, mock_warn):
         mock_station.return_value = {"temp_c": 22.5, "obs_time": "2026-03-23T06:00:00+00:00"}
-        mock_all_buoys.return_value = [
-            {"buoy_id": "46694A", "buoy_name": "龍洞", "wave_height_m": 1.2,
-             "obs_time": "2026-03-23T06:00:00+00:00", "lat": 25.1, "lon": 121.9},
+        # Marine stations include a buoy with wave data
+        mock_marine.return_value = [
+            {
+                "StationId": "46694A",
+                "StationName": "龍洞",
+                "ObsTime": {"DateTime": "2026-03-23T14:00:00+08:00"},
+                "GeoInfo": {"Latitude": "25.1", "Longitude": "121.9"},
+                "WeatherElement": {
+                    "SignificantWaveHeight": "1.2",
+                    "MeanWavePeriod": "8.5",
+                    "MeanWaveDirection": "45",
+                    "PeakWavePeriod": "12.3",
+                    "SeaTemperature": "21.5",
+                },
+            },
         ]
-        mock_tide.return_value = None
         mock_tide_fc.return_value = []
         mock_township.return_value = None
         mock_warn.return_value = []
@@ -185,14 +196,12 @@ class TestFetchAll:
     @patch('cwa_fetch.fetch_warnings')
     @patch('cwa_fetch.fetch_township_forecast')
     @patch('cwa_fetch.fetch_tide_forecast')
-    @patch('cwa_fetch.fetch_tide_obs')
-    @patch('cwa_fetch.fetch_all_buoys')
+    @patch('cwa_fetch._fetch_marine_stations')
     @patch('cwa_fetch.fetch_station_obs')
-    def test_handles_partial_failure(self, mock_station, mock_all_buoys, mock_tide,
+    def test_handles_partial_failure(self, mock_station, mock_marine,
                                       mock_tide_fc, mock_township, mock_warn):
         mock_station.return_value = {"temp_c": 22.5, "obs_time": "2026-03-23T06:00:00+00:00"}
-        mock_all_buoys.return_value = []
-        mock_tide.return_value = None
+        mock_marine.return_value = []  # no marine stations
         mock_tide_fc.return_value = []
         mock_township.return_value = None
         mock_warn.return_value = []

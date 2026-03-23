@@ -206,7 +206,7 @@ Scoring system (0–14 max) evaluates each 6h timestep:
 | Service | Usage | Auth |
 |---------|-------|------|
 | CWA S3 (`cwaopendata.s3.ap-northeast-1.amazonaws.com`) | WRF GRIB2 files | Public, no auth |
-| CWA Open Data (`opendata.cwa.gov.tw`) | Station + buoy + tide obs + weather warnings | `CWA_OPENDATA_KEY` secret (optional) |
+| CWA Open Data (`opendata.cwa.gov.tw`) | Station + marine obs + tide forecast + township forecast + warnings | `CWA_OPENDATA_KEY` secret (optional) |
 | Open-Meteo (`api.open-meteo.com`) | ECMWF IFS, GFS forecasts | Free, no key, 10k req/day |
 | Open-Meteo Marine (`marine-api.open-meteo.com`) | ECMWF WAM wave data | Free, no key |
 | Anthropic API | AI forecast summary | `ANTHROPIC_API_KEY` secret |
@@ -214,6 +214,24 @@ Scoring system (0–14 max) evaluates each 6h timestep:
 | Telegram Bot API (`api.telegram.org`) | Push alerts | `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` (optional) |
 | Google Drive (via rclone) | Archive storage + persistent summary.json + accuracy_log.json | `RCLONE_CONFIG` secret |
 | Vercel | Static site hosting | `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` |
+
+### CWA Open Data Endpoint IDs
+
+All endpoints use base URL `https://opendata.cwa.gov.tw/api/v1/rest/datastore/{ID}`.
+
+| Endpoint ID | Chinese Name | Usage in cwa_fetch.py |
+|-------------|-------------|----------------------|
+| **O-A0001-001** | 氣象觀測站-全測站逐時氣象資料 | `STATION_ENDPOINT` — surface weather obs (all stations) |
+| **O-A0003-001** | 氣象觀測站-10分鐘綜觀氣象資料 | `STATION_HOURLY_ENDPOINT` — 10-min conventional obs |
+| **O-A0002-001** | 雨量觀測站-雨量資料 | `RAIN_GAUGE_ENDPOINT` — automatic rain gauge |
+| **O-B0075-001** | 海象監測資料-48小時浮標站與潮位站海況監測資料 | `MARINE_OBS_ENDPOINT` — combined buoy + tide (48h). Replaces deprecated O-A0017-001 (tide), O-A0018-001 (buoy), O-A0019-001 (sea temp). Supports `StationID`, `timeFrom`/`timeTo` query params. |
+| O-B0075-002 | 海象監測資料-30天浮標站與潮位站海況監測資料 | Not used (30-day version of above) |
+| **F-A0021-001** | 潮汐預報-未來1個月潮汐預報 | `TIDE_FORECAST_ENDPOINT` — official tide forecast |
+| **F-D0047-049** | 鄉鎮天氣預報-基隆市未來3天天氣預報 | `TOWNSHIP_FORECAST_ENDPOINT` — Keelung 3-day forecast |
+| F-D0047-051 | 鄉鎮天氣預報-基隆市未來1週天氣預報 | Not used (1-week version) |
+| **W-C0033-002** | 天氣特報-各別天氣警特報之內容及所影響之區域 | `WARNING_ENDPOINT` — weather warnings & advisories |
+
+**Note on F-D0047 numbering:** Odd numbers are 3-day, even+1 are 1-week. Key city codes: 049=基隆市, 061=臺北市, 069=新北市. Full list at CWA Open Data portal.
 
 ---
 

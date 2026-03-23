@@ -37,16 +37,18 @@ STATION_ENDPOINT = "O-A0001-001"
 STATION_HOURLY_ENDPOINT = "O-A0003-001"
 # Automatic rain gauge — rainfall obs (denser network than weather stations)
 RAIN_GAUGE_ENDPOINT = "O-A0002-001"
-# Wave buoy observations (Hs, period, direction, water temp)
-# O-A0018-001 = 即時海況-海象海溫-浮標站監測資料 (buoy wave/temp data)
-WAVE_BUOY_ENDPOINT = "O-A0018-001"
-# Tide observations (actual sea level at coastal tide stations)
-# O-A0017-001 = 即時海況-潮位-沿岸潮位站監測資料 (coastal tide level)
-TIDE_OBS_ENDPOINT = "O-A0017-001"
+# Combined buoy + tide station sea condition monitoring (48h)
+# O-B0075-001 = 海象監測資料-48小時浮標站與潮位站海況監測資料
+# Replaces deprecated O-A0017-001 (tide), O-A0018-001 (buoy), O-A0019-001 (sea temp)
+MARINE_OBS_ENDPOINT = "O-B0075-001"
+# Aliases for backward compatibility in fetch_all_buoys / fetch_tide_obs
+WAVE_BUOY_ENDPOINT = MARINE_OBS_ENDPOINT
+TIDE_OBS_ENDPOINT = MARINE_OBS_ENDPOINT
 # Official CWA tide forecast — 1 month ahead (high/low times + heights)
 TIDE_FORECAST_ENDPOINT = "F-A0021-001"
-# Township weather forecast — 7-day (for Keelung-specific CWA forecast text)
-TOWNSHIP_FORECAST_ENDPOINT = "F-D0047-061"  # 061 = Keelung City
+# Township weather forecast — 3-day for Keelung City
+# Note: 049 = 基隆市 (Keelung), NOT 061 which is 臺北市 (Taipei)
+TOWNSHIP_FORECAST_ENDPOINT = "F-D0047-049"
 # Weather warnings & advisories
 WARNING_ENDPOINT = "W-C0033-002"
 
@@ -286,28 +288,50 @@ def fetch_buoy_obs(api_key: str,
     return find_nearest_buoy(all_buoys, KEELUNG_LAT, KEELUNG_LON)
 
 
-def fetch_all_buoys(api_key: str) -> list[dict]:
-    """
-    Fetch ALL available wave buoy observations from CWA.
+def _fetch_marine_stations(api_key: str) -> list[dict]:
+    """Fetch combined buoy + tide station data from O-B0075-001.
 
-    Returns a list of parsed buoy dicts, each with:
-        buoy_id, buoy_name, lat, lon, obs_time, wave_height_m, wave_period_s,
-        wave_dir, max_wave_height_m, peak_period_s, water_temp_c
+    Returns the raw list of Station dicts from the API response,
+    or an empty list on failure.
     """
     data = _cwa_get(
-        WAVE_BUOY_ENDPOINT, api_key,
-        label="CWA-WaveBuoy",
+        MARINE_OBS_ENDPOINT, api_key,
+        label="CWA-MarineObs",
     )
     if not data:
         return []
 
     try:
         records = data.get("records", {})
-        stations = records.get("Station", records.get("location", []))
+        stations = records.get("Station", records.get("location",
+                    records.get("SeaConditionStation", [])))
         if not stations:
-            log.warning("No buoy data in CWA response")
+            log.warning("No marine station data in CWA response")
             return []
+        if not isinstance(stations, list):
+            stations = [stations]
+        return stations
+    except Exception as e:
+        log.error("Failed to parse CWA marine response: %s", e)
+        return []
 
+
+def fetch_all_buoys(api_key: str,
+                    _stations: list[dict] | None = None) -> list[dict]:
+    """
+    Fetch ALL available wave buoy observations from CWA.
+
+    Returns a list of parsed buoy dicts, each with:
+        buoy_id, buoy_name, lat, lon, obs_time, wave_height_m, wave_period_s,
+        wave_dir, max_wave_height_m, peak_period_s, water_temp_c
+
+    Pass _stations to reuse pre-fetched marine data (avoids duplicate API call).
+    """
+    stations = _stations if _stations is not None else _fetch_marine_stations(api_key)
+    if not stations:
+        return []
+
+    try:
         buoys = []
         for stn in stations:
             parsed = _parse_buoy_station(stn)
@@ -365,28 +389,21 @@ def find_nearest_buoy(buoys: list[dict], lat: float, lon: float,
 # ── Tide observations ────────────────────────────────────────────────────────
 
 def fetch_tide_obs(api_key: str,
-                   station_id: str = KEELUNG_TIDE_STATION_ID) -> dict | None:
+                   station_id: str = KEELUNG_TIDE_STATION_ID,
+                   _stations: list[dict] | None = None) -> dict | None:
     """
     Fetch current tide (sea level) observations from a CWA tide station.
 
     Returns a dict with:
         station_id, obs_time, tide_height_m, station_name
+
+    Pass _stations to reuse pre-fetched marine data (avoids duplicate API call).
     """
-    data = _cwa_get(
-        TIDE_OBS_ENDPOINT, api_key,
-        label=f"CWA-Tide-{station_id}",
-    )
-    if not data:
+    stations = _stations if _stations is not None else _fetch_marine_stations(api_key)
+    if not stations:
         return None
 
     try:
-        records = data.get("records", {})
-        stations = records.get("Station", records.get("location",
-                    records.get("TideStation", records.get("tide", []))))
-        if not stations:
-            log.warning("No tide station data in CWA response")
-            return None
-
         # Find target station by ID or name
         target = None
         for stn in stations if isinstance(stations, list) else [stations]:
@@ -686,8 +703,10 @@ def fetch_all(api_key: str) -> dict:
     The 'township_forecast' key holds CWA's Keelung weather forecast text.
     """
     station = fetch_station_obs(api_key)
-    all_buoys = fetch_all_buoys(api_key)
-    tide = fetch_tide_obs(api_key)
+    # Fetch combined marine data once (O-B0075-001 has both buoy + tide)
+    marine_stations = _fetch_marine_stations(api_key)
+    all_buoys = fetch_all_buoys(api_key, _stations=marine_stations)
+    tide = fetch_tide_obs(api_key, _stations=marine_stations)
     tide_forecast = fetch_tide_forecast(api_key)
     township = fetch_township_forecast(api_key)
     warnings = fetch_warnings(api_key)
