@@ -4,8 +4,9 @@ import json
 from unittest.mock import patch, MagicMock
 
 from cwa_fetch import (
-    fetch_station_obs, fetch_buoy_obs, fetch_all,
-    fetch_tide_obs, fetch_warnings,
+    fetch_station_obs, fetch_buoy_obs, fetch_all, fetch_all_buoys,
+    fetch_tide_obs, fetch_warnings, find_nearest_buoy,
+    _parse_buoy_station, _haversine_km,
     KEELUNG_STATION_ID, KEELUNG_BUOY_IDS,
     CWA_BASE, STATION_ENDPOINT, WAVE_BUOY_ENDPOINT,
     TIDE_OBS_ENDPOINT, WARNING_ENDPOINT,
@@ -155,24 +156,37 @@ class TestFetchBuoyObs:
 
 
 class TestFetchAll:
-    @patch('cwa_fetch.fetch_buoy_obs')
+    @patch('cwa_fetch.fetch_warnings')
+    @patch('cwa_fetch.fetch_tide_obs')
+    @patch('cwa_fetch.fetch_all_buoys')
     @patch('cwa_fetch.fetch_station_obs')
-    def test_returns_combined(self, mock_station, mock_buoy):
+    def test_returns_combined(self, mock_station, mock_all_buoys, mock_tide, mock_warn):
         mock_station.return_value = {"temp_c": 22.5, "obs_time": "2026-03-23T06:00:00+00:00"}
-        mock_buoy.return_value = {"wave_height_m": 1.2, "obs_time": "2026-03-23T06:00:00+00:00"}
+        mock_all_buoys.return_value = [
+            {"buoy_id": "46694A", "buoy_name": "龍洞", "wave_height_m": 1.2,
+             "obs_time": "2026-03-23T06:00:00+00:00", "lat": 25.1, "lon": 121.9},
+        ]
+        mock_tide.return_value = None
+        mock_warn.return_value = []
         result = fetch_all("test-key")
         assert result["source"] == "CWA Open Data"
         assert result["station"]["temp_c"] == 22.5
         assert result["buoy"]["wave_height_m"] == 1.2
+        assert len(result["all_buoys"]) == 1
 
-    @patch('cwa_fetch.fetch_buoy_obs')
+    @patch('cwa_fetch.fetch_warnings')
+    @patch('cwa_fetch.fetch_tide_obs')
+    @patch('cwa_fetch.fetch_all_buoys')
     @patch('cwa_fetch.fetch_station_obs')
-    def test_handles_partial_failure(self, mock_station, mock_buoy):
+    def test_handles_partial_failure(self, mock_station, mock_all_buoys, mock_tide, mock_warn):
         mock_station.return_value = {"temp_c": 22.5, "obs_time": "2026-03-23T06:00:00+00:00"}
-        mock_buoy.return_value = None
+        mock_all_buoys.return_value = []
+        mock_tide.return_value = None
+        mock_warn.return_value = []
         result = fetch_all("test-key")
         assert result["station"] is not None
         assert result["buoy"] is None
+        assert result["all_buoys"] == []
 
 
 MOCK_TIDE_RESPONSE = {
@@ -270,18 +284,168 @@ class TestFetchWarnings:
 class TestFetchAllExpanded:
     @patch('cwa_fetch.fetch_warnings')
     @patch('cwa_fetch.fetch_tide_obs')
-    @patch('cwa_fetch.fetch_buoy_obs')
+    @patch('cwa_fetch.fetch_all_buoys')
     @patch('cwa_fetch.fetch_station_obs')
-    def test_returns_all_sources(self, mock_station, mock_buoy, mock_tide, mock_warnings):
+    def test_returns_all_sources(self, mock_station, mock_all_buoys, mock_tide, mock_warnings):
         mock_station.return_value = {"temp_c": 22.5, "obs_time": "2026-03-23T06:00:00+00:00"}
-        mock_buoy.return_value = {"wave_height_m": 1.2, "obs_time": "2026-03-23T06:00:00+00:00"}
+        mock_all_buoys.return_value = [
+            {"buoy_id": "46694A", "buoy_name": "龍洞", "wave_height_m": 1.2,
+             "obs_time": "2026-03-23T06:00:00+00:00", "lat": 25.1, "lon": 121.9},
+            {"buoy_id": "46708A", "buoy_name": "蘇澳", "wave_height_m": 0.8,
+             "obs_time": "2026-03-23T06:00:00+00:00", "lat": 24.6, "lon": 121.9},
+        ]
         mock_tide.return_value = {"tide_height_m": 0.85, "obs_time": "2026-03-23T06:00:00+00:00"}
         mock_warnings.return_value = [{"type": "Gale", "severity": "warning"}]
         result = fetch_all("test-key")
         assert result["station"] is not None
         assert result["buoy"] is not None
+        assert result["buoy"]["buoy_id"] == "46694A"  # primary = Keelung-area
+        assert len(result["all_buoys"]) == 2
         assert result["tide"] is not None
         assert len(result["warnings"]) == 1
+
+
+class TestHaversine:
+    def test_same_point(self):
+        assert _haversine_km(25.0, 121.0, 25.0, 121.0) == 0.0
+
+    def test_keelung_to_yilan(self):
+        # Keelung (25.15, 121.79) to Wushih (24.86, 121.92) ≈ 35 km
+        dist = _haversine_km(25.15, 121.79, 24.86, 121.92)
+        assert 30 < dist < 40
+
+    def test_short_distance(self):
+        # ~1 degree latitude ≈ 111 km
+        dist = _haversine_km(25.0, 121.0, 26.0, 121.0)
+        assert 110 < dist < 112
+
+
+class TestParseBuoyStation:
+    def test_parses_valid_station(self):
+        stn = {
+            "StationId": "46694A",
+            "StationName": "龍洞",
+            "ObsTime": {"DateTime": "2026-03-23T14:00:00+08:00"},
+            "GeoInfo": {"Latitude": "25.097", "Longitude": "121.925"},
+            "WeatherElement": {
+                "SignificantWaveHeight": {"value": "1.2"},
+                "MeanWavePeriod": {"value": "8.5"},
+                "MeanWaveDirection": {"value": "45"},
+                "PeakWavePeriod": {"value": "12.3"},
+                "SeaTemperature": {"value": "21.5"},
+            },
+        }
+        result = _parse_buoy_station(stn)
+        assert result is not None
+        assert result["buoy_id"] == "46694A"
+        assert result["wave_height_m"] == 1.2
+        assert result["lat"] == 25.097
+        assert result["lon"] == 121.925
+
+    def test_returns_none_for_no_wave_data(self):
+        stn = {
+            "StationId": "OTHER",
+            "StationName": "No Data",
+            "ObsTime": {"DateTime": "2026-03-23T14:00:00+08:00"},
+            "WeatherElement": {},
+        }
+        assert _parse_buoy_station(stn) is None
+
+
+class TestFindNearestBuoy:
+    def test_finds_closest(self):
+        buoys = [
+            {"buoy_id": "FAR", "buoy_name": "Far", "lat": 22.0, "lon": 120.0,
+             "wave_height_m": 1.0},
+            {"buoy_id": "NEAR", "buoy_name": "Near", "lat": 25.1, "lon": 121.9,
+             "wave_height_m": 1.5},
+        ]
+        result = find_nearest_buoy(buoys, 25.15, 121.79)  # Keelung
+        assert result is not None
+        assert result["buoy_id"] == "NEAR"
+
+    def test_respects_max_distance(self):
+        buoys = [
+            {"buoy_id": "FAR", "buoy_name": "Far", "lat": 22.0, "lon": 120.0,
+             "wave_height_m": 1.0},
+        ]
+        result = find_nearest_buoy(buoys, 25.15, 121.79, max_dist_km=50)
+        assert result is None  # >300km away, outside limit
+
+    def test_empty_list(self):
+        assert find_nearest_buoy([], 25.0, 121.0) is None
+
+    def test_fallback_no_coordinates(self):
+        buoys = [
+            {"buoy_id": "X", "buoy_name": "NoCoord", "wave_height_m": 1.0},
+        ]
+        result = find_nearest_buoy(buoys, 25.0, 121.0)
+        assert result is not None
+        assert result["buoy_id"] == "X"  # fallback to first
+
+    def test_multiple_buoys_for_surf_spots(self):
+        """Simulate finding nearest buoy for different surf spot locations."""
+        buoys = [
+            {"buoy_id": "46694A", "buoy_name": "龍洞", "lat": 25.097, "lon": 121.925,
+             "wave_height_m": 1.2},
+            {"buoy_id": "46708A", "buoy_name": "蘇澳", "lat": 24.63, "lon": 121.87,
+             "wave_height_m": 0.8},
+        ]
+        # Fulong (NE coast) should match Longdong
+        near_fulong = find_nearest_buoy(buoys, 25.019, 121.940)
+        assert near_fulong["buoy_id"] == "46694A"
+
+        # Chousui (southern Yilan) should match Suao
+        near_chousui = find_nearest_buoy(buoys, 24.820, 121.899)
+        assert near_chousui["buoy_id"] == "46708A"
+
+
+class TestFetchAllBuoys:
+    @patch('cwa_fetch.urllib.request.urlopen')
+    def test_parses_multiple_buoys(self, mock_open):
+        resp = {
+            "success": "true",
+            "records": {
+                "Station": [
+                    {
+                        "StationId": "46694A",
+                        "StationName": "龍洞",
+                        "ObsTime": {"DateTime": "2026-03-23T14:00:00+08:00"},
+                        "GeoInfo": {"Latitude": "25.097", "Longitude": "121.925"},
+                        "WeatherElement": {
+                            "SignificantWaveHeight": {"value": "1.2"},
+                            "MeanWavePeriod": {"value": "8.5"},
+                        },
+                    },
+                    {
+                        "StationId": "46708A",
+                        "StationName": "蘇澳",
+                        "ObsTime": {"DateTime": "2026-03-23T14:00:00+08:00"},
+                        "GeoInfo": {"Latitude": "24.63", "Longitude": "121.87"},
+                        "WeatherElement": {
+                            "SignificantWaveHeight": {"value": "0.8"},
+                            "MeanWavePeriod": {"value": "7.0"},
+                        },
+                    },
+                    {
+                        "StationId": "EMPTY",
+                        "StationName": "No Data",
+                        "ObsTime": {"DateTime": "2026-03-23T14:00:00+08:00"},
+                        "WeatherElement": {},
+                    },
+                ],
+            },
+        }
+        mock_open.return_value = _mock_urlopen(resp)
+        result = fetch_all_buoys("test-key")
+        assert len(result) == 2  # EMPTY filtered out (no Hs)
+        assert result[0]["buoy_id"] == "46694A"
+        assert result[1]["buoy_id"] == "46708A"
+
+    @patch('cwa_fetch.urllib.request.urlopen')
+    def test_handles_api_failure(self, mock_open):
+        mock_open.side_effect = Exception("Network error")
+        assert fetch_all_buoys("test-key") == []
 
 
 class TestConstants:

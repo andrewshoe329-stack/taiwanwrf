@@ -169,16 +169,31 @@ def build_user_prompt(wrf: dict, ecmwf: dict | None, wave: dict | None,
                 f"pressure={stn.get('pressure_hpa')}hPa, "
                 f"humidity={stn.get('humidity_pct')}%"
             )
-        buoy = cwa_obs.get('buoy')
-        if buoy and buoy.get('obs_time'):
-            obs_parts.append(
-                f"CWA wave buoy ({buoy.get('buoy_name', '?')}, "
-                f"{buoy.get('obs_time', '?')}): "
-                f"Hs={buoy.get('wave_height_m')}m, "
-                f"Tp={buoy.get('peak_period_s') or buoy.get('wave_period_s')}s, "
-                f"dir={buoy.get('wave_dir')}°, "
-                f"water temp={buoy.get('water_temp_c')}°C"
-            )
+        # Include all available buoys for per-spot context
+        all_buoys = cwa_obs.get('all_buoys', [])
+        if all_buoys:
+            for buoy in all_buoys:
+                if buoy.get('obs_time') and buoy.get('wave_height_m') is not None:
+                    obs_parts.append(
+                        f"CWA buoy {buoy.get('buoy_name', '?')} "
+                        f"({buoy.get('buoy_id', '?')}, "
+                        f"{buoy.get('obs_time', '?')}): "
+                        f"Hs={buoy.get('wave_height_m')}m, "
+                        f"Tp={buoy.get('peak_period_s') or buoy.get('wave_period_s')}s, "
+                        f"dir={buoy.get('wave_dir')}°, "
+                        f"water temp={buoy.get('water_temp_c')}°C"
+                    )
+        else:
+            buoy = cwa_obs.get('buoy')
+            if buoy and buoy.get('obs_time'):
+                obs_parts.append(
+                    f"CWA wave buoy ({buoy.get('buoy_name', '?')}, "
+                    f"{buoy.get('obs_time', '?')}): "
+                    f"Hs={buoy.get('wave_height_m')}m, "
+                    f"Tp={buoy.get('peak_period_s') or buoy.get('wave_period_s')}s, "
+                    f"dir={buoy.get('wave_dir')}°, "
+                    f"water temp={buoy.get('water_temp_c')}°C"
+                )
         warnings = cwa_obs.get('warnings', [])
         if warnings:
             for w in warnings[:3]:

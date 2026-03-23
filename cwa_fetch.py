@@ -176,95 +176,181 @@ def fetch_station_obs(api_key: str,
 
 # ── Wave buoy observations ──────────────────────────────────────────────────
 
+def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Approximate distance in km between two lat/lon points."""
+    import math
+    R = 6371  # Earth radius km
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = (math.sin(dlat / 2) ** 2
+         + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2))
+         * math.sin(dlon / 2) ** 2)
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def _parse_buoy_station(stn: dict) -> dict | None:
+    """Parse a single CWA buoy station record into a standardised dict."""
+    obs = (stn.get("WeatherElement") or stn.get("weatherElement") or {})
+    obs_time_raw = stn.get("ObsTime", {}).get("DateTime",
+                    stn.get("time", {}).get("obsTime", ""))
+
+    def _val(key):
+        v = obs.get(key)
+        if isinstance(v, dict):
+            v = v.get("value") or v.get("Value")
+        if v is None or v == "" or v == "-99" or v == "-99.0":
+            return None
+        try:
+            return float(v)
+        except (ValueError, TypeError):
+            return None
+
+    # Extract lat/lon if available (for distance calculations)
+    geo = stn.get("GeoInfo", stn.get("geoInfo", {}))
+    lat = None
+    lon = None
+    for key in ("Latitude", "latitude", "lat"):
+        v = geo.get(key) if isinstance(geo, dict) else None
+        if v is not None:
+            try:
+                lat = float(v)
+                break
+            except (ValueError, TypeError):
+                pass
+    for key in ("Longitude", "longitude", "lon"):
+        v = geo.get(key) if isinstance(geo, dict) else None
+        if v is not None:
+            try:
+                lon = float(v)
+                break
+            except (ValueError, TypeError):
+                pass
+
+    hs = _val("SignificantWaveHeight")
+    if hs is None:
+        return None  # buoy has no wave data
+
+    return {
+        "buoy_id": stn.get("StationId", stn.get("stationId", "")),
+        "buoy_name": stn.get("StationName", stn.get("locationName", "")),
+        "lat": lat,
+        "lon": lon,
+        "obs_time": norm_utc(obs_time_raw) if obs_time_raw else None,
+        "wave_height_m": hs,
+        "wave_period_s": _val("MeanWavePeriod"),
+        "wave_dir": _val("MeanWaveDirection"),
+        "max_wave_height_m": _val("MaximumWaveHeight"),
+        "peak_period_s": _val("PeakWavePeriod"),
+        "water_temp_c": _val("SeaTemperature"),
+    }
+
+
 def fetch_buoy_obs(api_key: str,
                    buoy_ids: list[str] | None = None) -> dict | None:
     """
     Fetch current wave buoy observations from CWA.
 
-    Returns a dict with:
+    Returns the primary (Keelung-area) buoy dict with:
         buoy_id, obs_time, wave_height_m, wave_period_s, wave_dir,
         water_temp_c
     """
     if buoy_ids is None:
         buoy_ids = KEELUNG_BUOY_IDS
 
+    all_buoys = fetch_all_buoys(api_key)
+    if not all_buoys:
+        return None
+
+    # Find primary buoy by ID match
+    for b in all_buoys:
+        if b["buoy_id"] in buoy_ids:
+            return b
+
+    # Fallback: name match
+    for b in all_buoys:
+        name = b.get("buoy_name", "")
+        if any(kw in name for kw in ("基隆", "龍洞", "Keelung", "Longdong",
+                                      "富貴角", "Fuguijiao")):
+            return b
+
+    # Last resort: find closest to Keelung
+    return find_nearest_buoy(all_buoys, KEELUNG_LAT, KEELUNG_LON)
+
+
+def fetch_all_buoys(api_key: str) -> list[dict]:
+    """
+    Fetch ALL available wave buoy observations from CWA.
+
+    Returns a list of parsed buoy dicts, each with:
+        buoy_id, buoy_name, lat, lon, obs_time, wave_height_m, wave_period_s,
+        wave_dir, max_wave_height_m, peak_period_s, water_temp_c
+    """
     data = _cwa_get(
         WAVE_BUOY_ENDPOINT, api_key,
         label="CWA-WaveBuoy",
     )
     if not data:
-        return None
+        return []
 
     try:
         records = data.get("records", {})
-        # The wave buoy endpoint returns a list of all buoy stations
         stations = records.get("Station", records.get("location", []))
         if not stations:
             log.warning("No buoy data in CWA response")
-            return None
+            return []
 
-        # Find our target buoy(s) — try each ID
-        target = None
+        buoys = []
         for stn in stations:
-            stn_id = stn.get("StationId", stn.get("stationId", ""))
-            stn_name = stn.get("StationName", stn.get("locationName", ""))
-            if stn_id in buoy_ids or any(bid in stn_name for bid in buoy_ids):
-                target = stn
-                break
+            parsed = _parse_buoy_station(stn)
+            if parsed:
+                buoys.append(parsed)
 
-        # If no exact match, find closest to Keelung by name
-        if target is None:
-            for stn in stations:
-                name = stn.get("StationName", stn.get("locationName", ""))
-                if any(kw in name for kw in ("基隆", "龍洞", "Keelung", "Longdong",
-                                              "富貴角", "Fuguijiao")):
-                    target = stn
-                    break
-
-        if target is None:
-            # Fall back to first station and log all available
-            avail = [f'{s.get("StationId","?")}:{s.get("StationName","?")}'
-                     for s in stations[:10]]
-            log.warning("No Keelung-area buoy found. Available: %s", avail)
-            return None
-
-        obs = (target.get("WeatherElement") or target.get("weatherElement") or {})
-        obs_time_raw = target.get("ObsTime", {}).get("DateTime",
-                        target.get("time", {}).get("obsTime", ""))
-
-        def _val(key):
-            v = obs.get(key)
-            if isinstance(v, dict):
-                v = v.get("value") or v.get("Value")
-            if v is None or v == "" or v == "-99" or v == "-99.0":
-                return None
-            try:
-                return float(v)
-            except (ValueError, TypeError):
-                return None
-
-        result = {
-            "buoy_id": target.get("StationId", target.get("stationId", "")),
-            "buoy_name": target.get("StationName", target.get("locationName", "")),
-            "obs_time": norm_utc(obs_time_raw) if obs_time_raw else None,
-            "wave_height_m": _val("SignificantWaveHeight"),
-            "wave_period_s": _val("MeanWavePeriod"),
-            "wave_dir": _val("MeanWaveDirection"),
-            "max_wave_height_m": _val("MaximumWaveHeight"),
-            "peak_period_s": _val("PeakWavePeriod"),
-            "water_temp_c": _val("SeaTemperature"),
-        }
-        log.info("CWA buoy %s: Hs=%.1fm T=%.1fs Dir=%.0f° Tw=%.1f°C",
-                 result["buoy_id"],
-                 result["wave_height_m"] or 0,
-                 result["wave_period_s"] or 0,
-                 result["wave_dir"] or 0,
-                 result["water_temp_c"] or 0)
-        return result
+        log.info("CWA: fetched %d wave buoys with valid data", len(buoys))
+        for b in buoys:
+            log.debug("  Buoy %s (%s): Hs=%.1fm lat=%s lon=%s",
+                      b["buoy_id"], b["buoy_name"],
+                      b["wave_height_m"] or 0,
+                      b.get("lat"), b.get("lon"))
+        return buoys
 
     except Exception as e:
         log.error("Failed to parse CWA buoy response: %s", e)
+        return []
+
+
+def find_nearest_buoy(buoys: list[dict], lat: float, lon: float,
+                      max_dist_km: float = 100) -> dict | None:
+    """
+    Find the nearest buoy to a given lat/lon from a list of parsed buoys.
+
+    Returns the closest buoy dict, or None if no buoy within max_dist_km.
+    Buoys without lat/lon coordinates are skipped for distance calculation
+    but still considered as fallback.
+    """
+    if not buoys:
         return None
+
+    best = None
+    best_dist = float('inf')
+
+    for b in buoys:
+        b_lat = b.get("lat")
+        b_lon = b.get("lon")
+        if b_lat is not None and b_lon is not None:
+            dist = _haversine_km(lat, lon, b_lat, b_lon)
+            if dist < best_dist:
+                best_dist = dist
+                best = b
+
+    if best and best_dist <= max_dist_km:
+        return best
+
+    if best is not None:
+        # All buoys had coordinates but none within max_dist_km
+        return None
+
+    # If no buoy has coordinates, return the first one with valid wave data
+    return buoys[0] if buoys else None
 
 
 # ── Tide observations ────────────────────────────────────────────────────────
@@ -418,17 +504,39 @@ def fetch_warnings(api_key: str) -> list[dict]:
 # ── Combined fetch (for pipeline use) ────────────────────────────────────────
 
 def fetch_all(api_key: str) -> dict:
-    """Fetch station, buoy, tide, and warning observations. Returns combined dict."""
+    """Fetch station, buoy, tide, and warning observations. Returns combined dict.
+
+    The 'buoy' key holds the primary (Keelung-area) buoy.
+    The 'all_buoys' key holds every buoy with valid wave data,
+    enabling per-spot nearest-buoy lookups downstream.
+    """
     station = fetch_station_obs(api_key)
-    buoy = fetch_buoy_obs(api_key)
+    all_buoys = fetch_all_buoys(api_key)
     tide = fetch_tide_obs(api_key)
     warnings = fetch_warnings(api_key)
+
+    # Primary buoy: find Keelung-area match from the full list
+    buoy = None
+    for b in all_buoys:
+        if b["buoy_id"] in KEELUNG_BUOY_IDS:
+            buoy = b
+            break
+    if buoy is None:
+        for b in all_buoys:
+            name = b.get("buoy_name", "")
+            if any(kw in name for kw in ("基隆", "龍洞", "Keelung", "Longdong",
+                                          "富貴角", "Fuguijiao")):
+                buoy = b
+                break
+    if buoy is None and all_buoys:
+        buoy = find_nearest_buoy(all_buoys, KEELUNG_LAT, KEELUNG_LON)
 
     return {
         "source": "CWA Open Data",
         "fetched_utc": datetime.now(timezone.utc).isoformat(),
         "station": station,
         "buoy": buoy,
+        "all_buoys": all_buoys,
         "tide": tide,
         "warnings": warnings,
     }
