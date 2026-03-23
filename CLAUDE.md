@@ -89,7 +89,8 @@ Claude uses this to hedge language — e.g. "actual temps will likely be a degre
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `config.py` | ~194 | Shared constants: `KEELUNG_LAT/LON`, `COMPASS_NAMES`, `deg_to_compass()`, `norm_utc()`, `setup_logging()` |
+| `i18n.py` | ~230 | Bilingual translation infrastructure: `T()`, `T_str()`, `bilingual()`, `STRINGS` dict |
+| `config.py` | ~197 | Shared constants: `KEELUNG_LAT/LON`, `COMPASS_NAMES`, `deg_to_compass()`, `norm_utc()`, `setup_logging()` |
 | `taiwan_wrf_download.py` | ~687 | Download CWA WRF GRIB2 from S3, subset with eccodes, archive with tar.gz |
 | `wrf_analyze.py` | ~1606 | GRIB2 point extraction, derived fields, unified HTML table, daily summary cards |
 | `ecmwf_fetch.py` | ~274 | Fetch ECMWF IFS from Open-Meteo, 6-hourly conversion, GFS gust/vis backfill |
@@ -105,11 +106,25 @@ Claude uses this to hedge language — e.g. "actual temps will likely be a degre
 | `pwa/` | 5 files | PWA manifest, service worker, icon generator, icons, styles.css |
 | `vercel.json` | ~8 | Static site config (rewrites `/` → `/index.html`) |
 | `requirements.txt` | ~6 | `eccodes>=1.5,<2`, `numpy>=1.24,<3`, `anthropic>=0.40,<1` |
-| `tests/` | 13 files, 291 tests | Unit tests for pure functions (pytest) |
+| `tests/` | 14 files, 304 tests | Unit tests for pure functions (pytest) |
 
 ---
 
 ## Key Design Decisions
+
+### Bilingual i18n (`i18n.py`)
+The site is fully bilingual English/Traditional Chinese. All user-visible strings are centralised in `i18n.py`:
+- `STRINGS` dict maps keys → `{'en': '...', 'zh': '...'}` (80+ keys)
+- `T(key)` → returns `<span lang="en">English</span><span lang="zh">中文</span>` for HTML
+- `T_str(key, 'en'|'zh')` → plain string for a specific language (prompts, notifications)
+- `bilingual(en, zh)` → inline one-off pair for strings not worth a named key
+- CSS rule `html:not([lang="zh"]) [lang="zh"] { display: none }` hides inactive language
+- JS toggle in page header switches `<html lang>` and saves to `localStorage`
+- Browser auto-detection: `navigator.language` starting with `zh` → Chinese default
+- **Not translated:** units (kt, m, °C, hPa), compass dirs, model names, Beaufort codes
+- AI summary: Claude generates both languages in one API call, separated by `---`
+
+**To add a new translatable string:** Add a key to `STRINGS` in `i18n.py`, then use `T('key')` in HTML generators.
 
 ### Shared Config (`config.py`)
 All scripts import coordinates, compass functions, and `norm_utc()` from here. **Do not duplicate these** — earlier bugs came from hardcoded coordinates and duplicated utility functions.

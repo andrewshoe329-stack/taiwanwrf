@@ -14,6 +14,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone, timedelta
 
 from config import KEELUNG_LAT, KEELUNG_LON, deg_to_compass, setup_logging, sail_rating
+from i18n import T, T_str, bilingual, SPOT_DESC_KEYS
 from tide_predict import predict_height, find_extrema, tide_state
 
 log = logging.getLogger(__name__)
@@ -33,6 +34,7 @@ SPOTS = [
         'opt_swell': ['N', 'NE', 'E'],
         'opt_tide':  'any',
         'desc': 'Rivermouth beach break · L&R · All levels',
+        'desc_zh': '河口沙灘浪型 · 左右跑 · 各級適合',
     },
     {
         'id': 'greenbay',
@@ -43,6 +45,7 @@ SPOTS = [
         'opt_swell': ['E', 'NE'],
         'opt_tide':  'any',
         'desc': 'Beach break · L&R · All levels',
+        'desc_zh': '沙灘浪型 · 左右跑 · 各級適合',
     },
     {
         'id': 'jinshan',
@@ -53,6 +56,7 @@ SPOTS = [
         'opt_swell': ['N', 'NNE', 'NE', 'E', 'ESE'],
         'opt_tide':  'mid',
         'desc': 'Beach/point · L&R · Mid tide · Beg–Inter',
+        'desc_zh': '沙灘/礁岩 · 左右跑 · 中潮 · 初學–中級',
     },
     {
         'id': 'daxi',
@@ -63,6 +67,7 @@ SPOTS = [
         'opt_swell': ['SE', 'SSE', 'S', 'E'],
         'opt_tide':  'mid-high',
         'desc': 'Half-moon beach break · L&R · Mid-high tide · Beg–Inter',
+        'desc_zh': '半月形沙灘 · 左右跑 · 中高潮 · 初學–中級',
     },
     {
         'id': 'wushih',
@@ -73,6 +78,7 @@ SPOTS = [
         'opt_swell': ['E', 'SE', 'SSE'],
         'opt_tide':  'mid',
         'desc': 'Beach break · L&R · Mid tide · All levels',
+        'desc_zh': '沙灘浪型 · 左右跑 · 中潮 · 各級適合',
     },
     {
         'id': 'doublelions',
@@ -83,6 +89,7 @@ SPOTS = [
         'opt_swell': ['ENE', 'E', 'SE', 'SSE'],
         'opt_tide':  'mid-high',
         'desc': 'Beach break · L&R · Mid-high tide · All levels',
+        'desc_zh': '沙灘浪型 · 左右跑 · 中高潮 · 各級適合',
     },
     {
         'id': 'chousui',
@@ -93,6 +100,7 @@ SPOTS = [
         'opt_swell': ['ENE', 'E', 'ESE'],
         'opt_tide':  'low-mid',
         'desc': 'Point break · Left · Low-mid tide · Intermediate+',
+        'desc_zh': '礁岩浪型 · 左跑 · 低中潮 · 中級以上',
     },
 ]
 
@@ -346,18 +354,21 @@ def day_rating(day_recs: list[dict], spot: dict,
       Tide match:      -1 to +1
     """
     if not day_recs:
-        return {'label': 'No data', 'emoji': '❓', 'bg': '#2d3748', 'col': '#718096',
+        return {'label': T_str('no_data', 'en'), 'label_key': 'no_data',
+                'emoji': '❓', 'bg': '#2d3748', 'col': '#718096',
                 'best_sw_hs': None, 'best_sw_tp': None, 'best_wind': None}
 
     max_sw_hs   = max((r.get('sw_hs') or 0) for r in day_recs)
     max_wind_kt = max((r.get('wind')  or 0) for r in day_recs)
 
     if max_sw_hs < MIN_SWELL_HEIGHT_M:
-        return {'label': 'Flat',      'emoji': '😴', 'bg': '#1a2236', 'col': '#475569',
+        return {'label': T_str('flat', 'en'), 'label_key': 'flat',
+                'emoji': '😴', 'bg': '#1a2236', 'col': '#475569',
                 'best_sw_hs': max_sw_hs, 'best_sw_tp': None, 'best_wind': max_wind_kt}
 
     if max_sw_hs > MAX_SWELL_HEIGHT_M or max_wind_kt > MAX_WIND_KT:
-        return {'label': 'Dangerous', 'emoji': '🔴', 'bg': '#3d1515', 'col': '#fc8181',
+        return {'label': T_str('dangerous', 'en'), 'label_key': 'dangerous',
+                'emoji': '🔴', 'bg': '#3d1515', 'col': '#fc8181',
                 'best_sw_hs': max_sw_hs, 'best_sw_tp': None, 'best_wind': max_wind_kt}
 
     # Score each timestep, keep the best
@@ -393,10 +404,10 @@ def day_rating(day_recs: list[dict], spot: dict,
     base = {'best_sw_hs': br.get('sw_hs'), 'best_sw_tp': br.get('sw_tp'),
              'best_wind': br.get('wind'), 'confidence': confidence}
 
-    if   best_score >= 9:  return {'label': 'Firing!',  'emoji': '🔥', 'bg': '#0d3320', 'col': '#48bb78', **base}
-    elif best_score >= 7:  return {'label': 'Good',     'emoji': '🟢', 'bg': '#0d2d1a', 'col': '#68d391', **base}
-    elif best_score >= 4:  return {'label': 'Marginal', 'emoji': '🟡', 'bg': '#3d2e00', 'col': '#fbd38d', **base}
-    else:                  return {'label': 'Poor',     'emoji': '🔴', 'bg': '#3d1515', 'col': '#fc8181', **base}
+    if   best_score >= 9:  return {'label': T_str('firing', 'en'), 'label_key': 'firing',  'emoji': '🔥', 'bg': '#0d3320', 'col': '#48bb78', **base}
+    elif best_score >= 7:  return {'label': T_str('good', 'en'),    'label_key': 'good',     'emoji': '🟢', 'bg': '#0d2d1a', 'col': '#68d391', **base}
+    elif best_score >= 4:  return {'label': T_str('marginal', 'en'), 'label_key': 'marginal', 'emoji': '🟡', 'bg': '#3d2e00', 'col': '#fbd38d', **base}
+    else:                  return {'label': T_str('poor', 'en'),    'label_key': 'poor',     'emoji': '🔴', 'bg': '#3d1515', 'col': '#fc8181', **base}
 
 
 def best_time_for_day(day_recs: list[dict], spot: dict) -> dict[str, object] | None:
@@ -500,6 +511,7 @@ def sail_day_rating(day_recs: list[dict]) -> dict[str, object]:
 def _recommend(sail_rat: dict, best_surf_rat: dict, best_surf_name: str) -> tuple[str, str]:
     """
     Returns (recommendation_text, background_colour) for the planner table.
+    recommendation_text contains bilingual spans.
     """
     sail_emoji = sail_rat['emoji']   # 🟢 🟡 🔴 ❓
     surf_emoji = best_surf_rat['emoji']  # 🔥 🟢 🟡 🔴 😴 ❓
@@ -510,22 +522,28 @@ def _recommend(sail_rat: dict, best_surf_rat: dict, best_surf_name: str) -> tupl
     marg_surf = surf_emoji == '🟡'
 
     if can_sail and fire_surf:
-        return f'⛵ Sail or 🏄 Surf: {best_surf_name}', '#0d2d1a'
+        return bilingual(f'⛵ Sail or 🏄 Surf: {best_surf_name}',
+                         f'⛵ 航行或 🏄 衝浪：{best_surf_name}'), '#0d2d1a'
     if can_sail and good_surf:
-        return f'⛵ Go sailing or 🏄 Surf: {best_surf_name}', '#0d2d1a'
+        return bilingual(f'⛵ Go sailing or 🏄 Surf: {best_surf_name}',
+                         f'⛵ 航行或 🏄 衝浪：{best_surf_name}'), '#0d2d1a'
     if can_sail:
-        return '⛵ Go sailing', '#0d2d1a'
+        return T('rec_sail'), '#0d2d1a'
     if fire_surf:
-        return f'🏄 Surf: {best_surf_name}', '#0d3320'
+        return bilingual(f'🏄 Surf: {best_surf_name}',
+                         f'🏄 衝浪：{best_surf_name}'), '#0d3320'
     if good_surf:
-        return f'🏄 Surf: {best_surf_name}', '#0d2d1a'
+        return bilingual(f'🏄 Surf: {best_surf_name}',
+                         f'🏄 衝浪：{best_surf_name}'), '#0d2d1a'
     if marg_sail and marg_surf:
-        return f'🟡 Marginal — maybe surf: {best_surf_name}', '#3d2e00'
+        return bilingual(f'🟡 Marginal — maybe surf: {best_surf_name}',
+                         f'🟡 勉強 — 或許可衝：{best_surf_name}'), '#3d2e00'
     if marg_sail:
-        return '🟡 Marginal sailing only', '#3d2e00'
+        return T('rec_marginal_sail'), '#3d2e00'
     if marg_surf:
-        return f'🟡 Maybe surf: {best_surf_name}', '#3d2e00'
-    return '🔴 Stay home', '#3d1515'
+        return bilingual(f'🟡 Maybe surf: {best_surf_name}',
+                         f'🟡 或許可衝浪：{best_surf_name}'), '#3d2e00'
+    return T('rec_stay_home'), '#3d1515'
 
 
 # ── Planner JSON output ────────────────────────────────────────────────────
@@ -822,10 +840,10 @@ def _generate_planner_html(all_spot_data: list[dict], keelung_records: list = No
     html += '<div style="overflow-x:auto">\n'
     html += ('<table class="planner-table">\n'
              '<thead><tr>'
-             '<th scope="col" style="text-align:left;min-width:90px">Day</th>'
-             '<th scope="col" style="min-width:110px">⛵ Keelung Sailing</th>'
-             '<th scope="col" style="min-width:130px">🏄 Best Surf Spot</th>'
-             '<th scope="col" style="min-width:160px">Recommendation</th>'
+             f'<th scope="col" style="text-align:left;min-width:90px">{T("planner_day")}</th>'
+             f'<th scope="col" style="min-width:110px">{T("planner_sailing")}</th>'
+             f'<th scope="col" style="min-width:130px">{T("planner_best_surf")}</th>'
+             f'<th scope="col" style="min-width:160px">{T("planner_rec")}</th>'
              '</tr></thead>\n<tbody>\n')
 
     for dk in all_dks:
@@ -859,13 +877,18 @@ def _generate_planner_html(all_spot_data: list[dict], keelung_records: list = No
         if max_w is not None:
             sail_detail = f'<small style="color:#64748b;display:block">{round(max_w)}/{round(max_g)}kt · {max_hs:.1f}m</small>'
 
+        # Bilingual labels for sail and surf ratings
+        sail_bi = f'{sail_rat["emoji"]} {bilingual(sail_rat.get("label_en", ""), sail_rat.get("label_zh", ""))}'
+        surf_label_key = best_surf_rat.get('label_key', '')
+        surf_bi = T(surf_label_key) if surf_label_key else best_surf_rat.get('label', '')
+
         html += (f'<tr>'
                  f'<td style="text-align:left;font-weight:700;color:#cbd5e1">{dlbl}</td>'
                  f'<td style="background:{sail_rat["bg"]};color:{sail_rat["col"]}">'
-                 f'{sail_rat["label"]}{sail_detail}</td>'
+                 f'{sail_bi}{sail_detail}</td>'
                  f'<td style="background:{best_surf_rat["bg"]};color:{best_surf_rat["col"]}">'
                  f'{best_surf_rat["emoji"]} {best_surf_name}'
-                 f'<small style="color:#64748b;display:block">{best_surf_rat["label"]}</small></td>'
+                 f'<small style="color:#64748b;display:block">{surf_bi}</small></td>'
                  f'<td style="background:{rec_bg};color:#e2e8f0;font-weight:600">{rec_text}</td>'
                  f'</tr>\n')
 
@@ -878,9 +901,9 @@ def _render_best_times(all_spot_data: list[dict], all_dks: list[str]) -> str:
     """Render a 'Best Time to Surf' section showing optimal window per spot per day."""
     html = '<div id="best-times" style="margin-bottom:20px">\n'
     html += '<h3 style="font-size:14px;font-weight:700;color:#93c5fd;margin:0 0 6px">'
-    html += 'Best Time to Surf</h3>\n'
+    html += f'{T("best_time_surf")}</h3>\n'
     html += '<p style="font-size:10px;color:#64748b;margin:0 0 8px">'
-    html += 'Optimal 6-hour window per spot per day · Tide heights from harmonic prediction (Keelung datum)</p>\n'
+    html += f'{T("best_time_desc")}</p>\n'
 
     for dk in all_dks:
         d = datetime.strptime(dk, '%Y-%m-%d')
@@ -909,16 +932,16 @@ def _render_best_times(all_spot_data: list[dict], all_dks: list[str]) -> str:
         html += '<div style="overflow-x:auto">\n'
         html += '<table class="detail-table" style="margin-bottom:4px">\n'
         html += ('<thead><tr>'
-                 '<th scope="col" style="text-align:left;min-width:100px">Spot</th>'
-                 '<th scope="col">Best Window</th>'
-                 '<th scope="col">Rating</th>'
-                 '<th scope="col" title="Swell height (m)">Swell</th>'
-                 '<th scope="col" title="Swell period (s)">Period</th>'
-                 '<th scope="col">Swell Dir</th>'
-                 '<th scope="col" title="Wind speed (kt)">Wind</th>'
-                 '<th scope="col">Wind Dir</th>'
-                 '<th scope="col" title="Tide height above chart datum">Tide</th>'
-                 '<th scope="col">Tide State</th>'
+                 f'<th scope="col" style="text-align:left;min-width:100px">{T("th_spot")}</th>'
+                 f'<th scope="col">{T("th_best_window")}</th>'
+                 f'<th scope="col">{T("th_rating")}</th>'
+                 f'<th scope="col" title="Swell height (m)">{T("th_swell")}</th>'
+                 f'<th scope="col" title="Swell period (s)">{T("th_period")}</th>'
+                 f'<th scope="col">{T("th_swell_dir")}</th>'
+                 f'<th scope="col" title="Wind speed (kt)">{T("th_wind")}</th>'
+                 f'<th scope="col">{T("th_wind_dir")}</th>'
+                 f'<th scope="col" title="Tide height above chart datum">{T("th_tide")}</th>'
+                 f'<th scope="col">{T("th_tide_state")}</th>'
                  '</tr></thead>\n<tbody>\n')
 
         row_i = 0
@@ -932,21 +955,23 @@ def _render_best_times(all_spot_data: list[dict], all_dks: list[str]) -> str:
             if bt is None:
                 # Flat / dangerous / no data
                 rating = day_rating(day_recs, spot)
+                label_key = rating.get('label_key', '')
+                bi_label = T(label_key) if label_key else rating['label']
                 html += (f'<tr class="{cls}">'
                          f'<td style="text-align:left;color:#94a3b8">{spot["name"]}</td>'
                          f'<td colspan="9" style="color:{rating["col"]};background:{rating["bg"]}">'
-                         f'{rating["emoji"]} {rating["label"]}</td></tr>\n')
+                         f'{rating["emoji"]} {bi_label}</td></tr>\n')
             else:
                 # Determine rating label from score
                 s = bt['score']
                 if s >= 9:
-                    rlbl, remoji, rbg, rcol = 'Firing!', '🔥', '#0d3320', '#48bb78'
+                    rlbl, remoji, rbg, rcol = T('firing'), '🔥', '#0d3320', '#48bb78'
                 elif s >= 7:
-                    rlbl, remoji, rbg, rcol = 'Good', '🟢', '#0d2d1a', '#68d391'
+                    rlbl, remoji, rbg, rcol = T('good'), '🟢', '#0d2d1a', '#68d391'
                 elif s >= 4:
-                    rlbl, remoji, rbg, rcol = 'Marginal', '🟡', '#3d2e00', '#fbd38d'
+                    rlbl, remoji, rbg, rcol = T('marginal'), '🟡', '#3d2e00', '#fbd38d'
                 else:
-                    rlbl, remoji, rbg, rcol = 'Poor', '🔴', '#3d1515', '#fc8181'
+                    rlbl, remoji, rbg, rcol = T('poor'), '🔴', '#3d1515', '#fc8181'
 
                 # Swell direction styling
                 sw_dir_str = bt['sw_dir_compass']
@@ -999,9 +1024,9 @@ def _render_rating_matrix(all_spot_data: list[dict], all_dks: list[str]) -> str:
     """Return the 7-day rating matrix table HTML."""
     html = '<div id="matrix" style="overflow-x:auto">\n'
     html += '<table class="matrix-table">\n'
-    html += '<caption class="c-muted" style="caption-side:top;text-align:left;font-size:10px;margin-bottom:4px">7-day surf spot ratings</caption>\n'
+    html += f'<caption class="c-muted" style="caption-side:top;text-align:left;font-size:10px;margin-bottom:4px">{T("rating_caption")}</caption>\n'
     html += '<thead><tr>'
-    html += '<th scope="col" class="spot-hdr">Spot</th>'
+    html += f'<th scope="col" class="spot-hdr">{T("th_spot")}</th>'
     for dk in all_dks:
         d = datetime.strptime(dk, '%Y-%m-%d')
         html += f'<th scope="col">{WKDAY[d.weekday()]}<br>{d.day} {MONTH[d.month-1]}</th>'
@@ -1015,16 +1040,19 @@ def _render_rating_matrix(all_spot_data: list[dict], all_dks: list[str]) -> str:
             by_day.setdefault(r['dk'], []).append(r)
 
         html += '<tr>'
+        spot_desc_bi = bilingual(spot["desc"], spot.get("desc_zh", spot["desc"]))
         html += (f'<td scope="row" class="spot-name">{spot["name"]}'
-                 f'<small>{spot["desc"]}</small></td>')
+                 f'<small>{spot_desc_bi}</small></td>')
 
         for dk in all_dks:
             day_recs = by_day.get(dk, [])
             rating   = day_rating(day_recs, spot)
             conf_tag = ' <span title="High model uncertainty" style="opacity:0.6">\u00b1</span>' \
                        if rating.get('confidence') == 'low' else ''
+            label_key = rating.get('label_key', '')
+            bi_label = T(label_key) if label_key else rating['label']
             html += (f'<td style="background:{rating["bg"]};color:{rating["col"]}">'
-                     f'<span role="img" aria-label="{rating["label"]}">{rating["emoji"]}</span> {rating["label"]}{conf_tag}</td>')
+                     f'<span role="img" aria-label="{rating["label"]}">{rating["emoji"]}</span> {bi_label}{conf_tag}</td>')
         html += '</tr>\n'
 
     html += '</tbody></table>\n</div>\n'
@@ -1039,20 +1067,20 @@ def _render_spot_detail(sd: dict) -> str:
         return ''
 
     html = f'<details id="spot-{spot["id"]}" class="detail-section">\n'
-    html += f'<summary class="detail-header">{spot["name"]} — Detailed Forecast</summary>\n'
+    html += f'<summary class="detail-header">{spot["name"]} — {T("detailed_forecast")}</summary>\n'
     html += '<div style="overflow-x:auto">\n'
     html += '<table class="detail-table">\n'
     html += ('<thead><tr>'
              '<th scope="col">CST</th>'
-             '<th scope="col">Rating</th>'
-             '<th scope="col" title="Swell wave height in metres">Swell m</th>'
-             '<th scope="col" title="Wave period in seconds — longer = more powerful">T s</th>'
-             '<th scope="col" title="Swell direction — where waves come from">Sw Dir</th>'
-             '<th scope="col" title="Significant wave height in metres (combined sea state)">Hs m</th>'
-             '<th scope="col" title="Wind speed in knots (1 kt = 1.85 km/h)">Wind kt</th>'
-             '<th scope="col" title="Wind direction — where wind blows from">W Dir</th>'
-             '<th scope="col" title="Maximum wind gust speed in knots">Gust</th>'
-             '<th scope="col" title="Tide height above chart datum">Tide</th>'
+             f'<th scope="col">{T("th_rating")}</th>'
+             f'<th scope="col" title="Swell wave height in metres">{T("th_swell_m")}</th>'
+             f'<th scope="col" title="Wave period in seconds — longer = more powerful">{T("th_t_s")}</th>'
+             f'<th scope="col" title="Swell direction — where waves come from">{T("th_sw_dir")}</th>'
+             f'<th scope="col" title="Significant wave height in metres (combined sea state)">{T("th_hs_m")}</th>'
+             f'<th scope="col" title="Wind speed in knots (1 kt = 1.85 km/h)">{T("th_wind_kt")}</th>'
+             f'<th scope="col" title="Wind direction — where wind blows from">{T("th_w_dir")}</th>'
+             f'<th scope="col" title="Maximum wind gust speed in knots">{T("th_gust_short")}</th>'
+             f'<th scope="col" title="Tide height above chart datum">{T("th_tide")}</th>'
              '</tr></thead>\n<tbody>\n')
 
     prev_dk = None
@@ -1119,19 +1147,19 @@ def _render_spot_detail(sd: dict) -> str:
 def _render_surf_legend() -> str:
     """Return the surf legend block HTML."""
     return ('<div class="legend-block">'
-            '<b>Surf conditions key:</b> '
-            '<span role="img" aria-label="Firing">🔥</span> Firing (optimal dir + good swell + light wind) · '
-            '<span role="img" aria-label="Good">🟢</span> Good · '
-            '<span role="img" aria-label="Marginal">🟡</span> Marginal · '
-            '<span role="img" aria-label="Poor or Dangerous">🔴</span> Poor/Dangerous · '
-            '<span role="img" aria-label="Flat">😴</span> Flat (&lt;0.25m swell)<br>'
-            'Direction ticks: <b class="c-good">✓ optimal</b> · '
-            '<span class="c-danger">✗ unfavourable</span><br>'
-            'Swell colour: <span class="c-good">green 0.6–2.5m</span> · '
+            f'<b>{T("surf_key")}:</b> '
+            f'<span role="img" aria-label="Firing">🔥</span> {T("surf_firing_desc")} · '
+            f'<span role="img" aria-label="Good">🟢</span> {T("good")} · '
+            f'<span role="img" aria-label="Marginal">🟡</span> {T("marginal")} · '
+            f'<span role="img" aria-label="Poor or Dangerous">🔴</span> {T("surf_poor_dangerous")} · '
+            f'<span role="img" aria-label="Flat">😴</span> {T("surf_flat_desc")}<br>'
+            f'{T("dir_ticks")}: <b class="c-good">✓ {T("dir_optimal")}</b> · '
+            f'<span class="c-danger">✗ {T("dir_unfavourable")}</span><br>'
+            f'{T("swell_colour")}: <span class="c-good">green 0.6–2.5m</span> · '
             '<span class="c-warn">amber &gt;2.5m</span> · '
             '<span class="c-danger">red &gt;3.5m</span><br>'
-            '<b>Wind (Beaufort):</b> B1-3 &lt;11kt gentle · B4 11-16kt moderate · '
-            'B5 17-21kt fresh · B6 22-27kt strong · B7 28-33kt near-gale · B8+ ≥34kt gale'
+            f'<b>{T("legend_wind")}:</b> {T("surf_bf_gentle")} · {T("surf_bf_moderate")} · '
+            f'{T("surf_bf_fresh")} · {T("surf_bf_strong")} · {T("surf_bf_near_gale")} · {T("surf_bf_gale")}'
             '</div>\n')
 
 
@@ -1146,7 +1174,7 @@ def generate_full_html(all_spot_data: list[dict], keelung_records: list = None) 
     all_dks = sorted({r['dk'] for sd in all_spot_data for r in sd['records']})
 
     html = '<section id="spots" class="section surf-section">\n'
-    html += '<h2 class="section-title"><span role="img" aria-label="Surfer">🏄</span> Surf Spots</h2>\n'
+    html += f'<h2 class="section-title"><span role="img" aria-label="Surfer">🏄</span> {T("surf_spots")}</h2>\n'
     html += f'<p class="section-subtitle">Generated {gen_str} · Data: ECMWF IFS025 + GFS + ECMWF WAM (Open-Meteo)</p>\n'
 
     # ── Best time to surf ─────────────────────────────────────────────────

@@ -131,9 +131,9 @@ class TestBuildUserPrompt:
 class TestRenderHtml:
     def test_basic_output(self):
         html = render_html("Light winds and small swells expected.")
-        assert "AI Forecast Summary" in html
+        assert "AI Forecast Summary" in html or "AI 預報摘要" in html
         assert "Light winds and small swells expected." in html
-        assert "Not a substitute for official marine forecasts" in html
+        assert "Not a substitute for official marine forecasts" in html or "不可取代官方海洋預報" in html
 
     def test_html_escaping(self):
         html = render_html('Wind <15kt & seas "calm"')
@@ -143,7 +143,7 @@ class TestRenderHtml:
 
     def test_empty_summary(self):
         html = render_html("")
-        assert "AI Forecast Summary" in html
+        assert "AI Forecast Summary" in html or "AI 預報摘要" in html
 
     def test_section_id(self):
         html = render_html("test")
@@ -162,6 +162,23 @@ class TestRenderHtml:
         html = render_html(text)
         assert "Line one." in html
         assert "Line three." in html
+
+    def test_bilingual_split(self):
+        """When response contains ---, it splits into en/zh sections."""
+        text = "English forecast here.\n---\n中文預報在這裡。"
+        html = render_html(text)
+        assert 'lang="en"' in html
+        assert 'lang="zh"' in html
+        assert "English forecast here." in html
+        assert "中文預報在這裡。" in html
+
+    def test_no_separator_fallback(self):
+        """Without --- separator, entire text is treated as single content."""
+        text = "English only forecast."
+        html = render_html(text)
+        assert "English only forecast." in html
+        # Should not have separate lang="zh" content div
+        assert html.count('lang="zh"') <= 2  # only from T() title/disclaimer, not content
 
 
 # ── SYSTEM_PROMPT ────────────────────────────────────────────────────────────

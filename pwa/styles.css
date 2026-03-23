@@ -946,3 +946,30 @@ a:focus-visible {
 .rating-pill[data-level="good"]    { border-left: 3px solid var(--good-text); }
 .rating-pill[data-level="warn"]    { border-left: 3px solid var(--warn-text); }
 .rating-pill[data-level="danger"]  { border-left: 3px solid var(--danger-text); }
+
+/* ── Language toggle ──────────────────────────────────────────────────── */
+/* Hide inactive language: default is English */
+html:not([lang="zh"]) [lang="zh"] { display: none; }
+html[lang="zh"] [lang="en"] { display: none; }
+
+/* Ensure bilingual spans are inline */
+[lang="en"], [lang="zh"] { display: inline; }
+html:not([lang="zh"]) [lang="zh"],
+html[lang="zh"] [lang="en"] { display: none !important; }
+
+.lang-toggle {
+  cursor: pointer;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--accent);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.85em;
+  font-weight: 600;
+  transition: background 0.2s, color 0.2s;
+  white-space: nowrap;
+}
+.lang-toggle:hover {
+  background: var(--accent);
+  color: var(--bg);
+}

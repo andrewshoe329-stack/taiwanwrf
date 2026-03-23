@@ -35,6 +35,7 @@ from datetime import datetime, timedelta, timezone
 import numpy as np
 
 from config import KEELUNG_LAT, KEELUNG_LON, COMPASS_NAMES, deg_to_compass, setup_logging, sail_rating
+from i18n import T, T_str, bilingual
 
 log = logging.getLogger(__name__)
 
@@ -568,7 +569,9 @@ def _sail_rating(max_wind: float | None, max_gust: float | None,
                  max_hs: float | None, total_rain: float) -> tuple[str, str]:
     """Return (label, bg_color) — go/marginal/no-go sailing suitability."""
     r = sail_rating(max_wind, max_gust, max_hs, total_rain)
-    return r['label'], r['bg']
+    # Bilingual label: emoji + dual-language text
+    bi_label = f'{r["emoji"]} {bilingual(r["label_en"], r["label_zh"])}'
+    return bi_label, r['bg']
 
 
 def _condition_emoji(max_wind: float | None, total_rain: float | None, max_cape: float | None,
@@ -706,7 +709,7 @@ def _daily_summary_html(
         else:
             wind_str  = '—'
 
-        rain_str = f'{total_r:.0f}mm' if total_r > 0 else 'dry'
+        rain_str = f'{total_r:.0f}mm' if total_r > 0 else T('dry')
 
         # Wave: peak Hs + dominant period from the day's wave records
         if max_hs_v is not None:
@@ -758,7 +761,7 @@ def _daily_summary_html(
                     f'{bs["emoji"]} {bs["spot"]}</span></div>\n'
                 )
             elif bs.get('emoji') == '😴':
-                surf_html = '  <div class="surf-pick"><span class="rating-pill rating-flat">😴 Flat</span></div>\n'
+                surf_html = f'  <div class="surf-pick"><span class="rating-pill rating-flat">😴 {T("flat")}</span></div>\n'
             rec = sp_day.get('recommendation', {})
             if rec.get('text'):
                 rec_html = (
@@ -846,13 +849,13 @@ def _render_summary_html(
         '<section id="week" class="section">\n'
         '<div class="card-glass">\n'
         '<h2 class="section-title">\n'
-        f'  <span role="img" aria-label="Globe">🌏</span> This Week\n'
+        f'  <span role="img" aria-label="Globe">🌏</span> {T("this_week")}\n'
         f'  <span style="font-weight:normal;font-size:0.75em;color:#94a3b8">'
         f'&nbsp;{KEELUNG_LAT}°N {KEELUNG_LON}°E</span>\n'
         '</h2>\n'
         f'<p class="section-subtitle">'
         f'{html_mod.escape(meta.get("model_id","?"))} · WRF Init: {init_str}{wave_init_str}'
-        f'{"&nbsp;·&nbsp; <i>Δ vs prev WRF run in brackets</i>" if has_prev else ""}'
+        f'{"&nbsp;·&nbsp; <i>" + T("delta_note") + "</i>" if has_prev else ""}'
         '</p>\n\n'
     )
 
@@ -865,20 +868,20 @@ def _render_summary_html(
     total_rain = sum(r.get('precip_mm_6h') or 0 for r in (_wrf if _wrf else _ec))
     min_mslp   = min((r.get('mslp_hpa')     or 9999 for r in _wrf + _ec), default=9999)
     max_cape   = max((r.get('cape')         or 0 for r in _wrf + _ec), default=0)
-    if max_wind  >= 34: alerts.append(f'⚠️ <b>Gale-force winds (B8+)</b> — {max_wind:.0f}kt — consider not sailing')
-    elif max_wind >= 28: alerts.append(f'⚠️ Near-gale (B7) — {max_wind:.0f}kt — harbour recommended')
-    elif max_wind >= 22: alerts.append(f'💨 Strong breeze (B6) — {max_wind:.0f}kt — reef in')
-    if max_gust  >= 34: alerts.append(f'⚠️ <b>Gale gusts to {max_gust:.0f}kt</b>')
-    elif max_gust >= 28: alerts.append(f'💨 Near-gale gusts to {max_gust:.0f}kt')
-    if total_rain >= 50: alerts.append(f'🌧️ <b>Heavy rain</b> — {total_rain:.0f}mm total')
-    elif total_rain >= 15: alerts.append(f'🌦️ Moderate rain — {total_rain:.0f}mm total')
-    if min_mslp  <= 985: alerts.append(f'🌀 <b>Low MSLP {min_mslp:.0f}hPa</b> — possible tropical influence')
-    if max_cape  >= 1000: alerts.append(f'⛈️ High instability — CAPE {max_cape:.0f} J/kg — thunderstorm risk')
+    if max_wind  >= 34: alerts.append(f'⚠️ <b>{T("alert_gale")}</b> — {max_wind:.0f}kt — {T("alert_consider")}')
+    elif max_wind >= 28: alerts.append(f'⚠️ {T("alert_near_gale")} — {max_wind:.0f}kt — {T("alert_harbour")}')
+    elif max_wind >= 22: alerts.append(f'💨 {T("alert_strong_breeze")} — {max_wind:.0f}kt — {T("alert_reef_in")}')
+    if max_gust  >= 34: alerts.append(f'⚠️ <b>{T("alert_gale_gusts")} {max_gust:.0f}kt</b>')
+    elif max_gust >= 28: alerts.append(f'💨 {T("alert_near_gale_gusts")} {max_gust:.0f}kt')
+    if total_rain >= 50: alerts.append(f'🌧️ <b>{T("alert_heavy_rain")}</b> — {total_rain:.0f}mm total')
+    elif total_rain >= 15: alerts.append(f'🌦️ {T("alert_mod_rain")} — {total_rain:.0f}mm total')
+    if min_mslp  <= 985: alerts.append(f'🌀 <b>{T("alert_low_mslp")} {min_mslp:.0f}hPa</b> — {T("alert_tropical")}')
+    if max_cape  >= 1000: alerts.append(f'⛈️ {T("alert_high_cape")} — CAPE {max_cape:.0f} J/kg — {T("alert_thunderstorm")}')
     if wave_recs:
         max_hs = max((r.get('wave_height') or 0 for r in wave_recs), default=0)
-        if max_hs >= 3.5: alerts.append(f'⚠️ <b>Dangerous seas</b> — Hs {max_hs:.1f}m peak')
-        elif max_hs >= 2.0: alerts.append(f'🌊 Rough conditions — Hs {max_hs:.1f}m peak')
-        elif max_hs >= 1.0: alerts.append(f'🌊 Moderate seas — Hs {max_hs:.1f}m')
+        if max_hs >= 3.5: alerts.append(f'⚠️ <b>{T("alert_dangerous_seas")}</b> — Hs {max_hs:.1f}m peak')
+        elif max_hs >= 2.0: alerts.append(f'🌊 {T("alert_rough")} — Hs {max_hs:.1f}m peak')
+        elif max_hs >= 1.0: alerts.append(f'🌊 {T("alert_moderate_seas")} — Hs {max_hs:.1f}m')
     if alerts:
         html += ('<div class="alert-box alert-danger">'
                  + '<br>'.join(alerts) + '</div>\n')
@@ -893,20 +896,20 @@ def _render_summary_html(
         if wd:
             pk = max(wd, key=abs)
             if abs(pk) >= 3:
-                notes.append(f'Peak wind {"+" if pk>0 else ""}{pk:.0f}kt vs prev run')
+                notes.append(f'Peak wind {"+" if pk>0 else ""}{pk:.0f}kt {T("vs_prev_run")}')
         dp_total = sum((r.get('precip_mm_6h') or 0) - (p.get('precip_mm_6h') or 0)
                        for r, p in overlapping)
         if abs(dp_total) >= 2:
-            notes.append(f'Total rain {"+" if dp_total>0 else ""}{dp_total:.1f}mm vs prev run')
+            notes.append(f'Total rain {"+" if dp_total>0 else ""}{dp_total:.1f}mm {T("vs_prev_run")}')
         md = [r.get('mslp_hpa', 0) - p.get('mslp_hpa', 0) for r, p in overlapping
               if r.get('mslp_hpa') is not None and p.get('mslp_hpa') is not None]
         if md:
             pk_m = max(md, key=abs)
             if abs(pk_m) >= 1:
-                notes.append(f'Max MSLP shift {"+" if pk_m>0 else ""}{pk_m:.1f}hPa vs prev run')
+                notes.append(f'Max MSLP shift {"+" if pk_m>0 else ""}{pk_m:.1f}hPa {T("vs_prev_run")}')
         if notes:
             html += ('<div class="alert-box alert-warning">'
-                     '🔄 <b>Model shift vs prev run:</b> ' + ' · '.join(notes) + '</div>\n')
+                     f'🔄 <b>{T("model_shift")}:</b> ' + ' · '.join(notes) + '</div>\n')
 
     # ── Unified day cards (sailing + surf + weather) ──────────────────────────
     html += _daily_summary_html(wrf_by_valid, ec_by_valid, wave_by_valid, all_valids,
@@ -974,7 +977,7 @@ def _render_accuracy_badge(accuracy_log: list) -> str:
 
     return (
         '<p style="margin:0 0 6px;font-size:0.82em;color:#94a3b8">'
-        '\U0001f3af <strong>Model Accuracy</strong> (7d avg): '
+        f'\U0001f3af <strong>{T("model_accuracy")}</strong> (7d avg): '
         + ' \u00b7 '.join(parts)
         + f' <span style="color:#64748b">({len(recent)} runs)</span>'
         '</p>\n'
@@ -1030,8 +1033,7 @@ def render_unified_html(
         '<span class="badge badge-wrf">WRF 3km</span>'
         '&nbsp;'
         '<span class="badge badge-ec">ECMWF IFS</span>'
-        '&nbsp;— green <sup class="ec-sup">EC</sup> badge = ECMWF/GFS fills in'
-        ' where CWA WRF is absent (gust, rain, cloud, vis, CAPE)'
+        f'&nbsp;— {T("source_note")}'
         '</p>\n'
     )
 
@@ -1042,35 +1044,35 @@ def render_unified_html(
     # ── Table (desktop) ──────────────────────────────────────────────────────
     html += '<div class="fc-desktop">\n'
     html += '<table class="fc-table">\n'
-    html += '<caption>6-hourly forecast detail — scroll horizontally on mobile</caption>\n'
+    html += f'<caption>{T("fc_caption")}</caption>\n'
     html += '<thead>\n'
 
     html += '<tr>\n'
     html += '  <th class="th-time" title="Per-step sailing alerts">⚠</th>\n'
     html += '  <th class="th-time" style="text-align:left">UTC</th>\n'
     html += '  <th class="th-time" style="text-align:left">CST +8</th>\n'
-    for lbl, cls, tip in [
-        ('Wind (kt)', 'th-wrf', 'Wind speed in knots (1 kt = 1.85 km/h)'),
-        ('Gust (kt)', 'th-ec', 'Maximum wind gust speed in knots'),
+    for key, cls, tip in [
+        ('th_wind', 'th-wrf', 'Wind speed in knots (1 kt = 1.85 km/h)'),
+        ('th_gust', 'th-ec', 'Maximum wind gust speed in knots'),
     ]:
-        html += f'  <th class="{cls}" title="{tip}">{lbl}</th>\n'
+        html += f'  <th class="{cls}" title="{tip}">{T(key)}</th>\n'
     if has_wave:
-        for lbl, cls, tip in [
-            ('Waves (m)', 'th-wave', 'Significant wave height in metres (combined sea state)'),
-            ('Period (s)', 'th-wave', 'Wave period in seconds — longer = more powerful swell'),
-            ('Swell (m)', 'th-wave', 'Swell wave height in metres (long-period waves only)'),
-            ('Wave Dir', 'th-wave', 'Dominant wave direction — where waves come from'),
+        for key, cls, tip in [
+            ('th_waves', 'th-wave', 'Significant wave height in metres (combined sea state)'),
+            ('th_period', 'th-wave', 'Wave period in seconds — longer = more powerful swell'),
+            ('th_swell', 'th-wave', 'Swell wave height in metres (long-period waves only)'),
+            ('th_wave_dir', 'th-wave', 'Dominant wave direction — where waves come from'),
         ]:
-            html += f'  <th class="{cls}" title="{tip}">{lbl}</th>\n'
-    for lbl, cls, tip in [
-        ('Pressure', 'th-wrf', 'Mean sea-level pressure in hPa'),
-        ('Rain 6h', 'th-ec', 'Precipitation accumulated over 6 hours in mm'),
-        ('Vis (km)', 'th-ec', 'Visibility in kilometres'),
-        ('Temp (°C)', 'th-wrf', 'Air temperature at 2m in degrees Celsius'),
-        ('Cloud %', 'th-ec', 'Total cloud cover percentage'),
-        ('CAPE', 'th-ec', 'Convective Available Potential Energy — thunderstorm indicator (J/kg)'),
+            html += f'  <th class="{cls}" title="{tip}">{T(key)}</th>\n'
+    for key, cls, tip in [
+        ('th_pressure', 'th-wrf', 'Mean sea-level pressure in hPa'),
+        ('th_rain_6h', 'th-ec', 'Precipitation accumulated over 6 hours in mm'),
+        ('th_vis', 'th-ec', 'Visibility in kilometres'),
+        ('th_temp', 'th-wrf', 'Air temperature at 2m in degrees Celsius'),
+        ('th_cloud', 'th-ec', 'Total cloud cover percentage'),
+        ('th_cape', 'th-ec', 'Convective Available Potential Energy — thunderstorm indicator (J/kg)'),
     ]:
-        html += f'  <th class="{cls}" title="{tip}">{lbl}</th>\n'
+        html += f'  <th class="{cls}" title="{tip}">{T(key)}</th>\n'
     html += '</tr>\n</thead>\n<tbody>\n'
 
     _n_wave_cols = 4 if has_wave else 0
@@ -1288,29 +1290,29 @@ def render_unified_html(
         if items:
             n = sum(1 for vt in all_valids if vt in wrf_by_valid and vt in ec_by_valid)
             html += ('<div class="alert-box alert-info">'
-                     f'<b>WRF vs ECMWF</b> — {n} overlapping steps: '
+                     f'<b>{T("wrf_vs_ecmwf")}</b> — {n} {T("overlapping_steps")}: '
                      + ' · '.join(items) + '</div>\n')
 
     # ── Legend ────────────────────────────────────────────────────────────────
     html += (
         '<div class="legend-block">'
-        '<b>Wind (Beaufort):</b> '
-        '<span style="background:#d4f0c0;padding:1px 4px;border-radius:3px">B1-3 &lt;11kt</span> '
-        '<span style="background:#e8f5c0;padding:1px 4px;border-radius:3px">B4 11–16</span> '
-        '<span style="background:#fff7b0;padding:1px 4px;border-radius:3px">B5 17–21 reef</span> '
-        '<span style="background:#ffd9a0;padding:1px 4px;border-radius:3px">B6 22–27 reef in</span> '
-        '<span style="background:#ffb080;padding:1px 4px;border-radius:3px">B7 28–33 harbour</span> '
-        '<span style="background:#ff6666;color:#fff;padding:1px 4px;border-radius:3px">B8+ ≥34 gale</span>'
+        f'<b>{T("legend_wind")}:</b> '
+        f'<span style="background:#d4f0c0;padding:1px 4px;border-radius:3px">{T("legend_bf_light")}</span> '
+        f'<span style="background:#e8f5c0;padding:1px 4px;border-radius:3px">{T("legend_bf4")}</span> '
+        f'<span style="background:#fff7b0;padding:1px 4px;border-radius:3px">{T("legend_bf5")}</span> '
+        f'<span style="background:#ffd9a0;padding:1px 4px;border-radius:3px">{T("legend_bf6")}</span> '
+        f'<span style="background:#ffb080;padding:1px 4px;border-radius:3px">{T("legend_bf7")}</span> '
+        f'<span style="background:#ff6666;color:#fff;padding:1px 4px;border-radius:3px">{T("legend_bf8")}</span>'
         '&nbsp;&nbsp;<b>Hs:</b> '
-        '<span style="background:#d4f0c0;padding:1px 4px;border-radius:3px">&lt;0.3m</span> '
-        '<span style="background:#fff7b0;padding:1px 4px;border-radius:3px">0.3–1m slight</span> '
-        '<span style="background:#ffd9a0;padding:1px 4px;border-radius:3px">1–2m moderate</span> '
-        '<span style="background:#ffb3b3;padding:1px 4px;border-radius:3px">2–3.5m rough</span> '
-        '<span style="background:#ff6666;color:#fff;padding:1px 4px;border-radius:3px">&gt;3.5m dangerous</span>'
+        f'<span style="background:#d4f0c0;padding:1px 4px;border-radius:3px">{T("legend_hs_calm")}</span> '
+        f'<span style="background:#fff7b0;padding:1px 4px;border-radius:3px">{T("legend_hs_slight")}</span> '
+        f'<span style="background:#ffd9a0;padding:1px 4px;border-radius:3px">{T("legend_hs_mod")}</span> '
+        f'<span style="background:#ffb3b3;padding:1px 4px;border-radius:3px">{T("legend_hs_rough")}</span> '
+        f'<span style="background:#ff6666;color:#fff;padding:1px 4px;border-radius:3px">{T("legend_hs_danger")}</span>'
         '&nbsp;&nbsp;<b>Tp:</b> '
-        '<span style="background:#fff7b0;padding:1px 4px;border-radius:3px">&lt;8s wind sea</span> '
-        '<span style="background:#d4f0c0;padding:1px 4px;border-radius:3px">8–12s swell</span> '
-        '<span style="background:#b0d9ff;padding:1px 4px;border-radius:3px">&gt;12s ocean swell</span>'
+        f'<span style="background:#fff7b0;padding:1px 4px;border-radius:3px">{T("legend_tp_wind")}</span> '
+        f'<span style="background:#d4f0c0;padding:1px 4px;border-radius:3px">{T("legend_tp_swell")}</span> '
+        f'<span style="background:#b0d9ff;padding:1px 4px;border-radius:3px">{T("legend_tp_ocean")}</span>'
         '</div>\n'
         '</div>\n'  # close card-glass
         '</section>\n'  # close #week section
@@ -1321,7 +1323,7 @@ def render_unified_html(
     # ══════════════════════════════════════════════════════════════════════════
     html += '<section id="detail" class="section">\n'
     html += '<details class="detail-section">\n'
-    html += '<summary class="detail-header">6-Hourly Forecast Detail (WRF + ECMWF)</summary>\n'
+    html += f'<summary class="detail-header">{T("detail_heading")}</summary>\n'
 
     # ── Mobile forecast cards ──────────────────────────────────────────────
     html += '<div class="fc-cards">\n'
@@ -1385,28 +1387,28 @@ def render_unified_html(
         html += f'  </div>\n'
         html += f'  <div class="fc-card-metrics">\n'
         html += f'    <div class="fc-card-metric" style="background:{_wind_bg(ww)};padding:6px 8px;border-radius:8px">\n'
-        html += f'      <span class="label">Wind</span>\n'
+        html += f'      <span class="label">{T("card_wind")}</span>\n'
         html += f'      <span class="value">{wind_display}{bf_display}<span class="unit">{wind_dir_display}</span></span>\n'
         html += f'    </div>\n'
         html += f'    <div class="fc-card-metric" style="background:{_wind_bg(g_v)};padding:6px 8px;border-radius:8px">\n'
-        html += f'      <span class="label">Gust</span>\n'
+        html += f'      <span class="label">{T("card_gust")}</span>\n'
         html += f'      <span class="value">{gust_display}</span>\n'
         html += f'    </div>\n'
         if has_wave:
             html += f'    <div class="fc-card-metric" style="background:{_wave_height_bg(hs)};padding:6px 8px;border-radius:8px">\n'
-            html += f'      <span class="label">Waves</span>\n'
+            html += f'      <span class="label">{T("card_waves")}</span>\n'
             html += f'      <span class="value">{wave_display} <span class="unit">{period_display}</span></span>\n'
             html += f'    </div>\n'
             html += f'    <div class="fc-card-metric" style="background:{_wave_height_bg(swh)};padding:6px 8px;border-radius:8px">\n'
-            html += f'      <span class="label">Swell</span>\n'
+            html += f'      <span class="label">{T("card_swell")}</span>\n'
             html += f'      <span class="value">{swell_display} <span class="unit">{wave_dir_display}</span></span>\n'
             html += f'    </div>\n'
         html += f'    <div class="fc-card-metric" style="background:{_temp_bg(wt)};padding:6px 8px;border-radius:8px">\n'
-        html += f'      <span class="label">Temp</span>\n'
+        html += f'      <span class="label">{T("card_temp")}</span>\n'
         html += f'      <span class="value">{temp_display}</span>\n'
         html += f'    </div>\n'
         html += f'    <div class="fc-card-metric" style="background:{_precip_bg(r_v)};padding:6px 8px;border-radius:8px">\n'
-        html += f'      <span class="label">Rain 6h</span>\n'
+        html += f'      <span class="label">{T("card_rain")}</span>\n'
         html += f'      <span class="value">{rain_display}</span>\n'
         html += f'    </div>\n'
         html += f'  </div>\n'
@@ -1420,10 +1422,10 @@ def render_unified_html(
         html += f'  <details>\n'
         html += f'    <summary></summary>\n'
         html += f'    <div class="extra-metrics">\n'
-        html += f'      <span>Pressure: {pressure_display}</span>\n'
-        html += f'      <span>Vis: {vis_display}</span>\n'
-        html += f'      <span>Cloud: {cloud_display}</span>\n'
-        html += f'      <span>CAPE: {cape_display}</span>\n'
+        html += f'      <span>{T("card_pressure")}: {pressure_display}</span>\n'
+        html += f'      <span>{T("card_vis")}: {vis_display}</span>\n'
+        html += f'      <span>{T("card_cloud")}: {cloud_display}</span>\n'
+        html += f'      <span>{T("th_cape")}: {cape_display}</span>\n'
         html += f'    </div>\n'
         html += f'  </details>\n'
         html += f'</div>\n'

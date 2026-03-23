@@ -1,7 +1,7 @@
 // Service worker for Taiwan Sail & Surf Forecast PWA
 // Strategy: network-first with cache fallback (always try fresh data)
 
-const CACHE_NAME = 'tw-forecast-v3';
+const CACHE_NAME = 'tw-forecast-v4';
 const PRECACHE_URLS = [
   '/', '/manifest.json', '/icon-192.png', '/icon-512.png', '/styles.css'
 ];
