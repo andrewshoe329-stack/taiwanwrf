@@ -614,13 +614,20 @@ def fetch_tide_forecast(api_key: str,
 
     try:
         records = data.get("records") or data.get("Records") or data.get("Result") or {}
-        # CWA tide forecast structure varies; try common paths
+        # CWA tide forecast structure:
+        # TideForecasts is a list of {"Location": {LocationName, TimePeriods, ...}}
         tide_fc = records.get("TideForecasts", {})
         if isinstance(tide_fc, list):
-            # Some responses wrap TideForecasts as a list of location dicts
-            locations = tide_fc
+            # Each item wraps location data in a "Location" sub-dict
+            locations = []
+            for item in tide_fc:
+                if isinstance(item, dict):
+                    inner = item.get("Location", item)
+                    locations.append(inner)
         elif isinstance(tide_fc, dict):
             locations = tide_fc.get("Location", [])
+            if isinstance(locations, dict):
+                locations = [locations]
         else:
             locations = []
         if not locations:
@@ -684,18 +691,32 @@ def fetch_tide_forecast(api_key: str,
                     continue
 
                 # Height may be in different keys
+                # CWA nests heights: TideHeights: {AboveTWVD, AboveLocalMSL, ...}
+                # Values are in cm (integers), convert to metres
                 height = None
-                for hkey in ("AboveLocalMSL", "AboveTWVD", "AboveChartDatum",
-                             "TideHeights", "height"):
-                    v = t.get(hkey)
-                    if isinstance(v, dict):
-                        v = v.get("value") or v.get("Value")
-                    if v is not None and v != "":
-                        try:
-                            height = float(v)
-                            break
-                        except (ValueError, TypeError):
-                            pass
+                tide_heights = t.get("TideHeights", {})
+                if isinstance(tide_heights, dict):
+                    for hkey in ("AboveLocalMSL", "AboveTWVD", "AboveChartDatum"):
+                        v = tide_heights.get(hkey)
+                        if v is not None and v != "":
+                            try:
+                                height = float(v) / 100.0  # cm → m
+                                break
+                            except (ValueError, TypeError):
+                                pass
+                # Fallback: height at top level (older formats)
+                if height is None:
+                    for hkey in ("AboveLocalMSL", "AboveTWVD", "AboveChartDatum",
+                                 "height"):
+                        v = t.get(hkey)
+                        if isinstance(v, dict):
+                            v = v.get("value") or v.get("Value")
+                        if v is not None and v != "":
+                            try:
+                                height = float(v)
+                                break
+                            except (ValueError, TypeError):
+                                pass
 
                 if time_raw:
                     extrema.append({
@@ -733,13 +754,20 @@ def fetch_township_forecast(api_key: str,
 
     try:
         records = data.get("records") or data.get("Records") or data.get("Result") or {}
-        locations = records.get("location", records.get("Location", []))
+        # F-D0047-049 nests data: records.Locations[].Location[]
+        locations_wrapper = records.get("Locations") or records.get("locations")
+        if isinstance(locations_wrapper, list) and locations_wrapper:
+            # Unwrap: first Locations item contains the Location array
+            locations = locations_wrapper[0].get("Location",
+                        locations_wrapper[0].get("location", []))
+        else:
+            locations = records.get("location", records.get("Location", []))
         if not locations:
             log.warning("No township forecast data (keys: %s)",
                         list(records.keys())[:10] if isinstance(records, dict) else type(records))
             return None
 
-        # Take the first location (should be Keelung for endpoint 061)
+        # Take the first location (should be Keelung for endpoint 049)
         loc = locations[0] if isinstance(locations, list) else locations
 
         # Parse weather elements into a simplified structure
