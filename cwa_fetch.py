@@ -93,7 +93,7 @@ def _cwa_get(endpoint: str, api_key: str, params: dict | None = None,
             if success == "true" or has_records:
                 return data
             log.warning("%s response missing success flag: %s",
-                        label, str(data)[:200])
+                        label, str(data)[:500])
             return data
 
         except (urllib.error.HTTPError, urllib.error.URLError,
@@ -305,15 +305,48 @@ def _fetch_marine_stations(api_key: str) -> list[dict]:
         return []
 
     try:
-        records = data.get("records") or data.get("Result") or {}
-        stations = records.get("Station", records.get("location",
-                    records.get("SeaConditionStation", [])))
+        records = data.get("records") or {}
+        # Some CWA endpoints use "Result" with nested structure
+        if not records:
+            result = data.get("Result") or {}
+            records = result.get("Records") or result
+
+        # Try multiple paths where station data might live
+        stations = None
+        for key in ("Station", "location", "SeaConditionStation",
+                    "Location"):
+            v = records.get(key)
+            if v:
+                stations = v
+                break
+
+        # Handle nested: Data → SeaSurfaceObs → Location
+        if not stations and isinstance(records, dict):
+            sea_obs = records.get("Data", records).get(
+                "SeaSurfaceObs", records.get("SeaSurfaceObs", {}))
+            if isinstance(sea_obs, dict):
+                stations = sea_obs.get("Location", [])
+
         if not stations:
-            log.warning("No marine station data in CWA response")
+            # Dump structure to help debug CWA API format changes
+            rec_keys = list(records.keys())[:15] if isinstance(records, dict) else type(records).__name__
+            res_keys = list((data.get("Result") or {}).keys())[:15]
+            log.warning("No marine station data in CWA response "
+                        "(Result keys: %s, records keys: %s)", res_keys, rec_keys)
             return []
         if not isinstance(stations, list):
             stations = [stations]
-        return stations
+        # Some CWA formats nest station info in Location → Station
+        # Flatten to ensure each item has StationID at the top level
+        flattened = []
+        for stn in stations:
+            if isinstance(stn, dict) and "Station" in stn and isinstance(stn["Station"], dict):
+                # Merge Station sub-dict into the parent
+                merged = {**stn, **stn["Station"]}
+                flattened.append(merged)
+            else:
+                flattened.append(stn)
+        return flattened
     except Exception as e:
         log.error("Failed to parse CWA marine response: %s", e)
         return []
@@ -481,7 +514,10 @@ def fetch_tide_forecast(api_key: str,
         return []
 
     try:
-        records = data.get("records") or data.get("Result") or {}
+        records = data.get("records") or {}
+        if not records:
+            result = data.get("Result") or {}
+            records = result.get("Records") or result
         # CWA tide forecast structure varies; try common paths
         tide_fc = records.get("TideForecasts", {})
         if isinstance(tide_fc, list):
@@ -497,17 +533,28 @@ def fetch_tide_forecast(api_key: str,
         if isinstance(locations, dict):
             locations = [locations]
 
-        # Find Keelung station
+        # Find Keelung station — try multiple name keys
+        def _loc_name(loc):
+            """Extract location/station name from various CWA key conventions."""
+            if not isinstance(loc, dict):
+                return ""
+            for key in ("LocationName", "locationName", "StationName",
+                        "stationName", "Location", "Name", "name"):
+                v = loc.get(key)
+                if v and isinstance(v, str):
+                    return v
+            return ""
+
         target = None
         for loc in locations:
-            name = loc.get("LocationName", loc.get("locationName", ""))
+            name = _loc_name(loc)
             if station_name in name or "基隆" in name or "Keelung" in name:
                 target = loc
                 break
 
         if target is None:
-            avail = [loc.get("LocationName", loc.get("locationName", "?"))
-                     for loc in locations[:10]]
+            avail = [_loc_name(loc) or str(list(loc.keys())[:5])
+                     for loc in locations[:10] if isinstance(loc, dict)]
             log.warning("Keelung not found in tide forecast. Available: %s", avail)
             return []
 
@@ -589,10 +636,14 @@ def fetch_township_forecast(api_key: str,
         return None
 
     try:
-        records = data.get("records") or data.get("Result") or {}
+        records = data.get("records") or {}
+        if not records:
+            result = data.get("Result") or {}
+            records = result.get("Records") or result
         locations = records.get("location", records.get("Location", []))
         if not locations:
-            log.warning("No township forecast data")
+            log.warning("No township forecast data (keys: %s)",
+                        list(records.keys())[:10] if isinstance(records, dict) else type(records))
             return None
 
         # Take the first location (should be Keelung for endpoint 061)
