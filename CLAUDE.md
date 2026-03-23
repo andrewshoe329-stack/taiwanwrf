@@ -97,7 +97,7 @@ Claude uses this to hedge language — e.g. "actual temps will likely be a degre
 | File | Lines | Purpose |
 |------|-------|---------|
 | `i18n.py` | ~230 | Bilingual translation infrastructure: `T()`, `T_str()`, `bilingual()`, `STRINGS` dict |
-| `config.py` | ~197 | Shared constants: `KEELUNG_LAT/LON`, `COMPASS_NAMES`, `deg_to_compass()`, `norm_utc()`, `setup_logging()` |
+| `config.py` | ~250 | Shared constants + utilities: `KEELUNG_LAT/LON`, `deg_to_compass()`, `norm_utc()`, `setup_logging()`, `fetch_json()`, `load_json_file()` |
 | `taiwan_wrf_download.py` | ~687 | Download CWA WRF GRIB2 from S3, subset with eccodes, archive with tar.gz |
 | `wrf_analyze.py` | ~1606 | GRIB2 point extraction, derived fields, unified HTML table, daily summary cards |
 | `ecmwf_fetch.py` | ~274 | Fetch ECMWF IFS from Open-Meteo, 6-hourly conversion, GFS gust/vis backfill |
@@ -111,9 +111,9 @@ Claude uses this to hedge language — e.g. "actual temps will likely be a degre
 | `cwa_fetch.py` | ~430 | CWA Open Data API: weather station (#466940) + wave buoy + tide obs + weather warnings |
 | `.github/workflows/main.yml` | ~524 | Full CI/CD pipeline with ensemble, notifications, accuracy, concurrency |
 | `pwa/` | 5 files | PWA manifest, service worker, icon generator, icons, styles.css |
-| `vercel.json` | ~8 | Static site config (rewrites `/` → `/index.html`) |
+| `vercel.json` | ~30 | Static site config (rewrites, cache headers for PWA) |
 | `requirements.txt` | ~6 | `eccodes>=1.5,<2`, `numpy>=1.24,<3`, `anthropic>=0.40,<1` |
-| `tests/` | 14 files, 327 tests | Unit tests for pure functions (pytest) |
+| `tests/` | 14 files, 349 tests | Unit tests for pure functions (pytest), run in CI/CD |
 
 ---
 
@@ -168,6 +168,7 @@ Scoring system (0–14 max) evaluates each 6h timestep:
 
 ### API Fetching
 - All HTTP calls use `urllib.request` (stdlib only, no requests dependency)
+- Shared `fetch_json()` in `config.py` — centralised retry logic used by all fetch modules
 - Retry logic: 3 attempts with 5s delay (Open-Meteo), exponential backoff (S3 downloads)
 - `surf_forecast.py` fetches all 8 locations (Keelung + 7 spots) in parallel via ThreadPoolExecutor(4)
 - GFS data backfills ECMWF gaps (wind gusts, visibility)
@@ -290,7 +291,9 @@ pip install pytest
 python -m pytest tests/ -v
 ```
 
-327 tests should pass. Tests cover: compass conversion, Beaufort scale, color functions, direction quality scoring, day ratings, sail ratings, time normalization, bbox geometry, GRIB2 constant validation, tide prediction (semidiurnal pattern, extrema detection), accuracy tracking (error metrics, buoy verification), CWA API parsing (station, buoy, tide, warnings), and AI summary prompt construction (with CWA obs and ensemble spread).
+349 tests should pass. Tests cover: compass conversion, Beaufort scale, color functions, direction quality scoring, day ratings, sail ratings, time normalization, bbox geometry, GRIB2 constant validation, tide prediction (semidiurnal pattern, extrema detection), accuracy tracking (error metrics, buoy verification), CWA API parsing (station, buoy, tide, warnings), AI summary prompt construction (with CWA obs and ensemble spread), and shared HTTP fetch/JSON loading utilities.
+
+**Tests run in CI/CD** — the GitHub Actions workflow runs `python -m pytest tests/ -v` before deployment.
 
 **No integration tests exist.** Tests don't require network access or GRIB2 files — they only test pure functions.
 
@@ -344,7 +347,7 @@ python cwa_fetch.py --output cwa_obs.json
 - These are acceptable because Open-Meteo is free and the calls are fast, but consolidating would save ~15-20s per run.
 
 ### Code Quality Debt
-- `wrf_analyze.py` `render_unified_html()` is ~440 lines — partially refactored with colorblind + ensemble helpers extracted
+- `wrf_analyze.py` `render_unified_html()` is ~440 lines — partially refactored with colorblind + ensemble helpers extracted; `ForecastContext` dataclass introduced to reduce parameter count
 - `surf_forecast.py` `generate_full_html()` refactored into `_render_rating_matrix()`, `_render_spot_detail()`, `_render_surf_legend()`
 - Missing type hints on many functions
 - Shell `find` in workflow step "Download and subset WRF data" is redundant (Python writes to `GITHUB_OUTPUT`)

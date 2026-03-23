@@ -29,12 +29,13 @@ import math
 import os
 import re
 import sys
+from dataclasses import dataclass, field
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 
 import numpy as np
 
-from config import KEELUNG_LAT, KEELUNG_LON, COMPASS_NAMES, deg_to_compass, setup_logging, sail_rating
+from config import KEELUNG_LAT, KEELUNG_LON, COMPASS_NAMES, deg_to_compass, setup_logging, sail_rating, load_json_file
 from i18n import T, T_str, bilingual
 
 log = logging.getLogger(__name__)
@@ -165,7 +166,7 @@ def list_vars(grib_path: Path) -> None:
                 if key not in seen:
                     seen.add(key)
                     log.info("  shortName=%-12s  typeOfLevel=%-25s  level=%-6s  paramId=%s", sn, tol, lev, pid)
-            except Exception as e:
+            except (KeyError, ValueError, TypeError, OSError) as e:
                 log.warning("Skipping GRIB message in list_vars: %s", e)
             finally:
                 ec.codes_release(msg)
@@ -180,6 +181,12 @@ def read_point(grib_path: Path, lat: float, lon: float) -> dict[str, float]:
     Returns a dict of raw values keyed by output_key.
     Grid geometry (lat/lon arrays) is cached so it's only computed once per file.
     """
+    if not grib_path.exists():
+        log.warning("GRIB2 file does not exist: %s", grib_path)
+        return {}
+    if grib_path.stat().st_size == 0:
+        log.warning("GRIB2 file is empty: %s", grib_path)
+        return {}
     import eccodes as ec
 
     # Build shortName → list of (tol_filter, level_filter, key) for fast lookup
@@ -224,7 +231,7 @@ def read_point(grib_path: Path, lat: float, lon: float) -> dict[str, float]:
                                     if len(vals2) != ni2 * nj2:
                                         raise ValueError(f"Values array size {len(vals2)} != {ni2}*{nj2}")
                                     raw[out_key] = float(vals2.reshape(nj2, ni2)[jj, ii])
-                        except Exception as e:
+                        except (KeyError, ValueError, TypeError, OSError) as e:
                             log.warning("paramId fallback failed: %s", e)
                     continue
 
@@ -291,7 +298,7 @@ def read_point(grib_path: Path, lat: float, lon: float) -> dict[str, float]:
 
                 raw[matched_key] = val
 
-            except Exception as e:
+            except (KeyError, ValueError, TypeError, OSError) as e:
                 log.warning("Skipping GRIB message in read_point: %s", e)
             finally:
                 ec.codes_release(msg)
@@ -984,6 +991,20 @@ def _render_accuracy_badge(accuracy_log: list) -> str:
     )
 
 
+@dataclass
+class ForecastContext:
+    """Bundle of all data needed to render the unified HTML forecast page."""
+    meta: dict
+    records: list
+    prev_records: list = field(default_factory=list)
+    ecmwf_records: list = field(default_factory=list)
+    wave_data: dict | None = None
+    tide_data: dict | None = None
+    surf_planner: dict | None = None
+    ensemble_data: dict | None = None
+    accuracy_log: list | None = None
+
+
 def render_unified_html(
     meta: dict,
     records: list,
@@ -994,12 +1015,27 @@ def render_unified_html(
     surf_planner: dict | None = None,
     ensemble_data: dict | None = None,
     accuracy_log: list | None = None,
+    *,
+    ctx: 'ForecastContext | None' = None,
 ) -> str:
     """
     Full web-app HTML: daily summary cards + complete hourly table
     (WRF + ECMWF IFS + wave columns) + WRF vs ECMWF agreement stats + legend.
     Optionally includes ensemble spread indicators when ensemble_data is provided.
+
+    Can accept individual args (backwards-compatible) or a ForecastContext via ctx=.
     """
+    # Allow callers to pass a ForecastContext instead of individual args
+    if ctx is not None:
+        meta = ctx.meta
+        records = ctx.records
+        prev_records = ctx.prev_records
+        ecmwf_records = ctx.ecmwf_records
+        wave_data = ctx.wave_data
+        tide_data = ctx.tide_data
+        surf_planner = ctx.surf_planner
+        ensemble_data = ctx.ensemble_data
+        accuracy_log = ctx.accuracy_log
     # Build lookups (same as _render_summary_html)
     prev_by_valid = {r['valid_utc']: r for r in (prev_records or []) if r.get('valid_utc')}
     has_prev = bool(prev_by_valid)
@@ -1503,14 +1539,11 @@ def main() -> None:
     # ── Load previous summary ─────────────────────────────────────────────────
     prev_records = []
     if args.prev_json and Path(args.prev_json).exists():
-        try:
-            with open(args.prev_json) as f:
-                prev_data = json.load(f)
+        prev_data = load_json_file(args.prev_json, "previous summary")
+        if prev_data:
             prev_records = prev_data.get('records', [])
             prev_init = prev_data.get('meta', {}).get('init_utc', 'unknown')
             log.info("Previous run: %s (%d records)", prev_init, len(prev_records))
-        except Exception as e:
-            log.warning("Could not load previous summary: %s", e)
 
     # ── Write JSON summary ────────────────────────────────────────────────────
     summary = {'meta': meta, 'records': records}
@@ -1521,76 +1554,62 @@ def main() -> None:
     # ── Load ECMWF comparison data ────────────────────────────────────────────
     ecmwf_records = []
     if args.ecmwf_json and Path(args.ecmwf_json).exists():
-        try:
-            with open(args.ecmwf_json) as f:
-                ecmwf_data = json.load(f)
+        ecmwf_data = load_json_file(args.ecmwf_json, "ECMWF JSON")
+        if ecmwf_data:
             ecmwf_records = ecmwf_data.get('records', [])
             ecmwf_init = ecmwf_data.get('meta', {}).get('init_utc', 'unknown')
             log.info("ECMWF data: %s (%d records)", ecmwf_init, len(ecmwf_records))
-        except Exception as e:
-            log.warning("Could not load ECMWF JSON: %s", e)
 
     # ── Load wave data ────────────────────────────────────────────────────────
     wave_data = None
     if args.wave_json and Path(args.wave_json).exists():
-        try:
-            with open(args.wave_json) as f:
-                wave_data = json.load(f)
+        wave_data = load_json_file(args.wave_json, "wave JSON")
+        if wave_data:
             ecmwf_wave_recs = len((wave_data.get('ecmwf_wave') or {}).get('records', []))
             cwa_wave_recs   = len((wave_data.get('cwa_wave')   or {}).get('records', []))
             log.info("Wave data: %d ECMWF steps, %d CWA steps",
                      ecmwf_wave_recs, cwa_wave_recs)
-        except Exception as e:
-            log.warning("Could not load wave JSON: %s", e)
 
     # ── Load tide data ──────────────────────────────────────────────────────
     tide_data = None
     if args.tide_json and Path(args.tide_json).exists():
-        try:
-            with open(args.tide_json) as f:
-                tide_data = json.load(f)
+        tide_data = load_json_file(args.tide_json, "tide JSON")
+        if tide_data:
             n_extrema = len(tide_data.get('extrema', []))
             log.info("Tide data: %d extrema", n_extrema)
-        except Exception as e:
-            log.warning("Could not load tide JSON: %s", e)
 
     # ── Load surf planner JSON (optional) ─────────────────────────────────────
     surf_planner = None
     if args.surf_json:
-        try:
-            with open(args.surf_json, encoding='utf-8') as f:
-                surf_planner = json.load(f)
+        surf_planner = load_json_file(args.surf_json, "surf JSON")
+        if surf_planner:
             log.info("Loaded surf planner JSON: %s", args.surf_json)
-        except Exception as e:
-            log.warning("Could not load surf JSON: %s", e)
 
     # ── Load ensemble data (optional) ─────────────────────────────────────────
     ensemble_data = None
     if args.ensemble_json and Path(args.ensemble_json).exists():
-        try:
-            with open(args.ensemble_json) as f:
-                ensemble_data = json.load(f)
+        ensemble_data = load_json_file(args.ensemble_json, "ensemble JSON")
+        if ensemble_data:
             n_models = len(ensemble_data.get('models', {}))
             n_ens = len(ensemble_data.get('ensemble', {}).get('records', []))
             log.info("Ensemble data: %d models, %d timesteps", n_models, n_ens)
-        except Exception as e:
-            log.warning("Could not load ensemble JSON: %s", e)
 
     # ── Load accuracy log (optional) ──────────────────────────────────────────
     accuracy_log = None
     if args.accuracy_log and Path(args.accuracy_log).exists():
-        try:
-            with open(args.accuracy_log) as f:
-                accuracy_log = json.load(f)
+        accuracy_log = load_json_file(args.accuracy_log, "accuracy log")
+        if accuracy_log:
             log.info("Accuracy log: %d entries", len(accuracy_log))
-        except Exception as e:
-            log.warning("Could not load accuracy log: %s", e)
 
     # ── Write HTML ────────────────────────────────────────────────────────────
-    html_full = render_unified_html(meta, records, prev_records, ecmwf_records, wave_data,
-                                    tide_data=tide_data, surf_planner=surf_planner,
-                                    ensemble_data=ensemble_data,
-                                    accuracy_log=accuracy_log)
+    fctx = ForecastContext(
+        meta=meta, records=records, prev_records=prev_records,
+        ecmwf_records=ecmwf_records, wave_data=wave_data,
+        tide_data=tide_data, surf_planner=surf_planner,
+        ensemble_data=ensemble_data, accuracy_log=accuracy_log,
+    )
+    html_full = render_unified_html(meta, records, prev_records, ecmwf_records,
+                                    wave_data, ctx=fctx)
     out_html = Path(args.output_html)
     out_html.write_text(html_full)
     log.info("HTML → %s", out_html)

@@ -28,6 +28,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from config import KEELUNG_LAT, KEELUNG_LON, norm_utc, setup_logging
+from config import fetch_json as _fetch_json_shared
 
 log = logging.getLogger(__name__)
 
@@ -57,30 +58,12 @@ MODEL_CONFIGS = {
 # Variables to compute ensemble stats for
 ENSEMBLE_VARS = ["temp_c", "wind_kt", "gust_kt", "mslp_hpa", "precip_mm_6h", "cape"]
 
-_FETCH_RETRIES = 3
-_FETCH_RETRY_DELAY = 5
-
-
 # ── Fetch ─────────────────────────────────────────────────────────────────────
 
 def _fetch_json(params: dict, label: str) -> dict | None:
-    """Fetch from Open-Meteo with retry logic. Returns parsed JSON or None."""
+    """Fetch from Open-Meteo with retry logic. Delegates to config.fetch_json."""
     url = OPEN_METEO_URL + "?" + urllib.parse.urlencode(params)
-    log.info("Fetching %s from Open-Meteo …", label)
-    last_exc: Exception = RuntimeError("no attempts made")
-    for attempt in range(1, _FETCH_RETRIES + 1):
-        try:
-            with urllib.request.urlopen(url, timeout=30) as r:
-                return json.load(r)
-        except (urllib.error.HTTPError, urllib.error.URLError,
-                json.JSONDecodeError, OSError) as e:
-            last_exc = e
-            if attempt < _FETCH_RETRIES:
-                log.warning("Request failed (%s); retry %d/%d in %ds …",
-                            e, attempt, _FETCH_RETRIES, _FETCH_RETRY_DELAY)
-                time.sleep(_FETCH_RETRY_DELAY)
-    log.error("%s fetch failed after %d attempts: %s", label, _FETCH_RETRIES, last_exc)
-    return None
+    return _fetch_json_shared(url, label=label)
 
 
 def fetch_model(model_key: str) -> dict | None:

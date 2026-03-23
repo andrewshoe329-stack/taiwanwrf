@@ -1,6 +1,7 @@
 """Tests for cwa_fetch.py — CWA Open Data API integration."""
 
 import json
+import urllib.error
 from unittest.mock import patch, MagicMock
 
 from cwa_fetch import (
@@ -101,7 +102,7 @@ class TestFetchStationObs:
 
     @patch('cwa_fetch.urllib.request.urlopen')
     def test_handles_api_failure(self, mock_open):
-        mock_open.side_effect = Exception("API timeout")
+        mock_open.side_effect = urllib.error.URLError("API timeout")
         result = fetch_station_obs("test-key")
         assert result is None
 
@@ -135,7 +136,7 @@ class TestFetchBuoyObs:
 
     @patch('cwa_fetch.urllib.request.urlopen')
     def test_handles_api_failure(self, mock_open):
-        mock_open.side_effect = Exception("Network error")
+        mock_open.side_effect = urllib.error.URLError("Network error")
         result = fetch_buoy_obs("test-key")
         assert result is None
 
@@ -243,7 +244,7 @@ class TestFetchTideObs:
 
     @patch('cwa_fetch.urllib.request.urlopen')
     def test_handles_api_failure(self, mock_open):
-        mock_open.side_effect = Exception("API timeout")
+        mock_open.side_effect = urllib.error.URLError("API timeout")
         result = fetch_tide_obs("test-key")
         assert result is None
 
@@ -266,7 +267,7 @@ class TestFetchWarnings:
 
     @patch('cwa_fetch.urllib.request.urlopen')
     def test_handles_api_failure(self, mock_open):
-        mock_open.side_effect = Exception("Network error")
+        mock_open.side_effect = urllib.error.URLError("Network error")
         result = fetch_warnings("test-key")
         assert result == []
 
@@ -332,7 +333,7 @@ class TestFetchTideForecast:
 
     @patch('cwa_fetch.urllib.request.urlopen')
     def test_handles_api_failure(self, mock_open):
-        mock_open.side_effect = Exception("API timeout")
+        mock_open.side_effect = urllib.error.URLError("API timeout")
         assert fetch_tide_forecast("test-key") == []
 
 
@@ -373,7 +374,7 @@ class TestFetchTownshipForecast:
 
     @patch('cwa_fetch.urllib.request.urlopen')
     def test_handles_api_failure(self, mock_open):
-        mock_open.side_effect = Exception("Network error")
+        mock_open.side_effect = urllib.error.URLError("Network error")
         assert fetch_township_forecast("test-key") is None
 
 
@@ -547,7 +548,7 @@ class TestFetchAllBuoys:
 
     @patch('cwa_fetch.urllib.request.urlopen')
     def test_handles_api_failure(self, mock_open):
-        mock_open.side_effect = Exception("Network error")
+        mock_open.side_effect = urllib.error.URLError("Network error")
         assert fetch_all_buoys("test-key") == []
 
 

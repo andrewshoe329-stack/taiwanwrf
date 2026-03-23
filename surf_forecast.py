@@ -14,6 +14,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone, timedelta
 
 from config import KEELUNG_LAT, KEELUNG_LON, deg_to_compass, setup_logging, sail_rating
+from config import fetch_json as _config_fetch_json
 from i18n import T, T_str, bilingual, SPOT_DESC_KEYS
 from tide_predict import predict_height, find_extrema, tide_state
 
@@ -195,17 +196,9 @@ RETRIES      = 3
 RETRY_DELAY  = 5
 
 def _get(url: str, label: str) -> dict[str, object]:
-    last_err = RuntimeError('no attempts')
-    for attempt in range(1, RETRIES + 1):
-        try:
-            with urllib.request.urlopen(url, timeout=30) as r:
-                return json.load(r)
-        except Exception as e:
-            last_err = e
-            if attempt < RETRIES:
-                time.sleep(RETRY_DELAY)
-    log.error("%s failed: %s", label, last_err)
-    return {}
+    """Fetch JSON from *url* with retry. Returns empty dict on failure."""
+    result = _config_fetch_json(url, label=label)
+    return result if result is not None else {}
 
 def fetch_spot(lat: float, lon: float) -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
     common = {

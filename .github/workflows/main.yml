@@ -41,6 +41,10 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y --no-install-recommends libeccodes-dev rclone
           pip install --quiet -r requirements.txt
+          pip install --quiet pytest
+
+      - name: Run unit tests
+        run: python -m pytest tests/ -v --tb=short
 
       # Download, subset, and capture outputs for later steps.
       # taiwan_wrf_download.py writes rundir + init_utc to GITHUB_OUTPUT directly;
@@ -546,12 +550,15 @@ jobs:
           </script>
           HEADER
 
-          # Add download bar if Drive link is available
+          # Add download bar if Drive link is available (HTML-escape variables)
           if [ -n "$DRIVE_LINK" ]; then
+            SAFE_LINK=$(printf '%s' "$DRIVE_LINK" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g')
+            SAFE_NAME=$(printf '%s' "$ARCHIVE_NAME" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
+            SAFE_SIZE=$(printf '%s' "$ARCHIVE_SIZE" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
             cat <<DLBAR >> public/index.html
           <div class="download-bar">
-            <a href="$DRIVE_LINK"><span lang="en">Download WRF Data</span><span lang="zh">下載 WRF 資料</span></a>
-            <span>$ARCHIVE_NAME · $ARCHIVE_SIZE</span>
+            <a href="$SAFE_LINK"><span lang="en">Download WRF Data</span><span lang="zh">下載 WRF 資料</span></a>
+            <span>$SAFE_NAME · $SAFE_SIZE</span>
           </div>
           DLBAR
           fi
@@ -572,7 +579,7 @@ jobs:
         if: steps.stale_check.outputs.is_new == 'true' && !cancelled()
         timeout-minutes: 10
         run: |
-          npm install -g vercel@39
+          npm install -g vercel@39.3.0
           vercel deploy --prod --yes --token "$VERCEL_TOKEN"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
