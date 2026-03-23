@@ -45,6 +45,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from config import KEELUNG_LAT, KEELUNG_LON, deg_to_compass, norm_utc, setup_logging
+from config import fetch_json as _fetch_json_shared
 
 log = logging.getLogger(__name__)
 
@@ -78,13 +79,9 @@ WAVE_VARS = [
     (['swd1', 'SWD1', 'swdir', 'SWDIR', 'dirsw'],      None, None, 'swell_wave_direction'),
 ]
 
-_deg_to_compass = deg_to_compass  # kept for any external callers
 
 
 # ── ECMWF via Open-Meteo marine API ──────────────────────────────────────────
-
-_FETCH_RETRIES     = 3
-_FETCH_RETRY_DELAY = 5   # seconds between attempts
 
 _HOURLY_WAVE_VARS = ",".join([
     "wave_height",
@@ -99,32 +96,20 @@ _HOURLY_WAVE_VARS = ",".join([
 ])
 
 
-def fetch_ecmwf_wave() -> dict:
-    """Fetch ECMWF WAM wave forecast from the Open-Meteo marine API (with retry)."""
+def fetch_ecmwf_wave() -> dict | None:
+    """Fetch ECMWF WAM wave forecast from the Open-Meteo marine API (with retry).
+
+    Returns parsed JSON dict on success, or ``None`` on failure.
+    """
     params = {
         "latitude":      KEELUNG_LAT,
         "longitude":     KEELUNG_LON,
         "hourly":        _HOURLY_WAVE_VARS,
         "timezone":      "UTC",
-        "forecast_days": 7,   # int, not string
+        "forecast_days": 7,
     }
     url = MARINE_API_URL + "?" + urllib.parse.urlencode(params)
-    log.info("Fetching ECMWF WAM wave from Open-Meteo marine …")
-    last_exc: Exception = RuntimeError("no attempts made")
-    for attempt in range(1, _FETCH_RETRIES + 1):
-        try:
-            with urllib.request.urlopen(url, timeout=30) as r:
-                return json.load(r)
-        except (urllib.error.HTTPError, urllib.error.URLError,
-                json.JSONDecodeError) as e:
-            last_exc = e
-            if attempt < _FETCH_RETRIES:
-                log.warning("Request failed (%s); retry %d/%d in %ds …",
-                            e, attempt, _FETCH_RETRIES, _FETCH_RETRY_DELAY)
-                time.sleep(_FETCH_RETRY_DELAY)
-    raise RuntimeError(
-        f"Open-Meteo marine request failed after {_FETCH_RETRIES} attempts: {last_exc}"
-    )
+    return _fetch_json_shared(url, label="ECMWF WAM wave")
 
 
 _norm_utc = norm_utc  # kept for any external callers
@@ -401,10 +386,9 @@ def main():
     args = ap.parse_args()
 
     # ── Always: ECMWF wave from Open-Meteo marine API ─────────────────────────
-    try:
-        ecmwf_raw = fetch_ecmwf_wave()
-    except RuntimeError as e:
-        log.error("%s", e)
+    ecmwf_raw = fetch_ecmwf_wave()
+    if ecmwf_raw is None:
+        log.error("ECMWF WAM fetch failed — cannot continue.")
         sys.exit(1)
     ecmwf_meta, ecmwf_recs = process_ecmwf_wave(ecmwf_raw)
     log.info("ECMWF WAM: %d 6-hourly records", len(ecmwf_recs))

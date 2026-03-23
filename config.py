@@ -1,6 +1,11 @@
 """Shared constants and utilities for the taiwanwrf pipeline."""
 
+import json
 import logging
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
 
 
 # ── Design system theme tokens ────────────────────────────────────────────────
@@ -195,3 +200,54 @@ def sail_rating(
     return {**base, 'label': '🟢 Good', 'label_en': 'Good',
             'label_zh': '適航', 'emoji': '🟢',
             'bg': THEME['good_bg'], 'col': THEME['good_text']}
+
+
+# ── Shared HTTP fetch utility ────────────────────────────────────────────────
+
+_DEFAULT_RETRIES = 3
+_DEFAULT_RETRY_DELAY = 5  # seconds between attempts
+
+
+def fetch_json(url: str, *, label: str = "",
+               retries: int = _DEFAULT_RETRIES,
+               retry_delay: int = _DEFAULT_RETRY_DELAY,
+               timeout: int = 30,
+               headers: dict | None = None) -> dict | None:
+    """Fetch JSON from *url* with retry logic.
+
+    Returns the parsed JSON dict on success, or ``None`` after all retries
+    fail.  Catches network errors, HTTP errors, and malformed JSON.
+    """
+    log = logging.getLogger(__name__)
+    if label:
+        log.info("Fetching %s …", label)
+    last_exc: Exception = RuntimeError("no attempts made")
+    for attempt in range(1, retries + 1):
+        try:
+            req = urllib.request.Request(url)
+            if headers:
+                for k, v in headers.items():
+                    req.add_header(k, v)
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return json.load(r)
+        except (urllib.error.HTTPError, urllib.error.URLError,
+                json.JSONDecodeError, OSError) as e:
+            last_exc = e
+            if attempt < retries:
+                log.warning("Request failed (%s); retry %d/%d in %ds …",
+                            e, attempt, retries, retry_delay)
+                time.sleep(retry_delay)
+    log.error("%s fetch failed after %d attempts: %s",
+              label or url, retries, last_exc)
+    return None
+
+
+def load_json_file(path: str, label: str = "") -> dict | list | None:
+    """Load and parse a JSON file, returning None on any error."""
+    log = logging.getLogger(__name__)
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError, ValueError) as e:
+        log.warning("Could not load %s: %s", label or path, e)
+        return None

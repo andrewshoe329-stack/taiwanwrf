@@ -17,7 +17,7 @@ Usage:
 import argparse, json, logging, os, sys, time
 from datetime import datetime, timedelta, timezone
 
-from config import setup_logging
+from config import setup_logging, load_json_file
 from i18n import T, T_str
 
 log = logging.getLogger(__name__)
@@ -388,52 +388,16 @@ def main() -> None:
     args = ap.parse_args()
 
     # Load data
-    try:
-        with open(args.wrf_json) as f:
-            wrf = json.load(f)
-    except Exception as e:
-        log.error("Cannot read WRF JSON: %s", e)
+    wrf = load_json_file(args.wrf_json, "WRF JSON")
+    if wrf is None:
+        log.error("Cannot read WRF JSON — aborting.")
         sys.exit(1)
 
-    ecmwf = None
-    if args.ecmwf_json:
-        try:
-            with open(args.ecmwf_json) as f:
-                ecmwf = json.load(f)
-        except Exception as e:
-            log.warning("Could not load ECMWF JSON: %s", e)
-
-    wave = None
-    if args.wave_json:
-        try:
-            with open(args.wave_json) as f:
-                wave = json.load(f)
-        except Exception as e:
-            log.warning("Could not load wave JSON: %s", e)
-
-    accuracy_log = None
-    if args.accuracy_log:
-        try:
-            with open(args.accuracy_log) as f:
-                accuracy_log = json.load(f)
-        except Exception as e:
-            log.warning("Could not load accuracy log: %s", e)
-
-    cwa_obs = None
-    if args.cwa_obs:
-        try:
-            with open(args.cwa_obs) as f:
-                cwa_obs = json.load(f)
-        except Exception as e:
-            log.warning("Could not load CWA obs JSON: %s", e)
-
-    ensemble = None
-    if args.ensemble_json:
-        try:
-            with open(args.ensemble_json) as f:
-                ensemble = json.load(f)
-        except Exception as e:
-            log.warning("Could not load ensemble JSON: %s", e)
+    ecmwf = load_json_file(args.ecmwf_json, "ECMWF JSON") if args.ecmwf_json else None
+    wave = load_json_file(args.wave_json, "wave JSON") if args.wave_json else None
+    accuracy_log = load_json_file(args.accuracy_log, "accuracy log") if args.accuracy_log else None
+    cwa_obs = load_json_file(args.cwa_obs, "CWA obs JSON") if args.cwa_obs else None
+    ensemble = load_json_file(args.ensemble_json, "ensemble JSON") if args.ensemble_json else None
 
     # Build prompt and call API
     user_prompt = build_user_prompt(wrf, ecmwf, wave, accuracy_log,

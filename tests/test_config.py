@@ -1,6 +1,16 @@
 """Tests for config.py shared constants and utilities."""
 
-from config import KEELUNG_LAT, KEELUNG_LON, COMPASS_NAMES, deg_to_compass, norm_utc, setup_logging, sail_rating
+import json
+import os
+import tempfile
+import urllib.error
+from unittest.mock import patch, MagicMock
+
+from config import (
+    KEELUNG_LAT, KEELUNG_LON, COMPASS_NAMES, deg_to_compass,
+    norm_utc, setup_logging, sail_rating,
+    fetch_json, load_json_file,
+)
 
 
 def test_keelung_coordinates_in_range():
@@ -109,3 +119,69 @@ class TestSailRating:
         r = sail_rating(10, 15, 0.5, 2)
         for key in ('label', 'emoji', 'bg', 'col', 'max_w', 'max_g', 'max_hs'):
             assert key in r
+
+
+# ── fetch_json ─────────────────────────────────────────────────────────
+
+class TestFetchJson:
+    @patch('config.urllib.request.urlopen')
+    def test_returns_parsed_json(self, mock_urlopen):
+        mock_resp = MagicMock()
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        mock_resp.read.return_value = b'{"key": "value"}'
+        mock_urlopen.return_value = mock_resp
+        result = fetch_json("https://example.com/api", label="test")
+        assert result == {"key": "value"}
+
+    @patch('config.urllib.request.urlopen')
+    def test_returns_none_on_failure(self, mock_urlopen):
+        mock_urlopen.side_effect = urllib.error.URLError("timeout")
+        result = fetch_json("https://example.com/api", label="test",
+                            retries=1, retry_delay=0)
+        assert result is None
+
+    @patch('config.urllib.request.urlopen')
+    def test_retries_on_error(self, mock_urlopen):
+        mock_resp = MagicMock()
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        mock_resp.read.return_value = b'{"ok": true}'
+        mock_urlopen.side_effect = [
+            urllib.error.URLError("first fail"),
+            mock_resp,
+        ]
+        result = fetch_json("https://example.com/api", label="test",
+                            retries=2, retry_delay=0)
+        assert result == {"ok": True}
+        assert mock_urlopen.call_count == 2
+
+
+# ── load_json_file ────────────────────────────────────────────────────
+
+class TestLoadJsonFile:
+    def test_loads_valid_file(self):
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump({"a": 1}, f)
+            f.flush()
+            path = f.name
+        try:
+            result = load_json_file(path, "test")
+            assert result == {"a": 1}
+        finally:
+            os.unlink(path)
+
+    def test_returns_none_for_missing_file(self):
+        result = load_json_file("/nonexistent/path.json", "test")
+        assert result is None
+
+    def test_returns_none_for_invalid_json(self):
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            f.write("not json{{{")
+            f.flush()
+            path = f.name
+        try:
+            result = load_json_file(path, "test")
+            assert result is None
+        finally:
+            os.unlink(path)

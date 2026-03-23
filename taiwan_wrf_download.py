@@ -355,10 +355,16 @@ def _make_archive(files: list, archive_path: Path) -> Path:
     GRIB2 data is already compressed internally, so we use the fastest
     gzip level (1) — this mainly gives us a single-file container.
     """
-    with tarfile.open(archive_path, "w:gz", compresslevel=1) as tar:
-        for f in sorted(files):
-            if Path(f).exists():
-                tar.add(f, arcname=Path(f).name)
+    try:
+        with tarfile.open(archive_path, "w:gz", compresslevel=1) as tar:
+            for f in sorted(files):
+                if Path(f).exists():
+                    tar.add(f, arcname=Path(f).name)
+    except (OSError, tarfile.TarError) as e:
+        _log(f"  ✗  Failed to create archive {archive_path}: {e}")
+        if archive_path.exists():
+            archive_path.unlink()
+        raise
     return archive_path
 
 
@@ -434,6 +440,14 @@ def run(
     workers: int = 3,
 ) -> list:
     outdir.mkdir(parents=True, exist_ok=True)
+
+    # Clean up stale .part files from previous interrupted downloads
+    stale_parts = list(outdir.glob('*.part'))
+    if stale_parts:
+        for p in stale_parts:
+            p.unlink()
+        log.info("Cleaned up %d stale .part file(s)", len(stale_parts))
+
     bbox = bbox_from_point(KEELUNG_LAT, KEELUNG_LON, radius_nm) if keelung else None
 
     # ── Header ────────────────────────────────────────────────────────────────

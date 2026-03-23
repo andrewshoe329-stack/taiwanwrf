@@ -89,7 +89,8 @@ def _cwa_get(endpoint: str, api_key: str, params: dict | None = None,
                         label, str(data)[:200])
             return data
 
-        except Exception as e:
+        except (urllib.error.HTTPError, urllib.error.URLError,
+                json.JSONDecodeError, OSError) as e:
             last_err = e
             if attempt < RETRIES:
                 log.warning("%s attempt %d failed: %s", label, attempt, e)

@@ -67,7 +67,8 @@ def fetch_observations(start_date: str, end_date: str) -> dict:
     try:
         with urllib.request.urlopen(url, timeout=30) as r:
             return json.load(r)
-    except Exception as e:
+    except (urllib.error.HTTPError, urllib.error.URLError,
+            json.JSONDecodeError, OSError) as e:
         log.error("Failed to fetch observations: %s", e)
         return {}
 
@@ -87,7 +88,8 @@ def fetch_wave_observations(start_date: str, end_date: str) -> dict:
     try:
         with urllib.request.urlopen(url, timeout=30) as r:
             return json.load(r)
-    except Exception as e:
+    except (urllib.error.HTTPError, urllib.error.URLError,
+            json.JSONDecodeError, OSError) as e:
         log.error("Failed to fetch wave observations: %s", e)
         return {}
 
