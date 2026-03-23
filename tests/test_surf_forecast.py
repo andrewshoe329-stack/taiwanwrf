@@ -1,9 +1,12 @@
 """Tests for surf_forecast.py helper functions and rating logic."""
 
 
+from datetime import datetime, timezone, timedelta
+
 from surf_forecast import (
-    deg_diff, compass, dir_quality, _safe_get,
+    deg_diff, compass, dir_quality, _safe_get, _score_timestep,
     day_rating, sail_day_rating, _recommend, generate_planner_json,
+    best_time_for_day, classify_tide, tide_score,
     SPOTS, MIN_SWELL_HEIGHT_M, MAX_SWELL_HEIGHT_M, MAX_WIND_KT,
     LIGHT_WIND_KT, ONSHORE_WIND_KT,
 )
@@ -291,3 +294,177 @@ class TestGeneratePlannerJson:
     def test_empty_spot_data(self):
         result = generate_planner_json([{'spot': self.SPOT, 'records': []}])
         assert result == {'days': {}}
+
+    def test_spot_times_in_output(self):
+        """Planner JSON should include spot_times with best window per spot."""
+        dt1 = datetime(2026, 3, 22, 6, 0, tzinfo=timezone.utc)
+        records = [{
+            'dk': '2026-03-22',
+            'dt_utc': dt1,
+            'dt_cst': dt1 + timedelta(hours=8),
+            'sw_hs': 1.2, 'wind': 8, 'sw_dir': 45,
+            'w_dir': 225, 'sw_tp': 12, 'hs': 0.8, 'gust': 12, 'rain6h': 0,
+        }]
+        spot_data = [{'spot': self.SPOT, 'records': records}]
+        result = generate_planner_json(spot_data, None)
+        day = result['days']['2026-03-22']
+        assert 'spot_times' in day
+        assert len(day['spot_times']) >= 1
+        assert 'window' in day['spot_times'][0]
+        assert 'tide_class' in day['spot_times'][0]
+
+
+# ── _score_timestep ─────────────────────────────────────────────────────────
+
+class TestScoreTimestep:
+    SPOT = SPOTS[0]  # Fulong
+
+    def test_good_conditions_high_score(self):
+        r = {'sw_hs': 1.5, 'wind': 5, 'sw_dir': 45, 'w_dir': 225, 'sw_tp': 14}
+        score = _score_timestep(r, self.SPOT)
+        assert score >= 9  # Should be Firing!-range
+
+    def test_flat_conditions_low_score(self):
+        r = {'sw_hs': 0.1, 'wind': 5, 'sw_dir': 45, 'w_dir': 225, 'sw_tp': 5}
+        score = _score_timestep(r, self.SPOT)
+        assert score < 7
+
+    def test_tide_bonus_for_jinshan(self):
+        """Jinshan prefers mid tide — mid tide should score higher than low tide."""
+        jinshan = SPOTS[2]  # Jinshan, opt_tide='mid'
+        r = {'sw_hs': 1.0, 'wind': 8, 'sw_dir': 45, 'w_dir': 225, 'sw_tp': 10}
+        score_mid  = _score_timestep(r, jinshan, tide_height_m=0.45)  # mid
+        score_low  = _score_timestep(r, jinshan, tide_height_m=0.10)  # low
+        assert score_mid > score_low
+
+    def test_no_tide_penalty_for_any(self):
+        """Fulong accepts any tide — score should not change with tide."""
+        r = {'sw_hs': 1.0, 'wind': 8, 'sw_dir': 45, 'w_dir': 225, 'sw_tp': 10}
+        score_low  = _score_timestep(r, self.SPOT, tide_height_m=0.10)
+        score_high = _score_timestep(r, self.SPOT, tide_height_m=0.80)
+        assert score_low == score_high
+
+
+# ── best_time_for_day ────────────────────────────────────────────────────────
+
+class TestBestTimeForDay:
+    SPOT = SPOTS[0]  # Fulong
+
+    def _make_recs(self, hours=(0, 6, 12, 18)):
+        """Create records at given UTC hours on 2026-03-22."""
+        recs = []
+        for h in hours:
+            dt_utc = datetime(2026, 3, 22, h, 0, tzinfo=timezone.utc)
+            recs.append({
+                'dk': '2026-03-22',
+                'dt_utc': dt_utc,
+                'dt_cst': dt_utc + timedelta(hours=8),
+                'sw_hs': 1.0, 'sw_tp': 10, 'sw_dir': 45,
+                'wind': 8, 'w_dir': 225, 'gust': 12,
+                'hs': 0.8, 'rain6h': 0,
+            })
+        return recs
+
+    def test_returns_dict(self):
+        recs = self._make_recs()
+        bt = best_time_for_day(recs, self.SPOT)
+        assert bt is not None
+        assert 'window' in bt
+        assert 'score' in bt
+        assert 'tide_height_m' in bt
+        assert 'tide_class' in bt
+
+    def test_returns_none_for_flat(self):
+        recs = [{'dk': '2026-03-22', 'sw_hs': 0.05, 'wind': 5}]
+        bt = best_time_for_day(recs, self.SPOT)
+        assert bt is None
+
+    def test_returns_none_for_empty(self):
+        assert best_time_for_day([], self.SPOT) is None
+
+    def test_returns_none_for_dangerous(self):
+        recs = [{'dk': '2026-03-22', 'sw_hs': 5.0, 'wind': 10}]
+        bt = best_time_for_day(recs, self.SPOT)
+        assert bt is None
+
+    def test_window_format(self):
+        recs = self._make_recs()
+        bt = best_time_for_day(recs, self.SPOT)
+        assert bt is not None
+        assert 'CST' in bt['window']
+
+    def test_picks_best_timestep(self):
+        """Should pick the timestep with best conditions."""
+        dt_bad = datetime(2026, 3, 22, 0, 0, tzinfo=timezone.utc)
+        dt_good = datetime(2026, 3, 22, 6, 0, tzinfo=timezone.utc)
+        recs = [
+            {
+                'dk': '2026-03-22', 'dt_utc': dt_bad,
+                'dt_cst': dt_bad + timedelta(hours=8),
+                'sw_hs': 0.3, 'sw_tp': 5, 'sw_dir': 180,  # poor swell direction for Fulong
+                'wind': 20, 'w_dir': 90, 'gust': 25,  # onshore wind
+                'hs': 0.5, 'rain6h': 5,
+            },
+            {
+                'dk': '2026-03-22', 'dt_utc': dt_good,
+                'dt_cst': dt_good + timedelta(hours=8),
+                'sw_hs': 1.5, 'sw_tp': 14, 'sw_dir': 45,  # ideal NE swell
+                'wind': 5, 'w_dir': 225, 'gust': 8,  # light offshore SW
+                'hs': 1.2, 'rain6h': 0,
+            },
+        ]
+        bt = best_time_for_day(recs, self.SPOT)
+        assert bt is not None
+        assert bt['dt_utc'] == dt_good
+
+    def test_tide_info_populated(self):
+        recs = self._make_recs()
+        bt = best_time_for_day(recs, self.SPOT)
+        assert bt is not None
+        assert bt['tide_height_m'] is not None
+        assert bt['tide_class'] in ('low', 'mid', 'high')
+        assert 'm' in bt['tide_str']
+
+
+# ── classify_tide ────────────────────────────────────────────────────────────
+
+class TestClassifyTide:
+    def test_low(self):
+        assert classify_tide(0.15) == 'low'
+
+    def test_mid(self):
+        assert classify_tide(0.45) == 'mid'
+
+    def test_high(self):
+        assert classify_tide(0.75) == 'high'
+
+    def test_none(self):
+        assert classify_tide(None) == 'unknown'
+
+    def test_boundary_low_mid(self):
+        assert classify_tide(0.30) == 'mid'  # 0.30 is >= _TIDE_LOW_MAX
+
+    def test_boundary_mid_high(self):
+        assert classify_tide(0.60) == 'mid'  # 0.60 is not > _TIDE_HIGH_MIN
+
+
+# ── tide_score ───────────────────────────────────────────────────────────────
+
+class TestTideScore:
+    def test_any_always_zero(self):
+        assert tide_score('low', 'any') == 0
+        assert tide_score('high', 'any') == 0
+
+    def test_match(self):
+        assert tide_score('mid', 'mid') == 1
+
+    def test_opposite(self):
+        assert tide_score('low', 'high') == -1
+        assert tide_score('high', 'low') == -1
+
+    def test_partial_match(self):
+        assert tide_score('low', 'low-mid') == 1
+        assert tide_score('mid', 'low-mid') == 1
+
+    def test_unknown_tide(self):
+        assert tide_score('unknown', 'mid') == 0
