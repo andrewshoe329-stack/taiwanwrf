@@ -56,7 +56,9 @@ WARNING_ENDPOINT = "W-C0033-002"
 KEELUNG_STATION_ID = "466940"
 
 # Keelung tide station ID (for sea level observations)
+# KL01 = legacy ID, C4B01 = O-B0075-001 REST API station ID
 KEELUNG_TIDE_STATION_ID = "KL01"
+KEELUNG_TIDE_STATION_IDS = {"KL01", "C4B01"}
 KEELUNG_TIDE_NAMES = ["基隆", "Keelung"]
 
 # Wave buoy station near Keelung
@@ -89,11 +91,12 @@ def _cwa_get(endpoint: str, api_key: str, params: dict | None = None,
             # CWA API wraps response — some endpoints use lowercase keys
             # ("success"/"records"), others use capitalized ("Success"/"Result")
             success = data.get("success") or data.get("Success")
-            has_records = (data.get("records") or data.get("Result"))
+            has_records = (data.get("records") or data.get("Records")
+                          or data.get("Result"))
             if success == "true" or has_records:
                 return data
             log.warning("%s response missing success flag: %s",
-                        label, str(data)[:200])
+                        label, str(data)[:500])
             return data
 
         except (urllib.error.HTTPError, urllib.error.URLError,
@@ -127,7 +130,7 @@ def fetch_station_obs(api_key: str,
         return None
 
     try:
-        records = data.get("records") or data.get("Result") or {}
+        records = data.get("records") or data.get("Records") or data.get("Result") or {}
         stations = records.get("Station", records.get("location", []))
         if not stations:
             log.warning("No station data in CWA response")
@@ -240,19 +243,21 @@ def _parse_buoy_station(stn: dict) -> dict | None:
             except (ValueError, TypeError):
                 pass
 
-    hs = _val("SignificantWaveHeight")
+    # O-B0075-001 uses WaveHeight; older endpoints used SignificantWaveHeight
+    hs = _val("SignificantWaveHeight") or _val("WaveHeight")
     if hs is None:
         return None  # buoy has no wave data
 
     return {
-        "buoy_id": stn.get("StationId", stn.get("stationId", "")),
+        "buoy_id": stn.get("StationId", stn.get("stationId",
+                    stn.get("StationID", ""))),
         "buoy_name": stn.get("StationName", stn.get("locationName", "")),
         "lat": lat,
         "lon": lon,
         "obs_time": norm_utc(obs_time_raw) if obs_time_raw else None,
         "wave_height_m": hs,
-        "wave_period_s": _val("MeanWavePeriod"),
-        "wave_dir": _val("MeanWaveDirection"),
+        "wave_period_s": _val("MeanWavePeriod") or _val("WavePeriod"),
+        "wave_dir": _val("MeanWaveDirection") or _val("WaveDirection"),
         "max_wave_height_m": _val("MaximumWaveHeight"),
         "peak_period_s": _val("PeakWavePeriod"),
         "water_temp_c": _val("SeaTemperature"),
@@ -291,29 +296,154 @@ def fetch_buoy_obs(api_key: str,
     return find_nearest_buoy(all_buoys, KEELUNG_LAT, KEELUNG_LON)
 
 
+def _group_flat_rows_to_stations(rows: list[dict]) -> list[dict]:
+    """Convert flat tabular CWA API rows into nested station dicts.
+
+    The REST API O-B0075-001 returns flat rows like:
+        {"StationID": "46694A", "DataTime": "...", "WaveHeight": "0.4", ...}
+    We group by StationID and take the latest observation, converting to
+    the nested format that _parse_buoy_station/fetch_tide_obs expect:
+        {"StationId": "46694A", "ObsTime": {"DateTime": ...},
+         "WeatherElement": {"WaveHeight": ..., ...}}
+    """
+    from collections import defaultdict
+    by_station: dict[str, list[dict]] = defaultdict(list)
+    for row in rows:
+        sid = row.get("StationID") or row.get("stationId") or ""
+        if sid:
+            by_station[sid].append(row)
+
+    stations = []
+    for sid, obs_rows in by_station.items():
+        # Sort by DataTime descending, take latest
+        obs_rows.sort(key=lambda r: r.get("DataTime", ""), reverse=True)
+        latest = obs_rows[0]
+        dt = latest.get("DataTime", "")
+
+        # Build a nested station dict compatible with _parse_buoy_station
+        stn = {
+            "StationId": sid,
+            "StationName": latest.get("StationName", sid),
+            "ObsTime": {"DateTime": dt},
+            "WeatherElement": {
+                "SignificantWaveHeight": latest.get("WaveHeight"),
+                "MeanWavePeriod": latest.get("WavePeriod"),
+                "MeanWaveDirection": latest.get("WaveDirection"),
+                "TideHeight": latest.get("TideHeight"),
+                "SeaTemperature": latest.get("SeaTemperature"),
+            },
+        }
+        stations.append(stn)
+    return stations
+
+
 def _fetch_marine_stations(api_key: str) -> list[dict]:
     """Fetch combined buoy + tide station data from O-B0075-001.
 
     Returns the raw list of Station dicts from the API response,
     or an empty list on failure.
     """
+    # Request specific stations to reduce response size
+    target_ids = list(KEELUNG_BUOY_IDS) + list(KEELUNG_TIDE_STATION_IDS)
     data = _cwa_get(
         MARINE_OBS_ENDPOINT, api_key,
+        params={"StationID": ",".join(target_ids)},
         label="CWA-MarineObs",
     )
     if not data:
         return []
 
     try:
-        records = data.get("records") or data.get("Result") or {}
-        stations = records.get("Station", records.get("location",
-                    records.get("SeaConditionStation", [])))
+        # CWA REST API uses: {"Success":"true", "Result":{...}, "Records":{...}}
+        # Note: "Records" (capital R) is top-level, alongside "Result"
+        records = (data.get("records")
+                   or data.get("Records")
+                   or data.get("Result")
+                   or {})
+
+        # If records is a flat list of rows (tabular format), group by station
+        if isinstance(records, list) and records:
+            log.info("CWA marine obs: tabular format, %d rows", len(records))
+            return _group_flat_rows_to_stations(records)
+
+        # Try SeaSurfaceObs → Location (main O-B0075-001 format)
+        stations = None
+        sea_obs = records.get("SeaSurfaceObs", {})
+        if isinstance(sea_obs, dict):
+            stations = sea_obs.get("Location", [])
+
+        # Try flat station arrays
         if not stations:
-            log.warning("No marine station data in CWA response")
+            for key in ("Station", "location", "SeaConditionStation",
+                        "Location"):
+                v = records.get(key) if isinstance(records, dict) else None
+                if v:
+                    stations = v
+                    break
+
+        if not stations:
+            # Dump structure to help debug CWA API format changes
+            rec_keys = list(records.keys())[:15] if isinstance(records, dict) else type(records).__name__
+            res_keys = list((data.get("Result") or {}).keys())[:15]
+            log.warning("No marine station data in CWA response "
+                        "(Result keys: %s, records keys: %s)", res_keys, rec_keys)
             return []
         if not isinstance(stations, list):
             stations = [stations]
-        return stations
+        # Some CWA formats nest station info in Location → Station
+        # with obs data under StationObsStatus.StationObsTimes
+        # Flatten to ensure each item has StationID at the top level
+        # and WeatherElement dict with the latest observations
+        flattened = []
+        for stn in stations:
+            if not isinstance(stn, dict):
+                continue
+            # Merge Station sub-dict into parent for uniform access
+            merged = dict(stn)
+            if "Station" in stn and isinstance(stn["Station"], dict):
+                merged.update(stn["Station"])
+
+            # Extract latest observation from StationObsTimes if present
+            obs_times = stn.get("StationObsTimes")
+            if obs_times is None:
+                obs_status = stn.get("StationObsStatus") or {}
+                obs_times = obs_status.get("StationObsTimes")
+            if isinstance(obs_times, dict):
+                obs_times = obs_times.get("StationObsTime", [])
+            if isinstance(obs_times, list) and obs_times:
+                # Sort by DateTime descending, skip entries with all-None data
+                valid_obs = [
+                    o for o in obs_times
+                    if isinstance(o, dict)
+                    and o.get("DateTime")
+                    and o.get("WeatherElements", {}).get("WaveHeight", "None") != "None"
+                    or o.get("WeatherElements", {}).get("TideHeight", "None") != "None"
+                ]
+                if not valid_obs:
+                    valid_obs = [o for o in obs_times if isinstance(o, dict)]
+                valid_obs.sort(key=lambda o: o.get("DateTime", ""), reverse=True)
+                if valid_obs:
+                    latest = valid_obs[0]
+                    dt = latest.get("DateTime", "")
+                    we = latest.get("WeatherElements", {})
+                    if isinstance(we, dict):
+                        merged["WeatherElement"] = we
+                        merged.setdefault("ObsTime", {"DateTime": dt})
+
+            # Also try extracting lat/lon from Station sub-dict
+            for lat_key in ("StationLatitude", "Latitude"):
+                if lat_key in merged:
+                    merged.setdefault("GeoInfo", {}).setdefault(
+                        "Latitude", merged[lat_key])
+                    break
+            for lon_key in ("StationLongitude", "Longitude"):
+                if lon_key in merged:
+                    merged.setdefault("GeoInfo", {}).setdefault(
+                        "Longitude", merged[lon_key])
+                    break
+
+            flattened.append(merged)
+        return flattened
     except Exception as e:
         log.error("Failed to parse CWA marine response: %s", e)
         return []
@@ -412,7 +542,9 @@ def fetch_tide_obs(api_key: str,
         for stn in stations if isinstance(stations, list) else [stations]:
             stn_id = stn.get("StationId", stn.get("stationId", ""))
             stn_name = stn.get("StationName", stn.get("locationName", ""))
-            if stn_id == station_id or any(n in stn_name for n in KEELUNG_TIDE_NAMES):
+            if (stn_id == station_id
+                    or stn_id in KEELUNG_TIDE_STATION_IDS
+                    or any(n in stn_name for n in KEELUNG_TIDE_NAMES)):
                 target = stn
                 break
 
@@ -481,14 +613,21 @@ def fetch_tide_forecast(api_key: str,
         return []
 
     try:
-        records = data.get("records") or data.get("Result") or {}
-        # CWA tide forecast structure varies; try common paths
+        records = data.get("records") or data.get("Records") or data.get("Result") or {}
+        # CWA tide forecast structure:
+        # TideForecasts is a list of {"Location": {LocationName, TimePeriods, ...}}
         tide_fc = records.get("TideForecasts", {})
         if isinstance(tide_fc, list):
-            # Some responses wrap TideForecasts as a list of location dicts
-            locations = tide_fc
+            # Each item wraps location data in a "Location" sub-dict
+            locations = []
+            for item in tide_fc:
+                if isinstance(item, dict):
+                    inner = item.get("Location", item)
+                    locations.append(inner)
         elif isinstance(tide_fc, dict):
             locations = tide_fc.get("Location", [])
+            if isinstance(locations, dict):
+                locations = [locations]
         else:
             locations = []
         if not locations:
@@ -497,17 +636,28 @@ def fetch_tide_forecast(api_key: str,
         if isinstance(locations, dict):
             locations = [locations]
 
-        # Find Keelung station
+        # Find Keelung station — try multiple name keys
+        def _loc_name(loc):
+            """Extract location/station name from various CWA key conventions."""
+            if not isinstance(loc, dict):
+                return ""
+            for key in ("LocationName", "locationName", "StationName",
+                        "stationName", "Location", "Name", "name"):
+                v = loc.get(key)
+                if v and isinstance(v, str):
+                    return v
+            return ""
+
         target = None
         for loc in locations:
-            name = loc.get("LocationName", loc.get("locationName", ""))
+            name = _loc_name(loc)
             if station_name in name or "基隆" in name or "Keelung" in name:
                 target = loc
                 break
 
         if target is None:
-            avail = [loc.get("LocationName", loc.get("locationName", "?"))
-                     for loc in locations[:10]]
+            avail = [_loc_name(loc) or str(list(loc.keys())[:5])
+                     for loc in locations[:10] if isinstance(loc, dict)]
             log.warning("Keelung not found in tide forecast. Available: %s", avail)
             return []
 
@@ -541,18 +691,32 @@ def fetch_tide_forecast(api_key: str,
                     continue
 
                 # Height may be in different keys
+                # CWA nests heights: TideHeights: {AboveTWVD, AboveLocalMSL, ...}
+                # Values are in cm (integers), convert to metres
                 height = None
-                for hkey in ("AboveLocalMSL", "AboveTWVD", "AboveChartDatum",
-                             "TideHeights", "height"):
-                    v = t.get(hkey)
-                    if isinstance(v, dict):
-                        v = v.get("value") or v.get("Value")
-                    if v is not None and v != "":
-                        try:
-                            height = float(v)
-                            break
-                        except (ValueError, TypeError):
-                            pass
+                tide_heights = t.get("TideHeights", {})
+                if isinstance(tide_heights, dict):
+                    for hkey in ("AboveLocalMSL", "AboveTWVD", "AboveChartDatum"):
+                        v = tide_heights.get(hkey)
+                        if v is not None and v != "":
+                            try:
+                                height = float(v) / 100.0  # cm → m
+                                break
+                            except (ValueError, TypeError):
+                                pass
+                # Fallback: height at top level (older formats)
+                if height is None:
+                    for hkey in ("AboveLocalMSL", "AboveTWVD", "AboveChartDatum",
+                                 "height"):
+                        v = t.get(hkey)
+                        if isinstance(v, dict):
+                            v = v.get("value") or v.get("Value")
+                        if v is not None and v != "":
+                            try:
+                                height = float(v)
+                                break
+                            except (ValueError, TypeError):
+                                pass
 
                 if time_raw:
                     extrema.append({
@@ -589,13 +753,21 @@ def fetch_township_forecast(api_key: str,
         return None
 
     try:
-        records = data.get("records") or data.get("Result") or {}
-        locations = records.get("location", records.get("Location", []))
+        records = data.get("records") or data.get("Records") or data.get("Result") or {}
+        # F-D0047-049 nests data: records.Locations[].Location[]
+        locations_wrapper = records.get("Locations") or records.get("locations")
+        if isinstance(locations_wrapper, list) and locations_wrapper:
+            # Unwrap: first Locations item contains the Location array
+            locations = locations_wrapper[0].get("Location",
+                        locations_wrapper[0].get("location", []))
+        else:
+            locations = records.get("location", records.get("Location", []))
         if not locations:
-            log.warning("No township forecast data")
+            log.warning("No township forecast data (keys: %s)",
+                        list(records.keys())[:10] if isinstance(records, dict) else type(records))
             return None
 
-        # Take the first location (should be Keelung for endpoint 061)
+        # Take the first location (should be Keelung for endpoint 049)
         loc = locations[0] if isinstance(locations, list) else locations
 
         # Parse weather elements into a simplified structure
@@ -648,7 +820,7 @@ def fetch_warnings(api_key: str) -> list[dict]:
         return []
 
     try:
-        records = data.get("records") or data.get("Result") or {}
+        records = data.get("records") or data.get("Records") or data.get("Result") or {}
         # CWA warning format nests under different keys depending on version
         warnings_raw = (records.get("record", [])
                         or records.get("Warning", [])
