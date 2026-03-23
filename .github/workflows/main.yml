@@ -148,6 +148,24 @@ jobs:
         run: |
           python tide_predict.py --output tide_keelung.json --days 7
 
+      # ── Fetch CWA real-time observations (station + wave buoy) ───────────────
+      # Uses CWA Open Data API for Keelung weather station (#466940) and
+      # nearest wave buoy. Non-blocking: pipeline continues if API fails.
+      - name: Fetch CWA observations
+        id: cwa_obs
+        if: steps.stale_check.outputs.is_new == 'true'
+        continue-on-error: true
+        timeout-minutes: 3
+        env:
+          CWA_OPENDATA_KEY: ${{ secrets.CWA_OPENDATA_KEY }}
+        run: |
+          if [ -n "$CWA_OPENDATA_KEY" ]; then
+            python cwa_fetch.py --output cwa_obs.json
+            echo "  CWA observations saved"
+          else
+            echo "  CWA_OPENDATA_KEY not set — skipping"
+          fi
+
       # ── Diagnostic: list GRIB2 variables in first subset file ────────────────
       # Captures the (shortName, typeOfLevel, level) inventory to a file so it
       # can be included in the HTML output.  Helps diagnose missing variables (gusts,
@@ -310,13 +328,15 @@ jobs:
             $WAVE_ARG
 
       # ── Track forecast accuracy ──────────────────────────────────────────────
-      # Compares past forecast records against Open-Meteo observations.
+      # Compares past forecast records against Open-Meteo + CWA observations.
       # Non-blocking: pipeline continues if accuracy check fails.
       - name: Track forecast accuracy
         id: accuracy
         if: steps.stale_check.outputs.is_new == 'true'
         continue-on-error: true
         timeout-minutes: 3
+        env:
+          CWA_OPENDATA_KEY: ${{ secrets.CWA_OPENDATA_KEY }}
         run: |
           # Download existing log from Drive (ignore if missing)
           rclone copy gdrive:WRF_Taiwan/accuracy_log.json . 2>/dev/null || true
