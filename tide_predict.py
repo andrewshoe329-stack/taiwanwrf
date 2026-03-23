@@ -31,12 +31,20 @@ log = logging.getLogger(__name__)
 CONSTITUENTS = [
     # (name,  period_hours,  amplitude_m,  phase_deg)
     # Phases referenced to J2000.0 epoch (2000-01-01T12:00:00 UTC)
+    # Principal constituents (original 6)
     ('M2',    12.4206,       0.215,        299.0),   # principal lunar semidiurnal
     ('S2',    12.0000,       0.060,        220.0),   # principal solar semidiurnal
     ('K1',    23.9345,       0.145,        345.3),   # luni-solar diurnal
     ('O1',    25.8193,       0.105,         43.7),   # principal lunar diurnal
     ('N2',    12.6583,       0.045,        141.8),   # larger lunar elliptic
     ('K2',    11.9672,       0.018,        235.7),   # luni-solar semidiurnal
+    # Minor constituents (for improved accuracy, ~±5cm)
+    ('P1',    24.0659,       0.048,        320.5),   # principal solar diurnal
+    ('Q1',    26.8684,       0.020,         15.2),   # larger lunar elliptic diurnal
+    ('NU2',   12.6260,       0.009,        130.0),   # larger lunar evectional
+    ('2N2',   12.9054,       0.006,        345.0),   # lunar elliptic 2nd order
+    ('MU2',   12.8718,       0.007,        155.0),   # variational
+    ('L2',    12.1916,       0.007,        310.0),   # smaller lunar elliptic
 ]
 
 # Mean sea level offset (metres above chart datum)

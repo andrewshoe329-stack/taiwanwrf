@@ -30,6 +30,7 @@ SPOTS = [
         'facing': 'NE/E',
         'opt_wind':  ['S', 'SW'],
         'opt_swell': ['N', 'NE', 'E'],
+        'opt_tide':  'any',
         'desc': 'Rivermouth beach break · L&R · All levels',
     },
     {
@@ -39,6 +40,7 @@ SPOTS = [
         'facing': 'NE',
         'opt_wind':  ['W', 'SW'],
         'opt_swell': ['E', 'NE'],
+        'opt_tide':  'any',
         'desc': 'Beach break · L&R · All levels',
     },
     {
@@ -48,6 +50,7 @@ SPOTS = [
         'facing': 'NE',
         'opt_wind':  ['S', 'SW'],
         'opt_swell': ['N', 'NNE', 'NE', 'E', 'ESE'],
+        'opt_tide':  'mid',
         'desc': 'Beach/point · L&R · Mid tide · Beg–Inter',
     },
     {
@@ -57,6 +60,7 @@ SPOTS = [
         'facing': 'SE',
         'opt_wind':  ['NW', 'W'],
         'opt_swell': ['SE', 'SSE', 'S', 'E'],
+        'opt_tide':  'mid-high',
         'desc': 'Half-moon beach break · L&R · Mid-high tide · Beg–Inter',
     },
     {
@@ -66,6 +70,7 @@ SPOTS = [
         'facing': 'E',
         'opt_wind':  ['NW', 'W'],
         'opt_swell': ['E', 'SE', 'SSE'],
+        'opt_tide':  'mid',
         'desc': 'Beach break · L&R · Mid tide · All levels',
     },
     {
@@ -75,6 +80,7 @@ SPOTS = [
         'facing': 'E',
         'opt_wind':  ['W', 'SW'],
         'opt_swell': ['ENE', 'E', 'SE', 'SSE'],
+        'opt_tide':  'mid-high',
         'desc': 'Beach break · L&R · Mid-high tide · All levels',
     },
     {
@@ -84,6 +90,7 @@ SPOTS = [
         'facing': 'E',
         'opt_wind':  ['WSW', 'W'],
         'opt_swell': ['ENE', 'E', 'ESE'],
+        'opt_tide':  'low-mid',
         'desc': 'Point break · Left · Low-mid tide · Intermediate+',
     },
 ]
@@ -122,6 +129,46 @@ def dir_quality(actual_deg: float | None, optimal_dirs: list[str]) -> str:
     if min_diff <= 22.5: return 'good'
     if min_diff <= 45.0: return 'ok'
     return 'poor'
+
+
+# ── Tide classification ───────────────────────────────────────────────────
+# Keelung chart datum: MSL ~0.45m.  Classify tide height above chart datum.
+_TIDE_LOW_MAX  = 0.30   # below this = low tide
+_TIDE_HIGH_MIN = 0.60   # above this = high tide
+# Between = mid tide
+
+def classify_tide(height_m: float | None) -> str:
+    """Classify tide as 'low', 'mid', or 'high' from height above chart datum."""
+    if height_m is None:
+        return 'unknown'
+    if height_m < _TIDE_LOW_MAX:
+        return 'low'
+    if height_m > _TIDE_HIGH_MIN:
+        return 'high'
+    return 'mid'
+
+
+def tide_score(tide_class: str, opt_tide: str) -> int:
+    """Return +1 if tide matches spot preference, -1 if opposite, 0 otherwise."""
+    if opt_tide == 'any' or tide_class == 'unknown':
+        return 0
+    # Build set of acceptable tide states
+    acceptable = set()
+    if 'low' in opt_tide:
+        acceptable.add('low')
+    if 'mid' in opt_tide:
+        acceptable.add('mid')
+    if 'high' in opt_tide:
+        acceptable.add('high')
+    if not acceptable:
+        return 0
+    if tide_class in acceptable:
+        return 1
+    # Opposite: low when needs high, high when needs low
+    opposites = {'low': 'high', 'high': 'low'}
+    if opposites.get(tide_class) in acceptable and tide_class not in acceptable:
+        return -1
+    return 0
 
 # ── API fetch ──────────────────────────────────────────────────────────────
 OPEN_METEO   = 'https://api.open-meteo.com/v1/forecast'
@@ -240,10 +287,20 @@ KEELUNG = {'lat': KEELUNG_LAT, 'lon': KEELUNG_LON, 'name': 'Keelung'}
 WKDAY = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 MONTH = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
-def day_rating(day_recs: list[dict], spot: dict) -> dict[str, object]:
+def day_rating(day_recs: list[dict], spot: dict,
+               tide_height_m: float | None = None,
+               ensemble_spread: dict | None = None) -> dict[str, object]:
     """
     Evaluate the best conditions available during the day for this spot.
-    Returns dict with: label, emoji, bg, col, best_hs, best_period, best_wind.
+    Returns dict with: label, emoji, bg, col, best_hs, best_period, best_wind,
+    and optionally 'confidence'.
+
+    Scoring (max ~16 points):
+      Swell direction: 0-4 (weighted by swell height)
+      Wind direction:  0-3 (weighted by wind speed)
+      Wind speed:      -2 to +2
+      Wave energy:     0-5 (height² × period)
+      Tide match:      -1 to +1
     """
     if not day_recs:
         return {'label': 'No data', 'emoji': '❓', 'bg': '#2d3748', 'col': '#718096',
@@ -260,6 +317,8 @@ def day_rating(day_recs: list[dict], spot: dict) -> dict[str, object]:
         return {'label': 'Dangerous', 'emoji': '🔴', 'bg': '#3d1515', 'col': '#fc8181',
                 'best_sw_hs': max_sw_hs, 'best_sw_tp': None, 'best_wind': max_wind_kt}
 
+    opt_tide = spot.get('opt_tide', 'any')
+
     # Score each timestep, keep the best
     best_score = 0
     best_rec   = None
@@ -272,22 +331,34 @@ def day_rating(day_recs: list[dict], spot: dict) -> dict[str, object]:
         sw_tp   = r.get('sw_tp') or 0
 
         score = 0
-        # Swell direction
+
+        # Swell direction — weighted by swell height (full credit at ≥0.6m)
         sq = dir_quality(sw_dir, spot['opt_swell'])
-        score += {'good': 4, 'ok': 2, 'poor': 0, 'unknown': 1}[sq]
-        # Wind direction (offshore)
+        swell_dir_base = {'good': 4, 'ok': 2, 'poor': 0, 'unknown': 1}[sq]
+        swell_factor = min(sw_hs / 0.6, 1.0) if sw_hs > 0 else 0
+        score += round(swell_dir_base * swell_factor)
+
+        # Wind direction (offshore) — weighted by wind speed (full credit at ≥LIGHT_WIND_KT)
         wq = dir_quality(w_dir, spot['opt_wind'])
-        score += {'good': 3, 'ok': 1, 'poor': 0, 'unknown': 1}[wq]
+        wind_dir_base = {'good': 3, 'ok': 1, 'poor': 0, 'unknown': 1}[wq]
+        wind_factor = min(wind_kt / LIGHT_WIND_KT, 1.0) if wind_kt > 0 else 0
+        score += round(wind_dir_base * wind_factor)
+
         # Wind speed (light is better)
         if wind_kt < LIGHT_WIND_KT:   score += 2
         elif wind_kt < 15:            score += 1
         elif wind_kt > ONSHORE_WIND_KT: score -= 2
-        # Swell height
-        if 0.6 <= sw_hs <= 2.5: score += 3
-        elif sw_hs > 0.3:        score += 1
-        # Period
-        if sw_tp >= 12: score += 2
-        elif sw_tp >= 9: score += 1
+
+        # Wave energy — height² × period (replaces independent height + period)
+        energy = sw_hs ** 2 * sw_tp
+        if energy >= 12:    score += 5   # e.g. 1.0m @ 12s, 1.5m @ 5.3s
+        elif energy >= 5:   score += 3   # e.g. 0.7m @ 10s
+        elif energy >= 1.5: score += 2   # e.g. 0.5m @ 6s
+        elif energy > 0:    score += 1
+
+        # Tide preference
+        tide_class = classify_tide(tide_height_m)
+        score += tide_score(tide_class, opt_tide)
 
         if score > best_score:
             best_score = score
@@ -295,10 +366,22 @@ def day_rating(day_recs: list[dict], spot: dict) -> dict[str, object]:
 
     br = best_rec or day_recs[0]
 
-    if   best_score >= 9:  return {'label': 'Firing!',  'emoji': '🔥', 'bg': '#0d3320', 'col': '#48bb78', 'best_sw_hs': br.get('sw_hs'), 'best_sw_tp': br.get('sw_tp'), 'best_wind': br.get('wind')}
-    elif best_score >= 7:  return {'label': 'Good',     'emoji': '🟢', 'bg': '#0d2d1a', 'col': '#68d391', 'best_sw_hs': br.get('sw_hs'), 'best_sw_tp': br.get('sw_tp'), 'best_wind': br.get('wind')}
-    elif best_score >= 4:  return {'label': 'Marginal', 'emoji': '🟡', 'bg': '#3d2e00', 'col': '#fbd38d', 'best_sw_hs': br.get('sw_hs'), 'best_sw_tp': br.get('sw_tp'), 'best_wind': br.get('wind')}
-    else:                  return {'label': 'Poor',     'emoji': '🔴', 'bg': '#3d1515', 'col': '#fc8181', 'best_sw_hs': br.get('sw_hs'), 'best_sw_tp': br.get('sw_tp'), 'best_wind': br.get('wind')}
+    # Ensemble confidence
+    confidence = 'normal'
+    if ensemble_spread:
+        wind_spread = ensemble_spread.get('wind_kt', {}).get('spread')
+        temp_spread = ensemble_spread.get('temp_c', {}).get('spread')
+        if (wind_spread is not None and wind_spread > 5) or \
+           (temp_spread is not None and temp_spread > 2):
+            confidence = 'low'
+
+    base = {'best_sw_hs': br.get('sw_hs'), 'best_sw_tp': br.get('sw_tp'),
+             'best_wind': br.get('wind'), 'confidence': confidence}
+
+    if   best_score >= 9:  return {'label': 'Firing!',  'emoji': '🔥', 'bg': '#0d3320', 'col': '#48bb78', **base}
+    elif best_score >= 7:  return {'label': 'Good',     'emoji': '🟢', 'bg': '#0d2d1a', 'col': '#68d391', **base}
+    elif best_score >= 4:  return {'label': 'Marginal', 'emoji': '🟡', 'bg': '#3d2e00', 'col': '#fbd38d', **base}
+    else:                  return {'label': 'Poor',     'emoji': '🔴', 'bg': '#3d1515', 'col': '#fc8181', **base}
 
 
 def sail_day_rating(day_recs: list[dict]) -> dict[str, object]:
@@ -696,8 +779,10 @@ def _render_rating_matrix(all_spot_data: list[dict], all_dks: list[str]) -> str:
         for dk in all_dks:
             day_recs = by_day.get(dk, [])
             rating   = day_rating(day_recs, spot)
+            conf_tag = ' <span title="High model uncertainty" style="opacity:0.6">\u00b1</span>' \
+                       if rating.get('confidence') == 'low' else ''
             html += (f'<td style="background:{rating["bg"]};color:{rating["col"]}">'
-                     f'<span role="img" aria-label="{rating["label"]}">{rating["emoji"]}</span> {rating["label"]}</td>')
+                     f'<span role="img" aria-label="{rating["label"]}">{rating["emoji"]}</span> {rating["label"]}{conf_tag}</td>')
         html += '</tr>\n'
 
     html += '</tbody></table>\n</div>\n'
