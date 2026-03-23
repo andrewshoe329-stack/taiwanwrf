@@ -540,7 +540,7 @@ def fetch_tide_obs(api_key: str,
         # Find target station by ID or name
         target = None
         for stn in stations if isinstance(stations, list) else [stations]:
-            stn_id = stn.get("StationId", stn.get("stationId", ""))
+            stn_id = stn.get("StationID", stn.get("StationId", stn.get("stationId", "")))
             stn_name = stn.get("StationName", stn.get("locationName", ""))
             if (stn_id == station_id
                     or stn_id in KEELUNG_TIDE_STATION_IDS
@@ -549,7 +549,7 @@ def fetch_tide_obs(api_key: str,
                 break
 
         if target is None:
-            avail = [f'{s.get("StationId", "?")}:{s.get("StationName", "?")}'
+            avail = [f'{s.get("StationID", s.get("StationId", "?"))}:{s.get("StationName", "?")}'
                      for s in (stations[:10] if isinstance(stations, list) else [])]
             log.warning("Keelung tide station not found. Available: %s", avail)
             return None
@@ -575,7 +575,7 @@ def fetch_tide_obs(api_key: str,
                   or _val("WaterLevel") or _val("SeaLevel"))
 
         result = {
-            "station_id": target.get("StationId", target.get("stationId", "")),
+            "station_id": target.get("StationID", target.get("StationId", target.get("stationId", ""))),
             "station_name": target.get("StationName", target.get("locationName", "")),
             "obs_time": norm_utc(obs_time_raw) if obs_time_raw else None,
             "tide_height_m": height,
