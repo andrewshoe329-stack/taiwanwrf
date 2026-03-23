@@ -86,8 +86,11 @@ def _cwa_get(endpoint: str, api_key: str, params: dict | None = None,
             with urllib.request.urlopen(req, timeout=30) as r:
                 data = json.load(r)
 
-            # CWA API wraps response in {"success": "true", "records": {...}}
-            if data.get("success") == "true" or data.get("records"):
+            # CWA API wraps response — some endpoints use lowercase keys
+            # ("success"/"records"), others use capitalized ("Success"/"Result")
+            success = data.get("success") or data.get("Success")
+            has_records = (data.get("records") or data.get("Result"))
+            if success == "true" or has_records:
                 return data
             log.warning("%s response missing success flag: %s",
                         label, str(data)[:200])
@@ -124,7 +127,7 @@ def fetch_station_obs(api_key: str,
         return None
 
     try:
-        records = data.get("records", {})
+        records = data.get("records") or data.get("Result") or {}
         stations = records.get("Station", records.get("location", []))
         if not stations:
             log.warning("No station data in CWA response")
@@ -302,7 +305,7 @@ def _fetch_marine_stations(api_key: str) -> list[dict]:
         return []
 
     try:
-        records = data.get("records", {})
+        records = data.get("records") or data.get("Result") or {}
         stations = records.get("Station", records.get("location",
                     records.get("SeaConditionStation", [])))
         if not stations:
@@ -478,11 +481,19 @@ def fetch_tide_forecast(api_key: str,
         return []
 
     try:
-        records = data.get("records", {})
+        records = data.get("records") or data.get("Result") or {}
         # CWA tide forecast structure varies; try common paths
-        locations = (records.get("TideForecasts", {}).get("Location", [])
-                     or records.get("location", [])
-                     or records.get("Location", []))
+        tide_fc = records.get("TideForecasts", {})
+        if isinstance(tide_fc, list):
+            # Some responses wrap TideForecasts as a list of location dicts
+            locations = tide_fc
+        elif isinstance(tide_fc, dict):
+            locations = tide_fc.get("Location", [])
+        else:
+            locations = []
+        if not locations:
+            locations = (records.get("location", [])
+                         or records.get("Location", []))
         if isinstance(locations, dict):
             locations = [locations]
 
@@ -578,7 +589,7 @@ def fetch_township_forecast(api_key: str,
         return None
 
     try:
-        records = data.get("records", {})
+        records = data.get("records") or data.get("Result") or {}
         locations = records.get("location", records.get("Location", []))
         if not locations:
             log.warning("No township forecast data")
@@ -637,7 +648,7 @@ def fetch_warnings(api_key: str) -> list[dict]:
         return []
 
     try:
-        records = data.get("records", {})
+        records = data.get("records") or data.get("Result") or {}
         # CWA warning format nests under different keys depending on version
         warnings_raw = (records.get("record", [])
                         or records.get("Warning", [])
