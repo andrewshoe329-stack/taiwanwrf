@@ -920,3 +920,29 @@ a:focus-visible {
   outline-offset: 2px;
   border-radius: 2px;
 }
+
+/* ── Colorblind-safe indicators ──────────────────────────────────────────── */
+/* Text symbols alongside color for Beaufort wind scale and wave height */
+.cb-indicator {
+  font-size: 0.75em;
+  font-weight: 700;
+  margin-left: 2px;
+  vertical-align: super;
+}
+.cb-ok::after    { content: "✓"; color: var(--good-text); }
+.cb-warn::after  { content: "⚠"; color: var(--warn-text); }
+.cb-danger::after { content: "✗"; color: var(--danger-text); }
+
+/* Ensemble spread indicators */
+.spread-indicator {
+  font-size: 0.75em;
+  margin-left: 2px;
+}
+.spread-low    { color: var(--good-text); }
+.spread-medium { color: var(--warn-text); }
+.spread-high   { color: var(--danger-text); }
+
+/* Rating pills with pattern overlay for colorblind users */
+.rating-pill[data-level="good"]    { border-left: 3px solid var(--good-text); }
+.rating-pill[data-level="warn"]    { border-left: 3px solid var(--warn-text); }
+.rating-pill[data-level="danger"]  { border-left: 3px solid var(--danger-text); }

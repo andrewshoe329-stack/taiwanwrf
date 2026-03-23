@@ -61,11 +61,13 @@ GitHub Actions (cron 4x/day)
 | `tide_predict.py` | ~170 | Harmonic tide prediction for Keelung (no API key needed) |
 | `accuracy_track.py` | ~180 | Forecast accuracy tracking vs Open-Meteo observations |
 | `forecast_summary.py` | ~224 | Anthropic API call (3-attempt retry), prompt construction, HTML output |
-| `.github/workflows/main.yml` | ~340 | Full CI/CD pipeline with concurrency control |
+| `ensemble_fetch.py` | ~240 | Fetch GFS/ICON/JMA from Open-Meteo, compute multi-model spread stats |
+| `notify.py` | ~230 | Threshold-based alerts via LINE Notify and Telegram Bot API |
+| `.github/workflows/main.yml` | ~460 | Full CI/CD pipeline with ensemble, notifications, concurrency control |
 | `pwa/` | 4 files | PWA manifest, service worker, icon generator, icons |
 | `vercel.json` | ~8 | Static site config (rewrites `/` → `/index.html`) |
 | `requirements.txt` | ~6 | `eccodes>=1.5,<2`, `numpy>=1.24,<3`, `anthropic>=0.40,<1` |
-| `tests/` | 8 files, 140 tests | Unit tests for pure functions (pytest) |
+| `tests/` | 10 files, 225 tests | Unit tests for pure functions (pytest) |
 
 ---
 
@@ -78,7 +80,7 @@ All scripts import coordinates, compass functions, and `norm_utc()` from here. *
 - CWA WRF uses **Lambert Conformal** grid projection (not regular lat/lon)
 - eccodes is the primary GRIB2 library; cfgrib/xarray is a fallback
 - Grid geometry is **cached per file** — all messages in a WRF file share the same grid
-- Cache key: `(grid_type, ni, nj)` in subsetting, `(ni, nj)` in point extraction
+- Cache key: `(grid_type, ni, nj)` in both subsetting and point extraction
 - Precipitation is **accumulated** in WRF GRIB2 — must compute 6h increments by differencing consecutive forecast hours. F000 (analysis hour) always gets `precip_mm_6h = 0.0`
 - Units: WMO standard may use metres for precip; read the `units` GRIB2 key to decide conversion
 
@@ -109,6 +111,8 @@ Scoring system (0–14 max) evaluates each 6h timestep:
 - Retry logic: 3 attempts with 5s delay (Open-Meteo), exponential backoff (S3 downloads)
 - `surf_forecast.py` fetches all 8 locations (Keelung + 7 spots) in parallel via ThreadPoolExecutor(4)
 - GFS data backfills ECMWF gaps (wind gusts, visibility)
+- `ensemble_fetch.py` fetches GFS/ICON/JMA in parallel via ThreadPoolExecutor(3)
+- `notify.py` sends threshold-based alerts via LINE Notify and Telegram Bot API
 
 ---
 
@@ -134,6 +138,8 @@ Scoring system (0–14 max) evaluates each 6h timestep:
 | Open-Meteo (`api.open-meteo.com`) | ECMWF IFS, GFS forecasts | Free, no key, 10k req/day |
 | Open-Meteo Marine (`marine-api.open-meteo.com`) | ECMWF WAM wave data | Free, no key |
 | Anthropic API | AI forecast summary | `ANTHROPIC_API_KEY` secret |
+| LINE Notify (`notify-api.line.me`) | Push alerts | `LINE_NOTIFY_TOKEN` secret (optional) |
+| Telegram Bot API (`api.telegram.org`) | Push alerts | `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` (optional) |
 | Google Drive (via rclone) | Archive storage + persistent summary.json | `RCLONE_CONFIG` secret |
 | Vercel | Static site hosting | `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` |
 
@@ -147,7 +153,7 @@ pip install pytest
 python -m pytest tests/ -v
 ```
 
-All 140 tests should pass. Tests cover: compass conversion, Beaufort scale, color functions, direction quality scoring, day ratings, sail ratings, time normalization, bbox geometry, GRIB2 constant validation, tide prediction (semidiurnal pattern, extrema detection), and accuracy tracking (error metrics).
+All 225 tests should pass. Tests cover: compass conversion, Beaufort scale, color functions, direction quality scoring, day ratings, sail ratings, time normalization, bbox geometry, GRIB2 constant validation, tide prediction (semidiurnal pattern, extrema detection), and accuracy tracking (error metrics).
 
 **No integration tests exist.** Tests don't require network access or GRIB2 files — they only test pure functions.
 
@@ -186,26 +192,24 @@ python forecast_summary.py --wrf-json keelung_summary_new.json \
 ## Known Issues & Technical Debt
 
 ### Open Bugs
-- **BUG-3**: First 6h precipitation window sums fewer than 6 hours (low severity — only affects the 00:00 record)
-- GRIB2 grid cache key `(ni, nj)` in `read_point()` doesn't include grid type (latent bug if mixed projections)
+- ~~**BUG-3**: Fixed — precipitation now scales proportionally for early forecast hours~~
+- ~~Grid cache key: Fixed — `read_point()` already includes `grid_type` in cache key~~
+- No known open bugs
 
 ### Code Quality Debt
-- `wrf_analyze.py` `render_unified_html()` is ~340 lines of string-concatenated HTML — hard to test structurally
-- `surf_forecast.py` `generate_full_html()` similar — mixing data processing and HTML
+- `wrf_analyze.py` `render_unified_html()` is ~440 lines — partially refactored with colorblind + ensemble helpers extracted
+- `surf_forecast.py` `generate_full_html()` refactored into `_render_rating_matrix()`, `_render_spot_detail()`, `_render_surf_legend()`
 - Missing type hints on many functions
 - Shell `find` in workflow step "Download and subset WRF data" is redundant (Python writes to `GITHUB_OUTPUT`)
-- `forecast_summary.py` hardcodes model ID `claude-sonnet-4-5-20250514`
 
 ### UX Debt
-- Unified forecast table (12+ columns) is not mobile-responsive — needs card layout on narrow viewports
-- No accessibility features beyond basic skip-nav and aria-labels (no colorblind-safe indicators yet)
-- No way to detect stale data on the Vercel site if the workflow fails silently (timestamp bar helps but isn't a full solution)
+- Mobile forecast cards implemented but desktop table (12+ columns) still has horizontal scroll
+- Colorblind-safe CSS indicators added (✓/⚠/✗ symbols via `.cb-ok`/`.cb-warn`/`.cb-danger`)
+- Stale data detection: timestamp bar + age classes + service worker CACHE_HIT + auto-warning at 12h
 
 ### Potential Future Features
-1. **Multi-model ensemble** — GFS, ICON, JMA via Open-Meteo for confidence indicators
-2. **Push notifications** — LINE/Telegram alerts when conditions cross thresholds
-3. **Route weather** — interpolate WRF grid along sailing waypoints
-4. **Spot webcam links** — embed or link to surf spot cameras
+1. **Route weather** — interpolate WRF grid along sailing waypoints
+2. **Spot webcam links** — embed or link to surf spot cameras
 
 ---
 
