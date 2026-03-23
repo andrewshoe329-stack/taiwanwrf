@@ -108,12 +108,12 @@ Claude uses this to hedge language — e.g. "actual temps will likely be a degre
 | `forecast_summary.py` | ~328 | Anthropic API call (3-attempt retry), prompt + accuracy context, HTML output |
 | `ensemble_fetch.py` | ~289 | Fetch GFS/ICON/JMA from Open-Meteo, compute multi-model spread stats |
 | `notify.py` | ~276 | Threshold-based alerts via LINE Notify and Telegram Bot API |
-| `cwa_fetch.py` | ~430 | CWA Open Data API: weather station (#466940) + wave buoy + tide obs + weather warnings |
+| `cwa_fetch.py` | ~930 | CWA Open Data API: weather station (#466940) + wave buoy + tide obs + tide forecast + township forecast + weather warnings |
 | `.github/workflows/main.yml` | ~524 | Full CI/CD pipeline with ensemble, notifications, accuracy, concurrency |
 | `pwa/` | 5 files | PWA manifest, service worker, icon generator, icons, styles.css |
 | `vercel.json` | ~30 | Static site config (rewrites, cache headers for PWA) |
 | `requirements.txt` | ~6 | `eccodes>=1.5,<2`, `numpy>=1.24,<3`, `anthropic>=0.40,<1` |
-| `tests/` | 14 files, 349 tests | Unit tests for pure functions (pytest), run in CI/CD |
+| `tests/` | 14 files, 350 tests | Unit tests for pure functions (pytest), run in CI/CD |
 
 ---
 
@@ -224,7 +224,7 @@ All endpoints use base URL `https://opendata.cwa.gov.tw/api/v1/rest/datastore/{I
 | **O-A0001-001** | 氣象觀測站-全測站逐時氣象資料 | `STATION_ENDPOINT` — surface weather obs (all stations) |
 | **O-A0003-001** | 氣象觀測站-10分鐘綜觀氣象資料 | `STATION_HOURLY_ENDPOINT` — 10-min conventional obs |
 | **O-A0002-001** | 雨量觀測站-雨量資料 | `RAIN_GAUGE_ENDPOINT` — automatic rain gauge |
-| **O-B0075-001** | 海象監測資料-48小時浮標站與潮位站海況監測資料 | `MARINE_OBS_ENDPOINT` — combined buoy + tide (48h). Replaces deprecated O-A0017-001 (tide), O-A0018-001 (buoy), O-A0019-001 (sea temp). Supports `StationID`, `timeFrom`/`timeTo` query params. |
+| **O-B0075-001** | 海象監測資料-48小時浮標站與潮位站海況監測資料 | `MARINE_OBS_ENDPOINT` — combined buoy + tide (48h). Replaces deprecated O-A0017-001 (tide), O-A0018-001 (buoy), O-A0019-001 (sea temp). Supports `StationID` query param. REST API returns `Records.SeaSurfaceObs.Location[]` with nested `Station` + `StationObsTimes`. |
 | O-B0075-002 | 海象監測資料-30天浮標站與潮位站海況監測資料 | Not used (30-day version of above) |
 | **F-A0021-001** | 潮汐預報-未來1個月潮汐預報 | `TIDE_FORECAST_ENDPOINT` — official tide forecast |
 | **F-D0047-049** | 鄉鎮天氣預報-基隆市未來3天天氣預報 | `TOWNSHIP_FORECAST_ENDPOINT` — Keelung 3-day forecast |
@@ -232,6 +232,26 @@ All endpoints use base URL `https://opendata.cwa.gov.tw/api/v1/rest/datastore/{I
 | **W-C0033-002** | 天氣特報-各別天氣警特報之內容及所影響之區域 | `WARNING_ENDPOINT` — weather warnings & advisories |
 
 **Note on F-D0047 numbering:** Odd numbers are 3-day, even+1 are 1-week. Key city codes: 049=基隆市, 061=臺北市, 069=新北市. Full list at CWA Open Data portal.
+
+**CWA REST API key casing:** The REST API uses **capitalized** top-level keys (`"Success"`, `"Result"`, `"Records"`) while older docs show lowercase (`"success"`, `"records"`). All parsing functions check both. The `Records` key is **top-level** (sibling of `Result`), not nested inside it.
+
+**O-B0075-001 response structure:**
+```
+{ "Success": "true",
+  "Result": { "ResourceId": "O-B0075-001", "Fields": [...] },
+  "Records": { "SeaSurfaceObs": { "Location": [
+    { "Station": { "StationID": "C4B01" },
+      "StationObsTimes": { "StationObsTime": [
+        { "DateTime": "...", "WeatherElements": {
+            "TideHeight": "0.44", "TideLevel": "退潮",
+            "SeaTemperature": "20.1", "StationPressure": "1014.7",
+            "PrimaryAnemometer": { "WindSpeed": "1.8", ... }
+        }}
+      ]}}
+  ]}}}
+```
+
+**Marine station IDs:** Keelung tide station = `C4B01` (in O-B0075-001), buoy = `46694A` (龍洞). Code uses `KEELUNG_TIDE_STATION_IDS = {"KL01", "C4B01"}` to match both legacy and REST API IDs.
 
 ---
 
@@ -309,7 +329,7 @@ pip install pytest
 python -m pytest tests/ -v
 ```
 
-349 tests should pass. Tests cover: compass conversion, Beaufort scale, color functions, direction quality scoring, day ratings, sail ratings, time normalization, bbox geometry, GRIB2 constant validation, tide prediction (semidiurnal pattern, extrema detection), accuracy tracking (error metrics, buoy verification), CWA API parsing (station, buoy, tide, warnings), AI summary prompt construction (with CWA obs and ensemble spread), and shared HTTP fetch/JSON loading utilities.
+350 tests should pass. Tests cover: compass conversion, Beaufort scale, color functions, direction quality scoring, day ratings, sail ratings, time normalization, bbox geometry, GRIB2 constant validation, tide prediction (semidiurnal pattern, extrema detection), accuracy tracking (error metrics, buoy verification), CWA API parsing (station, buoy, tide, tide forecast, township forecast, warnings), AI summary prompt construction (with CWA obs and ensemble spread), and shared HTTP fetch/JSON loading utilities.
 
 **Tests run in CI/CD** — the GitHub Actions workflow runs `python -m pytest tests/ -v` before deployment.
 
