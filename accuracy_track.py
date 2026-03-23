@@ -174,12 +174,17 @@ def _compute_bin_metrics(bin_errors: dict) -> dict:
 
 def compute_accuracy(forecast_records: list, obs_raw: dict,
                      wave_forecast: list | None = None,
-                     wave_obs_raw: dict | None = None) -> dict | None:
+                     wave_obs_raw: dict | None = None,
+                     cwa_buoy: dict | None = None) -> dict | None:
     """Compare forecast records against observations, return accuracy metrics.
 
     Returns a dict with 'overall' and 'by_horizon' keys containing expanded
     metrics for temperature, wind speed, wind direction, precipitation, and
     pressure.  Optionally includes wave metrics if wave data is provided.
+
+    If cwa_buoy is provided (live buoy observation from CWA), it is used to
+    supplement wave verification with a direct ground-truth comparison at the
+    closest forecast timestep.
     """
     obs_h = obs_raw.get('hourly', {})
     obs_times = obs_h.get('time', [])
@@ -303,6 +308,12 @@ def compute_accuracy(forecast_records: list, obs_raw: dict,
         if wave_metrics:
             result['wave'] = wave_metrics
 
+    # CWA buoy verification — direct ground truth against wave forecast
+    if cwa_buoy and wave_forecast:
+        buoy_metrics = _compute_buoy_verification(wave_forecast, cwa_buoy)
+        if buoy_metrics:
+            result['buoy_verification'] = buoy_metrics
+
     return result
 
 
@@ -362,6 +373,78 @@ def _compute_wave_accuracy(wave_forecast: list, wave_obs_raw: dict) -> dict | No
         'tp_bias_s':      _bias(tp_errors),
         'wdir_mae_deg':   _circular_mae(wd_errors),
     }
+
+
+def _compute_buoy_verification(wave_forecast: list,
+                                cwa_buoy: dict) -> dict | None:
+    """Compare wave forecast against a single CWA buoy observation.
+
+    Finds the forecast timestep closest to the buoy observation time and
+    computes the error.  Returns a dict with the comparison or None.
+    """
+    buoy_time = cwa_buoy.get('obs_time')
+    buoy_hs = cwa_buoy.get('wave_height_m')
+    buoy_tp = cwa_buoy.get('wave_period_s') or cwa_buoy.get('peak_period_s')
+    buoy_dir = cwa_buoy.get('wave_dir')
+
+    if not buoy_time or buoy_hs is None:
+        return None
+
+    try:
+        bt = datetime.fromisoformat(buoy_time)
+    except (ValueError, TypeError):
+        return None
+
+    # Find closest forecast timestep
+    best_rec = None
+    best_delta = timedelta(hours=999)
+    for rec in wave_forecast:
+        vt_str = rec.get('valid_utc')
+        if not vt_str:
+            continue
+        try:
+            vt = datetime.fromisoformat(vt_str)
+            delta = abs(vt - bt)
+            if delta < best_delta:
+                best_delta = delta
+                best_rec = rec
+        except (ValueError, TypeError):
+            continue
+
+    if best_rec is None or best_delta > timedelta(hours=3):
+        return None  # no forecast within 3h of buoy observation
+
+    # Extract forecast wave values
+    fc_hs = best_rec.get('wave_height') or best_rec.get('hs')
+    fc_tp = best_rec.get('wave_period') or best_rec.get('tp') or best_rec.get('sw_tp')
+    fc_dir = best_rec.get('wave_direction') or best_rec.get('dir') or best_rec.get('sw_dir')
+
+    result = {
+        'buoy_id': cwa_buoy.get('buoy_id', ''),
+        'buoy_time': buoy_time,
+        'forecast_time': best_rec.get('valid_utc'),
+        'time_offset_h': round(best_delta.total_seconds() / 3600, 1),
+    }
+
+    if fc_hs is not None:
+        result['hs_obs_m'] = buoy_hs
+        result['hs_fc_m'] = round(fc_hs, 2)
+        result['hs_error_m'] = round(fc_hs - buoy_hs, 2)
+
+    if buoy_tp is not None and fc_tp is not None:
+        result['tp_obs_s'] = buoy_tp
+        result['tp_fc_s'] = round(fc_tp, 1)
+        result['tp_error_s'] = round(fc_tp - buoy_tp, 1)
+
+    if buoy_dir is not None and fc_dir is not None:
+        result['dir_obs'] = buoy_dir
+        result['dir_fc'] = round(fc_dir, 0)
+        result['dir_error'] = round(_circular_diff(fc_dir, buoy_dir), 0)
+
+    log.info("Buoy verification: Hs obs=%.1fm fc=%.1fm (err=%+.2fm), offset=%.1fh",
+             buoy_hs, fc_hs or 0, result.get('hs_error_m', 0),
+             result['time_offset_h'])
+    return result
 
 
 def main() -> None:
@@ -443,8 +526,14 @@ def main() -> None:
     else:
         log.debug("No CWA API key — using Open-Meteo observations only")
 
+    # Extract CWA buoy data for direct wave verification
+    cwa_buoy = None
+    if cwa_obs and cwa_obs.get('buoy'):
+        cwa_buoy = cwa_obs['buoy']
+
     # Compute accuracy
-    metrics = compute_accuracy(past_records, obs, wave_forecast, wave_obs)
+    metrics = compute_accuracy(past_records, obs, wave_forecast, wave_obs,
+                               cwa_buoy=cwa_buoy)
     if not metrics:
         log.warning("No overlapping forecast/observation data")
         return
@@ -460,6 +549,8 @@ def main() -> None:
     }
     if 'wave' in metrics:
         entry['wave'] = metrics['wave']
+    if 'buoy_verification' in metrics:
+        entry['buoy_verification'] = metrics['buoy_verification']
 
     # Attach CWA real-time snapshot for archiving
     if cwa_obs:

@@ -29,6 +29,8 @@ GitHub Actions (cron 4x/day)
   │      Output: wave_keelung.json
   ├─ 3c. tide_predict.py          → Harmonic tide prediction (no API, offline)
   │      Output: tide_keelung.json
+  ├─ 3d. cwa_fetch.py             → CWA real-time obs: station + buoy + tide + warnings
+  │      Output: cwa_obs.json (requires CWA_OPENDATA_KEY, optional)
   │
   ├─ 4. GRIB2 variable diagnostic → wrf_analyze.py --list-vars
   │
@@ -46,16 +48,20 @@ GitHub Actions (cron 4x/day)
   │
   ├─ 8. forecast_summary.py      → AI narrative via Anthropic Claude API (3-attempt retry)
   │     Inputs: keelung_summary_new.json + ecmwf + wave + accuracy_log
+  │             + cwa_obs.json + ensemble_keelung.json
   │     Output: ai_summary.html (prepended to forecast.html)
   │     Accuracy feedback: receives rolling accuracy metrics so Claude can adjust
   │     for known model biases (e.g. WRF runs warm → temper temperature language)
+  │     CWA obs: receives real-time station/buoy data as ground truth reference
+  │     Ensemble: receives model spread for confidence calibration
   │
   ├─ 9. notify.py                → Threshold-based alerts via LINE Notify / Telegram
   │
   ├─10. accuracy_track.py        → Compare past forecast vs Open-Meteo + CWA observations
   │     Inputs: keelung_summary_new.json + wave_keelung.json + accuracy_log.json (from step 7)
   │     Output: accuracy_log.json (updated, uploaded to Drive)
-  │     CWA integration: if CWA_OPENDATA_KEY set, also fetches real-time station + buoy obs
+  │     CWA integration: fetches real-time station + buoy obs for archival
+  │     Buoy verification: compares wave forecast against live CWA buoy Hs/Tp/dir
   │
   ├─11. rclone upload            → Archive + summary + accuracy log to Google Drive
   │
@@ -66,12 +72,13 @@ GitHub Actions (cron 4x/day)
 
 ```
 accuracy_track.py → accuracy_log.json (rolling 30-day metrics on Drive)
-       ↓
+       ↓               + buoy_verification (CWA buoy vs wave forecast)
 wrf_analyze.py    → reads log for HTML accuracy badge
        ↓
-forecast_summary.py → feeds bias summary to Claude's prompt
+forecast_summary.py → feeds bias summary + CWA obs + ensemble spread to Claude
        ↓
-AI narrative adjusts confidence based on known model errors
+AI narrative adjusts confidence based on known model errors,
+  real-time observations, and multi-model agreement
 ```
 
 The AI summary receives a distilled accuracy summary like:
@@ -101,12 +108,12 @@ Claude uses this to hedge language — e.g. "actual temps will likely be a degre
 | `forecast_summary.py` | ~328 | Anthropic API call (3-attempt retry), prompt + accuracy context, HTML output |
 | `ensemble_fetch.py` | ~289 | Fetch GFS/ICON/JMA from Open-Meteo, compute multi-model spread stats |
 | `notify.py` | ~276 | Threshold-based alerts via LINE Notify and Telegram Bot API |
-| `cwa_fetch.py` | ~312 | CWA Open Data API: weather station (#466940) + wave buoy observations |
+| `cwa_fetch.py` | ~430 | CWA Open Data API: weather station (#466940) + wave buoy + tide obs + weather warnings |
 | `.github/workflows/main.yml` | ~524 | Full CI/CD pipeline with ensemble, notifications, accuracy, concurrency |
 | `pwa/` | 5 files | PWA manifest, service worker, icon generator, icons, styles.css |
 | `vercel.json` | ~8 | Static site config (rewrites `/` → `/index.html`) |
 | `requirements.txt` | ~6 | `eccodes>=1.5,<2`, `numpy>=1.24,<3`, `anthropic>=0.40,<1` |
-| `tests/` | 14 files, 304 tests | Unit tests for pure functions (pytest) |
+| `tests/` | 14 files, 327 tests | Unit tests for pure functions (pytest) |
 
 ---
 
@@ -198,7 +205,7 @@ Scoring system (0–14 max) evaluates each 6h timestep:
 | Service | Usage | Auth |
 |---------|-------|------|
 | CWA S3 (`cwaopendata.s3.ap-northeast-1.amazonaws.com`) | WRF GRIB2 files | Public, no auth |
-| CWA Open Data (`opendata.cwa.gov.tw`) | Station + buoy observations | `CWA_OPENDATA_KEY` secret (optional) |
+| CWA Open Data (`opendata.cwa.gov.tw`) | Station + buoy + tide obs + weather warnings | `CWA_OPENDATA_KEY` secret (optional) |
 | Open-Meteo (`api.open-meteo.com`) | ECMWF IFS, GFS forecasts | Free, no key, 10k req/day |
 | Open-Meteo Marine (`marine-api.open-meteo.com`) | ECMWF WAM wave data | Free, no key |
 | Anthropic API | AI forecast summary | `ANTHROPIC_API_KEY` secret |
@@ -249,6 +256,18 @@ These are the intermediate JSON files passed between pipeline steps:
   "spread": { "wind_spread_kt", "temp_spread_c", ... } }
 ```
 
+### `cwa_obs.json` (produced by cwa_fetch.py)
+```
+{ "source": "CWA Open Data", "fetched_utc",
+  "station": { "station_id", "obs_time", "temp_c", "wind_kt", "wind_dir",
+               "gust_kt", "pressure_hpa", "humidity_pct", "precip_mm" },
+  "buoy": { "buoy_id", "obs_time", "wave_height_m", "wave_period_s",
+            "wave_dir", "peak_period_s", "water_temp_c" },
+  "tide": { "station_id", "obs_time", "tide_height_m" },
+  "warnings": [{ "type", "severity", "area", "description",
+                 "issued_utc", "expires_utc" }] }
+```
+
 ### `accuracy_log.json` (rolling, on Drive)
 ```
 [{ "init_utc", "verified_utc", "model_id", "n_compared",
@@ -256,6 +275,8 @@ These are the intermediate JSON files passed between pipeline steps:
    "wdir_mae_deg", "mslp_mae_hpa",
    "by_horizon": { "0-24h": {...}, "24-48h": {...}, ... },
    "wave": { "hs_mae_m", "hs_bias_m", "tp_mae_s", ... },
+   "buoy_verification": { "buoy_id", "hs_obs_m", "hs_fc_m", "hs_error_m",
+                           "tp_obs_s", "tp_fc_s", "tp_error_s", ... },
    "cwa_snapshot": { "station": {...}, "buoy": {...} } }]
 ```
 
@@ -269,7 +290,7 @@ pip install pytest
 python -m pytest tests/ -v
 ```
 
-291 tests should pass. Tests cover: compass conversion, Beaufort scale, color functions, direction quality scoring, day ratings, sail ratings, time normalization, bbox geometry, GRIB2 constant validation, tide prediction (semidiurnal pattern, extrema detection), accuracy tracking (error metrics), CWA API parsing, and AI summary prompt construction.
+327 tests should pass. Tests cover: compass conversion, Beaufort scale, color functions, direction quality scoring, day ratings, sail ratings, time normalization, bbox geometry, GRIB2 constant validation, tide prediction (semidiurnal pattern, extrema detection), accuracy tracking (error metrics, buoy verification), CWA API parsing (station, buoy, tide, warnings), and AI summary prompt construction (with CWA obs and ensemble spread).
 
 **No integration tests exist.** Tests don't require network access or GRIB2 files — they only test pure functions.
 
@@ -337,6 +358,9 @@ python cwa_fetch.py --output cwa_obs.json
 1. **Route weather** — interpolate WRF grid along sailing waypoints
 2. **Spot webcam links** — embed or link to surf spot cameras
 3. **Consolidate surf_forecast.py fetches** — pass pre-fetched ecmwf/wave/ensemble JSONs to avoid redundant API calls
+4. **CWA tide API validation** — compare harmonic predictions against official CWA tide tables
+5. **Station bias correction** — use CWA station obs at T0 to apply real-time drift correction to WRF forecast
+6. **Directional wave scoring** — weight surf spot energy by `cos²(swell_angle - beach_angle)` for realistic quality estimates
 
 ---
 
