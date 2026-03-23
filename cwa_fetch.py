@@ -35,10 +35,16 @@ CWA_BASE = "https://opendata.cwa.gov.tw/api/v1/rest/datastore"
 STATION_ENDPOINT = "O-A0001-001"
 # Conventional weather station — hourly obs
 STATION_HOURLY_ENDPOINT = "O-A0003-001"
-# Wave buoy observations
+# Automatic rain gauge — rainfall obs (denser network than weather stations)
+RAIN_GAUGE_ENDPOINT = "O-A0002-001"
+# Wave buoy observations (Hs, period, direction, water temp)
 WAVE_BUOY_ENDPOINT = "O-A0017-001"
 # Tide observations (actual sea level at tide stations)
 TIDE_OBS_ENDPOINT = "O-A0019-001"
+# Official CWA tide forecast — 1 month ahead (high/low times + heights)
+TIDE_FORECAST_ENDPOINT = "F-A0021-001"
+# Township weather forecast — 7-day (for Keelung-specific CWA forecast text)
+TOWNSHIP_FORECAST_ENDPOINT = "F-D0047-061"  # 061 = Keelung City
 # Weather warnings & advisories
 WARNING_ENDPOINT = "W-C0033-002"
 
@@ -430,6 +436,168 @@ def fetch_tide_obs(api_key: str,
         return None
 
 
+# ── Official CWA tide forecast ───────────────────────────────────────────────
+
+def fetch_tide_forecast(api_key: str,
+                        station_name: str = "基隆") -> list[dict]:
+    """
+    Fetch CWA official tide forecast (high/low tide times + heights).
+
+    This is the authoritative CWA prediction for the next month — more
+    accurate than our offline harmonic constants, especially for storm
+    surge and seasonal MSL variations.
+
+    Returns a list of dicts with:
+        time_utc, height_m, type ('high' or 'low'), station_name
+    """
+    data = _cwa_get(
+        TIDE_FORECAST_ENDPOINT, api_key,
+        label="CWA-TideForecast",
+    )
+    if not data:
+        return []
+
+    try:
+        records = data.get("records", {})
+        # CWA tide forecast structure varies; try common paths
+        locations = (records.get("TideForecasts", {}).get("Location", [])
+                     or records.get("location", [])
+                     or records.get("Location", []))
+        if isinstance(locations, dict):
+            locations = [locations]
+
+        # Find Keelung station
+        target = None
+        for loc in locations:
+            name = loc.get("LocationName", loc.get("locationName", ""))
+            if station_name in name or "基隆" in name or "Keelung" in name:
+                target = loc
+                break
+
+        if target is None:
+            avail = [loc.get("LocationName", loc.get("locationName", "?"))
+                     for loc in locations[:10]]
+            log.warning("Keelung not found in tide forecast. Available: %s", avail)
+            return []
+
+        # Extract tide extrema (high/low)
+        extrema = []
+        tide_data = (target.get("TimePeriods", {}).get("Daily", [])
+                     or target.get("validTime", [])
+                     or target.get("TideData", []))
+
+        for day in tide_data if isinstance(tide_data, list) else [tide_data]:
+            # Try nested tide extrema within each day
+            tides = (day.get("TideInfo", [])
+                     or day.get("Time", [])
+                     or day.get("tideInfo", []))
+            if isinstance(tides, dict):
+                tides = [tides]
+
+            for t in tides if isinstance(tides, list) else []:
+                time_raw = (t.get("DateTime", "")
+                            or t.get("dataTime", "")
+                            or t.get("time", ""))
+                tide_type = t.get("Tide", t.get("tide", "")).lower()
+                # CWA uses 滿潮/乾潮 or high/low
+                if "high" in tide_type or "滿" in tide_type:
+                    ttype = "high"
+                elif "low" in tide_type or "乾" in tide_type:
+                    ttype = "low"
+                else:
+                    continue
+
+                # Height may be in different keys
+                height = None
+                for hkey in ("AboveLocalMSL", "AboveTWVD", "AboveChartDatum",
+                             "TideHeights", "height"):
+                    v = t.get(hkey)
+                    if isinstance(v, dict):
+                        v = v.get("value") or v.get("Value")
+                    if v is not None and v != "":
+                        try:
+                            height = float(v)
+                            break
+                        except (ValueError, TypeError):
+                            pass
+
+                if time_raw:
+                    extrema.append({
+                        "time_utc": norm_utc(time_raw) if time_raw else None,
+                        "height_m": height,
+                        "type": ttype,
+                        "station_name": target.get("LocationName",
+                                        target.get("locationName", "")),
+                    })
+
+        log.info("CWA tide forecast: %d extrema for %s", len(extrema), station_name)
+        return extrema
+
+    except Exception as e:
+        log.error("Failed to parse CWA tide forecast: %s", e)
+        return []
+
+
+# ── Township weather forecast ────────────────────────────────────────────────
+
+def fetch_township_forecast(api_key: str,
+                            endpoint: str = TOWNSHIP_FORECAST_ENDPOINT) -> dict | None:
+    """
+    Fetch CWA official township-level weather forecast for Keelung.
+
+    Returns a dict with daily forecast elements (weather description, min/max
+    temp, rain probability, wind) that can supplement model forecasts.
+    """
+    data = _cwa_get(
+        endpoint, api_key,
+        label="CWA-Township",
+    )
+    if not data:
+        return None
+
+    try:
+        records = data.get("records", {})
+        locations = records.get("location", records.get("Location", []))
+        if not locations:
+            log.warning("No township forecast data")
+            return None
+
+        # Take the first location (should be Keelung for endpoint 061)
+        loc = locations[0] if isinstance(locations, list) else locations
+
+        # Parse weather elements into a simplified structure
+        elements = {}
+        wx_list = loc.get("weatherElement", loc.get("WeatherElement", []))
+        for el in wx_list:
+            name = el.get("elementName", el.get("ElementName", ""))
+            times = el.get("time", el.get("Time", []))
+            values = []
+            for t in times if isinstance(times, list) else [times]:
+                param = t.get("elementValue", t.get("value", []))
+                if isinstance(param, list) and param:
+                    param = param[0]
+                val = param.get("value", param) if isinstance(param, dict) else param
+                start = t.get("startTime", t.get("dataTime", ""))
+                values.append({
+                    "time": norm_utc(start) if start else None,
+                    "value": val,
+                })
+            if values:
+                elements[name] = values
+
+        result = {
+            "location": loc.get("locationName", loc.get("LocationName", "")),
+            "elements": elements,
+        }
+        log.info("CWA township forecast for %s: %d elements",
+                 result["location"], len(elements))
+        return result
+
+    except Exception as e:
+        log.error("Failed to parse CWA township forecast: %s", e)
+        return None
+
+
 # ── Weather warnings ─────────────────────────────────────────────────────────
 
 def fetch_warnings(api_key: str) -> list[dict]:
@@ -504,15 +672,19 @@ def fetch_warnings(api_key: str) -> list[dict]:
 # ── Combined fetch (for pipeline use) ────────────────────────────────────────
 
 def fetch_all(api_key: str) -> dict:
-    """Fetch station, buoy, tide, and warning observations. Returns combined dict.
+    """Fetch all available CWA data sources. Returns combined dict.
 
     The 'buoy' key holds the primary (Keelung-area) buoy.
     The 'all_buoys' key holds every buoy with valid wave data,
     enabling per-spot nearest-buoy lookups downstream.
+    The 'tide_forecast' key holds official CWA tide predictions (high/low).
+    The 'township_forecast' key holds CWA's Keelung weather forecast text.
     """
     station = fetch_station_obs(api_key)
     all_buoys = fetch_all_buoys(api_key)
     tide = fetch_tide_obs(api_key)
+    tide_forecast = fetch_tide_forecast(api_key)
+    township = fetch_township_forecast(api_key)
     warnings = fetch_warnings(api_key)
 
     # Primary buoy: find Keelung-area match from the full list
@@ -538,6 +710,8 @@ def fetch_all(api_key: str) -> dict:
         "buoy": buoy,
         "all_buoys": all_buoys,
         "tide": tide,
+        "tide_forecast": tide_forecast,
+        "township_forecast": township,
         "warnings": warnings,
     }
 

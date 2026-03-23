@@ -201,6 +201,18 @@ def build_user_prompt(wrf: dict, ecmwf: dict | None, wave: dict | None,
                     f"CWA WARNING: {w.get('type', 'Advisory')} — "
                     f"{w.get('description', '')[:200]}"
                 )
+        # CWA official township forecast (Keelung)
+        township = cwa_obs.get('township_forecast')
+        if township and township.get('elements'):
+            elements = township['elements']
+            # Extract key elements for compact summary
+            tw_parts = [f"CWA official Keelung forecast ({township.get('location', '?')}):"]
+            for key in ('Wx', 'MaxT', 'MinT', 'PoP12h', 'WS'):
+                if key in elements:
+                    vals = elements[key][:4]  # first 4 time periods
+                    tw_parts.append(f"  {key}: {', '.join(str(v.get('value','?')) for v in vals)}")
+            if len(tw_parts) > 1:
+                obs_parts.append("\n".join(tw_parts))
         if obs_parts:
             parts.append("Real-time observations:\n" + "\n".join(obs_parts))
 
