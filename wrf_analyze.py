@@ -34,7 +34,7 @@ from datetime import datetime, timedelta, timezone
 
 import numpy as np
 
-from config import KEELUNG_LAT, KEELUNG_LON, COMPASS_NAMES, deg_to_compass, setup_logging
+from config import KEELUNG_LAT, KEELUNG_LON, COMPASS_NAMES, deg_to_compass, setup_logging, sail_rating
 
 log = logging.getLogger(__name__)
 
@@ -527,22 +527,8 @@ def _row_alerts(wind: float | None, gust: float | None,
 def _sail_rating(max_wind: float | None, max_gust: float | None,
                  max_hs: float | None, total_rain: float) -> tuple[str, str]:
     """Return (label, bg_color) — go/marginal/no-go sailing suitability."""
-    no_go = (
-        (max_gust  is not None and max_gust  >= 34) or   # gale gusts
-        (max_wind  is not None and max_wind  >= 28) or   # near-gale sustained
-        (max_hs    is not None and max_hs    >= 2.5)     # rough-plus seas
-    )
-    marginal = (
-        (max_gust  is not None and max_gust  >= 22) or   # strong breeze gusts
-        (max_wind  is not None and max_wind  >= 17) or   # fresh breeze
-        (max_hs    is not None and max_hs    >= 1.5) or  # moderate seas
-        total_rain >= 15                                  # significant rain
-    )
-    if no_go:
-        return '🔴 No-go', '#3d1515'
-    if marginal:
-        return '🟡 Marginal', '#3d2e00'
-    return '🟢 Good', '#0d2d1a'
+    r = sail_rating(max_wind, max_gust, max_hs, total_rain)
+    return r['label'], r['bg']
 
 
 def _condition_emoji(max_wind: float | None, total_rain: float | None, max_cape: float | None,
@@ -570,11 +556,12 @@ def _daily_summary_html(
     wave_by_valid: dict,
     all_valids: list,
     tide_data: dict | None = None,
+    surf_planner: dict | None = None,
 ) -> str:
     """
-    Compact day-by-day summary cards (one per CST calendar day).
+    Unified day cards: sailing + surf + weather + recommendation per day.
     Uses WRF data where available; falls back to ECMWF for extended days.
-    Shows: sailing suitability rating, condition icon, wave, wind, rain, temp.
+    Surf planner data (best spot + recommendation) comes from surf_planner JSON.
     """
     from collections import defaultdict
 
@@ -717,18 +704,42 @@ def _daily_summary_html(
                     parts.append(f'{arrow}{t_str} {ht:.1f}m')
                 tide_str = ' '.join(parts)
 
+        # Surf planner data for this day
+        surf_html = ''
+        rec_html = ''
+        sp_days = (surf_planner or {}).get('days', {})
+        sp_day = sp_days.get(cst_date, {})
+        if sp_day:
+            bs = sp_day.get('best_surf', {})
+            if bs.get('spot') and bs.get('emoji') and bs['emoji'] != '😴':
+                surf_html = (
+                    f'  <div class="surf-pick">'
+                    f'<span class="rating-pill" style="background:{bs.get("bg","#1a2236")};color:{bs.get("col","#475569")}">'
+                    f'{bs["emoji"]} {bs["spot"]}</span></div>\n'
+                )
+            elif bs.get('emoji') == '😴':
+                surf_html = '  <div class="surf-pick"><span class="rating-pill rating-flat">😴 Flat</span></div>\n'
+            rec = sp_day.get('recommendation', {})
+            if rec.get('text'):
+                rec_html = (
+                    f'  <div class="recommendation" style="background:{rec.get("bg","#1e293b")}">'
+                    f'{html_mod.escape(rec["text"])}</div>\n'
+                )
+
         cards_html += (
-            f'<div class="daily-card" style="border-top:3px solid {card_border}">\n'
+            f'<div class="daily-card unified-day-card" style="border-top:3px solid {card_border}">\n'
             f'  <div class="day-label">'
             f'{day_label}<span class="day-icon">{cond_icon}</span></div>\n'
             f'  <div class="sail-badge" style="background:{sail_bg}">'
-            f'{sail_label}</div>\n'
+            f'⛵ {sail_label}</div>\n'
+            + surf_html
             + (f'  <div class="metric">🌊 {wave_str}</div>\n' if wave_str else '')
             + f'  <div class="metric">💨 {wind_str}</div>\n'
             f'  <div class="metric">🌧️ {rain_str}</div>\n'
             f'  <div class="metric">🌡️ {temp_str}</div>\n'
             + (f'  <div class="metric" style="color:#7db8f0;font-size:0.85em">🌙 {tide_str}</div>\n' if tide_str else '')
             + cape_badge
+            + rec_html
             + f'  <div style="margin-top:4px">'
             f'<span class="badge" style="background:{src_bg};color:{src_color}">{src_label}</span></div>\n'
             f'</div>\n'
@@ -747,6 +758,7 @@ def _render_summary_html(
     ecmwf_records: list,
     wave_data: dict | None,
     tide_data: dict | None = None,
+    surf_planner: dict | None = None,
 ) -> str:
     """
     Compact summary section: daily cards, alerts, model shift note.
@@ -791,10 +803,10 @@ def _render_summary_html(
     # HTML construction starts here
     # ═════════════════════════════════════════════════════════════════════════
     html = (
-        '<section id="forecast" class="section">\n'
+        '<section id="week" class="section">\n'
         '<div class="card-glass">\n'
         '<h2 class="section-title">\n'
-        f'  <span role="img" aria-label="Globe">🌏</span> Keelung Unified Forecast\n'
+        f'  <span role="img" aria-label="Globe">🌏</span> This Week\n'
         f'  <span style="font-weight:normal;font-size:0.75em;color:#94a3b8">'
         f'&nbsp;{KEELUNG_LAT}°N {KEELUNG_LON}°E</span>\n'
         '</h2>\n'
@@ -804,15 +816,10 @@ def _render_summary_html(
         '</p>\n\n'
     )
 
-    # ── Daily summary cards ───────────────────────────────────────────────────
-    html += _daily_summary_html(wrf_by_valid, ec_by_valid, wave_by_valid, all_valids, tide_data)
-
-
     # ── Alerts (WRF primary; ECMWF fills in gust/rain/CAPE) ──────────────────
     alerts = []
     _wrf = records or []
     _ec  = ecmwf_records or []
-    # wind/MSLP: WRF primary; gust/rain/CAPE: EC (WRF never publishes these)
     max_wind   = max((r.get('wind_kt')      or 0 for r in _wrf + _ec), default=0)
     max_gust   = max((r.get('gust_kt')      or 0 for r in _wrf + _ec), default=0)
     total_rain = sum(r.get('precip_mm_6h') or 0 for r in (_wrf if _wrf else _ec))
@@ -861,6 +868,10 @@ def _render_summary_html(
             html += ('<div class="alert-box alert-warning">'
                      '🔄 <b>Model shift vs prev run:</b> ' + ' · '.join(notes) + '</div>\n')
 
+    # ── Unified day cards (sailing + surf + weather) ──────────────────────────
+    html += _daily_summary_html(wrf_by_valid, ec_by_valid, wave_by_valid, all_valids,
+                                tide_data, surf_planner=surf_planner)
+
     html += '</div>\n'
     return html
 
@@ -872,6 +883,7 @@ def render_unified_html(
     ecmwf_records: list,
     wave_data: dict | None,
     tide_data: dict | None = None,
+    surf_planner: dict | None = None,
 ) -> str:
     """
     Full web-app HTML: daily summary cards + complete hourly table
@@ -892,7 +904,8 @@ def render_unified_html(
 
     # Start with the summary section (header + daily cards + alerts + model shift),
     # then strip its closing </div> so we can append the full table.
-    html = _render_summary_html(meta, records, prev_records, ecmwf_records, wave_data, tide_data)
+    html = _render_summary_html(meta, records, prev_records, ecmwf_records, wave_data,
+                               tide_data, surf_planner=surf_planner)
     if html.endswith('</div>\n'):
         html = html[:-len('</div>\n')]
 
@@ -1181,7 +1194,15 @@ def render_unified_html(
         '<span style="background:#b0d9ff;padding:1px 4px;border-radius:3px">&gt;12s ocean swell</span>'
         '</div>\n'
         '</div>\n'  # close card-glass
+        '</section>\n'  # close #week section
     )
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # #detail section — hourly table (collapsible, at bottom)
+    # ══════════════════════════════════════════════════════════════════════════
+    html += '<section id="detail" class="section">\n'
+    html += '<details class="detail-section">\n'
+    html += '<summary class="detail-header">6-Hourly Forecast Detail (WRF + ECMWF)</summary>\n'
 
     # ── Mobile forecast cards ──────────────────────────────────────────────
     html += '<div class="fc-cards">\n'
@@ -1290,7 +1311,8 @@ def render_unified_html(
 
     html += '</div>\n'  # close fc-cards
 
-    html += '</section>\n'  # close forecast section
+    html += '</details>\n'  # close collapsible detail
+    html += '</section>\n'  # close #detail section
     return html
 
 
@@ -1314,6 +1336,8 @@ def main() -> None:
                    help='Wave JSON produced by wave_fetch.py (adds wave forecast section)')
     p.add_argument('--tide-json',   default=None,
                    help='Tide JSON produced by tide_predict.py (adds tide info to daily cards)')
+    p.add_argument('--surf-json',   default=None,
+                   help='Surf planner JSON produced by surf_forecast.py (adds surf info to day cards)')
     p.add_argument('--list-vars',   action='store_true',
                    help='Diagnostic: list all GRIB2 shortNames in the first file and exit')
     args = p.parse_args()
@@ -1405,9 +1429,19 @@ def main() -> None:
         except Exception as e:
             log.warning("Could not load tide JSON: %s", e)
 
+    # ── Load surf planner JSON (optional) ─────────────────────────────────────
+    surf_planner = None
+    if args.surf_json:
+        try:
+            with open(args.surf_json, encoding='utf-8') as f:
+                surf_planner = json.load(f)
+            log.info("Loaded surf planner JSON: %s", args.surf_json)
+        except Exception as e:
+            log.warning("Could not load surf JSON: %s", e)
+
     # ── Write HTML ────────────────────────────────────────────────────────────
     html_full = render_unified_html(meta, records, prev_records, ecmwf_records, wave_data,
-                                    tide_data=tide_data)
+                                    tide_data=tide_data, surf_planner=surf_planner)
     out_html = Path(args.output_html)
     out_html.write_text(html_full)
     log.info("HTML → %s", out_html)

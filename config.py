@@ -152,3 +152,43 @@ def norm_utc(iso: str) -> str:
     elif len(iso) == 19:     # YYYY-MM-DDTHH:MM:SS
         iso += "+00:00"
     return iso
+
+
+# ── Sailing suitability rating ────────────────────────────────────────────────
+
+def sail_rating(
+    max_wind: float | None,
+    max_gust: float | None,
+    max_hs: float | None,
+    total_rain: float,
+) -> dict:
+    """
+    Evaluate daily sailing suitability at Keelung.
+
+    Returns dict with keys: label, emoji, bg, col, max_w, max_g, max_hs.
+    Thresholds: gust≥34 or wind≥28 or Hs≥2.5 → No-go;
+                gust≥22 or wind≥17 or Hs≥1.5 or rain≥15 → Marginal;
+                otherwise → Good.
+    """
+    no_go = (
+        (max_gust is not None and max_gust >= 34) or
+        (max_wind is not None and max_wind >= 28) or
+        (max_hs   is not None and max_hs   >= 2.5)
+    )
+    marginal = (
+        (max_gust is not None and max_gust >= 22) or
+        (max_wind is not None and max_wind >= 17) or
+        (max_hs   is not None and max_hs   >= 1.5) or
+        total_rain >= 15
+    )
+    base = {
+        'max_w': max_wind, 'max_g': max_gust, 'max_hs': max_hs,
+    }
+    if no_go:
+        return {**base, 'label': '🔴 No-go', 'emoji': '🔴',
+                'bg': THEME['danger_bg'], 'col': THEME['danger_text']}
+    if marginal:
+        return {**base, 'label': '🟡 Marginal', 'emoji': '🟡',
+                'bg': THEME['warn_bg'], 'col': THEME['warn_text']}
+    return {**base, 'label': '🟢 Good', 'emoji': '🟢',
+            'bg': THEME['good_bg'], 'col': THEME['good_text']}
