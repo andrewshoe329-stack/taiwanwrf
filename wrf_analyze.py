@@ -766,7 +766,7 @@ def _daily_summary_html(
             if rec.get('text'):
                 rec_html = (
                     f'  <div class="recommendation" style="background:{rec.get("bg","#1e293b")}">'
-                    f'{html_mod.escape(rec["text"])}</div>\n'
+                    f'{rec["text"]}</div>\n'
                 )
 
         cards_html += (

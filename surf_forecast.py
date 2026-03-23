@@ -104,6 +104,15 @@ SPOTS = [
     },
 ]
 
+
+def _split_spot_name(full_name: str) -> tuple[str, str]:
+    """Split 'Jinshan 金山' → ('Jinshan', '金山'). Works for multi-word English names too."""
+    parts = full_name.rsplit(None, 1)
+    if len(parts) == 2:
+        return parts[0], parts[1]
+    return full_name, full_name
+
+
 # ── Safe index access ─────────────────────────────────────────────────────
 def _safe_get(lst: list | None, idx: int) -> object | None:
     """Return lst[idx] if in bounds, else None."""
@@ -508,11 +517,15 @@ def sail_day_rating(day_recs: list[dict]) -> dict[str, object]:
     return sail_rating(max_w, max_g, max_hs, tot_r)
 
 
-def _recommend(sail_rat: dict, best_surf_rat: dict, best_surf_name: str) -> tuple[str, str]:
+def _recommend(sail_rat: dict, best_surf_rat: dict, best_surf_name: str,
+               best_surf_name_zh: str = '') -> tuple[str, str]:
     """
     Returns (recommendation_text, background_colour) for the planner table.
     recommendation_text contains bilingual spans.
+    best_surf_name: English short name (e.g. "Jinshan")
+    best_surf_name_zh: Chinese name (e.g. "金山")
     """
+    name_zh = best_surf_name_zh or best_surf_name
     sail_emoji = sail_rat['emoji']   # 🟢 🟡 🔴 ❓
     surf_emoji = best_surf_rat['emoji']  # 🔥 🟢 🟡 🔴 😴 ❓
     can_sail  = sail_emoji == '🟢'
@@ -523,26 +536,26 @@ def _recommend(sail_rat: dict, best_surf_rat: dict, best_surf_name: str) -> tupl
 
     if can_sail and fire_surf:
         return bilingual(f'⛵ Sail or 🏄 Surf: {best_surf_name}',
-                         f'⛵ 航行或 🏄 衝浪：{best_surf_name}'), '#0d2d1a'
+                         f'⛵ 航行或 🏄 衝浪：{name_zh}'), '#0d2d1a'
     if can_sail and good_surf:
         return bilingual(f'⛵ Go sailing or 🏄 Surf: {best_surf_name}',
-                         f'⛵ 航行或 🏄 衝浪：{best_surf_name}'), '#0d2d1a'
+                         f'⛵ 航行或 🏄 衝浪：{name_zh}'), '#0d2d1a'
     if can_sail:
         return T('rec_sail'), '#0d2d1a'
     if fire_surf:
         return bilingual(f'🏄 Surf: {best_surf_name}',
-                         f'🏄 衝浪：{best_surf_name}'), '#0d3320'
+                         f'🏄 衝浪：{name_zh}'), '#0d3320'
     if good_surf:
         return bilingual(f'🏄 Surf: {best_surf_name}',
-                         f'🏄 衝浪：{best_surf_name}'), '#0d2d1a'
+                         f'🏄 衝浪：{name_zh}'), '#0d2d1a'
     if marg_sail and marg_surf:
         return bilingual(f'🟡 Marginal — maybe surf: {best_surf_name}',
-                         f'🟡 勉強 — 或許可衝：{best_surf_name}'), '#3d2e00'
+                         f'🟡 勉強 — 或許可衝：{name_zh}'), '#3d2e00'
     if marg_sail:
         return T('rec_marginal_sail'), '#3d2e00'
     if marg_surf:
         return bilingual(f'🟡 Maybe surf: {best_surf_name}',
-                         f'🟡 或許可衝浪：{best_surf_name}'), '#3d2e00'
+                         f'🟡 或許可衝浪：{name_zh}'), '#3d2e00'
     return T('rec_stay_home'), '#3d1515'
 
 
@@ -575,6 +588,7 @@ def generate_planner_json(all_spot_data: list[dict], keelung_records: list = Non
 
         best_surf_rat = {'label': '—', 'emoji': '😴', 'bg': '#1a2236', 'col': '#475569'}
         best_surf_name = '—'
+        best_surf_name_zh = '—'
         rank_order = {'🔥': 4, '🟢': 3, '🟡': 2, '🔴': 1, '😴': 0, '❓': 0}
         best_rank = -1
         for spot, recs in surf_by_day_spot.get(dk, []):
@@ -583,9 +597,9 @@ def generate_planner_json(all_spot_data: list[dict], keelung_records: list = Non
             if rank > best_rank:
                 best_rank = rank
                 best_surf_rat = rat
-                best_surf_name = spot['name'].split()[0]
+                best_surf_name, best_surf_name_zh = _split_spot_name(spot['name'])
 
-        rec_text, rec_bg = _recommend(sail_rat, best_surf_rat, best_surf_name)
+        rec_text, rec_bg = _recommend(sail_rat, best_surf_rat, best_surf_name, best_surf_name_zh)
 
         # Best time per spot for this day
         spot_times = []
@@ -857,6 +871,7 @@ def _generate_planner_html(all_spot_data: list[dict], keelung_records: list = No
         # Best surf spot for this day
         best_surf_rat  = {'label': '—', 'emoji': '😴', 'bg': '#1a2236', 'col': '#475569'}
         best_surf_name = '—'
+        best_surf_name_zh = '—'
         rank_order = {'🔥': 4, '🟢': 3, '🟡': 2, '🔴': 1, '😴': 0, '❓': 0}
         best_rank  = -1
         for spot, recs in surf_by_day_spot.get(dk, []):
@@ -865,9 +880,9 @@ def _generate_planner_html(all_spot_data: list[dict], keelung_records: list = No
             if rank > best_rank:
                 best_rank      = rank
                 best_surf_rat  = rat
-                best_surf_name = spot['name'].split()[0]  # short name (e.g. "Fulong")
+                best_surf_name, best_surf_name_zh = _split_spot_name(spot['name'])
 
-        rec_text, rec_bg = _recommend(sail_rat, best_surf_rat, best_surf_name)
+        rec_text, rec_bg = _recommend(sail_rat, best_surf_rat, best_surf_name, best_surf_name_zh)
 
         # Build details string for sailing cell
         max_w  = sail_rat.get('max_w')
@@ -887,7 +902,7 @@ def _generate_planner_html(all_spot_data: list[dict], keelung_records: list = No
                  f'<td style="background:{sail_rat["bg"]};color:{sail_rat["col"]}">'
                  f'{sail_bi}{sail_detail}</td>'
                  f'<td style="background:{best_surf_rat["bg"]};color:{best_surf_rat["col"]}">'
-                 f'{best_surf_rat["emoji"]} {best_surf_name}'
+                 f'{best_surf_rat["emoji"]} {bilingual(best_surf_name, best_surf_name_zh)}'
                  f'<small style="color:#64748b;display:block">{surf_bi}</small></td>'
                  f'<td style="background:{rec_bg};color:#e2e8f0;font-weight:600">{rec_text}</td>'
                  f'</tr>\n')
