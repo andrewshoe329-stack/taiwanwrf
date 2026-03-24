@@ -412,3 +412,69 @@ class TestBuildUserPromptWithEnsemble:
     def test_no_ensemble(self):
         prompt = build_user_prompt(self._make_wrf(), None, None, ensemble=None)
         assert "ensemble" not in prompt.lower()
+
+
+class TestBuildUserPromptWithSpotObs:
+    def _make_wrf(self):
+        return {
+            "meta": {"init_utc": "2026-03-20T00:00:00+00:00"},
+            "records": [{"valid_utc": "2026-03-20T00:00:00+00:00",
+                         "temp_c": 22.0, "wind_kt": 12.0}],
+        }
+
+    def test_spot_obs_included(self):
+        cwa_obs = {
+            "spot_obs": {
+                "fulong": {
+                    "station": {
+                        "station_id": "466950", "temp_c": 21.5,
+                        "wind_kt": 6.0, "distance_km": 5.0,
+                        "obs_time": "2026-03-20T00:00:00+00:00",
+                    },
+                    "buoy": {
+                        "buoy_id": "46694A", "wave_height_m": 0.8,
+                        "distance_km": 15.0,
+                        "obs_time": "2026-03-20T00:00:00+00:00",
+                    },
+                }
+            },
+            "station": {"obs_time": "2026-03-20T00:00:00+00:00",
+                        "temp_c": 20.0, "wind_kt": 5.0, "wind_dir": 180,
+                        "gust_kt": 8.0, "pressure_hpa": 1013.0,
+                        "humidity_pct": 75},
+        }
+        prompt = build_user_prompt(self._make_wrf(), None, None,
+                                   cwa_obs=cwa_obs)
+        assert "Per-spot CWA obs" in prompt
+        assert "fulong" in prompt
+        assert "466950" in prompt
+        assert "46694A" in prompt
+
+    def test_no_spot_obs(self):
+        cwa_obs = {"station": {"obs_time": "2026-03-20T00:00:00+00:00",
+                               "temp_c": 20.0, "wind_kt": 5.0,
+                               "wind_dir": 180, "gust_kt": 8.0,
+                               "pressure_hpa": 1013.0, "humidity_pct": 75}}
+        prompt = build_user_prompt(self._make_wrf(), None, None,
+                                   cwa_obs=cwa_obs)
+        assert "Per-spot CWA obs" not in prompt
+
+    def test_township_forecasts_included(self):
+        cwa_obs = {
+            "township_forecasts": {
+                "宜蘭縣": {
+                    "location": "頭城鎮",
+                    "elements": {
+                        "Wx": [{"value": "晴"}, {"value": "多雲"}],
+                        "MaxT": [{"value": "25"}],
+                    }
+                }
+            },
+            "station": {"obs_time": "2026-03-20T00:00:00+00:00",
+                        "temp_c": 20.0, "wind_kt": 5.0, "wind_dir": 180,
+                        "gust_kt": 8.0, "pressure_hpa": 1013.0,
+                        "humidity_pct": 75},
+        }
+        prompt = build_user_prompt(self._make_wrf(), None, None,
+                                   cwa_obs=cwa_obs)
+        assert "宜蘭縣" in prompt

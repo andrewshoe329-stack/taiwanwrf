@@ -9,11 +9,12 @@ from cwa_fetch import (
     fetch_tide_obs, fetch_tide_forecast, fetch_township_forecast,
     fetch_warnings, find_nearest_buoy,
     _parse_buoy_station, _haversine_km, _fetch_marine_stations,
+    load_station_mapping, _build_spot_obs, _fetch_spot_stations,
     KEELUNG_STATION_ID, KEELUNG_BUOY_IDS,
     CWA_BASE, STATION_ENDPOINT, WAVE_BUOY_ENDPOINT,
     TIDE_OBS_ENDPOINT, TIDE_FORECAST_ENDPOINT,
     TOWNSHIP_FORECAST_ENDPOINT, WARNING_ENDPOINT,
-    MARINE_OBS_ENDPOINT,
+    MARINE_OBS_ENDPOINT, TOWNSHIP_FORECAST_ENDPOINTS,
 )
 
 
@@ -628,3 +629,88 @@ class TestConstants:
         assert TIDE_FORECAST_ENDPOINT
         assert TOWNSHIP_FORECAST_ENDPOINT
         assert WARNING_ENDPOINT
+
+    def test_township_endpoints_has_three_counties(self):
+        assert "基隆市" in TOWNSHIP_FORECAST_ENDPOINTS
+        assert "新北市" in TOWNSHIP_FORECAST_ENDPOINTS
+        assert "宜蘭縣" in TOWNSHIP_FORECAST_ENDPOINTS
+
+
+class TestLoadStationMapping:
+    def test_returns_defaults_when_file_missing(self):
+        result = load_station_mapping("/nonexistent/cwa_stations.json")
+        assert "keelung" in result
+        assert result["keelung"]["station_id"] == KEELUNG_STATION_ID
+
+    def test_reads_valid_file(self):
+        import tempfile, os
+        data = {
+            "spots": {
+                "fulong": {"station_id": "466950", "buoy_id": "46694A"},
+                "keelung": {"station_id": "466940"},
+            }
+        }
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json',
+                                         delete=False) as f:
+            json.dump(data, f)
+            path = f.name
+        try:
+            result = load_station_mapping(path)
+            assert result["fulong"]["station_id"] == "466950"
+            assert result["keelung"]["station_id"] == "466940"
+        finally:
+            os.unlink(path)
+
+
+class TestBuildSpotObs:
+    def test_basic_mapping(self):
+        mapping = {
+            "fulong": {
+                "station_id": "466950",
+                "station_dist_km": 5.0,
+                "buoy_id": "46694A",
+                "buoy_dist_km": 12.0,
+            }
+        }
+        station_obs = {
+            "466950": {
+                "station_id": "466950",
+                "temp_c": 22.0,
+                "wind_kt": 8.0,
+                "obs_time": "2026-03-24T00:00:00+00:00",
+            }
+        }
+        all_buoys = [
+            {"buoy_id": "46694A", "wave_height_m": 1.2,
+             "obs_time": "2026-03-24T00:00:00+00:00"},
+        ]
+        result = _build_spot_obs(mapping, station_obs, all_buoys)
+        assert "fulong" in result
+        assert result["fulong"]["station"]["temp_c"] == 22.0
+        assert result["fulong"]["station"]["distance_km"] == 5.0
+        assert result["fulong"]["buoy"]["wave_height_m"] == 1.2
+        assert result["fulong"]["buoy"]["distance_km"] == 12.0
+
+    def test_missing_station(self):
+        mapping = {"fulong": {"buoy_id": "46694A", "buoy_dist_km": 12.0}}
+        result = _build_spot_obs(mapping, {}, [
+            {"buoy_id": "46694A", "wave_height_m": 0.8,
+             "obs_time": "2026-03-24T00:00:00+00:00"},
+        ])
+        assert "station" not in result["fulong"]
+        assert result["fulong"]["buoy"]["wave_height_m"] == 0.8
+
+    def test_empty_mapping(self):
+        result = _build_spot_obs({}, {}, [])
+        assert result == {}
+
+    def test_shared_buoy_across_spots(self):
+        mapping = {
+            "daxi": {"buoy_id": "46694A", "buoy_dist_km": 20.0},
+            "wushih": {"buoy_id": "46694A", "buoy_dist_km": 18.0},
+        }
+        buoys = [{"buoy_id": "46694A", "wave_height_m": 1.0,
+                  "obs_time": "2026-03-24T00:00:00+00:00"}]
+        result = _build_spot_obs(mapping, {}, buoys)
+        assert result["daxi"]["buoy"]["distance_km"] == 20.0
+        assert result["wushih"]["buoy"]["distance_km"] == 18.0
