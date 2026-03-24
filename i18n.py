@@ -139,6 +139,8 @@ STRINGS: dict[str, dict[str, str]] = {
     # ── Day card labels ───────────────────────────────────────────────────
     'dry':                 {'en': 'dry',     'zh': '乾'},
     'tides':               {'en': 'Tides',   'zh': '潮汐'},
+    'tides_label':         {'en': 'Tides:',  'zh': '潮汐：'},
+    'daylight_label':      {'en': 'Daylight:', 'zh': '日照：'},
 
     # ── Recommendations ───────────────────────────────────────────────────
     'rec_sail':            {'en': '⛵ Go sailing',          'zh': '⛵ 適合航行'},

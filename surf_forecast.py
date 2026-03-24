@@ -28,6 +28,10 @@ from tide_predict import (predict_height, predict_height_anchored,
 # when available.  Used by _tide_height() for anchored interpolation.
 _CWA_TIDE_EXTREMA: list[dict] | None = None
 
+# CWA per-spot real-time observations — loaded at startup from cwa_obs.json
+# when available.  Keyed by spot ID (e.g. 'fulong'), used by _render_spot_detail().
+_CWA_SPOT_OBS: dict | None = None
+
 
 def _tide_height(dt_utc) -> float | None:
     """Predict tide height using CWA-anchored interpolation when available."""
@@ -277,7 +281,7 @@ def process_spot(ec: dict, gfs: dict, mar: dict) -> list[dict[str, object]]:
             (_precip[k] or 0) if k < len(_precip) else 0
             for k in range(window_start, i + 1)
         )
-        rain6h = raw_sum * (6 / window_len) if window_len < 6 else raw_sum
+        rain6h = raw_sum  # don't scale partial windows
 
         wi = wave_by_t.get(t)
         wv = {}
@@ -348,6 +352,13 @@ def _score_timestep(r: dict, spot: dict, tide_height_m: float | None = None) -> 
     elif energy >= 5:   score += 3   # e.g. 0.7m @ 10s
     elif energy >= 1.5: score += 2   # e.g. 0.5m @ 6s
     elif energy > 0:    score += 1
+
+    # Rain penalty — heavy rain makes surfing miserable
+    rain6h = r.get('rain6h', 0) or 0
+    if rain6h > 25:
+        score -= 2
+    elif rain6h > 10:
+        score -= 1
 
     # Tide preference
     opt_tide = spot.get('opt_tide', 'any')
@@ -451,10 +462,15 @@ def best_time_for_day(day_recs: list[dict], spot: dict) -> dict[str, object] | N
     for r in day_recs:
         dt_utc = r.get('dt_utc')
         if dt_utc is not None:
-            # Check if this 6h window has substantial daylight.
-            # The window is [dt_utc, dt_utc+6h); check midpoint (dt_utc+3h).
-            mid = dt_utc + timedelta(hours=3)
-            if is_daylight(mid, spot['lat'], spot['lon'], margin_minutes=0):
+            # Check if this 6h window has at least 3 hours of daylight overlap.
+            # The window is [dt_utc, dt_utc+6h); compute overlap with [sunrise, sunset].
+            sr_h, ss_h = sunrise_sunset(dt_utc, spot['lat'], spot['lon'])
+            win_start_h = dt_utc.hour + dt_utc.minute / 60.0
+            win_end_h = win_start_h + 6.0
+            overlap_start = max(win_start_h, sr_h)
+            overlap_end = min(win_end_h, ss_h)
+            daylight_hours = max(0.0, overlap_end - overlap_start)
+            if daylight_hours >= 3.0:
                 daylight_recs.append(r)
         else:
             daylight_recs.append(r)  # keep if we can't determine time
@@ -977,7 +993,7 @@ def _render_best_times(all_spot_data: list[dict], all_dks: list[str]) -> str:
                     tide_pills.append(
                         f'<span style="color:{clr};font-size:10px">'
                         f'{arrow} {ex["type"].title()} {ex["cst"]} ({ex["height_m"]:.2f}m)</span>')
-                html += f'<div style="margin-bottom:4px;font-size:10px;color:#475569">Tides: {" · ".join(tide_pills)}</div>\n'
+                html += f'<div style="margin-bottom:4px;font-size:10px;color:#475569">{T("tides_label")} {" · ".join(tide_pills)}</div>\n'
         except Exception:
             pass
 
@@ -989,7 +1005,7 @@ def _render_best_times(all_spot_data: list[dict], all_dks: list[str]) -> str:
             sr_str = f'{int(sr_cst):02d}:{int((sr_cst % 1) * 60):02d}'
             ss_str = f'{int(ss_cst):02d}:{int((ss_cst % 1) * 60):02d}'
             html += (f'<div style="margin-bottom:4px;font-size:10px;color:#475569">'
-                     f'Daylight: '
+                     f'{T("daylight_label")} '
                      f'<span style="color:#fbd38d">&#9788; {sr_str}</span>'
                      f' – '
                      f'<span style="color:#f97316">&#9790; {ss_str}</span>'
@@ -1010,6 +1026,7 @@ def _render_best_times(all_spot_data: list[dict], all_dks: list[str]) -> str:
                  f'<th scope="col">{T("th_wind_dir")}</th>'
                  f'<th scope="col" title="Tide height above chart datum">{T("th_tide")}</th>'
                  f'<th scope="col">{T("th_tide_state")}</th>'
+                 f'<th scope="col" title="Sea surface temperature from nearest buoy">\U0001f30a \u00b0C</th>'
                  '</tr></thead>\n<tbody>\n')
 
         row_i = 0
@@ -1027,7 +1044,7 @@ def _render_best_times(all_spot_data: list[dict], all_dks: list[str]) -> str:
                 bi_label = T(label_key) if label_key else rating['label']
                 html += (f'<tr class="{cls}">'
                          f'<td style="text-align:left;color:#94a3b8">{spot["name"]}</td>'
-                         f'<td colspan="9" style="color:{rating["col"]};background:{rating["bg"]}">'
+                         f'<td colspan="10" style="color:{rating["col"]};background:{rating["bg"]}">'
                          f'{rating["emoji"]} {bi_label}</td></tr>\n')
             else:
                 # Determine rating label from score
@@ -1068,6 +1085,14 @@ def _render_best_times(all_spot_data: list[dict], all_dks: list[str]) -> str:
                 # Tide state (rising/falling)
                 tstate = bt.get('tide_context', '').split(' · ')[0] if bt.get('tide_context') else ''
 
+                # Water temp from nearest CWA buoy
+                wtemp_str = '\u2014'
+                if _CWA_SPOT_OBS:
+                    sobs = _CWA_SPOT_OBS.get(spot.get('id', ''))
+                    if sobs and sobs.get('buoy') and sobs['buoy'].get('water_temp_c') is not None:
+                        wt = sobs['buoy']['water_temp_c']
+                        wtemp_str = f'{wt:.0f}\u00b0C'
+
                 html += (f'<tr class="{cls}">'
                          f'<td style="text-align:left;color:#94a3b8">{spot["name"]}</td>'
                          f'<td style="font-weight:700;color:#e2e8f0">{bt["window"]}</td>'
@@ -1079,6 +1104,7 @@ def _render_best_times(all_spot_data: list[dict], all_dks: list[str]) -> str:
                          f'<td>{w_dir_str}</td>'
                          f'<td class="{tide_cls}">{bt["tide_str"]}</td>'
                          f'<td style="font-size:10px;color:#94a3b8">{tstate}</td>'
+                         f'<td style="color:#93c5fd">{wtemp_str}</td>'
                          f'</tr>\n')
             row_i += 1
 
@@ -1127,6 +1153,51 @@ def _render_rating_matrix(all_spot_data: list[dict], all_dks: list[str]) -> str:
     return html
 
 
+def _render_cwa_obs_line(spot_id: str) -> str:
+    """Return a small HTML line showing live CWA obs for a spot, or empty string."""
+    if not _CWA_SPOT_OBS:
+        return ''
+    obs = _CWA_SPOT_OBS.get(spot_id)
+    if not obs:
+        return ''
+
+    parts = []
+    st = obs.get('station')
+    if st and st.get('station_id'):
+        sname = st.get('station_name', st['station_id'])
+        dist = st.get('distance_km')
+        dist_str = f' ({dist:.1f}km)' if dist is not None else ''
+        pieces = []
+        if st.get('temp_c') is not None:
+            pieces.append(f'{st["temp_c"]:.1f}\u00b0C')
+        if st.get('wind_kt') is not None:
+            w_dir = deg_to_compass(st['wind_dir']) if st.get('wind_dir') is not None else ''
+            pieces.append(f'{st["wind_kt"]:.0f}kt {w_dir}'.strip())
+        if pieces:
+            parts.append(f'\U0001f4e1 CWA {sname}{dist_str}: {", ".join(pieces)}')
+
+    bu = obs.get('buoy')
+    if bu and bu.get('buoy_id'):
+        bname = bu.get('buoy_name', bu['buoy_id'])
+        dist = bu.get('distance_km')
+        dist_str = f' ({dist:.1f}km)' if dist is not None else ''
+        pieces = []
+        if bu.get('wave_height_m') is not None:
+            pieces.append(f'Hs={bu["wave_height_m"]:.1f}m')
+        if bu.get('wave_period_s') is not None:
+            pieces.append(f'Tp={bu["wave_period_s"]:.0f}s')
+        if bu.get('water_temp_c') is not None:
+            pieces.append(f'\U0001f30a {bu["water_temp_c"]:.0f}\u00b0C')
+        if pieces:
+            parts.append(f'Buoy {bname}{dist_str}: {", ".join(pieces)}')
+
+    if not parts:
+        return ''
+    sep = ' \u00b7 '
+    return (f'<div style="font-size:11px;color:#94a3b8;margin:4px 0 8px">'
+            f'{sep.join(parts)}</div>\n')
+
+
 def _render_spot_detail(sd: dict) -> str:
     """Return the collapsible detail table HTML for one spot."""
     spot    = sd['spot']
@@ -1136,6 +1207,7 @@ def _render_spot_detail(sd: dict) -> str:
 
     html = f'<details id="spot-{spot["id"]}" class="detail-section">\n'
     html += f'<summary class="detail-header">{spot["name"]} — {T("detailed_forecast")}</summary>\n'
+    html += _render_cwa_obs_line(spot['id'])
     html += '<div style="overflow-x:auto">\n'
     html += '<table class="detail-table">\n'
     html += ('<thead><tr>'
@@ -1265,7 +1337,7 @@ def generate_full_html(all_spot_data: list[dict], keelung_records: list = None) 
 
 # ── Main ───────────────────────────────────────────────────────────────────
 def main() -> None:
-    global _CWA_TIDE_EXTREMA
+    global _CWA_TIDE_EXTREMA, _CWA_SPOT_OBS
 
     ap = argparse.ArgumentParser(description='Taiwan surf forecast')
     ap.add_argument('--output', default='surf_forecast.html',
@@ -1273,24 +1345,26 @@ def main() -> None:
     ap.add_argument('--output-json', default=None,
                     help='Output planner JSON path (optional, for unified day cards)')
     ap.add_argument('--cwa-obs', default=None,
-                    help='CWA obs JSON (for tide forecast anchoring)')
+                    help='CWA obs JSON (for tide forecast anchoring + live obs display)')
     args = ap.parse_args()
 
-    # Load CWA tide forecast for anchored tide predictions
+    # Load CWA data: tide forecast for anchoring + spot_obs for live display
+    cwa = None
     if args.cwa_obs:
         from config import load_json_file
         cwa = load_json_file(args.cwa_obs, "CWA obs")
-        if cwa and cwa.get("tide_forecast"):
-            _CWA_TIDE_EXTREMA = cwa["tide_forecast"]
-            log.info("Loaded %d CWA tide extrema for anchored predictions",
-                     len(_CWA_TIDE_EXTREMA))
     elif os.path.exists("cwa_obs.json"):
         from config import load_json_file
         cwa = load_json_file("cwa_obs.json", "CWA obs")
-        if cwa and cwa.get("tide_forecast"):
+
+    if cwa:
+        if cwa.get("tide_forecast"):
             _CWA_TIDE_EXTREMA = cwa["tide_forecast"]
-            log.info("Auto-loaded %d CWA tide extrema from cwa_obs.json",
+            log.info("Loaded %d CWA tide extrema for anchored predictions",
                      len(_CWA_TIDE_EXTREMA))
+        if cwa.get("spot_obs"):
+            _CWA_SPOT_OBS = cwa["spot_obs"]
+            log.info("Loaded CWA spot obs for %d spots", len(_CWA_SPOT_OBS))
 
     # ── Fetch all spots in parallel (Keelung sailing + 7 surf spots) ─────
     def _fetch_and_process(spot_entry):

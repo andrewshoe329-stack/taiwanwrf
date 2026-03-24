@@ -129,6 +129,9 @@ def check_alerts(wrf_data: dict, wave_data: dict | None = None) -> list[dict]:
                     'value': hs,
                 })
 
+    # Great surf conditions — any spot "Firing!" (score >= 9) in the next 24h
+    # (surf_planner data is checked separately via check_surf_alerts)
+
     # Deduplicate: keep only the most severe alert of each type per day
     by_day_type: dict[tuple, dict] = {}
     severity_rank = {'danger': 2, 'warning': 1, 'info': 0}
@@ -140,6 +143,101 @@ def check_alerts(wrf_data: dict, wave_data: dict | None = None) -> list[dict]:
             by_day_type[key] = alert
 
     return sorted(by_day_type.values(), key=lambda a: a.get('valid_utc', ''))
+
+
+def check_surf_alerts(surf_planner: dict | None) -> list[dict]:
+    """Check surf planner data for 'Firing!' conditions in the next 24h.
+
+    Parameters
+    ----------
+    surf_planner : dict or None
+        Parsed surf_planner.json with per-spot daily data.
+
+    Returns list of alert dicts.
+    """
+    if not surf_planner:
+        return []
+
+    alerts = []
+    now_utc = datetime.now(timezone.utc)
+    cutoff = now_utc + timedelta(hours=24)
+
+    spots = surf_planner.get('spots', {})
+    for spot_id, spot_data in spots.items():
+        spot_name = spot_data.get('name', spot_id)
+        days = spot_data.get('days', [])
+        for day_info in days:
+            best = day_info.get('best_time')
+            if not best:
+                continue
+            score = best.get('score', 0)
+            if score < 9:
+                continue
+            window = best.get('window', '')
+            day_date = day_info.get('date', '')
+            # Check if this is within the next 24h
+            try:
+                dt = datetime.fromisoformat(day_date + 'T00:00:00+00:00')
+                if dt > cutoff:
+                    continue
+            except (ValueError, TypeError):
+                pass  # include if we can't parse date
+
+            try:
+                cst_dt = datetime.fromisoformat(day_date + 'T00:00:00+08:00')
+                time_str = cst_dt.strftime('%a') + ' ' + window
+            except (ValueError, TypeError):
+                time_str = f'{day_date} {window}'
+
+            alerts.append({
+                'type': 'great_surf',
+                'severity': 'info',
+                'message': f'Firing surf at {spot_name}: score {score}, {time_str}',
+                'valid_utc': day_date,
+                'value': score,
+            })
+
+    return alerts
+
+
+def check_cwa_warnings(cwa_obs: dict | None) -> list[dict]:
+    """Extract CWA weather warnings from cwa_obs.json and return as alerts."""
+    if not cwa_obs:
+        return []
+
+    warnings = cwa_obs.get('warnings', [])
+    alerts = []
+    for w in warnings:
+        desc = w.get('description', '')
+        wtype = w.get('type', 'Weather warning')
+        severity = w.get('severity', 'warning')
+        area = w.get('area', '')
+        issued = w.get('issued_utc', '')
+
+        try:
+            dt = datetime.fromisoformat(issued)
+            cst = dt + timedelta(hours=8)
+            time_str = cst.strftime('%Y-%m-%d %H:%M CST')
+        except (ValueError, TypeError):
+            time_str = issued
+
+        sev = 'danger' if severity in ('danger', 'severe', 'extreme') else 'warning'
+        msg = f'CWA {wtype}'
+        if area:
+            msg += f' ({area})'
+        msg += f': {desc[:200]}'
+        if time_str:
+            msg += f' [issued {time_str}]'
+
+        alerts.append({
+            'type': 'cwa_warning',
+            'severity': sev,
+            'message': msg,
+            'valid_utc': issued,
+            'value': None,
+        })
+
+    return alerts
 
 
 def format_notification(alerts: list[dict], init_utc: str | None = None) -> str:
@@ -167,6 +265,12 @@ def format_notification(alerts: list[dict], init_utc: str | None = None) -> str:
     if warning:
         lines.append(f'🟡 {T_str("notif_warning", "en")} / {T_str("notif_warning", "zh")}:')
         for a in warning:
+            lines.append(f'  {a["message"]}')
+
+    info = [a for a in alerts if a['severity'] == 'info']
+    if info:
+        lines.append(f'🟢 Good conditions:')
+        for a in info:
             lines.append(f'  {a["message"]}')
 
     return '\n'.join(lines)
@@ -216,6 +320,8 @@ def main() -> None:
     ap = argparse.ArgumentParser(description='Send threshold-based forecast alerts')
     ap.add_argument('--wrf-json', required=True, help='WRF summary JSON')
     ap.add_argument('--wave-json', default=None, help='Wave forecast JSON')
+    ap.add_argument('--surf-planner', default=None, help='Surf planner JSON')
+    ap.add_argument('--cwa-obs', default=None, help='CWA observations JSON')
     ap.add_argument('--line-token', default=None,
                     help='LINE Notify token (or set LINE_NOTIFY_TOKEN env)')
     ap.add_argument('--telegram-token', default=None,
@@ -241,8 +347,26 @@ def main() -> None:
         except (FileNotFoundError, json.JSONDecodeError) as e:
             log.warning("Cannot load wave JSON: %s", e)
 
+    # Load surf planner
+    surf_planner = None
+    if args.surf_planner:
+        try:
+            surf_planner = json.loads(Path(args.surf_planner).read_text())
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            log.warning("Cannot load surf planner JSON: %s", e)
+
+    # Load CWA observations
+    cwa_obs = None
+    if args.cwa_obs:
+        try:
+            cwa_obs = json.loads(Path(args.cwa_obs).read_text())
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            log.warning("Cannot load CWA obs JSON: %s", e)
+
     # Check alerts
     alerts = check_alerts(wrf_data, wave_data)
+    alerts.extend(check_surf_alerts(surf_planner))
+    alerts.extend(check_cwa_warnings(cwa_obs))
     if not alerts:
         log.info("No alerts triggered")
         return
