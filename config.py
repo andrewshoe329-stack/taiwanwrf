@@ -123,6 +123,29 @@ def setup_logging(level: int = logging.INFO) -> None:
 KEELUNG_LAT = 25.15589534977208
 KEELUNG_LON = 121.78782946186699
 
+# ── Spot coordinates (single source of truth) ────────────────────────────────
+# Used by cwa_fetch.py, cwa_discover.py, and surf_forecast.py.
+# Only id/lat/lon live here; full spot metadata (facing, opt_wind, etc.) is in
+# surf_forecast.py.
+
+SPOT_COORDS = [
+    {"id": "keelung",     "lat": KEELUNG_LAT, "lon": KEELUNG_LON},
+    {"id": "fulong",      "lat": 25.019, "lon": 121.940},
+    {"id": "greenbay",    "lat": 25.189, "lon": 121.686},
+    {"id": "jinshan",     "lat": 25.238, "lon": 121.638},
+    {"id": "daxi",        "lat": 24.870, "lon": 121.930},
+    {"id": "wushih",      "lat": 24.862, "lon": 121.921},
+    {"id": "doublelions", "lat": 24.847, "lon": 121.917},
+    {"id": "chousui",     "lat": 24.820, "lon": 121.899},
+]
+
+# Spot → county mapping (for township forecast endpoint selection)
+SPOT_COUNTY = {
+    "keelung": "基隆市", "fulong": "新北市", "greenbay": "新北市",
+    "jinshan": "新北市", "daxi": "宜蘭縣", "wushih": "宜蘭縣",
+    "doublelions": "宜蘭縣", "chousui": "宜蘭縣",
+}
+
 # ── Shared direction / compass utilities ─────────────────────────────────────
 
 COMPASS_NAMES = (

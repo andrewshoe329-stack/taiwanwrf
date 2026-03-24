@@ -13,8 +13,12 @@ import argparse, json, logging, time, urllib.request, urllib.parse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone, timedelta
 
-from config import KEELUNG_LAT, KEELUNG_LON, deg_to_compass, setup_logging, sail_rating
+from config import (KEELUNG_LAT, KEELUNG_LON, SPOT_COORDS,
+                     deg_to_compass, setup_logging, sail_rating)
 from config import fetch_json as _config_fetch_json
+
+# Build coordinate lookup from shared SPOT_COORDS (single source of truth)
+_COORD_LOOKUP = {s["id"]: (s["lat"], s["lon"]) for s in SPOT_COORDS}
 from i18n import T, T_str, bilingual, SPOT_DESC_KEYS
 from tide_predict import predict_height, find_extrema, tide_state
 
@@ -29,7 +33,7 @@ SPOTS = [
     {
         'id': 'fulong',
         'name': 'Fulong 福隆',
-        'lat': 25.019, 'lon': 121.940,
+        'lat': _COORD_LOOKUP['fulong'][0], 'lon': _COORD_LOOKUP['fulong'][1],
         'facing': 'NE/E',
         'opt_wind':  ['S', 'SW'],
         'opt_swell': ['N', 'NE', 'E'],
@@ -40,7 +44,7 @@ SPOTS = [
     {
         'id': 'greenbay',
         'name': 'Green Bay 翡翠灣',
-        'lat': 25.189, 'lon': 121.686,
+        'lat': _COORD_LOOKUP['greenbay'][0], 'lon': _COORD_LOOKUP['greenbay'][1],
         'facing': 'NE',
         'opt_wind':  ['W', 'SW'],
         'opt_swell': ['E', 'NE'],
@@ -51,7 +55,7 @@ SPOTS = [
     {
         'id': 'jinshan',
         'name': 'Jinshan 金山',
-        'lat': 25.238, 'lon': 121.638,
+        'lat': _COORD_LOOKUP['jinshan'][0], 'lon': _COORD_LOOKUP['jinshan'][1],
         'facing': 'NE',
         'opt_wind':  ['S', 'SW'],
         'opt_swell': ['N', 'NNE', 'NE', 'E', 'ESE'],
@@ -62,7 +66,7 @@ SPOTS = [
     {
         'id': 'daxi',
         'name': 'Daxi 大溪',
-        'lat': 24.870, 'lon': 121.930,
+        'lat': _COORD_LOOKUP['daxi'][0], 'lon': _COORD_LOOKUP['daxi'][1],
         'facing': 'SE',
         'opt_wind':  ['NW', 'W'],
         'opt_swell': ['SE', 'SSE', 'S', 'E'],
@@ -73,7 +77,7 @@ SPOTS = [
     {
         'id': 'wushih',
         'name': 'Wushih 烏石',
-        'lat': 24.862, 'lon': 121.921,
+        'lat': _COORD_LOOKUP['wushih'][0], 'lon': _COORD_LOOKUP['wushih'][1],
         'facing': 'E',
         'opt_wind':  ['NW', 'W'],
         'opt_swell': ['E', 'SE', 'SSE'],
@@ -84,7 +88,7 @@ SPOTS = [
     {
         'id': 'doublelions',
         'name': 'Double Lions 雙獅',
-        'lat': 24.847, 'lon': 121.917,
+        'lat': _COORD_LOOKUP['doublelions'][0], 'lon': _COORD_LOOKUP['doublelions'][1],
         'facing': 'E',
         'opt_wind':  ['W', 'SW'],
         'opt_swell': ['ENE', 'E', 'SE', 'SSE'],
@@ -95,7 +99,7 @@ SPOTS = [
     {
         'id': 'chousui',
         'name': 'Chousui 臭水',
-        'lat': 24.820, 'lon': 121.899,
+        'lat': _COORD_LOOKUP['chousui'][0], 'lon': _COORD_LOOKUP['chousui'][1],
         'facing': 'E',
         'opt_wind':  ['WSW', 'W'],
         'opt_swell': ['ENE', 'E', 'ESE'],

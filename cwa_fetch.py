@@ -23,7 +23,8 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
-from config import KEELUNG_LAT, KEELUNG_LON, norm_utc, setup_logging
+from config import (KEELUNG_LAT, KEELUNG_LON, SPOT_COORDS, SPOT_COUNTY,
+                     norm_utc, setup_logging, load_json_file)
 
 log = logging.getLogger(__name__)
 
@@ -46,9 +47,14 @@ WAVE_BUOY_ENDPOINT = MARINE_OBS_ENDPOINT
 TIDE_OBS_ENDPOINT = MARINE_OBS_ENDPOINT
 # Official CWA tide forecast — 1 month ahead (high/low times + heights)
 TIDE_FORECAST_ENDPOINT = "F-A0021-001"
-# Township weather forecast — 3-day for Keelung City
+# Township weather forecast — 3-day, per-county endpoints
 # Note: 049 = 基隆市 (Keelung), NOT 061 which is 臺北市 (Taipei)
 TOWNSHIP_FORECAST_ENDPOINT = "F-D0047-049"
+TOWNSHIP_FORECAST_ENDPOINTS = {
+    "基隆市": "F-D0047-049",   # Keelung (existing)
+    "新北市": "F-D0047-069",   # New Taipei (Fulong, Green Bay, Jinshan)
+    "宜蘭縣": "F-D0047-001",   # Yilan (Daxi, Wushih, Double Lions, Chousui)
+}
 # Weather warnings & advisories
 WARNING_ENDPOINT = "W-C0033-002"
 
@@ -343,11 +349,11 @@ def _fetch_marine_stations(api_key: str) -> list[dict]:
     Returns the raw list of Station dicts from the API response,
     or an empty list on failure.
     """
-    # Request specific stations to reduce response size
-    target_ids = list(KEELUNG_BUOY_IDS) + list(KEELUNG_TIDE_STATION_IDS)
+    # Fetch all marine stations (no StationID filter) so we can find
+    # the nearest buoy/tide station for every surf spot, not just Keelung.
     data = _cwa_get(
         MARINE_OBS_ENDPOINT, api_key,
-        params={"StationID": ",".join(target_ids)},
+        params={},
         label="CWA-MarineObs",
     )
     if not data:
@@ -874,6 +880,91 @@ def fetch_warnings(api_key: str) -> list[dict]:
         return []
 
 
+# ── Station mapping (from cwa_discover.py output) ────────────────────────────
+
+CWA_STATIONS_FILE = "cwa_stations.json"
+
+
+def load_station_mapping(path: str = CWA_STATIONS_FILE) -> dict:
+    """Load spot→station/buoy mapping from cwa_stations.json.
+
+    Returns the 'spots' dict, e.g.:
+        {"fulong": {"station_id": "...", "buoy_id": "46694A", ...}, ...}
+
+    Falls back to Keelung-only defaults if the file is missing.
+    """
+    data = load_json_file(path)
+    if data and isinstance(data.get("spots"), dict):
+        log.info("Loaded station mapping from %s (%d spots)",
+                 path, len(data["spots"]))
+        return data["spots"]
+
+    log.info("No %s found — using Keelung-only defaults", path)
+    return {
+        "keelung": {
+            "station_id": KEELUNG_STATION_ID,
+            "station_name": "基隆",
+            "buoy_id": KEELUNG_BUOY_IDS[0],
+        }
+    }
+
+
+def _fetch_spot_stations(api_key: str,
+                         mapping: dict) -> dict:
+    """Fetch weather station obs for each unique station in the mapping.
+
+    Returns dict keyed by station_id → parsed obs dict.
+    """
+    unique_ids = {v["station_id"] for v in mapping.values()
+                  if "station_id" in v}
+    results = {}
+    for sid in unique_ids:
+        obs = fetch_station_obs(api_key, station_id=sid)
+        if obs:
+            results[sid] = obs
+    return results
+
+
+def _build_spot_obs(mapping: dict, station_obs: dict,
+                    all_buoys: list[dict]) -> dict:
+    """Build per-spot observation dict from mapping + fetched data.
+
+    Returns {"fulong": {"station": {...}, "buoy": {...}}, ...}
+    """
+    buoy_by_id = {b["buoy_id"]: b for b in all_buoys}
+    result = {}
+    for spot_id, info in mapping.items():
+        entry = {}
+        sid = info.get("station_id")
+        if sid and sid in station_obs:
+            stn = dict(station_obs[sid])
+            stn["distance_km"] = info.get("station_dist_km")
+            entry["station"] = stn
+
+        bid = info.get("buoy_id")
+        if bid and bid in buoy_by_id:
+            buoy = dict(buoy_by_id[bid])
+            buoy["distance_km"] = info.get("buoy_dist_km")
+            entry["buoy"] = buoy
+
+        if entry:
+            result[spot_id] = entry
+    return result
+
+
+def _fetch_township_forecasts(api_key: str) -> dict:
+    """Fetch township forecasts for all relevant counties.
+
+    Returns dict keyed by county name → forecast dict.
+    """
+    results = {}
+    for county, endpoint in TOWNSHIP_FORECAST_ENDPOINTS.items():
+        fc = fetch_township_forecast(api_key, endpoint=endpoint)
+        if fc:
+            results[county] = fc
+    return results
+
+
 # ── Combined fetch (for pipeline use) ────────────────────────────────────────
 
 def fetch_all(api_key: str) -> dict:
@@ -884,7 +975,12 @@ def fetch_all(api_key: str) -> dict:
     enabling per-spot nearest-buoy lookups downstream.
     The 'tide_forecast' key holds official CWA tide predictions (high/low).
     The 'township_forecast' key holds CWA's Keelung weather forecast text.
+    The 'spot_obs' key holds per-spot station/buoy observations.
+    The 'township_forecasts' key holds per-county township forecasts.
     """
+    # Load station mapping from cwa_stations.json (created by cwa_discover.py)
+    mapping = load_station_mapping()
+
     station = fetch_station_obs(api_key)
     # Fetch combined marine data once (O-B0075-001 has both buoy + tide)
     marine_stations = _fetch_marine_stations(api_key)
@@ -910,6 +1006,18 @@ def fetch_all(api_key: str) -> dict:
     if buoy is None and all_buoys:
         buoy = find_nearest_buoy(all_buoys, KEELUNG_LAT, KEELUNG_LON)
 
+    # Per-spot observations (station + buoy matched via cwa_stations.json)
+    spot_station_obs = _fetch_spot_stations(api_key, mapping)
+    spot_obs = _build_spot_obs(mapping, spot_station_obs, all_buoys)
+    if spot_obs:
+        log.info("Per-spot CWA obs: %d spots with data", len(spot_obs))
+
+    # Township forecasts for all relevant counties (Keelung, New Taipei, Yilan)
+    township_forecasts = _fetch_township_forecasts(api_key)
+    if township_forecasts:
+        log.info("Township forecasts: %s",
+                 ", ".join(township_forecasts.keys()))
+
     return {
         "source": "CWA Open Data",
         "fetched_utc": datetime.now(timezone.utc).isoformat(),
@@ -919,6 +1027,8 @@ def fetch_all(api_key: str) -> dict:
         "tide": tide,
         "tide_forecast": tide_forecast,
         "township_forecast": township,
+        "township_forecasts": township_forecasts,
+        "spot_obs": spot_obs,
         "warnings": warnings,
     }
 

@@ -213,6 +213,50 @@ def build_user_prompt(wrf: dict, ecmwf: dict | None, wave: dict | None,
                     tw_parts.append(f"  {key}: {', '.join(str(v.get('value','?')) for v in vals)}")
             if len(tw_parts) > 1:
                 obs_parts.append("\n".join(tw_parts))
+        # Per-spot CWA observations (from cwa_stations.json mapping)
+        spot_obs = cwa_obs.get('spot_obs', {})
+        if spot_obs:
+            spot_lines = []
+            for spot_id, obs in spot_obs.items():
+                line_parts = []
+                stn_obs = obs.get('station')
+                if stn_obs and stn_obs.get('obs_time'):
+                    dist = stn_obs.get('distance_km', '?')
+                    dist_str = f"{dist:.0f}km" if isinstance(dist, (int, float)) else f"{dist}km"
+                    line_parts.append(
+                        f"stn {stn_obs.get('station_id', '?')}: "
+                        f"{stn_obs.get('temp_c')}°C, "
+                        f"{stn_obs.get('wind_kt')}kt "
+                        f"({dist_str})")
+                buoy_obs = obs.get('buoy')
+                if buoy_obs and buoy_obs.get('obs_time'):
+                    dist = buoy_obs.get('distance_km', '?')
+                    dist_str = f"{dist:.0f}km" if isinstance(dist, (int, float)) else f"{dist}km"
+                    line_parts.append(
+                        f"buoy {buoy_obs.get('buoy_id', '?')}: "
+                        f"Hs={buoy_obs.get('wave_height_m')}m "
+                        f"({dist_str})")
+                if line_parts:
+                    spot_lines.append(f"  {spot_id}: {' | '.join(line_parts)}")
+            if spot_lines:
+                obs_parts.append(
+                    "Per-spot CWA obs:\n" + "\n".join(spot_lines))
+
+        # Per-county township forecasts
+        township_fcs = cwa_obs.get('township_forecasts', {})
+        if township_fcs:
+            for county, fc in township_fcs.items():
+                if fc and fc.get('elements'):
+                    elements = fc['elements']
+                    tw_parts = [f"CWA {county} forecast ({fc.get('location', '?')}):"]
+                    for key in ('Wx', 'MaxT', 'MinT', 'PoP12h', 'WS'):
+                        if key in elements:
+                            vals = elements[key][:4]
+                            tw_parts.append(
+                                f"  {key}: {', '.join(str(v.get('value','?')) for v in vals)}")
+                    if len(tw_parts) > 1:
+                        obs_parts.append("\n".join(tw_parts))
+
         if obs_parts:
             parts.append("Real-time observations:\n" + "\n".join(obs_parts))
 

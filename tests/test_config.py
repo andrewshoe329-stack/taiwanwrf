@@ -10,6 +10,7 @@ from config import (
     KEELUNG_LAT, KEELUNG_LON, COMPASS_NAMES, deg_to_compass,
     norm_utc, setup_logging, sail_rating,
     fetch_json, load_json_file,
+    SPOT_COORDS, SPOT_COUNTY,
 )
 
 
@@ -185,3 +186,35 @@ class TestLoadJsonFile:
             assert result is None
         finally:
             os.unlink(path)
+
+
+class TestSpotCoords:
+    def test_has_8_entries(self):
+        assert len(SPOT_COORDS) == 8
+
+    def test_keelung_is_first(self):
+        assert SPOT_COORDS[0]["id"] == "keelung"
+
+    def test_all_have_required_keys(self):
+        for s in SPOT_COORDS:
+            assert "id" in s
+            assert "lat" in s
+            assert "lon" in s
+
+    def test_unique_ids(self):
+        ids = [s["id"] for s in SPOT_COORDS]
+        assert len(ids) == len(set(ids))
+
+    def test_coordinates_in_taiwan(self):
+        for s in SPOT_COORDS:
+            assert 24 < s["lat"] < 26, f"{s['id']} lat out of range"
+            assert 121 < s["lon"] < 123, f"{s['id']} lon out of range"
+
+    def test_spot_county_covers_all(self):
+        spot_ids = {s["id"] for s in SPOT_COORDS}
+        assert set(SPOT_COUNTY.keys()) == spot_ids
+
+    def test_county_values_valid(self):
+        valid = {"基隆市", "新北市", "宜蘭縣"}
+        for county in SPOT_COUNTY.values():
+            assert county in valid

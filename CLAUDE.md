@@ -97,7 +97,7 @@ Claude uses this to hedge language — e.g. "actual temps will likely be a degre
 | File | Lines | Purpose |
 |------|-------|---------|
 | `i18n.py` | ~230 | Bilingual translation infrastructure: `T()`, `T_str()`, `bilingual()`, `STRINGS` dict |
-| `config.py` | ~250 | Shared constants + utilities: `KEELUNG_LAT/LON`, `deg_to_compass()`, `norm_utc()`, `setup_logging()`, `fetch_json()`, `load_json_file()` |
+| `config.py` | ~270 | Shared constants + utilities: `KEELUNG_LAT/LON`, `SPOT_COORDS`, `SPOT_COUNTY`, `deg_to_compass()`, `norm_utc()`, `setup_logging()`, `fetch_json()`, `load_json_file()` |
 | `taiwan_wrf_download.py` | ~687 | Download CWA WRF GRIB2 from S3, subset with eccodes, archive with tar.gz |
 | `wrf_analyze.py` | ~1606 | GRIB2 point extraction, derived fields, unified HTML table, daily summary cards |
 | `ecmwf_fetch.py` | ~274 | Fetch ECMWF IFS from Open-Meteo, 6-hourly conversion, GFS gust/vis backfill |
@@ -108,12 +108,15 @@ Claude uses this to hedge language — e.g. "actual temps will likely be a degre
 | `forecast_summary.py` | ~328 | Anthropic API call (3-attempt retry), prompt + accuracy context, HTML output |
 | `ensemble_fetch.py` | ~289 | Fetch GFS/ICON/JMA from Open-Meteo, compute multi-model spread stats |
 | `notify.py` | ~276 | Threshold-based alerts via LINE Notify and Telegram Bot API |
-| `cwa_fetch.py` | ~930 | CWA Open Data API: weather station (#466940) + wave buoy + tide obs + tide forecast + township forecast + weather warnings |
+| `cwa_fetch.py` | ~1020 | CWA Open Data API: per-spot weather stations + wave buoys + tide obs + tide forecast + township forecasts (Keelung/New Taipei/Yilan) + weather warnings |
+| `cwa_discover.py` | ~280 | Monthly CWA station/buoy discovery: queries all stations, maps nearest to each spot, writes `cwa_stations.json` |
+| `cwa_stations.json` | ~varies | Discovered station/buoy mapping (committed by cwa-discover workflow, read by cwa_fetch.py) |
 | `.github/workflows/main.yml` | ~524 | Full CI/CD pipeline with ensemble, notifications, accuracy, concurrency |
+| `.github/workflows/cwa-discover.yml` | ~30 | Monthly workflow to discover CWA stations/buoys and commit mapping |
 | `pwa/` | 5 files | PWA manifest, service worker, icon generator, icons, styles.css |
 | `vercel.json` | ~30 | Static site config (rewrites, cache headers for PWA) |
 | `requirements.txt` | ~6 | `eccodes>=1.5,<2`, `numpy>=1.24,<3`, `anthropic>=0.40,<1` |
-| `tests/` | 14 files, 350 tests | Unit tests for pure functions (pytest), run in CI/CD |
+| `tests/` | 14 files, 368 tests | Unit tests for pure functions (pytest), run in CI/CD |
 
 ---
 
@@ -134,7 +137,7 @@ The site is fully bilingual English/Traditional Chinese. All user-visible string
 **To add a new translatable string:** Add a key to `STRINGS` in `i18n.py`, then use `T('key')` in HTML generators.
 
 ### Shared Config (`config.py`)
-All scripts import coordinates, compass functions, and `norm_utc()` from here. **Do not duplicate these** — earlier bugs came from hardcoded coordinates and duplicated utility functions.
+All scripts import coordinates, compass functions, and `norm_utc()` from here. **Do not duplicate these** — earlier bugs came from hardcoded coordinates and duplicated utility functions. `SPOT_COORDS` is the single source of truth for spot coordinates (used by `surf_forecast.py`, `cwa_fetch.py`, `cwa_discover.py`). `SPOT_COUNTY` maps each spot to its CWA county for township forecasts.
 
 ### GRIB2 Processing
 - CWA WRF uses **Lambert Conformal** grid projection (not regular lat/lon)
@@ -227,8 +230,10 @@ All endpoints use base URL `https://opendata.cwa.gov.tw/api/v1/rest/datastore/{I
 | **O-B0075-001** | 海象監測資料-48小時浮標站與潮位站海況監測資料 | `MARINE_OBS_ENDPOINT` — combined buoy + tide (48h). Replaces deprecated O-A0017-001 (tide), O-A0018-001 (buoy), O-A0019-001 (sea temp). Supports `StationID` query param. REST API returns `Records.SeaSurfaceObs.Location[]` with nested `Station` + `StationObsTimes`. |
 | O-B0075-002 | 海象監測資料-30天浮標站與潮位站海況監測資料 | Not used (30-day version of above) |
 | **F-A0021-001** | 潮汐預報-未來1個月潮汐預報 | `TIDE_FORECAST_ENDPOINT` — official tide forecast |
+| **F-D0047-001** | 鄉鎮天氣預報-宜蘭縣未來3天天氣預報 | `TOWNSHIP_FORECAST_ENDPOINTS["宜蘭縣"]` — Yilan 3-day forecast (Daxi, Wushih, Double Lions, Chousui) |
 | **F-D0047-049** | 鄉鎮天氣預報-基隆市未來3天天氣預報 | `TOWNSHIP_FORECAST_ENDPOINT` — Keelung 3-day forecast |
 | F-D0047-051 | 鄉鎮天氣預報-基隆市未來1週天氣預報 | Not used (1-week version) |
+| **F-D0047-069** | 鄉鎮天氣預報-新北市未來3天天氣預報 | `TOWNSHIP_FORECAST_ENDPOINTS["新北市"]` — New Taipei 3-day forecast (Fulong, Green Bay, Jinshan) |
 | **W-C0033-002** | 天氣特報-各別天氣警特報之內容及所影響之區域 | `WARNING_ENDPOINT` — weather warnings & advisories |
 
 **Note on F-D0047 numbering:** Odd numbers are 3-day, even+1 are 1-week. Key city codes: 049=基隆市, 061=臺北市, 069=新北市. Full list at CWA Open Data portal.
@@ -306,9 +311,33 @@ These are the intermediate JSON files passed between pipeline steps:
                "gust_kt", "pressure_hpa", "humidity_pct", "precip_mm" },
   "buoy": { "buoy_id", "obs_time", "wave_height_m", "wave_period_s",
             "wave_dir", "peak_period_s", "water_temp_c" },
+  "all_buoys": [{ "buoy_id", "buoy_name", "lat", "lon", "wave_height_m", ... }],
+  "spot_obs": {
+    "fulong": { "station": { "station_id", "distance_km", "temp_c", ... },
+                "buoy": { "buoy_id", "distance_km", "wave_height_m", ... } },
+    ...per spot (keelung + 7 surf spots)...
+  },
   "tide": { "station_id", "obs_time", "tide_height_m" },
+  "township_forecast": { "location", "elements": {...} },
+  "township_forecasts": {
+    "基隆市": { "location", "elements" },
+    "新北市": { "location", "elements" },
+    "宜蘭縣": { "location", "elements" }
+  },
   "warnings": [{ "type", "severity", "area", "description",
                  "issued_utc", "expires_utc" }] }
+```
+
+### `cwa_stations.json` (produced by cwa_discover.py, committed to repo)
+```
+{ "discovered_utc",
+  "spots": {
+    "keelung": { "station_id", "station_name", "station_dist_km",
+                 "buoy_id", "buoy_name", "buoy_dist_km" },
+    ...per spot...
+  },
+  "all_stations": [{ "station_id", "station_name", "lat", "lon" }],
+  "all_buoys": [{ "buoy_id", "buoy_name", "lat", "lon" }] }
 ```
 
 ### `accuracy_log.json` (rolling, on Drive)
@@ -333,7 +362,7 @@ pip install pytest
 python -m pytest tests/ -v
 ```
 
-350 tests should pass. Tests cover: compass conversion, Beaufort scale, color functions, direction quality scoring, day ratings, sail ratings, time normalization, bbox geometry, GRIB2 constant validation, tide prediction (semidiurnal pattern, extrema detection), accuracy tracking (error metrics, buoy verification), CWA API parsing (station, buoy, tide, tide forecast, township forecast, warnings), AI summary prompt construction (with CWA obs and ensemble spread), and shared HTTP fetch/JSON loading utilities.
+368 tests should pass. Tests cover: compass conversion, Beaufort scale, color functions, direction quality scoring, day ratings, sail ratings, time normalization, bbox geometry, GRIB2 constant validation, tide prediction (semidiurnal pattern, extrema detection), accuracy tracking (error metrics, buoy verification), CWA API parsing (station, buoy, tide, tide forecast, township forecast, warnings), AI summary prompt construction (with CWA obs and ensemble spread), and shared HTTP fetch/JSON loading utilities.
 
 **Tests run in CI/CD** — the GitHub Actions workflow runs `python -m pytest tests/ -v` before deployment.
 
