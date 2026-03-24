@@ -38,6 +38,7 @@ import numpy as np
 from config import KEELUNG_LAT, KEELUNG_LON, COMPASS_NAMES, deg_to_compass, setup_logging, sail_rating, load_json_file
 from tide_predict import predict_height
 from i18n import T, T_str, bilingual
+from html_template import render_page
 
 log = logging.getLogger(__name__)
 
@@ -1675,6 +1676,396 @@ def render_unified_html(
     return html
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# Multi-page rendering: Dashboard, Hourly, Accuracy
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _render_hero_banner(cwa_obs: dict | None) -> str:
+    """Current conditions hero banner for the dashboard."""
+    if not cwa_obs:
+        return ''
+    station = cwa_obs.get('station') or {}
+    buoy = cwa_obs.get('buoy') or {}
+    if not station and not buoy:
+        return ''
+
+    metrics = []
+    if station.get('temp_c') is not None:
+        metrics.append(f'<div class="hero-metric"><div class="value">{station["temp_c"]:.1f}<span class="unit">°C</span></div><div class="label">{T_str("card_temp","en")}</div></div>')
+    if station.get('wind_kt') is not None:
+        wind_dir_str = ''
+        if station.get('wind_dir') is not None:
+            wind_dir_str = f' {deg_to_compass(station["wind_dir"])}'
+        metrics.append(f'<div class="hero-metric"><div class="value">{station["wind_kt"]:.0f}<span class="unit">kt{wind_dir_str}</span></div><div class="label">{T_str("card_wind","en")}</div></div>')
+    if station.get('gust_kt') is not None and station['gust_kt'] > 0:
+        metrics.append(f'<div class="hero-metric"><div class="value">{station["gust_kt"]:.0f}<span class="unit">kt</span></div><div class="label">{T_str("card_gust","en")}</div></div>')
+    if buoy.get('wave_height_m') is not None:
+        tp = buoy.get('wave_period_s')
+        tp_str = f' {tp:.0f}s' if tp is not None else ''
+        metrics.append(f'<div class="hero-metric"><div class="value">{buoy["wave_height_m"]:.1f}<span class="unit">m{tp_str}</span></div><div class="label">{T_str("card_waves","en")}</div></div>')
+    if station.get('pressure_hpa') is not None:
+        metrics.append(f'<div class="hero-metric"><div class="value">{station["pressure_hpa"]:.0f}<span class="unit">hPa</span></div><div class="label">{T_str("card_pressure","en")}</div></div>')
+
+    if not metrics:
+        return ''
+
+    # Obs time display
+    obs_time_str = ''
+    obs_t = station.get('obs_time') or buoy.get('obs_time')
+    if obs_t:
+        try:
+            dt = datetime.fromisoformat(obs_t)
+            cst = dt + timedelta(hours=8) if dt.tzinfo is None or dt.utcoffset() == timedelta(0) else dt.astimezone(timezone(timedelta(hours=8)))
+            obs_time_str = cst.strftime('%H:%M CST')
+        except (ValueError, TypeError):
+            pass
+
+    return (
+        '<div class="hero-banner">\n'
+        f'  <h2 class="section-title" style="border:none;margin-bottom:{8}px">'
+        f'{T("current_conditions")}</h2>\n'
+        f'  <div class="hero-metrics">\n    ' + '\n    '.join(metrics) + '\n  </div>\n'
+        f'  <div class="hero-source">{bilingual("CWA Keelung Station", "CWA 基隆測站")}'
+        + (f' &middot; {obs_time_str}' if obs_time_str else '') + '</div>\n'
+        '</div>\n'
+    )
+
+
+def _render_quick_glance(ctx: 'ForecastContext') -> str:
+    """Compact next-24h table for dashboard."""
+    wrf_by_valid = {r['valid_utc']: r for r in ctx.records if r.get('valid_utc')}
+    ec_by_valid = {r['valid_utc']: r for r in (ctx.ecmwf_records or []) if r.get('valid_utc')}
+    ecmwf_wave = (ctx.wave_data or {}).get('ecmwf_wave', {})
+    wave_by_valid = {r['valid_utc']: r for r in ecmwf_wave.get('records', []) if r.get('valid_utc')}
+    all_valids = sorted(set(wrf_by_valid) | set(ec_by_valid) | set(wave_by_valid))
+
+    # Filter to next 24h (roughly 4 entries at 6h intervals)
+    now = datetime.now(timezone.utc)
+    next_24h = [vt for vt in all_valids
+                if datetime.fromisoformat(vt) >= now - timedelta(hours=3)
+                and datetime.fromisoformat(vt) <= now + timedelta(hours=27)]
+    if not next_24h:
+        next_24h = all_valids[:5]  # fallback
+
+    html = '<div class="chart-container">\n'
+    html += f'<div class="chart-title">{T("quick_glance")}</div>\n'
+    html += '<table class="quick-table">\n'
+    html += '<thead><tr>'
+    html += '<th>CST</th>'
+    html += f'<th>{T("th_wind")}</th>'
+    html += f'<th>{T("th_gust")}</th>'
+    html += f'<th>{T("th_waves")}</th>'
+    html += f'<th>{T("th_temp")}</th>'
+    html += f'<th>{T("th_rain_6h")}</th>'
+    html += '</tr></thead>\n<tbody>\n'
+
+    prev_date = None
+    for idx, vt in enumerate(next_24h):
+        wrf = wrf_by_valid.get(vt)
+        ec = ec_by_valid.get(vt)
+        wav = wave_by_valid.get(vt)
+
+        try:
+            dt_u = datetime.fromisoformat(vt)
+            dt_c = dt_u + timedelta(hours=8)
+            cst_str = dt_c.strftime('%H:%M')
+            cst_date = dt_c.strftime('%a %-d')
+        except (ValueError, TypeError):
+            cst_str = vt
+            cst_date = ''
+
+        if cst_date != prev_date:
+            prev_date = cst_date
+            html += f'<tr class="date-sep"><td colspan="6">{cst_date}</td></tr>\n'
+
+        wind = (wrf.get('wind_kt') if wrf else None) or (ec.get('wind_kt') if ec else None)
+        wind_dir = (wrf.get('wind_dir') if wrf else None) or (ec.get('wind_dir') if ec else None)
+        gust = (wrf.get('gust_kt') if wrf else None) or (ec.get('gust_kt') if ec else None)
+        temp = (wrf.get('temp_c') if wrf else None) or (ec.get('temp_c') if ec else None)
+        rain = (wrf.get('precip_mm_6h') if wrf else None) or (ec.get('precip_mm_6h') if ec else None)
+        hs = wav.get('wave_height') if wav else None
+
+        cls = ' class="row-alt"' if idx % 2 else ''
+        dir_s = f' {deg_to_compass(wind_dir)}' if wind_dir is not None else ''
+        bf = f' B{_beaufort(wind)}' if wind is not None else ''
+
+        html += f'<tr{cls}>'
+        html += f'<td style="font-weight:600">{cst_str}</td>'
+        html += f'<td style="background:{_wind_bg(wind)}">{wind:.0f}kt{bf}{dir_s}</td>' if wind is not None else '<td>—</td>'
+        html += f'<td style="background:{_wind_bg(gust)}">{gust:.0f}kt</td>' if gust is not None else '<td>—</td>'
+        html += f'<td style="background:{_wave_height_bg(hs)}">{hs:.1f}m</td>' if hs is not None else '<td>—</td>'
+        html += f'<td style="background:{_temp_bg(temp)}">{temp:.1f}°</td>' if temp is not None else '<td>—</td>'
+        html += f'<td style="background:{_precip_bg(rain)}">{rain:.1f}mm</td>' if rain is not None else '<td>—</td>'
+        html += '</tr>\n'
+
+    html += '</tbody></table>\n</div>\n'
+    return html
+
+
+def _render_top_spots(surf_planner: dict | None) -> str:
+    """Show top 3 surf spots for today on the dashboard."""
+    if not surf_planner:
+        return ''
+    today = datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d')
+    sp_days = surf_planner.get('days', {})
+    sp_day = sp_days.get(today, {})
+    if not sp_day:
+        # Try first available day
+        for dk in sorted(sp_days.keys()):
+            sp_day = sp_days[dk]
+            if sp_day:
+                break
+    if not sp_day:
+        return ''
+
+    all_spots = sp_day.get('all_spots', [])
+    if not all_spots:
+        # Fallback: just show best spot
+        bs = sp_day.get('best_surf', {})
+        if not bs.get('spot'):
+            return ''
+        all_spots = [bs]
+
+    # Sort by score descending, take top 3
+    sorted_spots = sorted(all_spots, key=lambda s: s.get('score', 0), reverse=True)[:3]
+
+    html = f'<h3 class="section-title" style="font-size:16px">{T("top_spots_today")}</h3>\n'
+    html += '<div class="grid grid-3">\n'
+    for sp in sorted_spots:
+        name = sp.get('spot', '?')
+        emoji = sp.get('emoji', '🏄')
+        label = sp.get('label', '')
+        bg = sp.get('bg', '#1e293b')
+        col = sp.get('col', '#94a3b8')
+        spot_id = sp.get('id', name.lower().split()[0] if name else '')
+        html += (
+            f'<a href="/spots/{html_mod.escape(spot_id)}" class="spot-card">\n'
+            f'  <div class="spot-card-name">🏄 {html_mod.escape(name)}</div>\n'
+            f'  <div class="spot-card-rating" style="color:{col}">{emoji} {html_mod.escape(label)}</div>\n'
+            f'  <div class="spot-card-action">{T("view_details")} →</div>\n'
+            f'</a>\n'
+        )
+    html += '</div>\n'
+    return html
+
+
+def render_dashboard_page(ctx: ForecastContext, *, ai_summary_html: str = '',
+                          build_utc: str = '', **kw) -> str:
+    """Render the dashboard page (index.html): hero + AI summary + daily cards + quick glance."""
+    body = ''
+
+    # CWA warnings
+    if ctx.cwa_obs and ctx.cwa_obs.get('warnings'):
+        warnings_list = ctx.cwa_obs['warnings']
+        body += '<div class="alert-box alert-danger" style="margin-bottom:16px">\n'
+        body += f'  <h3 style="color:#fca5a5;margin:0 0 6px;font-size:14px">{bilingual("Active Weather Warnings", "氣象警特報")}</h3>\n'
+        for w in warnings_list:
+            w_type = html_mod.escape(str(w.get('type', '')))
+            w_desc = html_mod.escape(str(w.get('description', '')))[:200]
+            body += f'  <p style="margin:4px 0;font-size:13px;color:#fca5a5"><b>{w_type}</b> — {w_desc}</p>\n'
+        body += '</div>\n'
+
+    # Hero banner with current conditions
+    body += _render_hero_banner(ctx.cwa_obs)
+
+    # AI summary (injected from forecast_summary.py output)
+    if ai_summary_html:
+        body += ai_summary_html + '\n'
+
+    # Daily summary cards (horizontal strip on mobile)
+    wrf_by_valid = {r['valid_utc']: r for r in ctx.records if r.get('valid_utc')}
+    ec_by_valid = {r['valid_utc']: r for r in (ctx.ecmwf_records or []) if r.get('valid_utc')}
+    ecmwf_wave = (ctx.wave_data or {}).get('ecmwf_wave', {})
+    wave_by_valid = {r['valid_utc']: r for r in ecmwf_wave.get('records', []) if r.get('valid_utc')}
+    all_valids = sorted(set(wrf_by_valid) | set(ec_by_valid) | set(wave_by_valid))
+
+    body += f'<h3 class="section-title" style="font-size:16px">{T("this_week")}</h3>\n'
+    body += '<div class="daily-strip">\n'
+    cards = _daily_summary_html(wrf_by_valid, ec_by_valid, wave_by_valid, all_valids,
+                                ctx.tide_data, surf_planner=ctx.surf_planner)
+    # Replace the wrapping div class for strip layout
+    cards = cards.replace('<div class="daily-cards">', '').rstrip('</div>\n')
+    body += cards + '\n</div>\n'
+
+    # Top surf spots
+    body += _render_top_spots(ctx.surf_planner)
+
+    # Quick glance (next 24h compact table)
+    body += _render_quick_glance(ctx)
+
+    # CTA links
+    body += '<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:16px">\n'
+    body += f'  <a href="/hourly" class="cta-link cta-link-primary">{T("see_full_hourly")} →</a>\n'
+    body += f'  <a href="/surf" class="cta-link">{T("see_all_spots")} →</a>\n'
+    body += '</div>\n'
+
+    return render_page(
+        title_key='dashboard_title',
+        nav_active='/',
+        body_html=body,
+        build_utc=build_utc,
+        **kw,
+    )
+
+
+def render_hourly_page(ctx: ForecastContext, *, build_utc: str = '', **kw) -> str:
+    """Render the hourly forecast page (hourly.html): full table + charts + model comparison."""
+    # Re-use the existing render_unified_html which already produces the full table
+    inner_html = render_unified_html(
+        ctx.meta, ctx.records, ctx.prev_records, ctx.ecmwf_records,
+        ctx.wave_data, ctx=ctx,
+    )
+
+    return render_page(
+        title_key='hourly_title',
+        nav_active='/hourly',
+        body_html=inner_html,
+        build_utc=build_utc,
+        **kw,
+    )
+
+
+def render_accuracy_page(accuracy_log: list | None, *, build_utc: str = '', **kw) -> str:
+    """Render the accuracy dashboard page (accuracy.html)."""
+    body = f'<h2 class="section-title">{T("accuracy_title")}</h2>\n'
+
+    if not accuracy_log:
+        body += f'<p class="c-muted">{bilingual("No accuracy data available yet.", "尚無準確度資料。")}</p>\n'
+        return render_page(
+            title_key='accuracy_title',
+            nav_active='/accuracy',
+            body_html=body,
+            build_utc=build_utc,
+            **kw,
+        )
+
+    # Recent entries (last 7 days)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+    recent = []
+    for e in accuracy_log:
+        try:
+            vt = datetime.fromisoformat(e.get('verified_utc', ''))
+            if vt >= cutoff:
+                recent.append(e)
+        except (ValueError, TypeError):
+            pass
+    if not recent:
+        recent = accuracy_log[-10:]  # fallback
+
+    # Summary cards
+    def avg_metric(entries, key):
+        vals = [e.get(key) for e in entries if e.get(key) is not None]
+        return round(sum(vals) / len(vals), 2) if vals else None
+
+    def bias_metric(entries, key):
+        vals = [e.get(key) for e in entries if e.get(key) is not None]
+        return round(sum(vals) / len(vals), 2) if vals else None
+
+    temp_mae = avg_metric(recent, 'temp_mae_c')
+    temp_bias = bias_metric(recent, 'temp_bias_c')
+    wind_mae = avg_metric(recent, 'wind_mae_kt')
+    wind_bias = bias_metric(recent, 'wind_bias_kt')
+    wdir_mae = avg_metric(recent, 'wdir_mae_deg')
+    mslp_mae = avg_metric(recent, 'mslp_mae_hpa')
+    wave_mae = None
+    wave_bias = None
+    wave_entries = [e.get('wave', {}) for e in recent if e.get('wave')]
+    if wave_entries:
+        w_vals = [w.get('hs_mae_m') for w in wave_entries if w.get('hs_mae_m') is not None]
+        wave_mae = round(sum(w_vals) / len(w_vals), 2) if w_vals else None
+        b_vals = [w.get('hs_bias_m') for w in wave_entries if w.get('hs_bias_m') is not None]
+        wave_bias = round(sum(b_vals) / len(b_vals), 2) if b_vals else None
+
+    def _color(val, green_lt, yellow_lt):
+        if val is None: return '#94a3b8'
+        return '#48bb78' if val < green_lt else '#fbd38d' if val < yellow_lt else '#fc8181'
+
+    def _bias_str(bias, unit):
+        if bias is None: return ''
+        sign = '+' if bias > 0 else ''
+        return f'{sign}{bias}{unit}'
+
+    body += f'<p style="color:#94a3b8;font-size:13px;margin-bottom:16px">{bilingual(f"Based on {len(recent)} verified runs in the last 7 days", f"基於過去7天 {len(recent)} 次驗證")}</p>\n'
+
+    body += '<div class="accuracy-summary">\n'
+    for label, mae, bias, unit, g, y in [
+        ('Temp', temp_mae, temp_bias, '°C', 1.0, 2.0),
+        ('Wind', wind_mae, wind_bias, 'kt', 3.0, 5.0),
+        ('W.Dir', wdir_mae, None, '°', 20, 40),
+        ('MSLP', mslp_mae, None, 'hPa', 1.0, 2.0),
+        ('Wave Hs', wave_mae, wave_bias, 'm', 0.3, 0.5),
+    ]:
+        if mae is None:
+            continue
+        c = _color(mae, g, y)
+        body += (
+            f'<div class="accuracy-card">\n'
+            f'  <div class="value" style="color:{c}">&pm;{mae}{unit}</div>\n'
+            f'  <div class="label">{label} MAE</div>\n'
+        )
+        if bias is not None:
+            body += f'  <div class="bias" style="color:{c}">{_bias_str(bias, unit)} bias</div>\n'
+        body += '</div>\n'
+    body += '</div>\n'
+
+    # By forecast horizon
+    body += f'<h3 class="section-title" style="font-size:16px">{T("by_horizon")}</h3>\n'
+    horizons_data = {}
+    for e in recent:
+        bh = e.get('by_horizon', {})
+        for horizon, metrics in bh.items():
+            if horizon not in horizons_data:
+                horizons_data[horizon] = []
+            horizons_data[horizon].append(metrics)
+
+    if horizons_data:
+        body += '<div class="chart-container">\n'
+        body += '<table class="quick-table">\n<thead><tr>'
+        body += '<th>Horizon</th><th>Temp MAE</th><th>Wind MAE</th><th>Dir MAE</th>'
+        body += '</tr></thead>\n<tbody>\n'
+        for horizon in sorted(horizons_data.keys()):
+            entries = horizons_data[horizon]
+            t_vals = [m.get('temp_mae_c') for m in entries if m.get('temp_mae_c') is not None]
+            w_vals = [m.get('wind_mae_kt') for m in entries if m.get('wind_mae_kt') is not None]
+            d_vals = [m.get('wdir_mae_deg') for m in entries if m.get('wdir_mae_deg') is not None]
+            t_avg = f'{sum(t_vals)/len(t_vals):.1f}°C' if t_vals else '—'
+            w_avg = f'{sum(w_vals)/len(w_vals):.1f}kt' if w_vals else '—'
+            d_avg = f'{sum(d_vals)/len(d_vals):.0f}°' if d_vals else '—'
+            body += f'<tr><td style="font-weight:600">{horizon}</td><td>{t_avg}</td><td>{w_avg}</td><td>{d_avg}</td></tr>\n'
+        body += '</tbody></table>\n</div>\n'
+
+    # Verification history table
+    body += f'<h3 class="section-title" style="font-size:16px">{T("verification_history")}</h3>\n'
+    body += '<div class="chart-container">\n'
+    body += '<table class="quick-table">\n<thead><tr>'
+    body += '<th>Init</th><th>Verified</th><th>Temp MAE</th><th>Wind MAE</th><th>Wave MAE</th><th>N</th>'
+    body += '</tr></thead>\n<tbody>\n'
+    for idx, e in enumerate(reversed(accuracy_log[-20:])):
+        cls = ' class="row-alt"' if idx % 2 else ''
+        init = e.get('init_utc', '?')[:16]
+        verified = e.get('verified_utc', '?')[:16]
+        t = f'{e["temp_mae_c"]:.1f}°C' if e.get('temp_mae_c') is not None else '—'
+        w = f'{e["wind_mae_kt"]:.1f}kt' if e.get('wind_mae_kt') is not None else '—'
+        wv = '—'
+        if e.get('wave') and e['wave'].get('hs_mae_m') is not None:
+            wv = f'{e["wave"]["hs_mae_m"]:.2f}m'
+        n = e.get('n_compared', '?')
+        body += f'<tr{cls}><td>{init}</td><td>{verified}</td>'
+        body += f'<td style="color:{_color(e.get("temp_mae_c"), 1.0, 2.0)}">{t}</td>'
+        body += f'<td style="color:{_color(e.get("wind_mae_kt"), 3.0, 5.0)}">{w}</td>'
+        body += f'<td>{wv}</td><td>{n}</td></tr>\n'
+    body += '</tbody></table>\n</div>\n'
+
+    return render_page(
+        title_key='accuracy_title',
+        nav_active='/accuracy',
+        body_html=body,
+        build_utc=build_utc,
+        **kw,
+    )
+
+
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -1703,6 +2094,10 @@ def main() -> None:
                    help='Accuracy log JSON from accuracy_track.py (adds accuracy badge)')
     p.add_argument('--cwa-obs',     default=None,
                    help='CWA observations JSON from cwa_fetch.py (adds warnings + current conditions)')
+    p.add_argument('--output-dir',  default=None,
+                   help='Output directory for multi-page HTML (generates index.html, hourly.html, accuracy.html)')
+    p.add_argument('--ai-summary',  default=None,
+                   help='AI summary HTML fragment to embed in dashboard page')
     p.add_argument('--list-vars',   action='store_true',
                    help='Diagnostic: list all GRIB2 shortNames in the first file and exit')
     args = p.parse_args()
@@ -1824,17 +2219,50 @@ def main() -> None:
         ensemble_data=ensemble_data, accuracy_log=accuracy_log,
         cwa_obs=cwa_obs,
     )
-    html_full = render_unified_html(meta, records, prev_records, ecmwf_records,
-                                    wave_data, ctx=fctx)
-    out_html = Path(args.output_html)
-    out_html.write_text(html_full)
-    log.info("HTML → %s", out_html)
+
+    build_utc = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+    if args.output_dir:
+        # ── Multi-page output ──────────────────────────────────────────────
+        out_dir = Path(args.output_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        # Load AI summary fragment if provided
+        ai_html = ''
+        if args.ai_summary and Path(args.ai_summary).exists():
+            ai_html = Path(args.ai_summary).read_text(encoding='utf-8')
+
+        # Dashboard (index.html)
+        dashboard = render_dashboard_page(fctx, ai_summary_html=ai_html,
+                                          build_utc=build_utc)
+        (out_dir / 'index.html').write_text(dashboard, encoding='utf-8')
+        log.info("Dashboard → %s/index.html", out_dir)
+
+        # Hourly forecast (hourly.html)
+        hourly = render_hourly_page(fctx, build_utc=build_utc)
+        (out_dir / 'hourly.html').write_text(hourly, encoding='utf-8')
+        log.info("Hourly → %s/hourly.html", out_dir)
+
+        # Accuracy dashboard (accuracy.html)
+        accuracy = render_accuracy_page(accuracy_log, build_utc=build_utc)
+        (out_dir / 'accuracy.html').write_text(accuracy, encoding='utf-8')
+        log.info("Accuracy → %s/accuracy.html", out_dir)
+    else:
+        # ── Legacy single-file output (backwards compatible) ───────────────
+        html_full = render_unified_html(meta, records, prev_records, ecmwf_records,
+                                        wave_data, ctx=fctx)
+        out_html = Path(args.output_html)
+        out_html.write_text(html_full)
+        log.info("HTML → %s", out_html)
 
     # ── Expose to GitHub Actions ──────────────────────────────────────────────
     gha = os.environ.get('GITHUB_OUTPUT')
     if gha:
         with open(gha, 'a') as f:
-            f.write(f'analysis_html={out_html.resolve()}\n')
+            if args.output_dir:
+                f.write(f'analysis_dir={Path(args.output_dir).resolve()}\n')
+            else:
+                f.write(f'analysis_html={Path(args.output_html).resolve()}\n')
             f.write(f'analysis_json={out_json.resolve()}\n')
 
 
