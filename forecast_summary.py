@@ -522,7 +522,7 @@ def render_html(summary_text: str) -> str:
                     title = T(title_key)
                     cards += (
                         f'    <div class="ai-card">\n'
-                        f'      <div class="ai-card-header">{icon} {title}</div>\n'
+                        f'      <div class="ai-card-header"><span class="ai-card-icon">{icon}</span> {title}</div>\n'
                         f'      <div class="ai-card-body">{escaped}</div>\n'
                         f'    </div>\n'
                     )
@@ -542,7 +542,7 @@ def render_html(summary_text: str) -> str:
 
     return f"""\
 <section id="summary" class="section">
-<div class="ai-summary">
+<div class="ai-summary card-glass">
   <h2 class="section-title">
     <span role="img" aria-label="sparkle">&#10024;</span> {T('ai_summary_title')}
   </h2>

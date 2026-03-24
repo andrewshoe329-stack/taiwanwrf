@@ -4,6 +4,8 @@
   "description": "7-day sailing and surfing forecast for northern Taiwan | 北台灣7天帆船衝浪預報",
   "start_url": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "categories": ["weather"],
   "background_color": "#0f172a",
   "theme_color": "#0f172a",
   "orientation": "any",
@@ -31,6 +33,20 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Surf Forecast",
+      "short_name": "Surf",
+      "url": "/surf",
+      "icons": [{"src": "/icon-192.png", "sizes": "192x192"}]
+    },
+    {
+      "name": "Hourly Forecast",
+      "short_name": "Hourly",
+      "url": "/hourly",
+      "icons": [{"src": "/icon-192.png", "sizes": "192x192"}]
     }
   ]
 }

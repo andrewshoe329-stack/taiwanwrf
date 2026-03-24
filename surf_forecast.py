@@ -1017,6 +1017,39 @@ def _render_best_times(all_spot_data: list[dict], all_dks: list[str],
         except Exception:
             pass
 
+        # ── Timeline visualization ────────────────────────────────────
+        html += '<div class="timeline-section" style="margin-bottom:12px">\n'
+        html += '<div class="timeline-ticks"><span>06</span><span>12</span><span>18</span></div>\n'
+        for sd in all_spot_data:
+            spot = sd['spot']
+            day_recs_tl = [r for r in sd['records'] if r['dk'] == dk]
+            if not day_recs_tl:
+                continue
+            # Sort by time
+            day_recs_tl.sort(key=lambda r: r.get('dt_cst') or datetime.min)
+            sbr = (spot_best_rating or {}).get(spot.get('id', ''), 0)
+            html += f'<div class="timeline-row" data-best-rating="{sbr}" data-spot-id="{spot["id"]}">\n'
+            html += f'  <div class="timeline-label">{spot["name"]}</div>\n'
+            html += f'  <div class="timeline-bar">\n'
+            for r in day_recs_tl:
+                dt_utc = r.get('dt_utc')
+                th = _tide_height(dt_utc) if dt_utc is not None else None
+                sc = _score_timestep(r, spot, tide_height_m=th)
+                # Map score to CSS class
+                if sc >= 9:
+                    css_cls = 'tl-firing'
+                elif sc >= 7:
+                    css_cls = 'tl-good'
+                elif sc >= 4:
+                    css_cls = 'tl-marginal'
+                else:
+                    css_cls = 'tl-poor'
+                cst_h = r['dt_cst'].strftime('%H:%M') if r.get('dt_cst') else '?'
+                html += f'    <div class="timeline-segment {css_cls}" style="flex:1" title="{cst_h} — score {sc}"></div>\n'
+            html += f'  </div>\n'
+            html += f'</div>\n'
+        html += '</div>\n'
+
         html += '<div style="overflow-x:auto">\n'
         html += '<table class="detail-table" style="margin-bottom:4px">\n'
         html += ('<thead><tr>'
@@ -1132,6 +1165,7 @@ def _render_filter_bar() -> str:
     for level, key in [(0, 'filter_all'), (4, 'filter_good_plus'), (5, 'filter_firing')]:
         active = ' filter-btn-active' if level == 0 else ''
         html += f'  <button class="filter-btn{active}" data-min-rating="{level}">{T(key)}</button>\n'
+    html += ' <span class="filter-count text-sm c-muted"></span>'
     html += '</div>\n'
 
     # Inline JS for filtering
@@ -1155,6 +1189,10 @@ def _render_filter_bar() -> str:
       document.querySelectorAll('#best-times tr[data-spot-id]').forEach(function(tr){
         tr.style.display = parseInt(tr.getAttribute('data-best-rating')) >= min ? '' : 'none';
       });
+      // Filter timeline rows
+      document.querySelectorAll('.timeline-row[data-best-rating]').forEach(function(row){
+        row.style.display = parseInt(row.getAttribute('data-best-rating')) >= min ? '' : 'none';
+      });
       // Hide day sections where all spot rows are hidden
       document.querySelectorAll('#best-times .bt-day').forEach(function(day){
         var rows = day.querySelectorAll('tr[data-spot-id]');
@@ -1162,6 +1200,14 @@ def _render_filter_bar() -> str:
         rows.forEach(function(r){ if(r.style.display !== 'none') anyVisible = true; });
         day.style.display = anyVisible ? '' : 'none';
       });
+      // Update filter count badge
+      var total = document.querySelectorAll('details[data-best-rating]').length;
+      var visible = 0;
+      document.querySelectorAll('details[data-best-rating]').forEach(function(el){
+        if(el.style.display !== 'none') visible++;
+      });
+      var badge = document.querySelector('.filter-count');
+      if(badge) badge.textContent = min > 0 ? visible + '/' + total : '';
     });
   });
 })();
@@ -1269,7 +1315,7 @@ def _render_spot_detail(sd: dict, best_rating: int = 0) -> str:
     if not records:
         return ''
 
-    html = f'<details id="spot-{spot["id"]}" class="detail-section" data-spot-id="{spot["id"]}" data-best-rating="{best_rating}">\n'
+    html = f'<details id="spot-{spot["id"]}" class="detail-section card-glass" data-spot-id="{spot["id"]}" data-best-rating="{best_rating}">\n'
     html += f'<summary class="detail-header">{spot["name"]} — {T("detailed_forecast")}</summary>\n'
     html += _render_cwa_obs_line(spot['id'])
     html += '<div style="overflow-x:auto">\n'
@@ -1459,7 +1505,7 @@ def _render_spot_page_detail(sd: dict, all_spot_data: list[dict],
     )
 
     # Spot header
-    body += '<div class="spot-header">\n'
+    body += '<div class="spot-header card-glass">\n'
     body += '<div class="spot-header-info">\n'
     body += f'<h2 class="section-title" style="border:none;margin-bottom:4px">{spot["name"]}</h2>\n'
 

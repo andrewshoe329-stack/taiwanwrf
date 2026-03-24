@@ -48,6 +48,13 @@
   --th-bg:          #1e3a5f;
   --th-text:        #7db8f0;
 
+  /* Layout */
+  --max-width-content: 1200px;
+  --max-width-wide:    1400px;
+  --nav-height:        56px;
+  --bottom-nav-height: 56px;
+  --safe-area-bottom:  env(safe-area-inset-bottom, 0px);
+
   /* Spacing */
   --space-xs:       4px;
   --space-sm:       8px;
@@ -484,7 +491,7 @@ body {
   color: var(--text-secondary);
 }
 
-@media (min-width: 641px) {
+@media (min-width: 768px) {
   .ai-cards {
     grid-template-columns: repeat(3, 1fr);
   }
@@ -860,9 +867,9 @@ details.detail-section[open] {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   Responsive: Mobile-first breakpoint at 640px
+   Responsive: Mobile-first breakpoint at 767px
    ══════════════════════════════════════════════════════════════════════════ */
-@media (max-width: 640px) {
+@media (max-width: 767px) {
   .content-wrap {
     padding: var(--space-sm);
   }
@@ -924,8 +931,8 @@ details.detail-section[open] {
   .section-title { font-size: 16px; }
 }
 
-/* ── Tablet breakpoint ─────────────────────────────────────────────────── */
-@media (min-width: 641px) and (max-width: 1024px) {
+/* ── Tablet breakpoint (legacy, extended) ─────────────────────────────── */
+@media (min-width: 768px) and (max-width: 1199px) {
   .daily-cards {
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   }
@@ -940,9 +947,11 @@ details.detail-section[open] {
     color: #000 !important;
     font-size: 11px;
   }
-  .site-header, .site-nav, .download-bar, .stale-warning, .skip-nav {
+  .site-header, .site-nav, .download-bar, .stale-warning, .skip-nav,
+  .bottom-nav, .back-to-top, .ptr-indicator {
     display: none !important;
   }
+  body { padding-bottom: 0 !important; }
   .card, .card-glass, .daily-card, .ai-summary {
     background: #fff !important;
     border: 1px solid #ccc !important;
@@ -1367,17 +1376,468 @@ a:focus-visible {
 }
 
 /* ── Responsive: Multi-page additions ─────────────────────────────────── */
-@media (max-width: 640px) {
+@media (max-width: 767px) {
   .hero-metric .value { font-size: 22px; }
   .hero-banner { padding: var(--space-md); }
+  .hero-metrics { grid-template-columns: repeat(2, 1fr); }
   .grid-2, .grid-3 { grid-template-columns: 1fr; }
   .grid-auto { grid-template-columns: 1fr; }
   .spot-header { flex-direction: column; }
   .spot-header-live { min-width: 0; width: 100%; }
   .accuracy-summary { grid-template-columns: repeat(2, 1fr); }
 }
-@media (min-width: 641px) and (max-width: 1024px) {
+@media (min-width: 768px) and (max-width: 1199px) {
   .grid-3 { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Bottom Navigation (Mobile/Tablet)
+   ══════════════════════════════════════════════════════════════════════════ */
+.bottom-nav {
+  display: none;
+}
+.bottom-nav a {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 6px 12px;
+  min-height: 44px;
+  min-width: 44px;
+  justify-content: center;
+  transition: color var(--transition);
+}
+.bottom-nav a.active {
+  color: var(--accent);
+}
+.bottom-nav a:hover {
+  color: var(--text);
+}
+.bottom-nav svg {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+/* ── Back to Top Button ──────────────────────────────────────────────── */
+.back-to-top {
+  position: fixed;
+  bottom: var(--space-lg);
+  right: var(--space-lg);
+  z-index: 55;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--accent-bright);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-card);
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  pointer-events: none;
+}
+.back-to-top.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.back-to-top:hover {
+  background: var(--accent);
+  box-shadow: var(--shadow-hover);
+}
+
+/* ── Stale Warning Dismiss ───────────────────────────────────────────── */
+.stale-dismiss {
+  background: none;
+  border: none;
+  color: var(--warn-text);
+  cursor: pointer;
+  font-size: 18px;
+  padding: 4px 8px;
+  margin-left: auto;
+  min-height: 44px;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.stale-dismiss:hover {
+  opacity: 0.7;
+}
+.stale-warning--critical {
+  background: var(--danger-bg);
+  border-left-color: var(--danger-text);
+  color: var(--danger-text);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Sticky Table Columns & Row Hover
+   ══════════════════════════════════════════════════════════════════════════ */
+/* Hourly forecast table: sticky first 2 cols (alert + time) */
+.fc-table thead th:nth-child(1),
+.fc-table thead th:nth-child(2),
+.fc-table tbody td:nth-child(1),
+.fc-table tbody td:nth-child(2) {
+  position: sticky;
+  z-index: 3;
+}
+.fc-table thead th:nth-child(1),
+.fc-table tbody td:nth-child(1) {
+  left: 0;
+}
+.fc-table thead th:nth-child(2),
+.fc-table tbody td:nth-child(2) {
+  left: 28px;
+}
+/* Background for sticky cells so content behind doesn't bleed through */
+.fc-table tbody td:nth-child(1),
+.fc-table tbody td:nth-child(2) {
+  background: var(--bg);
+}
+.fc-table .row-alt td:nth-child(1),
+.fc-table .row-alt td:nth-child(2) {
+  background: var(--bg-alt);
+}
+
+/* Row hover for all data tables */
+.fc-table tbody tr:hover td {
+  background-color: rgba(147, 197, 253, 0.06) !important;
+}
+.matrix-table tbody tr:hover td {
+  background-color: rgba(147, 197, 253, 0.06) !important;
+}
+.detail-table tbody tr:hover td {
+  background-color: rgba(147, 197, 253, 0.06) !important;
+}
+.quick-table tbody tr:hover td {
+  background-color: rgba(147, 197, 253, 0.06) !important;
+}
+
+/* Matrix table: sticky first column (spot name) */
+.matrix-table th:first-child,
+.matrix-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+}
+.matrix-table td.spot-name {
+  background: var(--bg-alt);
+}
+
+/* ── Column Toggle (show/hide secondary columns) ─────────────────────── */
+.col-toggle {
+  margin-bottom: var(--space-sm);
+}
+/* When columns are hidden (default state set by JS) */
+.fc-table.cols-essential .col-secondary,
+.fc-table.cols-essential .col-tertiary {
+  display: none;
+}
+.fc-table.cols-secondary .col-tertiary {
+  display: none;
+}
+
+/* ── Filter Bar Sticky ───────────────────────────────────────────────── */
+.filter-sticky {
+  position: sticky;
+  top: var(--nav-height);
+  z-index: 10;
+  background: var(--bg);
+  padding: var(--space-sm) 0;
+  margin: 0 calc(-1 * var(--space-md));
+  padding-left: var(--space-md);
+  padding-right: var(--space-md);
+}
+
+/* ── Filter Count Badge ──────────────────────────────────────────────── */
+.filter-count {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+/* ── Today Highlight on Daily Cards ──────────────────────────────────── */
+.daily-card--today {
+  border-color: var(--accent-bright);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.15);
+}
+
+/* ── Accuracy Metric Bar ─────────────────────────────────────────────── */
+.metric-bar {
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin-top: var(--space-xs);
+  overflow: hidden;
+}
+.metric-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--gradient-accent);
+  transition: width 0.3s ease;
+}
+.metric-bar-fill.bar-good { background: var(--good-text); }
+.metric-bar-fill.bar-warn { background: var(--warn-text); }
+.metric-bar-fill.bar-danger { background: var(--danger-text); }
+
+/* ── Accuracy Trend Arrows ───────────────────────────────────────────── */
+.trend-up { color: var(--danger-text); }
+.trend-down { color: var(--good-text); }
+.trend-flat { color: var(--text-dim); }
+
+/* ── Timeline Visualization (Best Times) ─────────────────────────────── */
+.timeline-section {
+  margin-bottom: var(--space-md);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.timeline-ticks {
+  display: flex;
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-bottom: 2px;
+  padding-left: 100px;
+}
+.timeline-tick {
+  flex: 1;
+  text-align: center;
+}
+.timeline-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 2px;
+  min-width: 400px;
+}
+.timeline-label {
+  width: 100px;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.timeline-bar {
+  flex: 1;
+  display: flex;
+  height: 20px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--bg-alt);
+}
+.timeline-segment {
+  height: 100%;
+}
+.tl-firing  { background: #48bb78; }
+.tl-good    { background: var(--good-text); opacity: 0.7; }
+.tl-marginal { background: var(--warn-text); opacity: 0.5; }
+.tl-poor    { background: var(--border); }
+
+/* ── Page Transitions ────────────────────────────────────────────────── */
+.page-enter {
+  animation: fadeIn 0.2s ease-out;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Pull to Refresh Indicator ───────────────────────────────────────── */
+.ptr-indicator {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%) translateY(-100%);
+  z-index: 100;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  font-size: 12px;
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+}
+.ptr-indicator.pulling {
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Responsive: Mobile (<768px) — Redesigned breakpoint
+   ══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 767px) {
+  /* Bottom navigation */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 60;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    height: var(--bottom-nav-height);
+    padding-bottom: var(--safe-area-bottom);
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid var(--glass-border);
+  }
+
+  /* Body padding so content isn't behind bottom nav */
+  body {
+    padding-bottom: calc(var(--bottom-nav-height) + var(--safe-area-bottom));
+  }
+
+  /* Hide top nav links on mobile, keep title + lang toggle */
+  .site-nav { display: none; }
+
+  /* Hide back-to-top on mobile (bottom nav is always reachable) */
+  .back-to-top { display: none !important; }
+
+  /* Sticky table columns still work on horizontal-scroll tables */
+  .fc-table thead th:nth-child(1),
+  .fc-table thead th:nth-child(2),
+  .fc-table tbody td:nth-child(1),
+  .fc-table tbody td:nth-child(2) {
+    position: sticky;
+    z-index: 3;
+  }
+
+  /* CTA links full width on mobile */
+  .cta-link {
+    display: flex;
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Quick glance table: horizontal scroll */
+  .quick-table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Filter sticky adjusts for mobile (no top nav height) */
+  .filter-sticky {
+    top: 0;
+  }
+
+  /* Spot header stacks vertically */
+  .spot-header-live {
+    min-width: 0;
+    width: 100%;
+  }
+
+  /* Timeline: scroll horizontally */
+  .timeline-row {
+    min-width: 500px;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Responsive: Tablet (768px–1199px)
+   ══════════════════════════════════════════════════════════════════════════ */
+@media (min-width: 768px) and (max-width: 1199px) {
+  /* Show bottom nav on tablet too for thumb reachability */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 60;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    height: var(--bottom-nav-height);
+    padding-bottom: var(--safe-area-bottom);
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid var(--glass-border);
+  }
+
+  body {
+    padding-bottom: calc(var(--bottom-nav-height) + var(--safe-area-bottom));
+  }
+
+  /* AI cards: 2 columns on tablet */
+  .ai-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Grid utilities for tablet */
+  .grid-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Spot cards 2-col */
+  .grid-auto {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Responsive: Desktop (1200px+)
+   ══════════════════════════════════════════════════════════════════════════ */
+@media (min-width: 1200px) {
+  .content-wrap {
+    max-width: var(--max-width-content);
+  }
+
+  /* Hero metrics always single row on desktop */
+  .hero-metrics {
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  }
+
+  /* AI cards: 3 columns */
+  .ai-cards {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  /* Spot cards: 3-4 columns */
+  .grid-auto {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+
+  /* Daily cards: full grid */
+  .daily-cards {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Accessibility: Enhanced focus and high contrast
+   ══════════════════════════════════════════════════════════════════════════ */
+:focus-within > td {
+  background-color: rgba(147, 197, 253, 0.04);
+}
+
+@media (forced-colors: active) {
+  .rating-pill,
+  .sail-badge,
+  .badge {
+    border: 1px solid CanvasText;
+  }
+  .bottom-nav {
+    border-top: 2px solid CanvasText;
+  }
+  .stale-warning {
+    border: 1px solid CanvasText;
+  }
+  .metric-bar {
+    border: 1px solid CanvasText;
+  }
 }
 
 /* ── Language toggle ──────────────────────────────────────────────────── */

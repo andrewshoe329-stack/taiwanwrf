@@ -275,6 +275,15 @@ STRINGS: dict[str, dict[str, str]] = {
                             'zh': '沙灘浪型 · 左右跑 · 中高潮 · 各級適合'},
     'desc_chousui':        {'en': 'Point break · Left · Low-mid tide · Intermediate+',
                             'zh': '礁岩浪型 · 左跑 · 低中潮 · 中級以上'},
+
+    # ── Redesign UI strings ──────────────────────────────────────────────────
+    'show_more_columns':   {'en': 'More columns', 'zh': '更多欄位'},
+    'show_fewer_columns':  {'en': 'Fewer', 'zh': '較少'},
+    'dismiss':             {'en': 'Dismiss', 'zh': '關閉'},
+    'offline_notice':      {'en': 'You are offline', 'zh': '您目前離線'},
+    'spots_showing':       {'en': 'showing', 'zh': '顯示中'},
+    'pull_to_refresh':     {'en': 'Pull to refresh', 'zh': '下拉刷新'},
+    'back_to_top':         {'en': 'Back to top', 'zh': '回到頂部'},
 }
 
 # Mapping from spot id → description i18n key
