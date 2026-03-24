@@ -1886,8 +1886,11 @@ def render_dashboard_page(ctx: ForecastContext, *, ai_summary_html: str = '',
     body += '<div class="daily-strip">\n'
     cards = _daily_summary_html(wrf_by_valid, ec_by_valid, wave_by_valid, all_valids,
                                 ctx.tide_data, surf_planner=ctx.surf_planner)
-    # Replace the wrapping div class for strip layout
-    cards = cards.replace('<div class="daily-cards">', '').rstrip('</div>\n')
+    # Unwrap the <div class="daily-cards">...</div> to re-wrap in daily-strip
+    cards = cards.replace('<div class="daily-cards">', '')
+    if cards.rstrip().endswith('</div>'):
+        cards = cards.rstrip()
+        cards = cards[:-len('</div>')]
     body += cards + '\n</div>\n'
 
     # Top surf spots
