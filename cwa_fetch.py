@@ -21,6 +21,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 
 from config import (KEELUNG_LAT, KEELUNG_LON, SPOT_COORDS, SPOT_COUNTY,
@@ -343,17 +344,26 @@ def _group_flat_rows_to_stations(rows: list[dict]) -> list[dict]:
     return stations
 
 
-def _fetch_marine_stations(api_key: str) -> list[dict]:
+def _fetch_marine_stations(api_key: str,
+                           station_ids: set[str] | None = None) -> list[dict]:
     """Fetch combined buoy + tide station data from O-B0075-001.
+
+    Parameters
+    ----------
+    station_ids : set of station IDs to fetch, or None for all.
+        When provided, only these stations are requested (faster response).
 
     Returns the raw list of Station dicts from the API response,
     or an empty list on failure.
     """
-    # Fetch all marine stations (no StationID filter) so we can find
-    # the nearest buoy/tide station for every surf spot, not just Keelung.
+    # Filter by specific station IDs when available (reduces response size
+    # from ~21 stations to ~8, cutting latency significantly).
+    params = {}
+    if station_ids:
+        params["StationID"] = ",".join(station_ids)
     data = _cwa_get(
         MARINE_OBS_ENDPOINT, api_key,
-        params={},
+        params=params,
         label="CWA-MarineObs",
     )
     if not data:
@@ -909,19 +919,39 @@ def load_station_mapping(path: str = CWA_STATIONS_FILE) -> dict:
     }
 
 
-def _fetch_spot_stations(api_key: str,
-                         mapping: dict) -> dict:
+def _fetch_spot_stations(api_key: str, mapping: dict,
+                         existing_obs: dict | None = None) -> dict:
     """Fetch weather station obs for each unique station in the mapping.
+
+    Parameters
+    ----------
+    existing_obs : dict mapping station_id → obs dict already fetched
+        (e.g. Keelung station from the main fetch). Avoids re-fetching.
 
     Returns dict keyed by station_id → parsed obs dict.
     """
     unique_ids = {v["station_id"] for v in mapping.values()
                   if "station_id" in v}
-    results = {}
-    for sid in unique_ids:
-        obs = fetch_station_obs(api_key, station_id=sid)
-        if obs:
-            results[sid] = obs
+    results = dict(existing_obs or {})
+    # Only fetch stations we don't already have
+    to_fetch = unique_ids - set(results.keys())
+    if not to_fetch:
+        return results
+
+    # Parallel fetch (max 4 concurrent) to reduce total latency
+    def _fetch_one(sid):
+        return sid, fetch_station_obs(api_key, station_id=sid)
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        futures = {pool.submit(_fetch_one, sid): sid for sid in to_fetch}
+        for fut in as_completed(futures):
+            try:
+                sid, obs = fut.result()
+                if obs:
+                    results[sid] = obs
+            except Exception as e:
+                log.warning("Failed to fetch station %s: %s",
+                            futures[fut], e)
     return results
 
 
@@ -953,15 +983,25 @@ def _build_spot_obs(mapping: dict, station_obs: dict,
 
 
 def _fetch_township_forecasts(api_key: str) -> dict:
-    """Fetch township forecasts for all relevant counties.
+    """Fetch township forecasts for all relevant counties (parallel).
 
     Returns dict keyed by county name → forecast dict.
     """
     results = {}
-    for county, endpoint in TOWNSHIP_FORECAST_ENDPOINTS.items():
-        fc = fetch_township_forecast(api_key, endpoint=endpoint)
-        if fc:
-            results[county] = fc
+
+    def _fetch_one(county, endpoint):
+        return county, fetch_township_forecast(api_key, endpoint=endpoint)
+
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        futures = [pool.submit(_fetch_one, c, e)
+                   for c, e in TOWNSHIP_FORECAST_ENDPOINTS.items()]
+        for fut in as_completed(futures):
+            try:
+                county, fc = fut.result()
+                if fc:
+                    results[county] = fc
+            except Exception as e:
+                log.warning("Failed to fetch township forecast: %s", e)
     return results
 
 
@@ -981,14 +1021,50 @@ def fetch_all(api_key: str) -> dict:
     # Load station mapping from cwa_stations.json (created by cwa_discover.py)
     mapping = load_station_mapping()
 
-    station = fetch_station_obs(api_key)
-    # Fetch combined marine data once (O-B0075-001 has both buoy + tide)
-    marine_stations = _fetch_marine_stations(api_key)
+    # Build marine station filter from mapping (only fetch buoys we need)
+    mapped_buoy_ids = {v["buoy_id"] for v in mapping.values()
+                       if "buoy_id" in v}
+    marine_filter = (mapped_buoy_ids | set(KEELUNG_BUOY_IDS)
+                     | KEELUNG_TIDE_STATION_IDS)
+
+    # Phase 1: parallel independent fetches (station, marine, tide fc, warnings)
+    station = None
+    marine_stations = []
+    tide_forecast = []
+    warnings_result = []
+    township_forecasts = {}
+
+    def _f_station():
+        return fetch_station_obs(api_key)
+    def _f_marine():
+        return _fetch_marine_stations(api_key, station_ids=marine_filter)
+    def _f_tide_fc():
+        return fetch_tide_forecast(api_key)
+    def _f_warnings():
+        return fetch_warnings(api_key)
+    def _f_townships():
+        return _fetch_township_forecasts(api_key)
+
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        fut_station = pool.submit(_f_station)
+        fut_marine = pool.submit(_f_marine)
+        fut_tide_fc = pool.submit(_f_tide_fc)
+        fut_warnings = pool.submit(_f_warnings)
+        fut_townships = pool.submit(_f_townships)
+
+        station = fut_station.result()
+        marine_stations = fut_marine.result() or []
+        tide_forecast = fut_tide_fc.result() or []
+        warnings_result = fut_warnings.result() or []
+        township_forecasts = fut_townships.result() or {}
+
     all_buoys = fetch_all_buoys(api_key, _stations=marine_stations)
     tide = fetch_tide_obs(api_key, _stations=marine_stations)
-    tide_forecast = fetch_tide_forecast(api_key)
-    township = fetch_township_forecast(api_key)
-    warnings = fetch_warnings(api_key)
+
+    # Keelung township forecast (from the batch, or fetch separately)
+    township = township_forecasts.get("基隆市")
+    if not township:
+        township = fetch_township_forecast(api_key)
 
     # Primary buoy: find Keelung-area match from the full list
     buoy = None
@@ -1006,14 +1082,15 @@ def fetch_all(api_key: str) -> dict:
     if buoy is None and all_buoys:
         buoy = find_nearest_buoy(all_buoys, KEELUNG_LAT, KEELUNG_LON)
 
-    # Per-spot observations (station + buoy matched via cwa_stations.json)
-    spot_station_obs = _fetch_spot_stations(api_key, mapping)
+    # Per-spot station observations (reuse Keelung station if already fetched)
+    existing_obs = {}
+    if station and station.get("station_id"):
+        existing_obs[station["station_id"]] = station
+    spot_station_obs = _fetch_spot_stations(api_key, mapping,
+                                            existing_obs=existing_obs)
     spot_obs = _build_spot_obs(mapping, spot_station_obs, all_buoys)
     if spot_obs:
         log.info("Per-spot CWA obs: %d spots with data", len(spot_obs))
-
-    # Township forecasts for all relevant counties (Keelung, New Taipei, Yilan)
-    township_forecasts = _fetch_township_forecasts(api_key)
     if township_forecasts:
         log.info("Township forecasts: %s",
                  ", ".join(township_forecasts.keys()))
@@ -1029,7 +1106,7 @@ def fetch_all(api_key: str) -> dict:
         "township_forecast": township,
         "township_forecasts": township_forecasts,
         "spot_obs": spot_obs,
-        "warnings": warnings,
+        "warnings": warnings_result,
     }
 
 
