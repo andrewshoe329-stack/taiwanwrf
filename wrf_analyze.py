@@ -1281,34 +1281,36 @@ def render_unified_html(
 
     # ── Table (desktop) ──────────────────────────────────────────────────────
     html += '<div class="fc-desktop">\n'
+    html += ('<div style="margin-bottom:8px"><button class="col-toggle filter-btn" type="button">'
+             + T('show_more_columns') + '</button></div>\n')
     html += '<table class="fc-table">\n'
     html += f'<caption>{T("fc_caption")}</caption>\n'
     html += '<thead>\n'
 
     html += '<tr>\n'
-    html += '  <th class="th-time" title="Per-step sailing alerts">⚠</th>\n'
-    html += '  <th class="th-time" style="text-align:left">UTC</th>\n'
-    html += '  <th class="th-time" style="text-align:left">CST +8</th>\n'
+    html += '  <th class="th-time col-essential" title="Per-step sailing alerts">⚠</th>\n'
+    html += '  <th class="th-time col-essential" style="text-align:left">UTC</th>\n'
+    html += '  <th class="th-time col-essential" style="text-align:left">CST +8</th>\n'
     for key, cls, tip in [
-        ('th_wind', 'th-wrf', 'Wind speed in knots (1 kt = 1.85 km/h)'),
-        ('th_gust', 'th-ec', 'Maximum wind gust speed in knots'),
+        ('th_wind', 'th-wrf col-essential', 'Wind speed in knots (1 kt = 1.85 km/h)'),
+        ('th_gust', 'th-ec col-essential', 'Maximum wind gust speed in knots'),
     ]:
         html += f'  <th class="{cls}" title="{tip}">{T(key)}</th>\n'
     if has_wave:
         for key, cls, tip in [
-            ('th_waves', 'th-wave', 'Significant wave height in metres (combined sea state)'),
-            ('th_period', 'th-wave', 'Wave period in seconds — longer = more powerful swell'),
-            ('th_swell', 'th-wave', 'Swell wave height in metres (long-period waves only)'),
-            ('th_wave_dir', 'th-wave', 'Dominant wave direction — where waves come from'),
+            ('th_waves', 'th-wave col-essential', 'Significant wave height in metres (combined sea state)'),
+            ('th_period', 'th-wave col-secondary', 'Wave period in seconds — longer = more powerful swell'),
+            ('th_swell', 'th-wave col-secondary', 'Swell wave height in metres (long-period waves only)'),
+            ('th_wave_dir', 'th-wave col-secondary', 'Dominant wave direction — where waves come from'),
         ]:
             html += f'  <th class="{cls}" title="{tip}">{T(key)}</th>\n'
     for key, cls, tip in [
-        ('th_pressure', 'th-wrf', 'Mean sea-level pressure in hPa'),
-        ('th_rain_6h', 'th-ec', 'Precipitation accumulated over 6 hours in mm'),
-        ('th_vis', 'th-ec', 'Visibility in kilometres'),
-        ('th_temp', 'th-wrf', 'Air temperature at 2m in degrees Celsius'),
-        ('th_cloud', 'th-ec', 'Total cloud cover percentage'),
-        ('th_cape', 'th-ec', 'Convective Available Potential Energy — thunderstorm indicator (J/kg)'),
+        ('th_pressure', 'th-wrf col-secondary', 'Mean sea-level pressure in hPa'),
+        ('th_rain_6h', 'th-ec col-secondary', 'Precipitation accumulated over 6 hours in mm'),
+        ('th_vis', 'th-ec col-secondary', 'Visibility in kilometres'),
+        ('th_temp', 'th-wrf col-essential', 'Air temperature at 2m in degrees Celsius'),
+        ('th_cloud', 'th-ec col-tertiary', 'Total cloud cover percentage'),
+        ('th_cape', 'th-ec col-tertiary', 'Convective Available Potential Energy — thunderstorm indicator (J/kg)'),
     ]:
         html += f'  <th class="{cls}" title="{tip}">{T(key)}</th>\n'
     html += '</tr>\n</thead>\n<tbody>\n'
@@ -1390,9 +1392,9 @@ def render_unified_html(
 
         style_attr = f' style="{row_extra}"' if row_extra else ''
         html += f'<tr class="{row_cls}"{style_attr}>\n'
-        html += (f'  <td style="background:{_alert_bg};font-size:0.85em">{_alert_html}</td>\n')
-        html += f'  <td style="font-weight:500">{utc_str}</td>\n'
-        html += f'  <td style="color:#94a3b8">{cst_str}</td>\n'
+        html += (f'  <td class="col-essential" style="background:{_alert_bg};font-size:0.85em">{_alert_html}</td>\n')
+        html += f'  <td class="col-essential" style="font-weight:500">{utc_str}</td>\n'
+        html += f'  <td class="col-essential" style="color:#94a3b8">{cst_str}</td>\n'
         if dt_ is not None: temp_deltas.append(dt_)
         if dw_ is not None: wind_deltas.append(dw_)
         if dr_ is not None: rain_deltas.append(dr_)
@@ -1403,27 +1405,27 @@ def render_unified_html(
             bf = _beaufort(ww)
             arrow_s = f' {_wind_arrow(wwd)}' if wwd is not None else ''
             dir_s   = f' {deg_to_compass(wwd)}' if wwd is not None else ''
-            html += (f'  <td style="background:{_wind_bg(ww)}">'
+            html += (f'  <td class="col-essential" style="background:{_wind_bg(ww)}">'
                      f'{ww:.0f}kt B{bf}{arrow_s}{dir_s}'
                      f'{_delta_span(ww, prev.get("wind_kt"), ".0f", "kt", True)}</td>\n')
         elif ew is not None:
             bf = _beaufort(ew)
             arrow_s = f' {_wind_arrow(ewd)}' if ewd is not None else ''
             dir_s   = f' {deg_to_compass(ewd)}' if ewd is not None else ''
-            html += (f'  <td style="background:{_EC_BG}">'
+            html += (f'  <td class="col-essential" style="background:{_EC_BG}">'
                      f'{ew:.0f}kt B{bf}{arrow_s}{dir_s}{_EC_BADGE}</td>\n')
         else:
-            html += '  <td class="c-muted">—</td>\n'
+            html += '  <td class="col-essential c-muted">—</td>\n'
 
         # Gust
         g_val = wg if wg is not None else eg
         g_ec  = (wg is None and eg is not None)
         if g_val is not None:
             badge = _EC_BADGE if g_ec else ''
-            html += (f'  <td style="background:{_wind_bg(g_val)}">'
+            html += (f'  <td class="col-essential" style="background:{_wind_bg(g_val)}">'
                      f'{g_val:.0f}kt{badge}</td>\n')
         else:
-            html += '  <td class="c-muted">—</td>\n'
+            html += '  <td class="col-essential c-muted">—</td>\n'
 
         # Wave columns
         if has_wave:
@@ -1431,24 +1433,24 @@ def render_unified_html(
             tp   = wav.get('wave_period')       if wav else None
             swhs = wav.get('swell_wave_height') if wav else None
             wdir = wav.get('wave_direction')    if wav else None
-            html += (f'  <td style="background:{_wave_height_bg(hs)}">'
+            html += (f'  <td class="col-essential" style="background:{_wave_height_bg(hs)}">'
                      f'{_fmt(hs)}</td>\n')
-            html += (f'  <td style="background:{_wave_period_bg(tp)}">'
+            html += (f'  <td class="col-secondary" style="background:{_wave_period_bg(tp)}">'
                      f'{_fmt(tp, ".0f", "s") if tp is not None else "—"}</td>\n')
-            html += (f'  <td style="background:{_wave_height_bg(swhs)}">'
+            html += (f'  <td class="col-secondary" style="background:{_wave_height_bg(swhs)}">'
                      f'{_fmt(swhs)}</td>\n')
-            html += (f'  <td>'
+            html += (f'  <td class="col-secondary">'
                      f'{_wave_dir_str(wdir)}</td>\n')
 
         # MSLP
         if wp is not None:
-            html += (f'  <td>'
+            html += (f'  <td class="col-secondary">'
                      f'{wp:.1f}{_delta_span(wp, prev.get("mslp_hpa"), ".1f", "")}</td>\n')
         elif ep is not None:
-            html += (f'  <td style="background:{_EC_BG}">'
+            html += (f'  <td class="col-secondary" style="background:{_EC_BG}">'
                      f'{ep:.1f}{_EC_BADGE}</td>\n')
         else:
-            html += '  <td class="c-muted">—</td>\n'
+            html += '  <td class="col-secondary c-muted">—</td>\n'
 
         # 6h Rain
         r_val = wr if wr is not None else er
@@ -1456,10 +1458,10 @@ def render_unified_html(
         if r_val is not None:
             badge = _EC_BADGE if r_ec else ''
             delta = _delta_span(wr, prev.get('precip_mm_6h'), '.1f', 'mm', True) if not r_ec else ''
-            html += (f'  <td style="background:{_precip_bg(r_val)}">'
+            html += (f'  <td class="col-secondary" style="background:{_precip_bg(r_val)}">'
                      f'{r_val:.1f}mm{delta}{badge}</td>\n')
         else:
-            html += '  <td class="c-muted">—</td>\n'
+            html += '  <td class="col-secondary c-muted">—</td>\n'
 
         # Vis
         v_val = wvs if wvs is not None else evs
@@ -1468,20 +1470,20 @@ def render_unified_html(
             bg_v = _EC_BG if v_ec else ''
             badge = _EC_BADGE if v_ec else ''
             bg_attr = f' style="background:{bg_v}"' if bg_v else ''
-            html += (f'  <td{bg_attr}>'
+            html += (f'  <td class="col-secondary"{bg_attr}>'
                      f'{v_val:.0f}km{badge}</td>\n')
         else:
-            html += '  <td class="c-muted">—</td>\n'
+            html += '  <td class="col-secondary c-muted">—</td>\n'
 
         # Temp
         if wt is not None:
-            html += (f'  <td style="background:{_temp_bg(wt)}">'
+            html += (f'  <td class="col-essential" style="background:{_temp_bg(wt)}">'
                      f'{wt:.1f}°{_delta_span(wt, prev.get("temp_c"), ".1f", "°")}</td>\n')
         elif et is not None:
-            html += (f'  <td style="background:{_EC_BG}">'
+            html += (f'  <td class="col-essential" style="background:{_EC_BG}">'
                      f'{et:.1f}°{_EC_BADGE}</td>\n')
         else:
-            html += '  <td class="c-muted">—</td>\n'
+            html += '  <td class="col-essential c-muted">—</td>\n'
 
         # Cloud
         cl_val = wcl if wcl is not None else ecl
@@ -1490,20 +1492,20 @@ def render_unified_html(
             bg_cl = _EC_BG if cl_ec else ''
             badge = _EC_BADGE if cl_ec else ''
             bg_attr = f' style="background:{bg_cl}"' if bg_cl else ''
-            html += (f'  <td{bg_attr}>'
+            html += (f'  <td class="col-tertiary"{bg_attr}>'
                      f'{cl_val:.0f}%{badge}</td>\n')
         else:
-            html += '  <td class="c-muted">—</td>\n'
+            html += '  <td class="col-tertiary c-muted">—</td>\n'
 
         # CAPE
         cp_val = wcp if wcp is not None else ecp
         cp_ec  = (wcp is None and ecp is not None)
         if cp_val is not None:
             badge = _EC_BADGE if cp_ec else ''
-            html += (f'  <td style="background:{_cape_bg(cp_val)}">'
+            html += (f'  <td class="col-tertiary" style="background:{_cape_bg(cp_val)}">'
                      f'{cp_val:.0f}{badge}</td>\n')
         else:
-            html += '  <td class="c-muted">—</td>\n'
+            html += '  <td class="col-tertiary c-muted">—</td>\n'
 
         html += '</tr>\n'
 
@@ -1722,7 +1724,7 @@ def _render_hero_banner(cwa_obs: dict | None) -> str:
             pass
 
     return (
-        '<div class="hero-banner">\n'
+        '<div class="hero-banner card-glass">\n'
         f'  <h2 class="section-title" style="border:none;margin-bottom:{8}px">'
         f'{T("current_conditions")}</h2>\n'
         f'  <div class="hero-metrics">\n    ' + '\n    '.join(metrics) + '\n  </div>\n'
@@ -2000,8 +2002,9 @@ def render_accuracy_page(accuracy_log: list | None, *, build_utc: str = '', **kw
             continue
         c = _color(mae, g, y)
         body += (
-            f'<div class="accuracy-card">\n'
+            f'<div class="accuracy-card card-glass">\n'
             f'  <div class="value" style="color:{c}">&pm;{mae}{unit}</div>\n'
+            f'  <div class="metric-bar"><div class="metric-bar-fill" style="width:{min(mae/y*100, 100):.0f}%"></div></div>\n'
             f'  <div class="label">{label} MAE</div>\n'
         )
         if bias is not None:

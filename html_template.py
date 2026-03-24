@@ -126,6 +126,7 @@ def render_page(
   <div class="stale-warning" id="stale-warning" role="alert">
     {T('stale_warning')}
     <button onclick="location.reload()">{T('refresh')}</button>
+    <button class="stale-dismiss" onclick="this.parentElement.classList.add('dismissed')" aria-label="Dismiss">&times;</button>
   </div>
   {dl_bar}
 
@@ -140,6 +141,27 @@ def render_page(
       <span>{bilingual('AI summary by Claude', 'AI &#25688;&#35201;&#30001; Claude &#29986;&#29983;')}</span>
     </div>
   </footer>
+
+  <nav class="bottom-nav" aria-label="Main navigation">
+    <a href="/" class="bnav-item">
+      <svg class="bnav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span class="bnav-label">{T('nav_dashboard')}</span>
+    </a>
+    <a href="/hourly" class="bnav-item">
+      <svg class="bnav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <span class="bnav-label">{T('nav_hourly')}</span>
+    </a>
+    <a href="/surf" class="bnav-item">
+      <svg class="bnav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12c2-3 4-4 6-4s4 2 6 4 4 4 6 4"/><path d="M2 18c2-3 4-4 6-4s4 2 6 4 4 4 6 4"/></svg>
+      <span class="bnav-label">{T('nav_spots')}</span>
+    </a>
+    <a href="/accuracy" class="bnav-item">
+      <svg class="bnav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+      <span class="bnav-label">{T('nav_accuracy')}</span>
+    </a>
+  </nav>
+
+  <button id="scroll-top" class="scroll-top" aria-label="Back to top">&#8593;</button>
 
   <script src="/app.js"></script>
 </body>
