@@ -8,6 +8,7 @@ from wrf_analyze import (
     _delta_span, _delta_cell, _wave_dir_str,
     _sail_rating, _condition_emoji,
     _parse_init_time, _daily_summary_html,
+    _tide_sparkline_svg,
 )
 
 
@@ -409,3 +410,48 @@ class TestDailySummaryHtml:
         html = _daily_summary_html(wrf, {}, {}, valids)
         assert 'CAPE' in html
         assert '⚡' in html
+
+
+# ── Tide sparkline SVG ────────────────────────────────────────────────────────
+
+class TestTideSparkline:
+    def test_returns_empty_without_tide_data(self):
+        assert _tide_sparkline_svg('2026-03-24', None) == ''
+        assert _tide_sparkline_svg('2026-03-24', {}) == ''
+        assert _tide_sparkline_svg('2026-03-24', {'extrema': []}) == ''
+
+    def test_returns_svg_with_valid_data(self):
+        tide = {
+            'extrema': [
+                {'type': 'high', 'cst': '2026-03-24 10:15 CST', 'height_m': 1.2},
+                {'type': 'low', 'cst': '2026-03-24 16:30 CST', 'height_m': 0.3},
+            ]
+        }
+        svg = _tide_sparkline_svg('2026-03-24', tide)
+        assert '<svg' in svg
+        assert 'polyline' in svg
+        assert 'circle' in svg
+        assert 'tide-sparkline' in svg
+
+    def test_no_now_marker_when_not_today(self):
+        tide = {
+            'extrema': [
+                {'type': 'high', 'cst': '2020-01-01 10:00 CST', 'height_m': 1.0},
+            ]
+        }
+        svg = _tide_sparkline_svg('2020-01-01', tide, is_today=False)
+        assert 'fbd38d' not in svg  # now marker color
+
+    def test_now_marker_when_today(self):
+        tide = {
+            'extrema': [
+                {'type': 'high', 'cst': '2026-03-24 10:00 CST', 'height_m': 1.0},
+            ]
+        }
+        svg = _tide_sparkline_svg('2026-03-24', tide, is_today=True)
+        assert 'fbd38d' in svg  # now marker color
+        assert 'stroke-dasharray' in svg
+
+    def test_invalid_date_returns_empty(self):
+        tide = {'extrema': [{'type': 'high', 'cst': 'bad', 'height_m': 1.0}]}
+        assert _tide_sparkline_svg('not-a-date', tide) == ''

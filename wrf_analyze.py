@@ -36,6 +36,7 @@ from datetime import datetime, timedelta, timezone
 import numpy as np
 
 from config import KEELUNG_LAT, KEELUNG_LON, COMPASS_NAMES, deg_to_compass, setup_logging, sail_rating, load_json_file
+from tide_predict import predict_height
 from i18n import T, T_str, bilingual
 
 log = logging.getLogger(__name__)
@@ -600,6 +601,99 @@ def _condition_emoji(max_wind: float | None, total_rain: float | None, max_cape:
     return '🌤️'
 
 
+def _tide_sparkline_svg(cst_date: str, tide_data: dict | None,
+                        is_today: bool = False) -> str:
+    """Generate an inline SVG sparkline for one day's tide curve.
+
+    Args:
+        cst_date: Date string in 'YYYY-MM-DD' format (CST).
+        tide_data: Tide JSON with 'extrema' list.
+        is_today: If True, draw a 'now' marker line.
+
+    Returns:
+        HTML string with inline <svg>, or '' if no tide data.
+    """
+    if not tide_data or not tide_data.get('extrema'):
+        return ''
+
+    # Sample 25 points (hourly 00:00-24:00 CST) by calling predict_height()
+    try:
+        base_cst = datetime.strptime(cst_date, '%Y-%m-%d')
+    except (ValueError, TypeError):
+        return ''
+
+    points: list[tuple[float, float]] = []  # (hour_fraction, height_m)
+    for h in range(25):
+        cst_dt = base_cst.replace(tzinfo=timezone(timedelta(hours=8))) + timedelta(hours=h)
+        utc_dt = cst_dt.astimezone(timezone.utc)
+        height = predict_height(utc_dt)
+        points.append((float(h), height))
+
+    if not points:
+        return ''
+
+    # Get extrema for this day
+    day_extrema = [ex for ex in tide_data.get('extrema', [])
+                   if ex.get('cst', '').startswith(cst_date)]
+
+    # Scale to SVG viewBox (0-120 x 0-32, with 4px padding top/bottom)
+    heights = [p[1] for p in points]
+    h_min, h_max = min(heights), max(heights)
+    h_range = h_max - h_min or 0.1  # avoid division by zero
+
+    def sx(hour: float) -> float:
+        return hour / 24.0 * 120.0
+
+    def sy(height: float) -> float:
+        # Invert Y (SVG y=0 is top), with 4px padding
+        return 28.0 - ((height - h_min) / h_range) * 24.0 + 4.0
+
+    # Build polyline points string
+    poly_pts = ' '.join(f'{sx(h):.1f},{sy(ht):.1f}' for h, ht in points)
+
+    # Build SVG
+    svg = (
+        '<svg class="tide-sparkline" viewBox="0 0 120 32" '
+        'width="100%" height="32" preserveAspectRatio="none" '
+        'xmlns="http://www.w3.org/2000/svg">'
+        # Filled area under curve
+        f'<polyline points="0,{sy(points[0][1]):.1f} {poly_pts} 120,{sy(points[-1][1]):.1f}" '
+        'fill="none" stroke="#7db8f0" stroke-width="1.5" stroke-linejoin="round"/>'
+        f'<polygon points="0,{sy(points[0][1]):.1f} {poly_pts} 120,{sy(points[-1][1]):.1f} 120,32 0,32" '
+        'fill="#7db8f0" fill-opacity="0.15"/>'
+    )
+
+    # Extrema dots
+    for ex in day_extrema:
+        try:
+            cst_str = ex.get('cst', '')
+            # Parse "YYYY-MM-DD HH:MM CST" or just use the hour
+            parts = cst_str.split()
+            time_parts = parts[1].split(':') if len(parts) >= 2 else []
+            ex_hour = int(time_parts[0]) + int(time_parts[1]) / 60.0
+            ex_height = ex.get('height_m', 0)
+            dot_color = '#93c5fd' if ex.get('type') == 'high' else '#64748b'
+            svg += (
+                f'<circle cx="{sx(ex_hour):.1f}" cy="{sy(ex_height):.1f}" '
+                f'r="2.5" fill="{dot_color}" stroke="#0f172a" stroke-width="0.5"/>'
+            )
+        except (ValueError, IndexError):
+            continue
+
+    # "Now" marker for today
+    if is_today:
+        now_cst = datetime.now(timezone(timedelta(hours=8)))
+        now_hour = now_cst.hour + now_cst.minute / 60.0
+        now_x = sx(now_hour)
+        svg += (
+            f'<line x1="{now_x:.1f}" y1="0" x2="{now_x:.1f}" y2="32" '
+            'stroke="#fbd38d" stroke-width="1" stroke-dasharray="2,2" opacity="0.7"/>'
+        )
+
+    svg += '</svg>'
+    return f'<div class="tide-sparkline-wrap">{svg}</div>\n'
+
+
 def _daily_summary_html(
     wrf_by_valid: dict,
     ec_by_valid:  dict,
@@ -742,6 +836,9 @@ def _daily_summary_html(
 
         # Tide info for this day
         tide_str = ''
+        today_cst = datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d')
+        tide_svg = _tide_sparkline_svg(cst_date, tide_data,
+                                       is_today=(cst_date == today_cst))
         if tide_data:
             day_tides = [ex for ex in tide_data.get('extrema', [])
                          if ex.get('cst', '').startswith(cst_date)]
@@ -787,6 +884,7 @@ def _daily_summary_html(
             + f'  <div class="metric">💨 {wind_str}</div>\n'
             f'  <div class="metric">🌧️ {rain_str}</div>\n'
             f'  <div class="metric">🌡️ {temp_str}</div>\n'
+            + (f'  {tide_svg}' if tide_svg else '')
             + (f'  <div class="metric" style="color:#7db8f0;font-size:0.85em">🌙 {tide_str}</div>\n' if tide_str else '')
             + cape_badge
             + rec_html
@@ -1461,10 +1559,8 @@ def render_unified_html(
     # #detail section — hourly table (collapsible, at bottom)
     # ══════════════════════════════════════════════════════════════════════════
     html += '<section id="detail" class="section">\n'
-    html += '<details class="detail-section">\n'
-    html += f'<summary class="detail-header">{T("detail_heading")}</summary>\n'
 
-    # ── Mobile forecast cards ──────────────────────────────────────────────
+    # ── Mobile forecast cards (visible on mobile, hidden on desktop) ─────
     html += '<div class="fc-cards">\n'
     _prev_card_date = None
     for row_idx, vt in enumerate(all_valids):
@@ -1486,7 +1582,7 @@ def render_unified_html(
         # Date header for cards
         if cst_date_key != _prev_card_date:
             _prev_card_date = cst_date_key
-            html += f'<h3 style="color:#93c5fd;font-size:14px;margin:16px 0 8px;border-bottom:1px solid #2d3f5a;padding-bottom:4px">📅 {cst_date_str}</h3>\n'
+            html += f'<h3 class="fc-cards-date">📅 {cst_date_str}</h3>\n'
 
         # Effective values
         ww  = (wrf.get('wind_kt')  if wrf else None) or (ec.get('wind_kt')  if ec else None)
@@ -1509,6 +1605,11 @@ def render_unified_html(
         wind_display = f'{ww:.0f}kt' if ww is not None else '—'
         wind_dir_display = f' {deg_to_compass(wwd)}' if wwd is not None else ''
         bf_display = f' B{_beaufort(ww)}' if ww is not None else ''
+        # Wind direction arrow (points in direction wind blows TO = from_deg + 180)
+        wind_arrow = ''
+        if wwd is not None:
+            arrow_deg = (wwd + 180) % 360
+            wind_arrow = f'<span class="wind-arrow" style="display:inline-block;transform:rotate({arrow_deg}deg)">↓</span> '
         gust_display = f'{g_v:.0f}kt' if g_v is not None else '—'
         temp_display = f'{wt:.1f}°C' if wt is not None else '—'
         rain_display = f'{r_v:.1f}mm' if r_v is not None else '—'
@@ -1527,7 +1628,7 @@ def render_unified_html(
         html += f'  <div class="fc-card-metrics">\n'
         html += f'    <div class="fc-card-metric" style="background:{_wind_bg(ww)};padding:6px 8px;border-radius:8px">\n'
         html += f'      <span class="label">{T("card_wind")}</span>\n'
-        html += f'      <span class="value">{wind_display}{bf_display}<span class="unit">{wind_dir_display}</span></span>\n'
+        html += f'      <span class="value">{wind_arrow}{wind_display}{bf_display}<span class="unit">{wind_dir_display}</span></span>\n'
         html += f'    </div>\n'
         html += f'    <div class="fc-card-metric" style="background:{_wind_bg(g_v)};padding:6px 8px;border-radius:8px">\n'
         html += f'      <span class="label">{T("card_gust")}</span>\n'
@@ -1570,8 +1671,6 @@ def render_unified_html(
         html += f'</div>\n'
 
     html += '</div>\n'  # close fc-cards
-
-    html += '</details>\n'  # close collapsible detail
     html += '</section>\n'  # close #detail section
     return html
 

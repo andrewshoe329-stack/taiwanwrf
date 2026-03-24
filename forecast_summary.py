@@ -33,9 +33,16 @@ They care about: wind speed/direction, wave height/period/direction, rain, \
 and which days are best for sailing vs surfing.
 
 Rules:
-- Write your response in TWO sections, separated by a line containing only "---".
-- Section 1: English forecast (3–5 sentences).
-- Section 2: The same forecast in natural Traditional Chinese (3–5 sentences).
+- Write your response in TWO halves, separated by a line containing only "---".
+- Half 1: English forecast. Half 2: Same in natural Traditional Chinese.
+- Each half has exactly 3 labelled sections:
+  [WIND] 1-3 sentences about wind & sailing conditions.
+  [WAVES] 1-3 sentences about swell, surf, and sea state.
+  [OUTLOOK] 1-3 sentences: overall outlook, best days/windows, hazards.
+- Example format (English half):
+  [WIND] Moderate NE flow at 12-15kt through Wednesday...
+  [WAVES] NE swell building to 1.5m with 10s period...
+  [OUTLOOK] Thursday looks best for sailing with lighter winds...
 - The Chinese section should NOT be a literal translation of the English. \
 Write it as a native Taiwanese speaker would, using local sailing/surfing \
 terminology natural to Taiwan's water sports community (e.g. 浪況, 湧浪, 離岸風).
@@ -46,7 +53,7 @@ terminology natural to Taiwan's water sports community (e.g. 浪況, 湧浪, 離
 Chinese names (e.g. "Fulong 福隆").
 - If conditions change significantly mid-week, highlight the transition.
 - If a storm or frontal passage is coming, say when and what it means.
-- Do NOT use headers, bullet points, or markdown. Just flowing prose.
+- Do NOT use headers, bullet points, or markdown within sections. Just flowing prose.
 - Do NOT repeat raw numbers excessively — interpret them.
 - Use present tense for today, future tense for upcoming days.
 - Sign off each section with one emoji that captures the overall vibe \
@@ -427,7 +434,7 @@ def call_api(user_prompt: str) -> str:
         try:
             msg = client.messages.create(
                 model='claude-sonnet-4-6',
-                max_tokens=700,
+                max_tokens=1200,
                 system=SYSTEM_PROMPT,
                 messages=[{'role': 'user', 'content': user_prompt}],
             )
@@ -449,27 +456,89 @@ def call_api(user_prompt: str) -> str:
     return ''
 
 
+_AI_SECTIONS = [
+    ('WIND',    '\U0001f4a8', 'ai_wind'),     # 💨
+    ('WAVES',   '\U0001f30a', 'ai_waves'),     # 🌊
+    ('OUTLOOK', '\U0001f4cb', 'ai_outlook'),   # 📋
+]
+
+
+def _parse_sections(text: str) -> list[tuple[str, str]]:
+    """Parse [WIND]/[WAVES]/[OUTLOOK] markers from AI text.
+
+    Returns list of (section_key, body_text) tuples.
+    Falls back to [('', full_text)] if no markers found.
+    """
+    import re
+    pattern = r'\[(WIND|WAVES|OUTLOOK)\]\s*'
+    parts = re.split(pattern, text.strip())
+    # re.split with group: ['before', 'KEY1', 'body1', 'KEY2', 'body2', ...]
+    sections: list[tuple[str, str]] = []
+    if len(parts) >= 3:
+        i = 1
+        while i < len(parts) - 1:
+            key = parts[i].strip()
+            body = parts[i + 1].strip()
+            if body:
+                sections.append((key, body))
+            i += 2
+    return sections if sections else [('', text.strip())]
+
+
 def render_html(summary_text: str) -> str:
     """Wrap the AI summary in a styled HTML fragment.
 
+    Parses [WIND]/[WAVES]/[OUTLOOK] section markers into styled cards.
     If the summary contains a '---' separator, splits into English and
     Chinese sections wrapped in <div lang="en/zh"> for the language toggle.
-    Falls back to English-only if no separator found.
+    Falls back to unstructured display if no markers found.
     """
     import html as html_mod
 
     # Split bilingual content
-    parts = summary_text.split('---', 1)
-    en_text = html_mod.escape(parts[0].strip())
-    zh_text = html_mod.escape(parts[1].strip()) if len(parts) > 1 else None
+    halves = summary_text.split('---', 1)
+    en_raw = halves[0].strip()
+    zh_raw = halves[1].strip() if len(halves) > 1 else None
 
-    if zh_text:
-        content = (
-            f'  <div lang="en" class="ai-content">\n    {en_text}\n  </div>\n'
-            f'  <div lang="zh" class="ai-content">\n    {zh_text}\n  </div>\n'
-        )
-    else:
-        content = f'  <div class="ai-content">\n    {en_text}\n  </div>\n'
+    en_sections = _parse_sections(en_raw)
+    zh_sections = _parse_sections(zh_raw) if zh_raw else None
+
+    def _render_half(sections: list[tuple[str, str]], lang: str) -> str:
+        """Render one language half as either structured cards or plain text."""
+        # Check if structured (has named sections)
+        has_structure = any(key for key, _ in sections)
+
+        if has_structure:
+            cards = ''
+            for key, body in sections:
+                escaped = html_mod.escape(body)
+                # Find matching section config
+                icon, title_key = '', ''
+                for skey, sicon, stitle in _AI_SECTIONS:
+                    if skey == key:
+                        icon, title_key = sicon, stitle
+                        break
+                if title_key:
+                    title = T(title_key)
+                    cards += (
+                        f'    <div class="ai-card">\n'
+                        f'      <div class="ai-card-header">{icon} {title}</div>\n'
+                        f'      <div class="ai-card-body">{escaped}</div>\n'
+                        f'    </div>\n'
+                    )
+                else:
+                    cards += f'    <div class="ai-card"><div class="ai-card-body">{escaped}</div></div>\n'
+            lang_attr = f' lang="{lang}"' if lang else ''
+            return f'  <div{lang_attr} class="ai-cards">\n{cards}  </div>\n'
+        else:
+            # Fallback: plain text (legacy format)
+            escaped = html_mod.escape(sections[0][1])
+            lang_attr = f' lang="{lang}"' if lang else ''
+            return f'  <div{lang_attr} class="ai-content">\n    {escaped}\n  </div>\n'
+
+    content = _render_half(en_sections, 'en')
+    if zh_sections:
+        content += _render_half(zh_sections, 'zh')
 
     return f"""\
 <section id="summary" class="section">

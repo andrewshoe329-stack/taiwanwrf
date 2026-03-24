@@ -965,7 +965,8 @@ def _generate_planner_html(all_spot_data: list[dict], keelung_records: list = No
     return html
 
 
-def _render_best_times(all_spot_data: list[dict], all_dks: list[str]) -> str:
+def _render_best_times(all_spot_data: list[dict], all_dks: list[str],
+                       spot_best_rating: dict[str, int] | None = None) -> str:
     """Render a 'Best Time to Surf' section showing optimal window per spot per day."""
     html = '<div id="best-times" style="margin-bottom:20px">\n'
     html += '<h3 style="font-size:14px;font-weight:700;color:#93c5fd;margin:0 0 6px">'
@@ -977,7 +978,7 @@ def _render_best_times(all_spot_data: list[dict], all_dks: list[str]) -> str:
         d = datetime.strptime(dk, '%Y-%m-%d')
         dlbl = f'{WKDAY[d.weekday()]} {d.day} {MONTH[d.month-1]}'
 
-        html += f'<div style="margin-bottom:12px">\n'
+        html += f'<div class="bt-day" style="margin-bottom:12px">\n'
         html += f'<h4 style="font-size:12px;font-weight:700;color:#cbd5e1;margin:0 0 4px">{dlbl}</h4>\n'
 
         # Compute tide extrema for this day (CST-based)
@@ -1036,13 +1037,14 @@ def _render_best_times(all_spot_data: list[dict], all_dks: list[str]) -> str:
             bt = best_time_for_day(day_recs, spot)
 
             cls = 'r-alt' if row_i % 2 else ''
+            sbr = (spot_best_rating or {}).get(spot.get('id', ''), 0)
 
             if bt is None:
                 # Flat / dangerous / no data
                 rating = day_rating(day_recs, spot)
                 label_key = rating.get('label_key', '')
                 bi_label = T(label_key) if label_key else rating['label']
-                html += (f'<tr class="{cls}">'
+                html += (f'<tr class="{cls}" data-spot-id="{spot["id"]}" data-best-rating="{sbr}">'
                          f'<td style="text-align:left;color:#94a3b8">{spot["name"]}</td>'
                          f'<td colspan="10" style="color:{rating["col"]};background:{rating["bg"]}">'
                          f'{rating["emoji"]} {bi_label}</td></tr>\n')
@@ -1093,7 +1095,7 @@ def _render_best_times(all_spot_data: list[dict], all_dks: list[str]) -> str:
                         wt = sobs['buoy']['water_temp_c']
                         wtemp_str = f'{wt:.0f}\u00b0C'
 
-                html += (f'<tr class="{cls}">'
+                html += (f'<tr class="{cls}" data-spot-id="{spot["id"]}" data-best-rating="{sbr}">'
                          f'<td style="text-align:left;color:#94a3b8">{spot["name"]}</td>'
                          f'<td style="font-weight:700;color:#e2e8f0">{bt["window"]}</td>'
                          f'<td style="background:{rbg};color:{rcol}">{remoji} {rlbl}</td>'
@@ -1111,6 +1113,56 @@ def _render_best_times(all_spot_data: list[dict], all_dks: list[str]) -> str:
         html += '</tbody></table>\n</div>\n</div>\n'
 
     html += '</div>\n'
+    return html
+
+
+_RATING_LEVEL = {
+    'firing': 5, 'good': 4, 'marginal': 3, 'poor': 2, 'flat': 1,
+    'dangerous': 0, 'no_data': 0,
+}
+
+
+def _render_filter_bar() -> str:
+    """Return the spot filter toggle buttons HTML + inline JS."""
+    html = '<div class="filter-bar">\n'
+    html += f'  <span class="filter-label">{T("filter_label")}</span>\n'
+    for level, key in [(0, 'filter_all'), (4, 'filter_good_plus'), (5, 'filter_firing')]:
+        active = ' filter-btn-active' if level == 0 else ''
+        html += f'  <button class="filter-btn{active}" data-min-rating="{level}">{T(key)}</button>\n'
+    html += '</div>\n'
+
+    # Inline JS for filtering
+    html += '''<script>
+(function(){
+  var btns = document.querySelectorAll('.filter-btn');
+  btns.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      btns.forEach(function(b){ b.classList.remove('filter-btn-active'); });
+      btn.classList.add('filter-btn-active');
+      var min = parseInt(btn.getAttribute('data-min-rating')) || 0;
+      // Filter matrix rows
+      document.querySelectorAll('tr[data-best-rating]').forEach(function(tr){
+        tr.style.display = parseInt(tr.getAttribute('data-best-rating')) >= min ? '' : 'none';
+      });
+      // Filter detail sections
+      document.querySelectorAll('details[data-best-rating]').forEach(function(el){
+        el.style.display = parseInt(el.getAttribute('data-best-rating')) >= min ? '' : 'none';
+      });
+      // Filter best-time rows
+      document.querySelectorAll('#best-times tr[data-spot-id]').forEach(function(tr){
+        tr.style.display = parseInt(tr.getAttribute('data-best-rating')) >= min ? '' : 'none';
+      });
+      // Hide day sections where all spot rows are hidden
+      document.querySelectorAll('#best-times .bt-day').forEach(function(day){
+        var rows = day.querySelectorAll('tr[data-spot-id]');
+        var anyVisible = false;
+        rows.forEach(function(r){ if(r.style.display !== 'none') anyVisible = true; });
+        day.style.display = anyVisible ? '' : 'none';
+      });
+    });
+  });
+})();
+</script>\n'''
     return html
 
 
@@ -1133,14 +1185,23 @@ def _render_rating_matrix(all_spot_data: list[dict], all_dks: list[str]) -> str:
         for r in records:
             by_day.setdefault(r['dk'], []).append(r)
 
-        html += '<tr>'
+        # Compute best rating across all days for filtering
+        best_level = 0
+        day_ratings_cache: dict[str, dict] = {}
+        for dk in all_dks:
+            day_recs = by_day.get(dk, [])
+            rat = day_rating(day_recs, spot)
+            day_ratings_cache[dk] = rat
+            lk = rat.get('label_key', '')
+            best_level = max(best_level, _RATING_LEVEL.get(lk, 0))
+
+        html += f'<tr data-spot-id="{spot["id"]}" data-best-rating="{best_level}">'
         spot_desc_bi = bilingual(spot["desc"], spot.get("desc_zh", spot["desc"]))
         html += (f'<td scope="row" class="spot-name">{spot["name"]}'
                  f'<small>{spot_desc_bi}</small></td>')
 
         for dk in all_dks:
-            day_recs = by_day.get(dk, [])
-            rating   = day_rating(day_recs, spot)
+            rating   = day_ratings_cache[dk]
             conf_tag = ' <span title="High model uncertainty" style="opacity:0.6">\u00b1</span>' \
                        if rating.get('confidence') == 'low' else ''
             label_key = rating.get('label_key', '')
@@ -1198,14 +1259,14 @@ def _render_cwa_obs_line(spot_id: str) -> str:
             f'{sep.join(parts)}</div>\n')
 
 
-def _render_spot_detail(sd: dict) -> str:
+def _render_spot_detail(sd: dict, best_rating: int = 0) -> str:
     """Return the collapsible detail table HTML for one spot."""
     spot    = sd['spot']
     records = sd['records']
     if not records:
         return ''
 
-    html = f'<details id="spot-{spot["id"]}" class="detail-section">\n'
+    html = f'<details id="spot-{spot["id"]}" class="detail-section" data-spot-id="{spot["id"]}" data-best-rating="{best_rating}">\n'
     html += f'<summary class="detail-header">{spot["name"]} — {T("detailed_forecast")}</summary>\n'
     html += _render_cwa_obs_line(spot['id'])
     html += '<div style="overflow-x:auto">\n'
@@ -1313,12 +1374,30 @@ def generate_full_html(all_spot_data: list[dict], keelung_records: list = None) 
     gen_str = now_cst.strftime('%Y-%m-%d %H:%M CST')
     all_dks = sorted({r['dk'] for sd in all_spot_data for r in sd['records']})
 
+    # Pre-compute best rating per spot for filtering
+    spot_best_rating: dict[str, int] = {}
+    for sd in all_spot_data:
+        spot = sd['spot']
+        by_day: dict[str, list] = {}
+        for r in sd['records']:
+            by_day.setdefault(r['dk'], []).append(r)
+        best_level = 0
+        for dk in all_dks:
+            day_recs = by_day.get(dk, [])
+            rat = day_rating(day_recs, spot)
+            lk = rat.get('label_key', '')
+            best_level = max(best_level, _RATING_LEVEL.get(lk, 0))
+        spot_best_rating[spot['id']] = best_level
+
     html = '<section id="spots" class="section surf-section">\n'
     html += f'<h2 class="section-title"><span role="img" aria-label="Surfer">🏄</span> {T("surf_spots")}</h2>\n'
     html += f'<p class="section-subtitle">Generated {gen_str} · Data: ECMWF IFS025 + GFS + ECMWF WAM (Open-Meteo)</p>\n'
 
+    # ── Filter bar ─────────────────────────────────────────────────────────
+    html += _render_filter_bar()
+
     # ── Best time to surf ─────────────────────────────────────────────────
-    html += _render_best_times(all_spot_data, all_dks)
+    html += _render_best_times(all_spot_data, all_dks, spot_best_rating)
 
     # ── Rating matrix ──────────────────────────────────────────────────────
     html += _render_rating_matrix(all_spot_data, all_dks)
@@ -1326,7 +1405,7 @@ def generate_full_html(all_spot_data: list[dict], keelung_records: list = None) 
     # ── Per-spot detail tables ─────────────────────────────────────────────
     html += '<div class="detail-section">\n'
     for sd in all_spot_data:
-        html += _render_spot_detail(sd)
+        html += _render_spot_detail(sd, best_rating=spot_best_rating.get(sd['spot']['id'], 0))
 
     # ── Legend ─────────────────────────────────────────────────────────────
     html += _render_surf_legend()

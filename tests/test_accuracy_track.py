@@ -8,6 +8,7 @@ from accuracy_track import (
     _fh_bin,
     _compute_buoy_verification,
     _compute_tide_accuracy,
+    _write_to_firestore,
 )
 
 
@@ -306,3 +307,19 @@ class TestComputeTideAccuracy:
     def test_returns_none_without_obs_time(self):
         obs = {'tide_height_m': 0.5}
         assert _compute_tide_accuracy(obs, None) is None
+
+
+# ── Firestore stub ────────────────────────────────────────────────────────────
+
+class TestWriteToFirestore:
+    def test_skips_silently_without_env_var(self, monkeypatch):
+        """Should do nothing when FIREBASE_PROJECT is not set."""
+        monkeypatch.delenv('FIREBASE_PROJECT', raising=False)
+        # Should not raise
+        _write_to_firestore({'init_utc': '2026-01-01T00:00:00+00:00', 'model_id': 'WRF'})
+
+    def test_warns_without_firebase_admin(self, monkeypatch):
+        """Should log warning when firebase-admin not installed."""
+        monkeypatch.setenv('FIREBASE_PROJECT', 'test-project')
+        # firebase_admin may or may not be installed; function should not crash
+        _write_to_firestore({'init_utc': '2026-01-01T00:00:00+00:00', 'model_id': 'WRF'})

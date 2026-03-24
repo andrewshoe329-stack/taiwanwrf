@@ -451,6 +451,41 @@ body {
   padding: var(--space-md);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
+/* ── AI Summary Cards (structured sections) ──────────────────────────── */
+.ai-cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-sm);
+}
+.ai-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  transition: transform var(--transition);
+}
+.ai-card:hover {
+  transform: translateY(-1px);
+}
+.ai-card-header {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: var(--space-xs);
+  letter-spacing: 0.02em;
+}
+.ai-card-body {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+
+@media (min-width: 641px) {
+  .ai-cards {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 .ai-disclaimer {
   font-size: 10px;
   color: var(--text-dim);
@@ -603,9 +638,66 @@ body {
   color: var(--text-muted);
 }
 
+.fc-cards-date {
+  color: var(--accent);
+  font-size: 14px;
+  margin: 16px 0 8px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+}
+.tide-sparkline-wrap {
+  margin: 4px 0 2px;
+  line-height: 0;
+}
+.tide-sparkline {
+  display: block;
+  width: 100%;
+  height: 32px;
+}
+.wind-arrow {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-right: 2px;
+}
+
 /* ── Detail Section (collapsible hourly table) ─────────────────────────── */
 #detail details.detail-section {
   margin-top: 0;
+}
+
+/* ── Filter Bar ───────────────────────────────────────────────────────── */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+  flex-wrap: wrap;
+}
+.filter-label {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+.filter-btn {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: inherit;
+}
+.filter-btn:hover {
+  background: var(--border);
+  color: var(--text);
+}
+.filter-btn-active {
+  background: var(--accent-bright);
+  color: #fff;
+  border-color: var(--accent-bright);
 }
 
 /* ── Surf Section ──────────────────────────────────────────────────────── */
