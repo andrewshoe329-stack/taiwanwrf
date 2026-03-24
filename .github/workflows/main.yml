@@ -236,7 +236,7 @@ jobs:
           if [ -f cwa_obs.json ]; then
             CWA_TIDE_ARG="--cwa-obs cwa_obs.json"
           fi
-          python surf_forecast.py --output surf_forecast.html --output-json surf_planner.json $CWA_TIDE_ARG
+          python surf_forecast.py --output surf_forecast.html --output-json surf_planner.json --output-dir public $CWA_TIDE_ARG
 
       # ── Run GRIB2 point-forecast analysis ────────────────────────────────────
       # Reads the Keelung subset .grb2 files, extracts the point forecast,
@@ -294,11 +294,8 @@ jobs:
             $ACCURACY_ARG \
             $CWA_OBS_ARG \
             --output-json keelung_summary_new.json \
-            --output-html forecast.html
-          # Append surf spots HTML to forecast
-          if [ -f surf_forecast.html ]; then
-            cat surf_forecast.html >> forecast.html
-          fi
+            --output-html forecast.html \
+            --output-dir public
 
       # ── Generate AI forecast summary ──────────────────────────────────────────
       # Calls Anthropic API to produce a plain-English narrative from the
@@ -340,12 +337,37 @@ jobs:
             $ENSEMBLE_ARG \
             --output ai_summary.html
 
-          # Prepend AI summary to the forecast HTML
+          # Prepend AI summary to the legacy forecast HTML
           if [ -s ai_summary.html ] && [ -f forecast.html ]; then
             cat ai_summary.html forecast.html > forecast.html.tmp && mv forecast.html.tmp forecast.html
             echo "  ✅  AI summary prepended to forecast HTML"
           else
             echo "  ⏭  No AI summary generated (API key missing or error)"
+          fi
+
+          # Re-generate dashboard page with AI summary embedded
+          if [ -s ai_summary.html ] && [ -d public ]; then
+            RUNDIR="${{ steps.download.outputs.rundir }}"
+            PREV_ARG=""
+            if [ "${{ steps.prev_summary.outputs.found }}" = "true" ]; then
+              PREV_ARG="--prev-json keelung_summary.json"
+            fi
+            ECMWF_ARG=""; [ -f ecmwf_keelung.json ] && ECMWF_ARG="--ecmwf-json ecmwf_keelung.json"
+            WAVE_ARG=""; [ -f wave_keelung.json ] && WAVE_ARG="--wave-json wave_keelung.json"
+            TIDE_ARG=""; [ -f tide_keelung.json ] && TIDE_ARG="--tide-json tide_keelung.json"
+            SURF_ARG=""; [ -f surf_planner.json ] && SURF_ARG="--surf-json surf_planner.json"
+            ENSEMBLE_ARG=""; [ -f ensemble_keelung.json ] && ENSEMBLE_ARG="--ensemble-json ensemble_keelung.json"
+            ACCURACY_ARG=""; [ -f accuracy_log.json ] && ACCURACY_ARG="--accuracy-log accuracy_log.json"
+            CWA_OBS_ARG=""; [ -f cwa_obs.json ] && CWA_OBS_ARG="--cwa-obs cwa_obs.json"
+            python wrf_analyze.py \
+              --rundir "$RUNDIR" \
+              $PREV_ARG $ECMWF_ARG $WAVE_ARG $TIDE_ARG $SURF_ARG \
+              $ENSEMBLE_ARG $ACCURACY_ARG $CWA_OBS_ARG \
+              --output-json keelung_summary_new.json \
+              --output-html forecast.html \
+              --output-dir public \
+              --ai-summary ai_summary.html
+            echo "  ✅  Dashboard re-generated with AI summary"
           fi
 
       # ── Send threshold-based alerts ─────────────────────────────────────────
@@ -435,158 +457,21 @@ jobs:
           fi
 
       # ── Build & deploy to Vercel ──────────────────────────────────────────────
-      # Wraps the generated HTML fragments in a proper HTML5 document with a
-      # download link for the WRF GRIB2 archive, then deploys to Vercel.
+      # Python scripts (wrf_analyze.py --output-dir, surf_forecast.py --output-dir)
+      # already generated complete HTML pages in public/.
+      # This step just copies static PWA assets alongside them.
       - name: Build Vercel site
         if: steps.stale_check.outputs.is_new == 'true' && !cancelled()
         timeout-minutes: 5
         run: |
-          DRIVE_LINK="${{ steps.upload.outputs.drive_link }}"
-          ARCHIVE_NAME="${{ steps.download.outputs.archive_name }}"
-          ARCHIVE_SIZE="${{ steps.download.outputs.archive_size }}"
-          BUILD_UTC=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-
-          mkdir -p public
+          mkdir -p public/spots
           # PWA + design system assets
-          cp pwa/manifest.json pwa/sw.js pwa/icon-192.png pwa/icon-512.png pwa/styles.css public/
-          cat <<HEADER > public/index.html
-          <!DOCTYPE html>
-          <html lang="en" id="html-root">
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <meta http-equiv="refresh" content="1800">
-            <meta name="theme-color" content="#0f172a">
-            <meta name="apple-mobile-web-app-capable" content="yes">
-            <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-            <link rel="manifest" href="/manifest.json">
-            <link rel="apple-touch-icon" href="/icon-192.png">
-            <link rel="stylesheet" href="/styles.css">
-            <title>Taiwan Sail & Surf Forecast | 台灣帆船衝浪預報</title>
-            <script>
-            // Language auto-detect: saved pref > browser language > English default
-            (function(){
-              var saved = localStorage.getItem('tw-forecast-lang');
-              if (saved) { document.documentElement.setAttribute('lang', saved); return; }
-              var bLang = (navigator.language || '').toLowerCase();
-              if (bLang.startsWith('zh')) document.documentElement.setAttribute('lang', 'zh');
-            })();
-            </script>
-          </head>
-          <body>
-          <a href="#main-content" class="skip-nav">Skip to content</a>
+          cp pwa/manifest.json pwa/sw.js pwa/app.js pwa/icon-192.png pwa/icon-512.png pwa/styles.css public/
 
-          <header class="site-header">
-            <div class="header-inner">
-              <h1 class="site-title">
-                <span lang="en"><span class="highlight">Taiwan</span> Sail &amp; Surf</span>
-                <span lang="zh"><span class="highlight">台灣</span> 帆船衝浪</span>
-              </h1>
-              <nav class="site-nav" aria-label="Main navigation">
-                <a href="#summary"><span lang="en">Summary</span><span lang="zh">摘要</span></a>
-                <a href="#week"><span lang="en">This Week</span><span lang="zh">本週</span></a>
-                <a href="#spots"><span lang="en">Spots</span><span lang="zh">浪點</span></a>
-                <a href="#detail"><span lang="en">Detail</span><span lang="zh">細節</span></a>
-              </nav>
-              <button class="lang-toggle" onclick="toggleLang()" aria-label="Switch language">
-                <span lang="en">中文</span><span lang="zh">English</span>
-              </button>
-            </div>
-            <div class="timestamp-bar">
-              <span><span lang="en">Last updated</span><span lang="zh">最後更新</span>: <span id="ts">${BUILD_UTC}</span></span>
-              <span class="age" id="age"></span>
-            </div>
-          </header>
-
-          <div class="stale-warning" id="stale-warning" role="alert">
-            <span lang="en">You are viewing cached data. Tap to refresh for the latest forecast.</span>
-            <span lang="zh">您正在查看快取資料，點擊重新整理以獲取最新預報。</span>
-            <button onclick="location.reload()"><span lang="en">Refresh</span><span lang="zh">重新整理</span></button>
-          </div>
-
-          <script>
-          function toggleLang() {
-            var html = document.documentElement;
-            var next = html.getAttribute('lang') === 'zh' ? 'en' : 'zh';
-            html.setAttribute('lang', next);
-            localStorage.setItem('tw-forecast-lang', next);
-          }
-          (function(){
-            var ts = new Date("${BUILD_UTC}");
-            var el = document.getElementById("age");
-            function update(){
-              var h = Math.round((Date.now() - ts.getTime()) / 3600000);
-              var m = Math.round((Date.now() - ts.getTime()) / 60000);
-              if (m < 60) el.textContent = m + "m ago";
-              else el.textContent = h + "h ago";
-              el.className = "age " + (h < 8 ? "age-fresh" : h < 24 ? "age-stale" : "age-old");
-              // Show prominent stale banner if data is old (>6h)
-              if (h >= 6) {
-                var sw = document.getElementById("stale-warning");
-                if (sw && !sw.classList.contains("visible")) {
-                  var lang = document.documentElement.getAttribute('lang') || 'en';
-                  var msg = lang === 'zh'
-                    ? "預報資料已 " + h + " 小時未更新，系統可能發生錯誤。"
-                    : "Forecast data is " + h + "h old. The pipeline may have failed.";
-                  sw.querySelector("span[lang='" + lang + "']").textContent = msg;
-                  sw.classList.add("visible");
-                }
-              }
-            }
-            update(); setInterval(update, 60000);
-
-            // Listen for service worker cache-hit messages
-            if (navigator.serviceWorker) {
-              navigator.serviceWorker.addEventListener('message', function(e) {
-                if (e.data && e.data.type === 'CACHE_HIT') {
-                  document.getElementById('stale-warning').classList.add('visible');
-                }
-              });
-            }
-
-            // Active nav tracking
-            var sections = document.querySelectorAll('section[id]');
-            var navLinks = document.querySelectorAll('.site-nav a');
-            if (window.IntersectionObserver && sections.length) {
-              var observer = new IntersectionObserver(function(entries) {
-                entries.forEach(function(entry) {
-                  if (entry.isIntersecting) {
-                    navLinks.forEach(function(a) { a.classList.remove('active'); });
-                    var link = document.querySelector('.site-nav a[href="#' + entry.target.id + '"]');
-                    if (link) link.classList.add('active');
-                  }
-                });
-              }, { rootMargin: '-20% 0px -60% 0px' });
-              sections.forEach(function(s) { observer.observe(s); });
-            }
-          })();
-          </script>
-          HEADER
-
-          # Add download bar if Drive link is available (HTML-escape variables)
-          if [ -n "$DRIVE_LINK" ]; then
-            SAFE_LINK=$(printf '%s' "$DRIVE_LINK" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g')
-            SAFE_NAME=$(printf '%s' "$ARCHIVE_NAME" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
-            SAFE_SIZE=$(printf '%s' "$ARCHIVE_SIZE" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
-            cat <<DLBAR >> public/index.html
-          <div class="download-bar">
-            <a href="$SAFE_LINK"><span lang="en">Download WRF Data</span><span lang="zh">下載 WRF 資料</span></a>
-            <span>$SAFE_NAME · $SAFE_SIZE</span>
-          </div>
-          DLBAR
-          fi
-
-          echo '<main id="main-content" class="content-wrap">' >> public/index.html
-          cat forecast.html >> public/index.html
-          echo '</main>' >> public/index.html
-          cat <<'SWREG' >> public/index.html
-          <script>
-          if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js').catch(function(){});
-          }
-          </script>
-          SWREG
-          echo '</body></html>' >> public/index.html
+          echo "Multi-page site structure:"
+          find public -type f -name '*.html' | sort
+          echo "Static assets:"
+          ls -la public/*.css public/*.js public/*.json 2>/dev/null || true
 
       - name: Deploy to Vercel
         if: steps.stale_check.outputs.is_new == 'true' && !cancelled()

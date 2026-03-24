@@ -3,11 +3,15 @@
   "outputDirectory": "public",
   "framework": null,
   "rewrites": [
-    { "source": "/", "destination": "/index.html" }
+    { "source": "/", "destination": "/index.html" },
+    { "source": "/hourly", "destination": "/hourly.html" },
+    { "source": "/surf", "destination": "/surf.html" },
+    { "source": "/accuracy", "destination": "/accuracy.html" },
+    { "source": "/spots/:id", "destination": "/spots/:id.html" }
   ],
   "headers": [
     {
-      "source": "/index.html",
+      "source": "/(.*).html",
       "headers": [
         { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
       ]
@@ -20,6 +24,12 @@
     },
     {
       "source": "/(.*).css",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=3600, stale-while-revalidate=86400" }
+      ]
+    },
+    {
+      "source": "/(.*).js",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=3600, stale-while-revalidate=86400" }
       ]

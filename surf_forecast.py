@@ -13,6 +13,8 @@ import argparse, json, logging, os, sys, time, urllib.request, urllib.parse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone, timedelta
 
+import html as html_mod_escape
+
 from config import (KEELUNG_LAT, KEELUNG_LON, SPOT_COORDS,
                      deg_to_compass, setup_logging, sail_rating,
                      sunrise_sunset, is_daylight)
@@ -21,6 +23,7 @@ from config import fetch_json as _config_fetch_json
 # Build coordinate lookup from shared SPOT_COORDS (single source of truth)
 _COORD_LOOKUP = {s["id"]: (s["lat"], s["lon"]) for s in SPOT_COORDS}
 from i18n import T, T_str, bilingual, SPOT_DESC_KEYS
+from html_template import render_page
 from tide_predict import (predict_height, predict_height_anchored,
                           find_extrema, tide_state)
 
@@ -1414,6 +1417,121 @@ def generate_full_html(all_spot_data: list[dict], keelung_records: list = None) 
     return html
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# Multi-page rendering: surf.html + spots/<id>.html
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def render_surf_page(all_spot_data: list[dict], keelung_records: list = None,
+                     *, build_utc: str = '', **kw) -> str:
+    """Render surf overview page (surf.html): rating matrix + best times + spot cards."""
+    # Re-use the existing generate_full_html which builds the complete section
+    inner_html = generate_full_html(all_spot_data, keelung_records=keelung_records)
+
+    return render_page(
+        title_key='surf_spots',
+        nav_active='/surf',
+        body_html=inner_html,
+        build_utc=build_utc,
+        **kw,
+    )
+
+
+def _render_spot_page_detail(sd: dict, all_spot_data: list[dict],
+                              *, build_utc: str = '', **kw) -> str:
+    """Render an individual spot detail page (spots/<id>.html)."""
+    spot = sd['spot']
+    records = sd['records']
+    spot_id = spot.get('id', '')
+    en_name, zh_name = _split_spot_name(spot['name'])
+
+    body = ''
+
+    # Breadcrumb
+    body += (
+        '<div class="breadcrumb">'
+        f'<a href="/">{T("back_to_dashboard")}</a>'
+        '<span class="sep">/</span>'
+        f'<a href="/surf">{T("back_to_surf")}</a>'
+        '<span class="sep">/</span>'
+        f'<span>{spot["name"]}</span>'
+        '</div>\n'
+    )
+
+    # Spot header
+    body += '<div class="spot-header">\n'
+    body += '<div class="spot-header-info">\n'
+    body += f'<h2 class="section-title" style="border:none;margin-bottom:4px">{spot["name"]}</h2>\n'
+
+    # Spot description
+    desc_key = SPOT_DESC_KEYS.get(spot_id, '')
+    if desc_key:
+        body += f'<p style="color:#94a3b8;font-size:13px;margin:0 0 12px">{T(desc_key)}</p>\n'
+
+    # Spot metadata
+    body += '<div style="display:flex;flex-wrap:wrap;gap:16px;font-size:13px;color:#cbd5e1">\n'
+    body += f'  <span><b>{T("facing")}:</b> {spot.get("facing", "?")}</span>\n'
+    body += f'  <span><b>{T("optimal_wind")}:</b> {", ".join(spot.get("opt_wind", []))}</span>\n'
+    body += f'  <span><b>{T("optimal_swell")}:</b> {", ".join(spot.get("opt_swell", []))}</span>\n'
+    body += '</div>\n'
+    body += '</div>\n'  # close spot-header-info
+
+    # Live CWA observations for this spot
+    cwa_line = _render_cwa_obs_line(spot_id)
+    if cwa_line:
+        body += '<div class="spot-header-live">\n'
+        body += f'<h3 style="color:#93c5fd;margin:0 0 8px;font-size:14px">{T("current_conditions")}</h3>\n'
+        body += cwa_line
+        body += '</div>\n'
+
+    body += '</div>\n'  # close spot-header
+
+    # 5-day forecast strip
+    if records:
+        all_dks = sorted({r['dk'] for r in records})
+        by_day = {}
+        for r in records:
+            by_day.setdefault(r['dk'], []).append(r)
+
+        body += f'<h3 class="section-title" style="font-size:16px">{T("five_day_forecast")}</h3>\n'
+        body += '<div class="daily-strip">\n'
+        for dk in all_dks:
+            day_recs = by_day.get(dk, [])
+            d = datetime.strptime(dk, '%Y-%m-%d')
+            dlbl = f'{WKDAY[d.weekday()]} {d.day}'
+            rating = day_rating(day_recs, spot)
+            bt = best_time_for_day(day_recs, spot)
+            window_str = bt['window'] if bt else '—'
+
+            body += (
+                f'<div class="daily-card" style="border-top:3px solid {rating.get("bg","#1e293b")};min-width:130px;flex:0 0 auto">\n'
+                f'  <div class="day-label">{dlbl}</div>\n'
+                f'  <div style="font-size:20px;margin:4px 0">{rating["emoji"]}</div>\n'
+                f'  <div style="font-size:12px;color:{rating["col"]}">{rating.get("label","")}</div>\n'
+                f'  <div style="font-size:11px;color:#94a3b8;margin-top:4px">{window_str}</div>\n'
+                f'</div>\n'
+            )
+        body += '</div>\n'
+
+    # Hourly breakdown table (full detail, expanded)
+    body += f'<h3 class="section-title" style="font-size:16px">{T("hourly_breakdown")}</h3>\n'
+    detail_html = _render_spot_detail(sd, best_rating=0)
+    # Convert from <details> (collapsible) to always-open <div>
+    detail_html = detail_html.replace(f'<details id="spot-{spot_id}"', f'<div id="spot-{spot_id}"')
+    detail_html = detail_html.replace('</details>', '</div>')
+    detail_html = detail_html.replace(f'<summary class="detail-header">{spot["name"]} — {T("detailed_forecast")}</summary>', '')
+    body += detail_html
+
+    return render_page(
+        title_key='surf_spots',
+        nav_active='/surf',
+        body_html=body,
+        build_utc=build_utc,
+        extra_head=f'<title>{en_name} Surf Forecast | {zh_name}衝浪預報</title>',
+        **kw,
+    )
+
+
 # ── Main ───────────────────────────────────────────────────────────────────
 def main() -> None:
     global _CWA_TIDE_EXTREMA, _CWA_SPOT_OBS
@@ -1423,6 +1541,8 @@ def main() -> None:
                     help='Output HTML path (default: surf_forecast.html)')
     ap.add_argument('--output-json', default=None,
                     help='Output planner JSON path (optional, for unified day cards)')
+    ap.add_argument('--output-dir', default=None,
+                    help='Output directory for multi-page HTML (generates surf.html + spots/*.html)')
     ap.add_argument('--cwa-obs', default=None,
                     help='CWA obs JSON (for tide forecast anchoring + live obs display)')
     args = ap.parse_args()
@@ -1491,10 +1611,34 @@ def main() -> None:
     spot_order = {s['id']: i for i, s in enumerate(SPOTS)}
     all_spot_data.sort(key=lambda d: spot_order.get(d['spot'].get('id'), 99))
 
-    html_full = generate_full_html(all_spot_data, keelung_records=keelung_records)
-    with open(args.output, 'w', encoding='utf-8') as f:
-        f.write(html_full)
-    log.info("Wrote %s (%s chars)", args.output, f"{len(html_full):,}")
+    from datetime import datetime as _dt_cls, timezone as _tz_cls
+    build_utc = _dt_cls.now(_tz_cls.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+    if args.output_dir:
+        # ── Multi-page output ──────────────────────────────────────────────
+        from pathlib import Path as _Path
+        out_dir = _Path(args.output_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        (out_dir / 'spots').mkdir(parents=True, exist_ok=True)
+
+        # Surf overview page
+        surf_html = render_surf_page(all_spot_data, keelung_records=keelung_records,
+                                     build_utc=build_utc)
+        (out_dir / 'surf.html').write_text(surf_html, encoding='utf-8')
+        log.info("Surf overview → %s/surf.html", out_dir)
+
+        # Individual spot pages
+        for sd in all_spot_data:
+            spot_id = sd['spot'].get('id', '')
+            spot_page = _render_spot_page_detail(sd, all_spot_data, build_utc=build_utc)
+            (out_dir / 'spots' / f'{spot_id}.html').write_text(spot_page, encoding='utf-8')
+            log.info("Spot page → %s/spots/%s.html", out_dir, spot_id)
+    else:
+        # ── Legacy single-file output ──────────────────────────────────────
+        html_full = generate_full_html(all_spot_data, keelung_records=keelung_records)
+        with open(args.output, 'w', encoding='utf-8') as f:
+            f.write(html_full)
+        log.info("Wrote %s (%s chars)", args.output, f"{len(html_full):,}")
 
     if args.output_json:
         import json as json_mod

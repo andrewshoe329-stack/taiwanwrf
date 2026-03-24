@@ -22,9 +22,14 @@ STRINGS: dict[str, dict[str, str]] = {
                          'zh': '台灣帆船衝浪預報'},
     'site_title':       {'en': '<span class="highlight">Taiwan</span> Sail &amp; Surf',
                          'zh': '<span class="highlight">台灣</span> 帆船衝浪'},
+    # Multi-page nav (top-level pages)
+    'nav_dashboard':    {'en': 'Dashboard',  'zh': '總覽'},
+    'nav_hourly':       {'en': 'Hourly',     'zh': '逐時'},
+    'nav_spots':        {'en': 'Spots',      'zh': '浪點'},
+    'nav_accuracy':     {'en': 'Accuracy',   'zh': '準確度'},
+    # Legacy single-page nav (kept for backwards compat)
     'nav_summary':      {'en': 'Summary',   'zh': '摘要'},
     'nav_this_week':    {'en': 'This Week',  'zh': '本週'},
-    'nav_spots':        {'en': 'Spots',      'zh': '浪點'},
     'nav_detail':       {'en': 'Detail',     'zh': '細節'},
     'last_updated':     {'en': 'Last updated', 'zh': '最後更新'},
     'stale_warning':    {'en': 'You are viewing cached data. Tap to refresh for the latest forecast.',
@@ -211,6 +216,37 @@ STRINGS: dict[str, dict[str, str]] = {
 
     # ── Detailed Forecast header ──────────────────────────────────────────
     'detailed_forecast':   {'en': 'Detailed Forecast',    'zh': '詳細預報'},
+
+    # ── Multi-page section titles ────────────────────────────────────────
+    'dashboard_title':     {'en': 'Dashboard',             'zh': '總覽'},
+    'hourly_title':        {'en': 'Hourly Forecast',       'zh': '逐時預報'},
+    'accuracy_title':      {'en': 'Model Accuracy',        'zh': '模型準確度'},
+    'current_conditions':  {'en': 'Current Conditions',    'zh': '即時觀測'},
+    'cwa_live':            {'en': 'CWA Live',              'zh': '中央氣象署'},
+    'quick_glance':        {'en': 'Next 24 Hours',         'zh': '未來24小時'},
+    'top_spots_today':     {'en': 'Top Surf Spots Today',  'zh': '今日最佳浪點'},
+    'view_details':        {'en': 'View Details',          'zh': '查看詳情'},
+    'see_full_hourly':     {'en': 'See full hourly forecast', 'zh': '查看完整逐時預報'},
+    'see_all_spots':       {'en': 'See all surf spots',    'zh': '查看所有浪點'},
+    'wind_chart':          {'en': 'Wind &amp; Gusts',      'zh': '風速與陣風'},
+    'wave_chart':          {'en': 'Waves &amp; Swell',     'zh': '浪況與湧浪'},
+    'tide_chart':          {'en': 'Tide Curve',            'zh': '潮汐曲線'},
+    'full_data_table':     {'en': 'Full Data Table',       'zh': '完整數據表'},
+    'model_comparison':    {'en': 'Model Comparison',      'zh': '模型比較'},
+    'spot_info':           {'en': 'Spot Info',             'zh': '浪點資訊'},
+    'five_day_forecast':   {'en': '5-Day Forecast',        'zh': '5天預報'},
+    'hourly_breakdown':    {'en': 'Hourly Breakdown',      'zh': '逐時分析'},
+    'township_forecast':   {'en': 'Township Forecast',     'zh': '鄉鎮預報'},
+    'facing':              {'en': 'Facing',                'zh': '朝向'},
+    'optimal_wind':        {'en': 'Optimal wind',          'zh': '最佳風向'},
+    'optimal_swell':       {'en': 'Optimal swell',         'zh': '最佳浪向'},
+    'back_to_dashboard':   {'en': 'Dashboard',             'zh': '總覽'},
+    'back_to_surf':        {'en': 'All Spots',             'zh': '所有浪點'},
+    'by_horizon':          {'en': 'By Forecast Horizon',   'zh': '依預報時距'},
+    'buoy_verification':   {'en': 'Buoy Verification',     'zh': '浮標驗證'},
+    'verification_history': {'en': 'Verification History', 'zh': '驗證歷史'},
+    'overall_rating':      {'en': 'Overall',               'zh': '整體'},
+    'spot_cards':          {'en': 'Spot Cards',            'zh': '浪點卡片'},
 
     # ── Notification alerts ───────────────────────────────────────────────
     'notif_title':         {'en': '⚠️ Taiwan Sail & Surf Alert',
