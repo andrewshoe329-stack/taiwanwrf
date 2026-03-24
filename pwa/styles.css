@@ -518,6 +518,12 @@ body {
   padding: var(--space-md) var(--space-lg);
   border-radius: 0 var(--radius-md) var(--radius-md) 0;
 }
+.ai-content p {
+  margin: 0 0 8px;
+}
+.ai-content p:last-child {
+  margin-bottom: 0;
+}
 /* ── AI Summary Cards (structured sections) ──────────────────────────── */
 .ai-cards {
   display: grid;
@@ -558,6 +564,15 @@ body {
   font-size: 14px;
   line-height: 1.7;
   color: var(--text-secondary);
+}
+.ai-card-body p {
+  margin: 0 0 6px;
+}
+.ai-card-body p:last-child {
+  margin-bottom: 0;
+}
+.ai-card-icon {
+  font-size: 1.1em;
 }
 
 @media (min-width: 768px) {

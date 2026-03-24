@@ -503,6 +503,21 @@ def render_html(summary_text: str) -> str:
     en_sections = _parse_sections(en_raw)
     zh_sections = _parse_sections(zh_raw) if zh_raw else None
 
+    def _format_body(text: str) -> str:
+        """Escape and convert sentences to readable paragraphs.
+
+        Splits on sentence-ending punctuation followed by a space to create
+        separate <p> tags, making the text scannable instead of a wall.
+        """
+        import re
+        escaped = html_mod.escape(text)
+        # Split on sentence boundaries: period/exclamation/question + space + uppercase
+        # or Chinese sentence-ending punctuation
+        sentences = re.split(r'(?<=[.!?。！？])\s+', escaped)
+        if len(sentences) <= 1:
+            return f'<p>{escaped}</p>'
+        return '\n'.join(f'<p>{s.strip()}</p>' for s in sentences if s.strip())
+
     def _render_half(sections: list[tuple[str, str]], lang: str) -> str:
         """Render one language half as either structured cards or plain text."""
         # Check if structured (has named sections)
@@ -511,7 +526,7 @@ def render_html(summary_text: str) -> str:
         if has_structure:
             cards = ''
             for key, body in sections:
-                escaped = html_mod.escape(body)
+                formatted = _format_body(body)
                 # Find matching section config
                 icon, title_key = '', ''
                 for skey, sicon, stitle in _AI_SECTIONS:
@@ -523,18 +538,18 @@ def render_html(summary_text: str) -> str:
                     cards += (
                         f'    <div class="ai-card">\n'
                         f'      <div class="ai-card-header"><span class="ai-card-icon">{icon}</span> {title}</div>\n'
-                        f'      <div class="ai-card-body">{escaped}</div>\n'
+                        f'      <div class="ai-card-body">{formatted}</div>\n'
                         f'    </div>\n'
                     )
                 else:
-                    cards += f'    <div class="ai-card"><div class="ai-card-body">{escaped}</div></div>\n'
+                    cards += f'    <div class="ai-card"><div class="ai-card-body">{formatted}</div></div>\n'
             lang_attr = f' lang="{lang}"' if lang else ''
             return f'  <div{lang_attr} class="ai-cards">\n{cards}  </div>\n'
         else:
             # Fallback: plain text (legacy format)
-            escaped = html_mod.escape(sections[0][1])
+            formatted = _format_body(sections[0][1])
             lang_attr = f' lang="{lang}"' if lang else ''
-            return f'  <div{lang_attr} class="ai-content">\n    {escaped}\n  </div>\n'
+            return f'  <div{lang_attr} class="ai-content">\n    {formatted}\n  </div>\n'
 
     content = _render_half(en_sections, 'en')
     if zh_sections:
