@@ -5,7 +5,7 @@ accuracy_track.py — Track forecast accuracy over time.
 Compares the most recent WRF forecast against actual observations from
 Open-Meteo's historical weather API (which provides CWA/JMA station data
 for Taiwan).  Optionally compares wave forecasts against Open-Meteo marine
-observations.  Stores accuracy metrics in accuracy_log.json on Google Drive.
+observations.  Stores accuracy metrics in accuracy_log.json (Firebase Firestore).
 
 Intended to be run after each forecast cycle to build a rolling accuracy
 history.  The pipeline can then display a "model accuracy" badge on the
@@ -700,49 +700,21 @@ def main() -> None:
     out.write_text(json.dumps(log_entries, indent=2))
     log.info("Accuracy log → %s (%d entries)", out, len(log_entries))
 
-    # Optional Firebase Firestore dual-write
-    _write_to_firestore(entry)
+    # Upload full accuracy log to Firebase (replaces Drive upload)
+    _upload_accuracy_log_firebase(log_entries, entry)
 
 
-def _write_to_firestore(log_entry: dict) -> None:
-    """Write accuracy log entry to Firestore if FIREBASE_PROJECT is set.
+def _upload_accuracy_log_firebase(log_entries: list, latest_entry: dict) -> None:
+    """Upload accuracy log to Firebase Firestore if configured.
 
-    This is a migration stub — writes alongside the existing Drive upload
-    so both stores are populated. Requires firebase-admin and a service
-    account key (via GOOGLE_APPLICATION_CREDENTIALS env var).
+    Writes the full log array (for download by later pipeline steps) and
+    the latest entry individually (for queryability).
     """
-    project = os.environ.get('FIREBASE_PROJECT')
-    if not project:
-        return  # Not configured — skip silently
-
     try:
-        import firebase_admin  # type: ignore[import-untyped]
-        from firebase_admin import credentials, firestore  # type: ignore[import-untyped]
-    except ImportError:
-        log.warning("FIREBASE_PROJECT set but firebase-admin not installed — skipping Firestore write")
-        return
-
-    try:
-        # Initialize only once (idempotent)
-        if not firebase_admin._apps:
-            sa_path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
-            if sa_path:
-                cred = credentials.Certificate(sa_path)
-            else:
-                cred = credentials.ApplicationDefault()
-            firebase_admin.initialize_app(cred, {'projectId': project})
-
-        db = firestore.client()
-
-        # Document ID: init_utc + model_id (unique per forecast run)
-        init_utc = log_entry.get('init_utc', 'unknown')
-        model_id = log_entry.get('model_id', 'unknown')
-        doc_id = f"{init_utc}_{model_id}".replace(':', '-').replace('+', 'p')
-
-        db.collection('accuracy_log').document(doc_id).set(log_entry)
-        log.info("Firestore write OK → accuracy_log/%s", doc_id)
+        from firebase_storage import upload_accuracy_log
+        upload_accuracy_log(log_entries)
     except Exception as e:
-        log.warning("Firestore write failed (non-fatal): %s", e)
+        log.warning("Firebase accuracy log upload failed (non-fatal): %s", e)
 
 
 if __name__ == '__main__':

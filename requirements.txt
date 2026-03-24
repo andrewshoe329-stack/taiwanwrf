@@ -4,5 +4,4 @@ anthropic>=0.40,<1
 # Optional fallback for GRIB2 (used if eccodes Python bindings unavailable)
 # cfgrib
 # xarray
-# Optional: Firebase Firestore for accuracy log persistence
-# firebase-admin>=6.0,<7
+firebase-admin>=6.0,<7

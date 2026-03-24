@@ -20,7 +20,7 @@ GitHub Actions (cron 4x/day)
   ├─ 1. taiwan_wrf_download.py   → Download CWA WRF GRIB2, subset to 50nm around Keelung
   │     Outputs: wrf_downloads/<model>_<date>_<cycle>UTC/*.grb2, .tar.gz archive
   │
-  ├─ 2. Stale-run check          → Compare init_utc with prev keelung_summary.json on Drive
+  ├─ 2. Stale-run check          → Compare init_utc with prev keelung_summary.json from Firestore
   │     Skip all downstream if same CWA cycle
   │
   ├─ 3a. ecmwf_fetch.py          → ECMWF IFS 0.25° point forecast (Open-Meteo, free)
@@ -59,11 +59,12 @@ GitHub Actions (cron 4x/day)
   │
   ├─10. accuracy_track.py        → Compare past forecast vs Open-Meteo + CWA observations
   │     Inputs: keelung_summary_new.json + wave_keelung.json + accuracy_log.json (from step 7)
-  │     Output: accuracy_log.json (updated, uploaded to Drive)
+  │     Output: accuracy_log.json (updated, uploaded to Firestore)
   │     CWA integration: fetches real-time station + buoy obs for archival
   │     Buoy verification: compares wave forecast against live CWA buoy Hs/Tp/dir
   │
-  ├─11. rclone upload            → Archive + summary + accuracy log to Google Drive
+  ├─11. firebase_storage.py      → Upload archive to Cloud Storage, summary + accuracy log to Firestore
+  │     Retention: only latest run's archive kept; previous archives deleted
   │
   └─12. Vercel deploy            → PWA-enabled public/index.html (manifest + service worker)
 ```
@@ -71,7 +72,7 @@ GitHub Actions (cron 4x/day)
 ### Accuracy Feedback Loop
 
 ```
-accuracy_track.py → accuracy_log.json (rolling 30-day metrics on Drive)
+accuracy_track.py → accuracy_log.json (rolling 30-day metrics in Firestore)
        ↓               + buoy_verification (CWA buoy vs wave forecast)
 wrf_analyze.py    → reads log for HTML accuracy badge
        ↓
@@ -108,6 +109,7 @@ Claude uses this to hedge language — e.g. "actual temps will likely be a degre
 | `forecast_summary.py` | ~328 | Anthropic API call (3-attempt retry), prompt + accuracy context, HTML output |
 | `ensemble_fetch.py` | ~289 | Fetch GFS/ICON/JMA from Open-Meteo, compute multi-model spread stats |
 | `notify.py` | ~276 | Threshold-based alerts via LINE Notify and Telegram Bot API |
+| `firebase_storage.py` | ~230 | Firebase Firestore + Cloud Storage: read/write JSON docs, upload/cleanup GRIB2 archives |
 | `cwa_fetch.py` | ~1020 | CWA Open Data API: per-spot weather stations + wave buoys + tide obs + tide forecast + township forecasts (Keelung/New Taipei/Yilan) + weather warnings |
 | `cwa_discover.py` | ~280 | Monthly CWA station/buoy discovery: queries all stations, maps nearest to each spot, writes `cwa_stations.json` |
 | `cwa_stations.json` | ~varies | Discovered station/buoy mapping (committed by cwa-discover workflow, read by cwa_fetch.py) |
@@ -115,7 +117,7 @@ Claude uses this to hedge language — e.g. "actual temps will likely be a degre
 | `.github/workflows/cwa-discover.yml` | ~30 | Monthly workflow to discover CWA stations/buoys and commit mapping |
 | `pwa/` | 5 files | PWA manifest, service worker, icon generator, icons, styles.css |
 | `vercel.json` | ~30 | Static site config (rewrites, cache headers for PWA) |
-| `requirements.txt` | ~6 | `eccodes>=1.5,<2`, `numpy>=1.24,<3`, `anthropic>=0.40,<1` |
+| `requirements.txt` | ~7 | `eccodes>=1.5,<2`, `numpy>=1.24,<3`, `anthropic>=0.40,<1`, `firebase-admin>=6.0,<7` |
 | `tests/` | 14 files, 394 tests | Unit tests for pure functions (pytest), run in CI/CD |
 
 ---
@@ -191,7 +193,7 @@ Scoring system (0–14 max) evaluates each 6h timestep:
 - Metrics: MAE, bias, RMSE for temp, wind speed, wind direction, precipitation, pressure
 - Wave metrics: Hs MAE/bias, period MAE, direction circular MAE
 - Stratified by forecast horizon: 0-24h, 24-48h, 48-72h, 72h+
-- Rolling 30-day log stored on Google Drive as `accuracy_log.json`
+- Rolling 30-day log stored in Firebase Firestore as `pipeline_state/accuracy_log`
 - CWA snapshots (live station + buoy readings) attached to each log entry for archival
 - **Firebase dual-write** (optional): `_write_to_firestore()` writes each log entry to Firestore collection `accuracy_log` when `FIREBASE_PROJECT` env var is set. Requires `firebase-admin` package and service account key via `GOOGLE_APPLICATION_CREDENTIALS`. Graceful skip if not configured.
 
@@ -222,9 +224,8 @@ Scoring system (0–14 max) evaluates each 6h timestep:
 | Anthropic API | AI forecast summary | `ANTHROPIC_API_KEY` secret |
 | LINE Notify (`notify-api.line.me`) | Push alerts | `LINE_NOTIFY_TOKEN` secret (optional) |
 | Telegram Bot API (`api.telegram.org`) | Push alerts | `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` (optional) |
-| Google Drive (via rclone) | Archive storage + persistent summary.json + accuracy_log.json | `RCLONE_CONFIG` secret |
+| Firebase (Firestore + Cloud Storage) | Pipeline state (summary, accuracy log), GRIB2 archive hosting | `FIREBASE_PROJECT`, `FIREBASE_SA_KEY`, `FIREBASE_STORAGE_BUCKET` |
 | Vercel | Static site hosting | `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` |
-| Firebase Firestore (optional) | Accuracy log dual-write | `FIREBASE_PROJECT`, `GOOGLE_APPLICATION_CREDENTIALS` (service account JSON) |
 
 ### CWA Open Data Endpoint IDs
 

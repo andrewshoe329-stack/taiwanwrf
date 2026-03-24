@@ -39,7 +39,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y --no-install-recommends libeccodes-dev rclone
+          sudo apt-get install -y --no-install-recommends libeccodes-dev
           pip install --quiet -r requirements.txt
           pip install --quiet pytest
 
@@ -64,27 +64,32 @@ jobs:
             echo "archive_size=$(du -sh "$ARCHIVE" | cut -f1)" >> "$GITHUB_OUTPUT"
           fi
 
-      # Configure rclone from the stored secret
-      - name: Configure rclone
+      # ── Configure Firebase credentials ───────────────────────────────────────
+      - name: Configure Firebase credentials
         env:
-          RCLONE_CONFIG_CONTENT: ${{ secrets.RCLONE_CONFIG }}
+          SA_KEY: ${{ secrets.FIREBASE_SA_KEY }}
+          FIREBASE_PROJECT: ${{ secrets.FIREBASE_PROJECT }}
         run: |
-          mkdir -p ~/.config/rclone
-          printf '%s' "$RCLONE_CONFIG_CONTENT" > ~/.config/rclone/rclone.conf
-          chmod 600 ~/.config/rclone/rclone.conf
+          if [ -n "$SA_KEY" ]; then
+            echo "$SA_KEY" > /tmp/firebase-sa-key.json
+            echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/firebase-sa-key.json" >> "$GITHUB_ENV"
+            echo "FIREBASE_PROJECT=$FIREBASE_PROJECT" >> "$GITHUB_ENV"
+            echo "FIREBASE_STORAGE_BUCKET=${{ secrets.FIREBASE_STORAGE_BUCKET }}" >> "$GITHUB_ENV"
+          else
+            echo "::warning::FIREBASE_SA_KEY not set — Firebase storage disabled"
+          fi
 
-      # ── Pull previous run summary from Drive for delta comparison ─────────────
-      # keelung_summary.json is stored at gdrive:WRF_Taiwan/keelung_summary.json
+      # ── Pull previous run summary from Firestore for delta comparison ────────
       # On the very first run this step silently produces nothing.
       - name: Fetch previous run summary
         id: prev_summary
         timeout-minutes: 5
         run: |
-          rclone copy gdrive:WRF_Taiwan/keelung_summary.json . \
-            --no-traverse 2>/dev/null || true
+          python firebase_storage.py download-summary \
+            --output keelung_summary.json 2>/dev/null || true
           if [ -f keelung_summary.json ]; then
             echo "found=true" >> "$GITHUB_OUTPUT"
-            echo "  Previous summary fetched."
+            echo "  Previous summary fetched from Firestore."
           else
             echo "found=false" >> "$GITHUB_OUTPUT"
             echo "  No previous summary found (first run?)."
@@ -267,8 +272,9 @@ jobs:
           if [ -f ensemble_keelung.json ]; then
             ENSEMBLE_ARG="--ensemble-json ensemble_keelung.json"
           fi
-          # Download accuracy log from Drive (for badge display)
-          rclone copy gdrive:WRF_Taiwan/accuracy_log.json . 2>/dev/null || true
+          # Download accuracy log from Firestore (for badge display)
+          python firebase_storage.py download-accuracy-log \
+            --output accuracy_log.json 2>/dev/null || true
           ACCURACY_ARG=""
           if [ -f accuracy_log.json ]; then
             ACCURACY_ARG="--accuracy-log accuracy_log.json"
@@ -398,45 +404,35 @@ jobs:
             --output accuracy_log.json
           echo "  ✅  Accuracy tracking complete"
 
-      # ── Upload archive + new summary to Drive ─────────────────────────────────
-      - name: Upload to Google Drive
+      # ── Upload archive + summary to Firebase ──────────────────────────────────
+      - name: Upload to Firebase
         id: upload
         if: steps.stale_check.outputs.is_new == 'true'
         continue-on-error: true
-        timeout-minutes: 25
+        timeout-minutes: 10
         run: |
-          # Upload the GRIB2 archive
-          rclone copy "${{ steps.download.outputs.archive_path }}" gdrive:WRF_Taiwan/ \
-            --drive-chunk-size 128M \
-            --transfers 1 \
-            --stats 10s \
-            --stats-one-line
+          ARCHIVE_NAME="${{ steps.download.outputs.archive_name }}"
 
-          # Overwrite the persistent summary (used as prev-json next run)
-          # First remove any conflicting directory (Drive may have a folder named
-          # keelung_summary.json from a past rclone copy — copyto needs a file target)
-          rclone purge gdrive:WRF_Taiwan/keelung_summary.json 2>/dev/null || true
-          rclone copyto keelung_summary_new.json \
-            gdrive:WRF_Taiwan/keelung_summary.json \
-            --no-traverse
-
-          # Upload accuracy log (if generated)
-          if [ -f accuracy_log.json ]; then
-            rclone copyto accuracy_log.json \
-              gdrive:WRF_Taiwan/accuracy_log.json \
-              --no-traverse
-          fi
-
-          # Prune archives older than 7 days to keep Drive tidy
-          rclone delete gdrive:WRF_Taiwan/ \
-            --min-age 7d \
-            --include "*.tar.gz" \
-            --drive-use-trash=false \
-            2>/dev/null || true
-
-          # Get shareable link to the archive
-          LINK=$(rclone link "gdrive:WRF_Taiwan/${{ steps.download.outputs.archive_name }}" 2>/dev/null || echo "")
+          # Upload GRIB2 archive to Cloud Storage
+          LINK=$(python firebase_storage.py upload-archive \
+            --input "${{ steps.download.outputs.archive_path }}" 2>/dev/null || echo "")
           echo "drive_link=$LINK" >> "$GITHUB_OUTPUT"
+
+          # Remove previous archives (keep only the current run)
+          python firebase_storage.py cleanup-archives \
+            --keep "$ARCHIVE_NAME" 2>/dev/null || true
+
+          # Upload summary to Firestore (used as prev-json next run)
+          python firebase_storage.py upload-summary \
+            --input keelung_summary_new.json
+
+          # Upload accuracy log to Firestore (if generated)
+          # Note: accuracy_track.py already writes to Firestore directly,
+          # but this ensures the full log is available even if that step failed
+          if [ -f accuracy_log.json ]; then
+            python firebase_storage.py upload-accuracy-log \
+              --input accuracy_log.json
+          fi
 
       # ── Build & deploy to Vercel ──────────────────────────────────────────────
       # Wraps the generated HTML fragments in a proper HTML5 document with a
