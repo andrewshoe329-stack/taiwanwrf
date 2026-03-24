@@ -8,7 +8,7 @@ from accuracy_track import (
     _fh_bin,
     _compute_buoy_verification,
     _compute_tide_accuracy,
-    _write_to_firestore,
+    _upload_accuracy_log_firebase,
 )
 
 
@@ -309,17 +309,14 @@ class TestComputeTideAccuracy:
         assert _compute_tide_accuracy(obs, None) is None
 
 
-# ── Firestore stub ────────────────────────────────────────────────────────────
+# ── Firebase upload ───────────────────────────────────────────────────────────
 
-class TestWriteToFirestore:
-    def test_skips_silently_without_env_var(self, monkeypatch):
-        """Should do nothing when FIREBASE_PROJECT is not set."""
+class TestUploadAccuracyLogFirebase:
+    def test_non_fatal_on_error(self, monkeypatch):
+        """Should not raise even if firebase_storage import fails."""
         monkeypatch.delenv('FIREBASE_PROJECT', raising=False)
-        # Should not raise
-        _write_to_firestore({'init_utc': '2026-01-01T00:00:00+00:00', 'model_id': 'WRF'})
-
-    def test_warns_without_firebase_admin(self, monkeypatch):
-        """Should log warning when firebase-admin not installed."""
-        monkeypatch.setenv('FIREBASE_PROJECT', 'test-project')
-        # firebase_admin may or may not be installed; function should not crash
-        _write_to_firestore({'init_utc': '2026-01-01T00:00:00+00:00', 'model_id': 'WRF'})
+        # Should not raise — errors are caught and logged
+        _upload_accuracy_log_firebase(
+            [{'init_utc': '2026-01-01T00:00:00+00:00', 'model_id': 'WRF'}],
+            {'init_utc': '2026-01-01T00:00:00+00:00', 'model_id': 'WRF'},
+        )
