@@ -518,6 +518,12 @@ body {
   padding: var(--space-md) var(--space-lg);
   border-radius: 0 var(--radius-md) var(--radius-md) 0;
 }
+.ai-content p {
+  margin: 0 0 8px;
+}
+.ai-content p:last-child {
+  margin-bottom: 0;
+}
 /* ── AI Summary Cards (structured sections) ──────────────────────────── */
 .ai-cards {
   display: grid;
@@ -558,6 +564,15 @@ body {
   font-size: 14px;
   line-height: 1.7;
   color: var(--text-secondary);
+}
+.ai-card-body p {
+  margin: 0 0 6px;
+}
+.ai-card-body p:last-child {
+  margin-bottom: 0;
+}
+.ai-card-icon {
+  font-size: 1.1em;
 }
 
 @media (min-width: 768px) {
@@ -790,6 +805,120 @@ body {
   font-size: 14px;
   color: var(--text);
   padding: var(--space-md) 0;
+}
+
+/* ── Best Times — Day Headers ─────────────────────────────────────────── */
+.bt-day {
+  margin-bottom: var(--space-lg);
+  padding-bottom: var(--space-md);
+  border-bottom: 1px solid var(--border);
+}
+.bt-day:last-child { border-bottom: none; }
+.bt-day-header {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+  margin: 0 0 var(--space-sm);
+  letter-spacing: -0.01em;
+}
+.bt-daylight {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-dim);
+  margin-left: var(--space-sm);
+}
+
+/* ── Best Times — Tide Pills ─────────────────────────────────────────── */
+.bt-tides {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: var(--space-sm);
+}
+.bt-tide-pill {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+}
+.bt-tide-high { color: var(--accent); }
+.bt-tide-low  { color: var(--text-dim); }
+
+/* ── Best Times — Spot Card Grid ─────────────────────────────────────── */
+.bt-spot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+.bt-spot-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  display: block;
+}
+.bt-spot-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(14, 165, 233, 0.25);
+  box-shadow: var(--shadow-sm);
+}
+.bt-spot-flat {
+  opacity: 0.6;
+}
+.bt-spot-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.bt-spot-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+.bt-spot-rating {
+  font-size: 12px;
+  font-weight: 700;
+}
+.bt-spot-window {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 4px;
+  letter-spacing: -0.01em;
+}
+.bt-spot-status {
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+.bt-spot-metrics {
+  display: flex;
+  gap: var(--space-sm);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* Card accent borders by rating */
+.bt-rating-firing { border-left: 3px solid #34d399; }
+.bt-rating-good   { border-left: 3px solid var(--good-text); }
+.bt-rating-marginal { border-left: 3px solid var(--warn-text); }
+.bt-rating-poor   { border-left: 3px solid var(--danger-text); }
+
+@media (max-width: 767px) {
+  .bt-spot-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 400px) {
+  .bt-spot-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ── Surf Matrix Table ─────────────────────────────────────────────────── */
