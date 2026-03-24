@@ -103,8 +103,8 @@ Claude uses this to hedge language — e.g. "actual temps will likely be a degre
 | `ecmwf_fetch.py` | ~274 | Fetch ECMWF IFS from Open-Meteo, 6-hourly conversion, GFS gust/vis backfill |
 | `wave_fetch.py` | ~453 | Fetch ECMWF WAM from Open-Meteo marine API, optional CWA wave GRIB2 probe |
 | `surf_forecast.py` | ~1239 | 7 surf spots scoring, daily activity planner, matrix + detail HTML |
-| `tide_predict.py` | ~215 | Harmonic tide prediction for Keelung (no API key needed) |
-| `accuracy_track.py` | ~533 | Forecast accuracy tracking vs Open-Meteo + CWA observations |
+| `tide_predict.py` | ~280 | Tide prediction: harmonic analysis + CWA-anchored cosine interpolation |
+| `accuracy_track.py` | ~600 | Forecast accuracy tracking vs Open-Meteo + CWA observations + tide accuracy |
 | `forecast_summary.py` | ~328 | Anthropic API call (3-attempt retry), prompt + accuracy context, HTML output |
 | `ensemble_fetch.py` | ~289 | Fetch GFS/ICON/JMA from Open-Meteo, compute multi-model spread stats |
 | `notify.py` | ~276 | Threshold-based alerts via LINE Notify and Telegram Bot API |
@@ -116,7 +116,7 @@ Claude uses this to hedge language — e.g. "actual temps will likely be a degre
 | `pwa/` | 5 files | PWA manifest, service worker, icon generator, icons, styles.css |
 | `vercel.json` | ~30 | Static site config (rewrites, cache headers for PWA) |
 | `requirements.txt` | ~6 | `eccodes>=1.5,<2`, `numpy>=1.24,<3`, `anthropic>=0.40,<1` |
-| `tests/` | 14 files, 378 tests | Unit tests for pure functions (pytest), run in CI/CD |
+| `tests/` | 14 files, 394 tests | Unit tests for pure functions (pytest), run in CI/CD |
 
 ---
 
@@ -351,6 +351,8 @@ These are the intermediate JSON files passed between pipeline steps:
    "wave": { "hs_mae_m", "hs_bias_m", "tp_mae_s", ... },
    "buoy_verification": { "buoy_id", "hs_obs_m", "hs_fc_m", "hs_error_m",
                            "tp_obs_s", "tp_fc_s", "tp_error_s", ... },
+   "tide_accuracy": { "obs_time", "obs_height_m", "harmonic_height_m",
+                       "harmonic_error_m", "anchored_height_m", "anchored_error_m" },
    "cwa_snapshot": { "station": {...}, "buoy": {...} } }]
 ```
 
@@ -364,7 +366,7 @@ pip install pytest
 python -m pytest tests/ -v
 ```
 
-378 tests should pass. Tests cover: compass conversion, Beaufort scale, color functions, direction quality scoring, day ratings, sail ratings, time normalization, bbox geometry, GRIB2 constant validation, tide prediction (semidiurnal pattern, extrema detection), accuracy tracking (error metrics, buoy verification), CWA API parsing (station, buoy, tide, tide forecast, township forecast, warnings), AI summary prompt construction (with CWA obs and ensemble spread), and shared HTTP fetch/JSON loading utilities.
+394 tests should pass. Tests cover: compass conversion, Beaufort scale, color functions, direction quality scoring, day ratings, sail ratings, time normalization, bbox geometry, GRIB2 constant validation, tide prediction (semidiurnal pattern, extrema detection, CWA-anchored interpolation), accuracy tracking (error metrics, buoy verification, tide accuracy), CWA API parsing (station, buoy, tide, tide forecast, township forecast, warnings), AI summary prompt construction (with CWA obs and ensemble spread), and shared HTTP fetch/JSON loading utilities.
 
 **Tests run in CI/CD** — the GitHub Actions workflow runs `python -m pytest tests/ -v` before deployment.
 

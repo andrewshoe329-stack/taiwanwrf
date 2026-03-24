@@ -9,7 +9,7 @@ Usage:
     python3 surf_forecast.py [--output surf_forecast.html]
 """
 
-import argparse, json, logging, time, urllib.request, urllib.parse
+import argparse, json, logging, os, sys, time, urllib.request, urllib.parse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone, timedelta
 
@@ -21,7 +21,19 @@ from config import fetch_json as _config_fetch_json
 # Build coordinate lookup from shared SPOT_COORDS (single source of truth)
 _COORD_LOOKUP = {s["id"]: (s["lat"], s["lon"]) for s in SPOT_COORDS}
 from i18n import T, T_str, bilingual, SPOT_DESC_KEYS
-from tide_predict import predict_height, find_extrema, tide_state
+from tide_predict import (predict_height, predict_height_anchored,
+                          find_extrema, tide_state)
+
+# CWA official tide forecast extrema — loaded at startup from cwa_obs.json
+# when available.  Used by _tide_height() for anchored interpolation.
+_CWA_TIDE_EXTREMA: list[dict] | None = None
+
+
+def _tide_height(dt_utc) -> float | None:
+    """Predict tide height using CWA-anchored interpolation when available."""
+    if dt_utc is None:
+        return None
+    return predict_height_anchored(dt_utc, _CWA_TIDE_EXTREMA)
 
 log = logging.getLogger(__name__)
 
@@ -387,7 +399,7 @@ def day_rating(day_recs: list[dict], spot: dict,
         # Compute tide at this timestep if possible
         dt_utc = r.get('dt_utc')
         if dt_utc is not None:
-            th = predict_height(dt_utc)
+            th = _tide_height(dt_utc)
         else:
             th = tide_height_m
 
@@ -453,7 +465,7 @@ def best_time_for_day(day_recs: list[dict], spot: dict) -> dict[str, object] | N
     scored = []
     for r in recs_to_score:
         dt_utc = r.get('dt_utc')
-        th = predict_height(dt_utc) if dt_utc is not None else None
+        th = _tide_height(dt_utc) if dt_utc is not None else None
         score = _score_timestep(r, spot, tide_height_m=th)
         scored.append((score, r, th))
 
@@ -1174,7 +1186,7 @@ def _render_spot_detail(sd: dict) -> str:
 
         # Tide at this timestep
         dt_utc = r.get('dt_utc')
-        tide_h = predict_height(dt_utc) if dt_utc is not None else None
+        tide_h = _tide_height(dt_utc) if dt_utc is not None else None
         tide_cls_str = classify_tide(tide_h)
         opt_tide = spot.get('opt_tide', 'any')
         ts_val = tide_score(tide_cls_str, opt_tide)
@@ -1253,12 +1265,32 @@ def generate_full_html(all_spot_data: list[dict], keelung_records: list = None) 
 
 # ── Main ───────────────────────────────────────────────────────────────────
 def main() -> None:
+    global _CWA_TIDE_EXTREMA
+
     ap = argparse.ArgumentParser(description='Taiwan surf forecast')
     ap.add_argument('--output', default='surf_forecast.html',
                     help='Output HTML path (default: surf_forecast.html)')
     ap.add_argument('--output-json', default=None,
                     help='Output planner JSON path (optional, for unified day cards)')
+    ap.add_argument('--cwa-obs', default=None,
+                    help='CWA obs JSON (for tide forecast anchoring)')
     args = ap.parse_args()
+
+    # Load CWA tide forecast for anchored tide predictions
+    if args.cwa_obs:
+        from config import load_json_file
+        cwa = load_json_file(args.cwa_obs, "CWA obs")
+        if cwa and cwa.get("tide_forecast"):
+            _CWA_TIDE_EXTREMA = cwa["tide_forecast"]
+            log.info("Loaded %d CWA tide extrema for anchored predictions",
+                     len(_CWA_TIDE_EXTREMA))
+    elif os.path.exists("cwa_obs.json"):
+        from config import load_json_file
+        cwa = load_json_file("cwa_obs.json", "CWA obs")
+        if cwa and cwa.get("tide_forecast"):
+            _CWA_TIDE_EXTREMA = cwa["tide_forecast"]
+            log.info("Auto-loaded %d CWA tide extrema from cwa_obs.json",
+                     len(_CWA_TIDE_EXTREMA))
 
     # ── Fetch all spots in parallel (Keelung sailing + 7 surf spots) ─────
     def _fetch_and_process(spot_entry):

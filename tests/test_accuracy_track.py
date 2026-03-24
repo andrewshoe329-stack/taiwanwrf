@@ -7,6 +7,7 @@ from accuracy_track import (
     _circular_mae,
     _fh_bin,
     _compute_buoy_verification,
+    _compute_tide_accuracy,
 )
 
 
@@ -266,3 +267,42 @@ class TestBuoyVerification:
         result = _compute_buoy_verification(wave_fc, buoy)
         assert result is not None
         assert result['hs_fc_m'] == 1.5  # should match the 06:00 timestep
+
+
+class TestComputeTideAccuracy:
+    def test_basic_comparison(self):
+        obs = {
+            'station_id': 'C4B01',
+            'obs_time': '2026-03-22T06:00:00+00:00',
+            'tide_height_m': 0.55,
+        }
+        result = _compute_tide_accuracy(obs, None)
+        assert result is not None
+        assert result['obs_height_m'] == 0.55
+        assert 'harmonic_height_m' in result
+        assert 'harmonic_error_m' in result
+        assert result['station_id'] == 'C4B01'
+
+    def test_with_cwa_forecast(self):
+        obs = {
+            'station_id': 'C4B01',
+            'obs_time': '2026-03-22T09:00:00+00:00',
+            'tide_height_m': 0.45,
+        }
+        cwa_fc = [
+            {"time_utc": "2026-03-22T06:00:00+00:00", "height_m": 0.85, "type": "high"},
+            {"time_utc": "2026-03-22T12:15:00+00:00", "height_m": 0.10, "type": "low"},
+        ]
+        result = _compute_tide_accuracy(obs, cwa_fc)
+        assert result is not None
+        assert 'anchored_height_m' in result
+        assert 'anchored_error_m' in result
+
+    def test_returns_none_without_obs(self):
+        assert _compute_tide_accuracy(None, None) is None
+        assert _compute_tide_accuracy({}, None) is None
+        assert _compute_tide_accuracy({'tide_height_m': None}, None) is None
+
+    def test_returns_none_without_obs_time(self):
+        obs = {'tide_height_m': 0.5}
+        assert _compute_tide_accuracy(obs, None) is None
