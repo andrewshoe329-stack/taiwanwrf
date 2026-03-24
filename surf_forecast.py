@@ -1013,7 +1013,11 @@ def _render_best_times(all_spot_data: list[dict], all_dks: list[str],
 
         # ── Timeline visualization (compact) ────────────────────────
         html += '<div class="timeline-section">\n'
-        html += '<div class="timeline-ticks"><span>06</span><span>12</span><span>18</span></div>\n'
+        # Time axis ticks — aligned to the bar area (offset by label width)
+        html += '<div class="timeline-ticks">'
+        for h in ['00', '06', '12', '18', '24']:
+            html += f'<span class="timeline-tick">{h}</span>'
+        html += '</div>\n'
         for sd in all_spot_data:
             spot = sd['spot']
             day_recs_tl = [r for r in sd['records'] if r['dk'] == dk]
@@ -1031,16 +1035,29 @@ def _render_best_times(all_spot_data: list[dict], all_dks: list[str],
                 sc = _score_timestep(r, spot, tide_height_m=th)
                 if sc >= 9:
                     css_cls = 'tl-firing'
+                    label = '\U0001f525'
                 elif sc >= 7:
                     css_cls = 'tl-good'
+                    label = '\u2713'
                 elif sc >= 4:
                     css_cls = 'tl-marginal'
+                    label = '\u223c'
                 else:
                     css_cls = 'tl-poor'
+                    label = ''
                 cst_h = r['dt_cst'].strftime('%H:%M') if r.get('dt_cst') else '?'
-                html += f'    <div class="timeline-segment {css_cls}" style="flex:1" title="{cst_h} — score {sc}"></div>\n'
+                html += (f'    <div class="timeline-segment {css_cls}" style="flex:1" '
+                         f'title="{cst_h} — score {sc}">'
+                         f'<span class="tl-label">{label}</span></div>\n')
             html += f'  </div>\n'
             html += f'</div>\n'
+        # Inline legend
+        html += '<div class="timeline-legend">'
+        html += f'<span class="tl-leg tl-firing">\U0001f525 {T_str("firing","en")}</span>'
+        html += f'<span class="tl-leg tl-good">\u2713 {T_str("good","en")}</span>'
+        html += f'<span class="tl-leg tl-marginal">\u223c {T_str("marginal","en")}</span>'
+        html += f'<span class="tl-leg tl-poor">{T_str("poor","en")}</span>'
+        html += '</div>\n'
         html += '</div>\n'
 
         # ── Spot cards (replacing dense table) ─────────────────────
