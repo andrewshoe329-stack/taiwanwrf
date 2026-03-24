@@ -449,6 +449,69 @@ def _compute_buoy_verification(wave_forecast: list,
     return result
 
 
+def _compute_tide_accuracy(cwa_tide_obs: dict | None,
+                           cwa_tide_forecast: list | None) -> dict | None:
+    """Compare tide predictions against CWA observations.
+
+    Compares both our harmonic prediction and the CWA-anchored prediction
+    (if CWA forecast extrema are available) against the actual observed
+    tide height from CWA tide station.
+
+    Parameters
+    ----------
+    cwa_tide_obs : dict from cwa_obs.json 'tide' key
+        Has: station_id, obs_time, tide_height_m
+    cwa_tide_forecast : list from cwa_obs.json 'tide_forecast' key
+        List of extrema dicts: time_utc, height_m, type
+
+    Returns dict with accuracy metrics, or None if insufficient data.
+    """
+    from tide_predict import predict_height, predict_height_anchored
+
+    if not cwa_tide_obs or cwa_tide_obs.get('tide_height_m') is None:
+        return None
+
+    obs_height = cwa_tide_obs['tide_height_m']
+    obs_time_str = cwa_tide_obs.get('obs_time', '')
+    if not obs_time_str:
+        return None
+
+    try:
+        if isinstance(obs_height, str):
+            obs_height = float(obs_height)
+        obs_dt = datetime.fromisoformat(obs_time_str.replace('Z', '+00:00'))
+        if obs_dt.tzinfo is None:
+            obs_dt = obs_dt.replace(tzinfo=timezone.utc)
+    except (ValueError, TypeError):
+        return None
+
+    # Harmonic prediction at observation time
+    harmonic_h = predict_height(obs_dt)
+    harmonic_error = round(harmonic_h - obs_height, 3)
+
+    result = {
+        'obs_time': obs_time_str,
+        'obs_height_m': obs_height,
+        'harmonic_height_m': harmonic_h,
+        'harmonic_error_m': harmonic_error,
+        'station_id': cwa_tide_obs.get('station_id', ''),
+    }
+
+    # CWA-anchored prediction at observation time
+    if cwa_tide_forecast:
+        anchored_h = predict_height_anchored(obs_dt, cwa_tide_forecast)
+        anchored_error = round(anchored_h - obs_height, 3)
+        result['anchored_height_m'] = anchored_h
+        result['anchored_error_m'] = anchored_error
+
+    log.info("Tide accuracy: obs=%.2fm, harmonic=%.2fm (err=%+.3fm)%s",
+             obs_height, harmonic_h, harmonic_error,
+             f", anchored=%.2fm (err=%+.3fm)" % (
+                 result['anchored_height_m'], result['anchored_error_m'])
+             if 'anchored_height_m' in result else "")
+    return result
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description='Track forecast accuracy')
     ap.add_argument('--forecast-json', required=True,
@@ -461,6 +524,8 @@ def main() -> None:
                     help='Existing accuracy log to append to')
     ap.add_argument('--cwa-key', default=os.environ.get('CWA_OPENDATA_KEY'),
                     help='CWA Open Data API key (or set CWA_OPENDATA_KEY env)')
+    ap.add_argument('--cwa-obs-json', default=None,
+                    help='CWA observations JSON (for tide accuracy tracking)')
     args = ap.parse_args()
 
     # Load forecast
@@ -553,6 +618,21 @@ def main() -> None:
         entry['wave'] = metrics['wave']
     if 'buoy_verification' in metrics:
         entry['buoy_verification'] = metrics['buoy_verification']
+
+    # Tide accuracy — compare harmonic + anchored predictions vs CWA obs
+    cwa_obs_data = None
+    if args.cwa_obs_json:
+        try:
+            with open(args.cwa_obs_json) as f:
+                cwa_obs_data = json.load(f)
+        except Exception as e:
+            log.warning("Could not load CWA obs JSON for tide: %s", e)
+    if cwa_obs_data:
+        tide_acc = _compute_tide_accuracy(
+            cwa_obs_data.get('tide'),
+            cwa_obs_data.get('tide_forecast'))
+        if tide_acc:
+            entry['tide_accuracy'] = tide_acc
 
     # Attach CWA real-time snapshot for archiving
     if cwa_obs:

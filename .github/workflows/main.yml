@@ -124,7 +124,8 @@ jobs:
       - name: Fetch ECMWF forecast
         id: ecmwf
         if: steps.stale_check.outputs.is_new == 'true'
-        timeout-minutes: 5
+        continue-on-error: true
+        timeout-minutes: 7
         run: |
           python ecmwf_fetch.py --output ecmwf_keelung.json
           echo "ecmwf_json=ecmwf_keelung.json" >> "$GITHUB_OUTPUT"
@@ -138,7 +139,8 @@ jobs:
       - name: Fetch wave forecast
         id: wave
         if: steps.stale_check.outputs.is_new == 'true'
-        timeout-minutes: 5
+        continue-on-error: true
+        timeout-minutes: 7
         run: |
           python wave_fetch.py --output wave_keelung.json
           echo "wave_json=wave_keelung.json" >> "$GITHUB_OUTPUT"
@@ -225,7 +227,11 @@ jobs:
         if: steps.stale_check.outputs.is_new == 'true'
         timeout-minutes: 10
         run: |
-          python surf_forecast.py --output surf_forecast.html --output-json surf_planner.json
+          CWA_TIDE_ARG=""
+          if [ -f cwa_obs.json ]; then
+            CWA_TIDE_ARG="--cwa-obs cwa_obs.json"
+          fi
+          python surf_forecast.py --output surf_forecast.html --output-json surf_planner.json $CWA_TIDE_ARG
 
       # ── Run GRIB2 point-forecast analysis ────────────────────────────────────
       # Reads the Keelung subset .grb2 files, extracts the point forecast,
@@ -267,6 +273,10 @@ jobs:
           if [ -f accuracy_log.json ]; then
             ACCURACY_ARG="--accuracy-log accuracy_log.json"
           fi
+          CWA_OBS_ARG=""
+          if [ -f cwa_obs.json ]; then
+            CWA_OBS_ARG="--cwa-obs cwa_obs.json"
+          fi
           python wrf_analyze.py \
             --rundir "$RUNDIR" \
             $PREV_ARG \
@@ -276,6 +286,7 @@ jobs:
             $SURF_ARG \
             $ENSEMBLE_ARG \
             $ACCURACY_ARG \
+            $CWA_OBS_ARG \
             --output-json keelung_summary_new.json \
             --output-html forecast.html
           # Append surf spots HTML to forecast
@@ -289,7 +300,8 @@ jobs:
       - name: Generate AI forecast summary
         id: ai_summary
         if: steps.stale_check.outputs.is_new == 'true'
-        timeout-minutes: 5
+        continue-on-error: true
+        timeout-minutes: 15
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
@@ -374,10 +386,15 @@ jobs:
           fi
           # If CWA obs were already fetched earlier, pass the key so
           # accuracy_track can use live buoy data for wave verification
+          CWA_OBS_ARG=""
+          if [ -f cwa_obs.json ]; then
+            CWA_OBS_ARG="--cwa-obs-json cwa_obs.json"
+          fi
           python accuracy_track.py \
             --forecast-json keelung_summary_new.json \
             $EXISTING \
             $WAVE_ARG \
+            $CWA_OBS_ARG \
             --output accuracy_log.json
           echo "  ✅  Accuracy tracking complete"
 
@@ -386,7 +403,7 @@ jobs:
         id: upload
         if: steps.stale_check.outputs.is_new == 'true'
         continue-on-error: true
-        timeout-minutes: 15
+        timeout-minutes: 25
         run: |
           # Upload the GRIB2 archive
           rclone copy "${{ steps.download.outputs.archive_path }}" gdrive:WRF_Taiwan/ \
@@ -507,8 +524,8 @@ jobs:
               if (m < 60) el.textContent = m + "m ago";
               else el.textContent = h + "h ago";
               el.className = "age " + (h < 8 ? "age-fresh" : h < 24 ? "age-stale" : "age-old");
-              // Show prominent stale banner if data is very old (>12h)
-              if (h >= 12) {
+              // Show prominent stale banner if data is old (>6h)
+              if (h >= 6) {
                 var sw = document.getElementById("stale-warning");
                 if (sw && !sw.classList.contains("visible")) {
                   var lang = document.documentElement.getAttribute('lang') || 'en';

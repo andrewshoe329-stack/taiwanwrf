@@ -62,6 +62,21 @@ ground truth to validate or contrast the model forecast. If the station reads \
 High wind spread (>5kt) means models disagree — hedge your language. \
 Low spread (<2kt) means high confidence. Same for temperature and waves.
 - If active CWA weather warnings exist, mention them prominently.
+
+Taiwan seasonal weather context:
+- Typhoon season: June–November. Tropical cyclone swells can arrive days before \
+a storm makes landfall, creating dangerous surf and harbour conditions. Watch for \
+rapid pressure drops and backing winds.
+- NE monsoon: October–March. Persistent 10–20kt NE winds dominate, with cold \
+surges bringing stronger gusts. NE-facing spots (Fulong, Green Bay, Jinshan) get \
+consistent swell but often onshore wind. Yilan coast (Daxi, Wushih) can be \
+sheltered.
+- Spring transition: March–May. Winds become variable as the monsoon weakens. \
+Thermal convection builds afternoon thunderstorms, especially over mountains. \
+Morning windows are often best.
+- Mei-yu (plum rain): May–June. Quasi-stationary frontal rain bands bring \
+extended periods of rain, reduced visibility, and gusty SW flow. Sailing \
+conditions deteriorate; surf can be messy but occasionally fun with SW swell.
 """
 
 
@@ -274,6 +289,25 @@ def build_user_prompt(wrf: dict, ecmwf: dict | None, wave: dict | None,
             })
         parts.append(f"WRF Keelung forecast (6-hourly):\n{json.dumps(slim, indent=None)}")
 
+    # Pressure trends from WRF records
+    if wrf_recs:
+        trend_lines = []
+        rapid_fall = False
+        for i in range(1, len(wrf_recs)):
+            prev_p = wrf_recs[i - 1].get('mslp_hpa')
+            curr_p = wrf_recs[i].get('mslp_hpa')
+            if prev_p is not None and curr_p is not None:
+                delta = round(curr_p - prev_p, 1)
+                vt = wrf_recs[i].get('valid_utc', '?')
+                trend_lines.append(f"  {vt}: {delta:+.1f} hPa/6h")
+                if delta < -2:
+                    rapid_fall = True
+        if trend_lines:
+            header = "Pressure trends (hPa/6h):"
+            if rapid_fall:
+                header = "PRESSURE FALLING RAPIDLY — " + header
+            parts.append(header + "\n" + "\n".join(trend_lines))
+
     # ECMWF records
     if ecmwf:
         ec_recs = _trim_records(ecmwf.get('records', []))
@@ -305,22 +339,57 @@ def build_user_prompt(wrf: dict, ecmwf: dict | None, wave: dict | None,
                 })
             parts.append(f"ECMWF WAM waves at Keelung (6-hourly):\n{json.dumps(slim, indent=None)}")
 
-    # Ensemble spread — model agreement indicators
+    # Ensemble spread — model agreement indicators with per-model values
     if ensemble:
         spread = ensemble.get('spread', {})
-        if spread:
+        models = ensemble.get('models', {})
+
+        # Extract per-model average values for the first 24h (up to 4 records)
+        model_avgs: dict[str, dict[str, float]] = {}
+        MODEL_LABELS = {
+            'gfs_global': 'GFS', 'icon_global': 'ICON',
+            'jma_gsm': 'JMA', 'ecmwf_ifs': 'ECMWF',
+        }
+        for model_key, label in MODEL_LABELS.items():
+            recs = []
+            if model_key in models:
+                recs = models[model_key].get('records', [])[:4]
+            if not recs:
+                continue
+            avgs: dict[str, float] = {}
+            for var in ('wind_kt', 'temp_c', 'gust_kt'):
+                vals = [r.get(var) for r in recs if r.get(var) is not None]
+                if vals:
+                    avgs[var] = round(sum(vals) / len(vals), 1)
+            if avgs:
+                model_avgs[label] = avgs
+
+        if spread or model_avgs:
             spread_lines = ["Multi-model ensemble spread (GFS/ICON/JMA/ECMWF):"]
             wind_spread = spread.get('wind_spread_kt')
             temp_spread = spread.get('temp_spread_c')
             rain_spread = spread.get('precip_spread_mm')
             if wind_spread is not None:
                 confidence = "high" if wind_spread < 3 else "moderate" if wind_spread < 6 else "low"
-                spread_lines.append(f"- Wind: ±{wind_spread}kt spread ({confidence} confidence)")
+                line = f"- Wind: ±{wind_spread}kt spread ({confidence} confidence)"
+                wind_vals = {m: a['wind_kt'] for m, a in model_avgs.items() if 'wind_kt' in a}
+                if wind_vals:
+                    line += " — 24h avg: " + ", ".join(f"{m}: {v}kt" for m, v in wind_vals.items())
+                spread_lines.append(line)
             if temp_spread is not None:
                 confidence = "high" if temp_spread < 1.5 else "moderate" if temp_spread < 3 else "low"
-                spread_lines.append(f"- Temp: ±{temp_spread}°C spread ({confidence} confidence)")
+                line = f"- Temp: ±{temp_spread}°C spread ({confidence} confidence)"
+                temp_vals = {m: a['temp_c'] for m, a in model_avgs.items() if 'temp_c' in a}
+                if temp_vals:
+                    line += " — 24h avg: " + ", ".join(f"{m}: {v}°C" for m, v in temp_vals.items())
+                spread_lines.append(line)
             if rain_spread is not None:
                 spread_lines.append(f"- Precip: ±{rain_spread}mm spread")
+            # Add gust comparison if available
+            gust_vals = {m: a['gust_kt'] for m, a in model_avgs.items() if 'gust_kt' in a}
+            if gust_vals:
+                spread_lines.append(
+                    "- Gust 24h avg: " + ", ".join(f"{m}: {v}kt" for m, v in gust_vals.items()))
             if len(spread_lines) > 1:
                 parts.append("\n".join(spread_lines))
 

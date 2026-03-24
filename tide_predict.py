@@ -52,7 +52,11 @@ MSL_OFFSET = 0.45
 
 
 def predict_height(dt: datetime) -> float:
-    """Predict tide height (metres above chart datum) at a given UTC datetime."""
+    """Predict tide height (metres above chart datum) at a given UTC datetime.
+
+    Uses pure harmonic analysis. For better accuracy, use
+    predict_height_anchored() with CWA official extrema.
+    """
     # Hours since epoch (J2000.0 = 2000-01-01T12:00:00 UTC)
     epoch = datetime(2000, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
     hours = (dt - epoch).total_seconds() / 3600.0
@@ -64,6 +68,85 @@ def predict_height(dt: datetime) -> float:
         height += amplitude * math.cos(omega * hours - phase_rad)
 
     return round(height, 3)
+
+
+def predict_height_anchored(dt: datetime,
+                            cwa_extrema: list[dict] | None = None) -> float:
+    """Predict tide height using CWA official extrema as anchor points.
+
+    Between two CWA high/low points, interpolates with a cosine curve
+    (the natural tidal shape).  Falls back to pure harmonic prediction
+    when CWA data is unavailable or doesn't bracket the requested time.
+
+    Parameters
+    ----------
+    dt : datetime (UTC)
+        Time to predict height for.
+    cwa_extrema : list of dicts from fetch_tide_forecast()
+        Each dict has: time_utc (ISO str), height_m (float), type ('high'|'low')
+
+    Returns
+    -------
+    float : height in metres above chart datum
+    """
+    if not cwa_extrema:
+        return predict_height(dt)
+
+    # Parse extrema into (datetime, height, type) tuples, sorted by time
+    parsed = _parse_extrema(cwa_extrema)
+    if len(parsed) < 2:
+        return predict_height(dt)
+
+    # Find the two extrema bracketing dt
+    prev_ex = None
+    next_ex = None
+    for ex_dt, ex_h, ex_type in parsed:
+        if ex_dt <= dt:
+            prev_ex = (ex_dt, ex_h, ex_type)
+        elif next_ex is None:
+            next_ex = (ex_dt, ex_h, ex_type)
+            break
+
+    if prev_ex is None or next_ex is None:
+        return predict_height(dt)
+
+    # Cosine interpolation between prev and next extrema
+    prev_dt, prev_h, prev_type = prev_ex
+    next_dt, next_h, next_type = next_ex
+
+    total_seconds = (next_dt - prev_dt).total_seconds()
+    if total_seconds <= 0:
+        return predict_height(dt)
+
+    elapsed = (dt - prev_dt).total_seconds()
+    fraction = elapsed / total_seconds
+
+    # Cosine interpolation: 0 at prev extremum, 1 at next
+    # cos(0) = 1 (prev value), cos(π) = -1 (next value)
+    cos_frac = (1 - math.cos(math.pi * fraction)) / 2
+    height = prev_h + (next_h - prev_h) * cos_frac
+
+    return round(height, 3)
+
+
+def _parse_extrema(cwa_extrema: list[dict]) -> list[tuple]:
+    """Parse CWA extrema list into sorted (datetime, height_m, type) tuples."""
+    result = []
+    for ex in cwa_extrema:
+        time_str = ex.get("time_utc", "")
+        height = ex.get("height_m")
+        etype = ex.get("type", "")
+        if not time_str or height is None or etype not in ("high", "low"):
+            continue
+        try:
+            dt = datetime.fromisoformat(time_str.replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            result.append((dt, float(height), etype))
+        except (ValueError, TypeError):
+            continue
+    result.sort(key=lambda x: x[0])
+    return result
 
 
 def find_extrema(start: datetime, end: datetime,

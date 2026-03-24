@@ -809,6 +809,7 @@ def _render_summary_html(
     wave_data: dict | None,
     tide_data: dict | None = None,
     surf_planner: dict | None = None,
+    cwa_obs: dict | None = None,
 ) -> str:
     """
     Compact summary section: daily cards, alerts, model shift note.
@@ -865,6 +866,105 @@ def _render_summary_html(
         f'{"&nbsp;·&nbsp; <i>" + T("delta_note") + "</i>" if has_prev else ""}'
         '</p>\n\n'
     )
+
+    # ── CWA warning banner (shown only when active warnings exist) ────────────
+    if cwa_obs and cwa_obs.get('warnings'):
+        warnings_list = cwa_obs['warnings']
+        html += (
+            '<div class="warning-banner" style="background:#7f1d1d;border:2px solid #ef4444;'
+            'border-radius:8px;padding:12px 16px;margin-bottom:16px">\n'
+            f'  <h3 style="color:#fca5a5;margin:0 0 6px;font-size:14px">'
+            f'{bilingual("Active Weather Warnings", "氣象警特報")}</h3>\n'
+        )
+        for w in warnings_list:
+            w_type = html_mod.escape(str(w.get('type', '')))
+            w_desc = html_mod.escape(str(w.get('description', '')))
+            if len(w_desc) > 200:
+                w_desc = w_desc[:200] + '…'
+            w_severity = html_mod.escape(str(w.get('severity', '')))
+            sev_color = '#fca5a5' if w_severity.lower() in ('warning', 'severe') else '#fde68a'
+            html += (
+                f'  <p style="margin:4px 0;font-size:13px;color:{sev_color}">'
+                f'<b>{w_type}</b>'
+                f'{" — " + w_desc if w_desc else ""}'
+                f'</p>\n'
+            )
+        html += '</div>\n\n'
+
+    # ── Current conditions card (CWA live obs) ────────────────────────────────
+    if cwa_obs and (cwa_obs.get('station') or cwa_obs.get('buoy')):
+        station = cwa_obs.get('station') or {}
+        buoy = cwa_obs.get('buoy') or {}
+        html += (
+            '<div class="current-conditions" style="background:#1e293b;border-radius:8px;'
+            'padding:12px 16px;margin-bottom:16px">\n'
+            f'  <h3 style="color:#93c5fd;margin:0 0 8px;font-size:14px">'
+            f'{bilingual("Current Conditions (CWA Live)", "即時觀測（中央氣象署）")}</h3>\n'
+            '  <div style="display:flex;flex-wrap:wrap;gap:16px;font-size:13px;color:#cbd5e1">\n'
+        )
+        # Station observations
+        if station:
+            obs_time = station.get('obs_time', '')
+            # Format obs time for display (show CST)
+            obs_display = ''
+            if obs_time:
+                try:
+                    dt = datetime.fromisoformat(obs_time)
+                    cst = dt + timedelta(hours=8) if dt.tzinfo is None or dt.utcoffset() == timedelta(0) else dt.astimezone(timezone(timedelta(hours=8)))
+                    obs_display = cst.strftime('%H:%M CST')
+                except (ValueError, TypeError):
+                    obs_display = obs_time
+            items = []
+            if station.get('temp_c') is not None:
+                items.append(f'{bilingual("Temp", "氣溫")} {station["temp_c"]:.1f}°C')
+            if station.get('wind_kt') is not None:
+                wind_dir_str = ''
+                if station.get('wind_dir') is not None:
+                    wind_dir_str = deg_to_compass(station['wind_dir']) + ' '
+                items.append(f'{bilingual("Wind", "風")} {wind_dir_str}{station["wind_kt"]:.0f}kt')
+            if station.get('gust_kt') is not None and station['gust_kt'] > 0:
+                items.append(f'{bilingual("Gust", "陣風")} {station["gust_kt"]:.0f}kt')
+            if station.get('pressure_hpa') is not None:
+                items.append(f'{bilingual("Pressure", "氣壓")} {station["pressure_hpa"]:.1f}hPa')
+            if station.get('humidity_pct') is not None:
+                items.append(f'{bilingual("Humidity", "濕度")} {station["humidity_pct"]:.0f}%')
+            if items:
+                html += '    <div>'
+                html += f'<b>{bilingual("Station", "測站")}</b>'
+                if obs_display:
+                    html += f' <span style="color:#64748b;font-size:11px">({obs_display})</span>'
+                html += '<br>' + ' · '.join(items)
+                html += '</div>\n'
+        # Buoy observations
+        if buoy:
+            obs_time = buoy.get('obs_time', '')
+            obs_display = ''
+            if obs_time:
+                try:
+                    dt = datetime.fromisoformat(obs_time)
+                    cst = dt + timedelta(hours=8) if dt.tzinfo is None or dt.utcoffset() == timedelta(0) else dt.astimezone(timezone(timedelta(hours=8)))
+                    obs_display = cst.strftime('%H:%M CST')
+                except (ValueError, TypeError):
+                    obs_display = obs_time
+            items = []
+            if buoy.get('wave_height_m') is not None:
+                items.append(f'{bilingual("Waves", "浪高")} {buoy["wave_height_m"]:.1f}m')
+            if buoy.get('wave_period_s') is not None:
+                items.append(f'{bilingual("Period", "週期")} {buoy["wave_period_s"]:.0f}s')
+            if buoy.get('peak_period_s') is not None:
+                items.append(f'{bilingual("Peak", "尖峰週期")} {buoy["peak_period_s"]:.0f}s')
+            if buoy.get('wave_dir') is not None:
+                items.append(f'{bilingual("Dir", "浪向")} {deg_to_compass(buoy["wave_dir"])}')
+            if buoy.get('water_temp_c') is not None:
+                items.append(f'{bilingual("Sea", "海溫")} {buoy["water_temp_c"]:.1f}°C')
+            if items:
+                html += '    <div>'
+                html += f'<b>{bilingual("Buoy", "浮標")}</b>'
+                if obs_display:
+                    html += f' <span style="color:#64748b;font-size:11px">({obs_display})</span>'
+                html += '<br>' + ' · '.join(items)
+                html += '</div>\n'
+        html += '  </div>\n</div>\n\n'
 
     # ── Alerts (WRF primary; ECMWF fills in gust/rain/CAPE) ──────────────────
     alerts = []
@@ -1003,6 +1103,7 @@ class ForecastContext:
     surf_planner: dict | None = None
     ensemble_data: dict | None = None
     accuracy_log: list | None = None
+    cwa_obs: dict | None = None
 
 
 def render_unified_html(
@@ -1015,6 +1116,7 @@ def render_unified_html(
     surf_planner: dict | None = None,
     ensemble_data: dict | None = None,
     accuracy_log: list | None = None,
+    cwa_obs: dict | None = None,
     *,
     ctx: 'ForecastContext | None' = None,
 ) -> str:
@@ -1036,6 +1138,7 @@ def render_unified_html(
         surf_planner = ctx.surf_planner
         ensemble_data = ctx.ensemble_data
         accuracy_log = ctx.accuracy_log
+        cwa_obs = ctx.cwa_obs
     # Build lookups (same as _render_summary_html)
     prev_by_valid = {r['valid_utc']: r for r in (prev_records or []) if r.get('valid_utc')}
     has_prev = bool(prev_by_valid)
@@ -1059,7 +1162,7 @@ def render_unified_html(
     # Start with the summary section (header + daily cards + alerts + model shift),
     # then strip its closing </div> so we can append the full table.
     html = _render_summary_html(meta, records, prev_records, ecmwf_records, wave_data,
-                               tide_data, surf_planner=surf_planner)
+                               tide_data, surf_planner=surf_planner, cwa_obs=cwa_obs)
     if html.endswith('</div>\n'):
         html = html[:-len('</div>\n')]
 
@@ -1499,6 +1602,8 @@ def main() -> None:
                    help='Ensemble JSON produced by ensemble_fetch.py (adds model spread indicators)')
     p.add_argument('--accuracy-log', default=None,
                    help='Accuracy log JSON from accuracy_track.py (adds accuracy badge)')
+    p.add_argument('--cwa-obs',     default=None,
+                   help='CWA observations JSON from cwa_fetch.py (adds warnings + current conditions)')
     p.add_argument('--list-vars',   action='store_true',
                    help='Diagnostic: list all GRIB2 shortNames in the first file and exit')
     args = p.parse_args()
@@ -1601,12 +1706,24 @@ def main() -> None:
         if accuracy_log:
             log.info("Accuracy log: %d entries", len(accuracy_log))
 
+    # ── Load CWA observations (optional) ──────────────────────────────────────
+    cwa_obs = None
+    if args.cwa_obs and Path(args.cwa_obs).exists():
+        cwa_obs = load_json_file(args.cwa_obs, "CWA observations")
+        if cwa_obs:
+            has_station = bool(cwa_obs.get('station'))
+            has_buoy = bool(cwa_obs.get('buoy'))
+            n_warnings = len(cwa_obs.get('warnings', []))
+            log.info("CWA obs: station=%s buoy=%s warnings=%d",
+                     has_station, has_buoy, n_warnings)
+
     # ── Write HTML ────────────────────────────────────────────────────────────
     fctx = ForecastContext(
         meta=meta, records=records, prev_records=prev_records,
         ecmwf_records=ecmwf_records, wave_data=wave_data,
         tide_data=tide_data, surf_planner=surf_planner,
         ensemble_data=ensemble_data, accuracy_log=accuracy_log,
+        cwa_obs=cwa_obs,
     )
     html_full = render_unified_html(meta, records, prev_records, ecmwf_records,
                                     wave_data, ctx=fctx)

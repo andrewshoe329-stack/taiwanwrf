@@ -2,7 +2,8 @@
 
 
 from datetime import datetime, timedelta, timezone
-from tide_predict import predict_height, find_extrema, tide_state, CONSTITUENTS, MSL_OFFSET
+from tide_predict import (predict_height, predict_height_anchored, _parse_extrema,
+                          find_extrema, tide_state, CONSTITUENTS, MSL_OFFSET)
 
 
 class TestPredictHeight:
@@ -96,3 +97,103 @@ class TestConstants:
             assert period > 0
             assert amp > 0
             assert 0 <= phase < 360
+
+
+class TestPredictHeightAnchored:
+    def _make_extrema(self):
+        """Create CWA-style extrema: high at 06:00, low at 12:15."""
+        return [
+            {"time_utc": "2026-03-22T06:00:00+00:00", "height_m": 0.85, "type": "high"},
+            {"time_utc": "2026-03-22T12:15:00+00:00", "height_m": 0.10, "type": "low"},
+            {"time_utc": "2026-03-22T18:30:00+00:00", "height_m": 0.80, "type": "high"},
+        ]
+
+    def test_returns_float(self):
+        dt = datetime(2026, 3, 22, 9, 0, 0, tzinfo=timezone.utc)
+        result = predict_height_anchored(dt, self._make_extrema())
+        assert isinstance(result, float)
+
+    def test_at_high_returns_high_value(self):
+        """At a CWA high tide time, should return the CWA height."""
+        dt = datetime(2026, 3, 22, 6, 0, 0, tzinfo=timezone.utc)
+        result = predict_height_anchored(dt, self._make_extrema())
+        assert abs(result - 0.85) < 0.01
+
+    def test_at_low_returns_low_value(self):
+        """At a CWA low tide time, should return the CWA height."""
+        dt = datetime(2026, 3, 22, 12, 15, 0, tzinfo=timezone.utc)
+        result = predict_height_anchored(dt, self._make_extrema())
+        assert abs(result - 0.10) < 0.01
+
+    def test_midpoint_between_high_and_low(self):
+        """Midpoint between high and low should be near the average."""
+        high_t = datetime(2026, 3, 22, 6, 0, 0, tzinfo=timezone.utc)
+        low_t = datetime(2026, 3, 22, 12, 15, 0, tzinfo=timezone.utc)
+        mid_t = high_t + (low_t - high_t) / 2
+        result = predict_height_anchored(mid_t, self._make_extrema())
+        avg = (0.85 + 0.10) / 2
+        # Cosine midpoint should be exactly at the average
+        assert abs(result - avg) < 0.01
+
+    def test_falls_back_without_extrema(self):
+        """Without CWA data, should fall back to harmonic prediction."""
+        dt = datetime(2026, 3, 22, 9, 0, 0, tzinfo=timezone.utc)
+        anchored = predict_height_anchored(dt, None)
+        harmonic = predict_height(dt)
+        assert anchored == harmonic
+
+    def test_falls_back_with_empty_list(self):
+        dt = datetime(2026, 3, 22, 9, 0, 0, tzinfo=timezone.utc)
+        anchored = predict_height_anchored(dt, [])
+        harmonic = predict_height(dt)
+        assert anchored == harmonic
+
+    def test_falls_back_outside_extrema_range(self):
+        """Before first extremum, should fall back to harmonic."""
+        dt = datetime(2026, 3, 22, 3, 0, 0, tzinfo=timezone.utc)
+        anchored = predict_height_anchored(dt, self._make_extrema())
+        harmonic = predict_height(dt)
+        assert anchored == harmonic
+
+    def test_cosine_shape(self):
+        """Height should decrease monotonically from high to mid to low."""
+        extrema = self._make_extrema()
+        t1 = datetime(2026, 3, 22, 6, 0, 0, tzinfo=timezone.utc)
+        t2 = datetime(2026, 3, 22, 9, 0, 0, tzinfo=timezone.utc)
+        t3 = datetime(2026, 3, 22, 12, 15, 0, tzinfo=timezone.utc)
+        h1 = predict_height_anchored(t1, extrema)
+        h2 = predict_height_anchored(t2, extrema)
+        h3 = predict_height_anchored(t3, extrema)
+        assert h1 > h2 > h3
+
+
+class TestParseExtrema:
+    def test_parses_valid(self):
+        extrema = [
+            {"time_utc": "2026-03-22T06:00:00+00:00", "height_m": 0.85, "type": "high"},
+            {"time_utc": "2026-03-22T12:00:00+00:00", "height_m": 0.10, "type": "low"},
+        ]
+        parsed = _parse_extrema(extrema)
+        assert len(parsed) == 2
+        assert parsed[0][2] == "high"
+        assert parsed[1][2] == "low"
+
+    def test_skips_invalid(self):
+        extrema = [
+            {"time_utc": "", "height_m": 0.85, "type": "high"},
+            {"time_utc": "2026-03-22T06:00:00+00:00", "height_m": None, "type": "high"},
+            {"time_utc": "2026-03-22T12:00:00+00:00", "height_m": 0.10, "type": "low"},
+        ]
+        parsed = _parse_extrema(extrema)
+        assert len(parsed) == 1
+
+    def test_sorted_by_time(self):
+        extrema = [
+            {"time_utc": "2026-03-22T12:00:00+00:00", "height_m": 0.10, "type": "low"},
+            {"time_utc": "2026-03-22T06:00:00+00:00", "height_m": 0.85, "type": "high"},
+        ]
+        parsed = _parse_extrema(extrema)
+        assert parsed[0][0] < parsed[1][0]
+
+    def test_empty_list(self):
+        assert _parse_extrema([]) == []
