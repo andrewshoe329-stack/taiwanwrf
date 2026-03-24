@@ -158,6 +158,10 @@ All scripts import coordinates, compass functions, and `norm_utc()` from here. *
 - Dark theme: `#0f172a` base, `#1e293b` cards, `#93c5fd` accents
 - Color coding: Beaufort wind scale (green→red), temperature, wave height, CAPE
 - Assembled by concatenation in the workflow (cat surf >> forecast.html), then wrapped in index.html for Vercel
+- **Mobile cards**: Hourly forecast cards (`.fc-cards`) visible directly on mobile (≤640px), hidden on desktop. Cards include wind direction arrows and expandable extra metrics.
+- **Tide sparklines**: Daily summary cards include inline SVG sparkline (`_tide_sparkline_svg()`) showing 24h tide curve with high/low dots and "now" marker for today. Uses `predict_height()` from `tide_predict.py`.
+- **AI summary sections**: Claude returns `[WIND]`/`[WAVES]`/`[OUTLOOK]` markers; `render_html()` parses them into card grid (`.ai-cards`). Falls back to plain text if no markers. Token budget: 1200.
+- **Spot filters**: Client-side JS filter (All/Good+/Firing) toggles visibility of matrix rows, detail sections, and best-time rows via `data-best-rating` attributes. Rating levels: 5=firing, 4=good, 3=marginal, 2=poor, 1=flat, 0=dangerous.
 
 ### Surf Spot Scoring
 Scoring system (0–14 max) evaluates each 6h timestep:
@@ -189,6 +193,7 @@ Scoring system (0–14 max) evaluates each 6h timestep:
 - Stratified by forecast horizon: 0-24h, 24-48h, 48-72h, 72h+
 - Rolling 30-day log stored on Google Drive as `accuracy_log.json`
 - CWA snapshots (live station + buoy readings) attached to each log entry for archival
+- **Firebase dual-write** (optional): `_write_to_firestore()` writes each log entry to Firestore collection `accuracy_log` when `FIREBASE_PROJECT` env var is set. Requires `firebase-admin` package and service account key via `GOOGLE_APPLICATION_CREDENTIALS`. Graceful skip if not configured.
 
 ---
 
@@ -219,6 +224,7 @@ Scoring system (0–14 max) evaluates each 6h timestep:
 | Telegram Bot API (`api.telegram.org`) | Push alerts | `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` (optional) |
 | Google Drive (via rclone) | Archive storage + persistent summary.json + accuracy_log.json | `RCLONE_CONFIG` secret |
 | Vercel | Static site hosting | `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` |
+| Firebase Firestore (optional) | Accuracy log dual-write | `FIREBASE_PROJECT`, `GOOGLE_APPLICATION_CREDENTIALS` (service account JSON) |
 
 ### CWA Open Data Endpoint IDs
 

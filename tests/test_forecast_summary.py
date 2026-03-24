@@ -3,7 +3,7 @@
 import pytest
 from forecast_summary import (
     _trim_records, build_user_prompt, render_html, SYSTEM_PROMPT,
-    _summarise_accuracy,
+    _summarise_accuracy, _parse_sections,
 )
 
 
@@ -179,6 +179,60 @@ class TestRenderHtml:
         assert "English only forecast." in html
         # Should not have separate lang="zh" content div
         assert html.count('lang="zh"') <= 2  # only from T() title/disclaimer, not content
+
+    def test_structured_sections_render_as_cards(self):
+        """When [WIND]/[WAVES]/[OUTLOOK] markers present, renders as ai-card divs."""
+        text = (
+            "[WIND] NE winds 12-15kt through midweek.\n"
+            "[WAVES] Small NE swell building to 1.2m.\n"
+            "[OUTLOOK] Thursday looks best for sailing.\n"
+            "---\n"
+            "[WIND] 東北風12-15節。\n"
+            "[WAVES] 東北湧浪逐漸增至1.2公尺。\n"
+            "[OUTLOOK] 週四最適合出航。"
+        )
+        html = render_html(text)
+        assert 'ai-card' in html
+        assert 'ai-card-header' in html
+        assert 'NE winds 12-15kt' in html
+        assert '東北風12-15節' in html
+        assert 'lang="en"' in html
+        assert 'lang="zh"' in html
+
+    def test_structured_fallback_to_plain(self):
+        """Without section markers, falls back to ai-content (legacy)."""
+        text = "Just plain text.\n---\n只是純文字。"
+        html = render_html(text)
+        assert 'ai-content' in html
+        assert 'ai-card' not in html
+
+
+# ── _parse_sections ──────────────────────────────────────────────────────────
+
+class TestParseSections:
+    def test_parses_all_three_sections(self):
+        text = "[WIND] Wind info. [WAVES] Wave info. [OUTLOOK] Outlook info."
+        sections = _parse_sections(text)
+        assert len(sections) == 3
+        assert sections[0] == ('WIND', 'Wind info.')
+        assert sections[1] == ('WAVES', 'Wave info.')
+        assert sections[2] == ('OUTLOOK', 'Outlook info.')
+
+    def test_no_markers_returns_full_text(self):
+        text = "No markers here, just text."
+        sections = _parse_sections(text)
+        assert len(sections) == 1
+        assert sections[0] == ('', text)
+
+    def test_partial_markers(self):
+        text = "[WIND] Wind only."
+        sections = _parse_sections(text)
+        assert len(sections) == 1
+        assert sections[0][0] == 'WIND'
+
+    def test_empty_string(self):
+        sections = _parse_sections("")
+        assert len(sections) == 1
 
 
 # ── SYSTEM_PROMPT ────────────────────────────────────────────────────────────

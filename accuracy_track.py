@@ -700,6 +700,50 @@ def main() -> None:
     out.write_text(json.dumps(log_entries, indent=2))
     log.info("Accuracy log → %s (%d entries)", out, len(log_entries))
 
+    # Optional Firebase Firestore dual-write
+    _write_to_firestore(entry)
+
+
+def _write_to_firestore(log_entry: dict) -> None:
+    """Write accuracy log entry to Firestore if FIREBASE_PROJECT is set.
+
+    This is a migration stub — writes alongside the existing Drive upload
+    so both stores are populated. Requires firebase-admin and a service
+    account key (via GOOGLE_APPLICATION_CREDENTIALS env var).
+    """
+    project = os.environ.get('FIREBASE_PROJECT')
+    if not project:
+        return  # Not configured — skip silently
+
+    try:
+        import firebase_admin  # type: ignore[import-untyped]
+        from firebase_admin import credentials, firestore  # type: ignore[import-untyped]
+    except ImportError:
+        log.warning("FIREBASE_PROJECT set but firebase-admin not installed — skipping Firestore write")
+        return
+
+    try:
+        # Initialize only once (idempotent)
+        if not firebase_admin._apps:
+            sa_path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
+            if sa_path:
+                cred = credentials.Certificate(sa_path)
+            else:
+                cred = credentials.ApplicationDefault()
+            firebase_admin.initialize_app(cred, {'projectId': project})
+
+        db = firestore.client()
+
+        # Document ID: init_utc + model_id (unique per forecast run)
+        init_utc = log_entry.get('init_utc', 'unknown')
+        model_id = log_entry.get('model_id', 'unknown')
+        doc_id = f"{init_utc}_{model_id}".replace(':', '-').replace('+', 'p')
+
+        db.collection('accuracy_log').document(doc_id).set(log_entry)
+        log.info("Firestore write OK → accuracy_log/%s", doc_id)
+    except Exception as e:
+        log.warning("Firestore write failed (non-fatal): %s", e)
+
 
 if __name__ == '__main__':
     setup_logging()
