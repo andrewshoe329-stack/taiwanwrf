@@ -970,72 +970,65 @@ def _generate_planner_html(all_spot_data: list[dict], keelung_records: list = No
 
 def _render_best_times(all_spot_data: list[dict], all_dks: list[str],
                        spot_best_rating: dict[str, int] | None = None) -> str:
-    """Render a 'Best Time to Surf' section showing optimal window per spot per day."""
-    html = '<div id="best-times" style="margin-bottom:20px">\n'
-    html += '<h3 style="font-size:14px;font-weight:700;color:#93c5fd;margin:0 0 6px">'
-    html += f'{T("best_time_surf")}</h3>\n'
-    html += '<p style="font-size:10px;color:#64748b;margin:0 0 8px">'
-    html += f'{T("best_time_desc")}</p>\n'
+    """Render a 'Best Time to Surf' section with spot cards per day."""
+    html = '<div id="best-times" class="section">\n'
+    html += f'<h3 class="section-title">{T("best_time_surf")}</h3>\n'
+    html += f'<p class="section-subtitle">{T("best_time_desc")}</p>\n'
 
     for dk in all_dks:
         d = datetime.strptime(dk, '%Y-%m-%d')
         dlbl = f'{WKDAY[d.weekday()]} {d.day} {MONTH[d.month-1]}'
 
-        html += f'<div class="bt-day" style="margin-bottom:12px">\n'
-        html += f'<h4 style="font-size:12px;font-weight:700;color:#cbd5e1;margin:0 0 4px">{dlbl}</h4>\n'
+        html += f'<div class="bt-day">\n'
+        html += f'<h4 class="bt-day-header">{dlbl}'
 
-        # Compute tide extrema for this day (CST-based)
-        try:
-            day_start = datetime(d.year, d.month, d.day, tzinfo=timezone.utc) - timedelta(hours=8)
-            day_end = day_start + timedelta(hours=24)
-            day_extrema = find_extrema(day_start, day_end)
-            if day_extrema:
-                tide_pills = []
-                for ex in day_extrema:
-                    arrow = '&#9650;' if ex['type'] == 'high' else '&#9660;'
-                    clr = '#93c5fd' if ex['type'] == 'high' else '#64748b'
-                    tide_pills.append(
-                        f'<span style="color:{clr};font-size:10px">'
-                        f'{arrow} {ex["type"].title()} {ex["cst"]} ({ex["height_m"]:.2f}m)</span>')
-                html += f'<div style="margin-bottom:4px;font-size:10px;color:#475569">{T("tides_label")} {" · ".join(tide_pills)}</div>\n'
-        except Exception:
-            pass
-
-        # Sunrise/sunset for this day (use Keelung as representative location)
+        # Sunrise/sunset inline with day header
         try:
             sr_utc, ss_utc = sunrise_sunset(d, KEELUNG_LAT, KEELUNG_LON)
             sr_cst = sr_utc + 8
             ss_cst = ss_utc + 8
             sr_str = f'{int(sr_cst):02d}:{int((sr_cst % 1) * 60):02d}'
             ss_str = f'{int(ss_cst):02d}:{int((ss_cst % 1) * 60):02d}'
-            html += (f'<div style="margin-bottom:4px;font-size:10px;color:#475569">'
-                     f'{T("daylight_label")} '
-                     f'<span style="color:#fbd38d">&#9788; {sr_str}</span>'
-                     f' – '
-                     f'<span style="color:#f97316">&#9790; {ss_str}</span>'
-                     f'</div>\n')
+            html += (f' <span class="bt-daylight">'
+                     f'&#9788; {sr_str} – &#9790; {ss_str}</span>')
+        except Exception:
+            pass
+        html += '</h4>\n'
+
+        # Tide info as compact pills
+        try:
+            day_start = datetime(d.year, d.month, d.day, tzinfo=timezone.utc) - timedelta(hours=8)
+            day_end = day_start + timedelta(hours=24)
+            day_extrema = find_extrema(day_start, day_end)
+            if day_extrema:
+                html += '<div class="bt-tides">\n'
+                for ex in day_extrema:
+                    arrow = '&#9650;' if ex['type'] == 'high' else '&#9660;'
+                    cls = 'bt-tide-high' if ex['type'] == 'high' else 'bt-tide-low'
+                    html += (f'<span class="bt-tide-pill {cls}">'
+                             f'{arrow} {ex["cst"]} {ex["height_m"]:.2f}m</span>')
+                html += '</div>\n'
         except Exception:
             pass
 
-        # ── Timeline visualization ────────────────────────────────────
-        html += '<div class="timeline-section" style="margin-bottom:12px">\n'
+        # ── Timeline visualization (compact) ────────────────────────
+        html += '<div class="timeline-section">\n'
         html += '<div class="timeline-ticks"><span>06</span><span>12</span><span>18</span></div>\n'
         for sd in all_spot_data:
             spot = sd['spot']
             day_recs_tl = [r for r in sd['records'] if r['dk'] == dk]
             if not day_recs_tl:
                 continue
-            # Sort by time
             day_recs_tl.sort(key=lambda r: r.get('dt_cst') or datetime.min)
             sbr = (spot_best_rating or {}).get(spot.get('id', ''), 0)
             html += f'<div class="timeline-row" data-best-rating="{sbr}" data-spot-id="{spot["id"]}">\n'
-            html += f'  <div class="timeline-label">{spot["name"]}</div>\n'
+            en_name, zh_name = _split_spot_name(spot['name'])
+            html += f'  <div class="timeline-label">{bilingual(en_name, zh_name)}</div>\n'
             html += f'  <div class="timeline-bar">\n'
             for r in day_recs_tl:
                 dt_utc = r.get('dt_utc')
                 th = _tide_height(dt_utc) if dt_utc is not None else None
                 sc = _score_timestep(r, spot, tide_height_m=th)
-                # Map score to CSS class
                 if sc >= 9:
                     css_cls = 'tl-firing'
                 elif sc >= 7:
@@ -1050,105 +1043,70 @@ def _render_best_times(all_spot_data: list[dict], all_dks: list[str],
             html += f'</div>\n'
         html += '</div>\n'
 
-        html += '<div style="overflow-x:auto">\n'
-        html += '<table class="detail-table" style="margin-bottom:4px">\n'
-        html += ('<thead><tr>'
-                 f'<th scope="col" style="text-align:left;min-width:100px">{T("th_spot")}</th>'
-                 f'<th scope="col">{T("th_best_window")}</th>'
-                 f'<th scope="col">{T("th_rating")}</th>'
-                 f'<th scope="col" title="Swell height (m)">{T("th_swell")}</th>'
-                 f'<th scope="col" title="Swell period (s)">{T("th_period")}</th>'
-                 f'<th scope="col">{T("th_swell_dir")}</th>'
-                 f'<th scope="col" title="Wind speed (kt)">{T("th_wind")}</th>'
-                 f'<th scope="col">{T("th_wind_dir")}</th>'
-                 f'<th scope="col" title="Tide height above chart datum">{T("th_tide")}</th>'
-                 f'<th scope="col">{T("th_tide_state")}</th>'
-                 f'<th scope="col" title="Sea surface temperature from nearest buoy">\U0001f30a \u00b0C</th>'
-                 '</tr></thead>\n<tbody>\n')
-
-        row_i = 0
+        # ── Spot cards (replacing dense table) ─────────────────────
+        html += '<div class="bt-spot-grid">\n'
         for sd in all_spot_data:
             spot = sd['spot']
             day_recs = [r for r in sd['records'] if r['dk'] == dk]
             bt = best_time_for_day(day_recs, spot)
-
-            cls = 'r-alt' if row_i % 2 else ''
             sbr = (spot_best_rating or {}).get(spot.get('id', ''), 0)
 
             if bt is None:
-                # Flat / dangerous / no data
                 rating = day_rating(day_recs, spot)
                 label_key = rating.get('label_key', '')
                 bi_label = T(label_key) if label_key else rating['label']
-                html += (f'<tr class="{cls}" data-spot-id="{spot["id"]}" data-best-rating="{sbr}">'
-                         f'<td style="text-align:left;color:#94a3b8">{spot["name"]}</td>'
-                         f'<td colspan="10" style="color:{rating["col"]};background:{rating["bg"]}">'
-                         f'{rating["emoji"]} {bi_label}</td></tr>\n')
+                html += (f'<div class="bt-spot-card bt-spot-flat" data-spot-id="{spot["id"]}" '
+                         f'data-best-rating="{sbr}">\n'
+                         f'  <div class="bt-spot-name">{spot["name"]}</div>\n'
+                         f'  <div class="bt-spot-status" style="color:{rating["col"]}">'
+                         f'{rating["emoji"]} {bi_label}</div>\n'
+                         f'</div>\n')
             else:
-                # Determine rating label from score
+                # Rating
                 s = bt['score']
                 if s >= 9:
-                    rlbl, remoji, rbg, rcol = T('firing'), '🔥', '#0d3320', '#48bb78'
+                    rlbl, remoji, rcls = T('firing'), '\U0001f525', 'bt-rating-firing'
                 elif s >= 7:
-                    rlbl, remoji, rbg, rcol = T('good'), '🟢', '#0d2d1a', '#68d391'
+                    rlbl, remoji, rcls = T('good'), '\U0001f7e2', 'bt-rating-good'
                 elif s >= 4:
-                    rlbl, remoji, rbg, rcol = T('marginal'), '🟡', '#3d2e00', '#fbd38d'
+                    rlbl, remoji, rcls = T('marginal'), '\U0001f7e1', 'bt-rating-marginal'
                 else:
-                    rlbl, remoji, rbg, rcol = T('poor'), '🔴', '#3d1515', '#fc8181'
+                    rlbl, remoji, rcls = T('poor'), '\U0001f534', 'bt-rating-poor'
 
-                # Swell direction styling
+                # Swell direction
                 sw_dir_str = bt['sw_dir_compass']
-                if bt['swell_quality'] == 'good':
-                    sw_dir_str = f'<b class="c-good">{sw_dir_str}</b>'
-                elif bt['swell_quality'] == 'poor':
+                sq = bt.get('swell_quality', '')
+                if sq == 'good':
+                    sw_dir_str = f'<span class="c-good">{sw_dir_str}</span>'
+                elif sq == 'poor':
                     sw_dir_str = f'<span class="c-danger">{sw_dir_str}</span>'
 
-                # Wind direction styling
+                # Wind direction
                 w_dir_str = bt['w_dir_compass']
-                if bt['wind_quality'] == 'good':
-                    w_dir_str = f'<b class="c-good">{w_dir_str}</b>'
-                elif bt['wind_quality'] == 'poor':
+                wq = bt.get('wind_quality', '')
+                if wq == 'good':
+                    w_dir_str = f'<span class="c-good">{w_dir_str}</span>'
+                elif wq == 'poor':
                     w_dir_str = f'<span class="c-warn">{w_dir_str}</span>'
 
-                # Tide class styling
-                opt_tide = spot.get('opt_tide', 'any')
-                ts = tide_score(bt['tide_class'], opt_tide)
-                if ts > 0:
-                    tide_cls = 'c-good'
-                elif ts < 0:
-                    tide_cls = 'c-danger'
-                else:
-                    tide_cls = ''
+                html += (f'<a href="/spots/{spot["id"]}" class="bt-spot-card {rcls}" '
+                         f'data-spot-id="{spot["id"]}" data-best-rating="{sbr}">\n'
+                         f'  <div class="bt-spot-top">\n'
+                         f'    <div class="bt-spot-name">{spot["name"]}</div>\n'
+                         f'    <div class="bt-spot-rating">{remoji} {rlbl}</div>\n'
+                         f'  </div>\n'
+                         f'  <div class="bt-spot-window">{bt["window"]}</div>\n'
+                         f'  <div class="bt-spot-metrics">\n'
+                         f'    <span class="{_hs_cls(bt["sw_hs"])}">{_f1(bt["sw_hs"])}m</span>\n'
+                         f'    <span>{_f1(bt["sw_tp"])}s {sw_dir_str}</span>\n'
+                         f'    <span class="{_wind_cls(bt["wind_kt"])}">{_f0(bt["wind_kt"])}kt {w_dir_str}</span>\n'
+                         f'  </div>\n'
+                         f'</a>\n')
 
-                # Tide state (rising/falling)
-                tstate = bt.get('tide_context', '').split(' · ')[0] if bt.get('tide_context') else ''
+        html += '</div>\n'  # close bt-spot-grid
+        html += '</div>\n'  # close bt-day
 
-                # Water temp from nearest CWA buoy
-                wtemp_str = '\u2014'
-                if _CWA_SPOT_OBS:
-                    sobs = _CWA_SPOT_OBS.get(spot.get('id', ''))
-                    if sobs and sobs.get('buoy') and sobs['buoy'].get('water_temp_c') is not None:
-                        wt = sobs['buoy']['water_temp_c']
-                        wtemp_str = f'{wt:.0f}\u00b0C'
-
-                html += (f'<tr class="{cls}" data-spot-id="{spot["id"]}" data-best-rating="{sbr}">'
-                         f'<td style="text-align:left;color:#94a3b8">{spot["name"]}</td>'
-                         f'<td style="font-weight:700;color:#e2e8f0">{bt["window"]}</td>'
-                         f'<td style="background:{rbg};color:{rcol}">{remoji} {rlbl}</td>'
-                         f'<td class="{_hs_cls(bt["sw_hs"])}">{_f1(bt["sw_hs"])}</td>'
-                         f'<td>{_f1(bt["sw_tp"])}</td>'
-                         f'<td>{sw_dir_str}</td>'
-                         f'<td class="{_wind_cls(bt["wind_kt"])}">{_f0(bt["wind_kt"])}</td>'
-                         f'<td>{w_dir_str}</td>'
-                         f'<td class="{tide_cls}">{bt["tide_str"]}</td>'
-                         f'<td style="font-size:10px;color:#94a3b8">{tstate}</td>'
-                         f'<td style="color:#93c5fd">{wtemp_str}</td>'
-                         f'</tr>\n')
-            row_i += 1
-
-        html += '</tbody></table>\n</div>\n</div>\n'
-
-    html += '</div>\n'
+    html += '</div>\n'  # close best-times
     return html
 
 
@@ -1439,20 +1397,20 @@ def generate_full_html(all_spot_data: list[dict], keelung_records: list = None) 
         spot_best_rating[spot['id']] = best_level
 
     html = '<section id="spots" class="section surf-section">\n'
-    html += f'<h2 class="section-title"><span role="img" aria-label="Surfer">🏄</span> {T("surf_spots")}</h2>\n'
-    html += f'<p class="section-subtitle">Generated {gen_str} · Data: ECMWF IFS025 + GFS + ECMWF WAM (Open-Meteo)</p>\n'
+    html += f'<h2 class="section-title">{T("surf_spots")}</h2>\n'
+    html += f'<p class="section-subtitle">{gen_str} · ECMWF IFS + GFS + WAM</p>\n'
 
     # ── Filter bar ─────────────────────────────────────────────────────────
     html += _render_filter_bar()
 
-    # ── Best time to surf ─────────────────────────────────────────────────
-    html += _render_best_times(all_spot_data, all_dks, spot_best_rating)
-
-    # ── Rating matrix ──────────────────────────────────────────────────────
+    # ── Rating matrix (week overview) ──────────────────────────────────────
     html += _render_rating_matrix(all_spot_data, all_dks)
 
+    # ── Best time to surf (daily breakdown) ───────────────────────────────
+    html += _render_best_times(all_spot_data, all_dks, spot_best_rating)
+
     # ── Per-spot detail tables ─────────────────────────────────────────────
-    html += '<div class="detail-section">\n'
+    html += f'<h3 class="section-title">{T("detailed_forecast")}</h3>\n'
     for sd in all_spot_data:
         html += _render_spot_detail(sd, best_rating=spot_best_rating.get(sd['spot']['id'], 0))
 
