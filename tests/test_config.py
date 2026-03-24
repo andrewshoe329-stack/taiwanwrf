@@ -6,11 +6,14 @@ import tempfile
 import urllib.error
 from unittest.mock import patch, MagicMock
 
+from datetime import datetime, timezone
+
 from config import (
     KEELUNG_LAT, KEELUNG_LON, COMPASS_NAMES, deg_to_compass,
     norm_utc, setup_logging, sail_rating,
     fetch_json, load_json_file,
     SPOT_COORDS, SPOT_COUNTY,
+    sunrise_sunset, is_daylight,
 )
 
 
@@ -218,3 +221,65 @@ class TestSpotCoords:
         valid = {"基隆市", "新北市", "宜蘭縣"}
         for county in SPOT_COUNTY.values():
             assert county in valid
+
+
+class TestSunriseSunset:
+    def test_summer_keelung(self):
+        """Summer solstice — sunrise ~05:05, sunset ~18:45 CST."""
+        d = datetime(2026, 6, 21)
+        sr_utc, ss_utc = sunrise_sunset(d, KEELUNG_LAT, KEELUNG_LON)
+        sr_cst = sr_utc + 8
+        ss_cst = ss_utc + 8
+        assert 4.8 < sr_cst < 5.5, f"Summer sunrise {sr_cst:.2f} CST"
+        assert 18.5 < ss_cst < 19.2, f"Summer sunset {ss_cst:.2f} CST"
+
+    def test_winter_keelung(self):
+        """Winter solstice — sunrise ~06:30, sunset ~17:15 CST."""
+        d = datetime(2026, 12, 21)
+        sr_utc, ss_utc = sunrise_sunset(d, KEELUNG_LAT, KEELUNG_LON)
+        sr_cst = sr_utc + 8
+        ss_cst = ss_utc + 8
+        assert 6.2 < sr_cst < 6.8, f"Winter sunrise {sr_cst:.2f} CST"
+        assert 16.8 < ss_cst < 17.5, f"Winter sunset {ss_cst:.2f} CST"
+
+    def test_equinox_roughly_12h_daylight(self):
+        """Near equinox, daylight should be ~12 hours."""
+        d = datetime(2026, 3, 20)
+        sr_utc, ss_utc = sunrise_sunset(d, KEELUNG_LAT, KEELUNG_LON)
+        daylight_hours = ss_utc - sr_utc
+        assert 11.5 < daylight_hours < 12.5
+
+    def test_returns_floats(self):
+        d = datetime(2026, 3, 24)
+        sr, ss = sunrise_sunset(d)
+        assert isinstance(sr, float)
+        assert isinstance(ss, float)
+        assert sr < ss  # sunrise before sunset
+
+    def test_sunrise_before_sunset(self):
+        """Sunrise should always be before sunset at 25°N."""
+        for month in range(1, 13):
+            d = datetime(2026, month, 15)
+            sr, ss = sunrise_sunset(d, KEELUNG_LAT, KEELUNG_LON)
+            assert sr < ss, f"Month {month}: sunrise {sr:.2f} >= sunset {ss:.2f}"
+
+
+class TestIsDaylight:
+    def test_midday_is_daylight(self):
+        """Noon UTC (20:00 CST) — should still be daylight in summer."""
+        dt = datetime(2026, 6, 21, 10, 0, tzinfo=timezone.utc)  # 18:00 CST
+        assert is_daylight(dt) is True
+
+    def test_midnight_utc_is_dark(self):
+        """00:00 UTC = 08:00 CST — daylight in summer, but check winter."""
+        # 18:00 UTC = 02:00 CST next day — definitely dark
+        dt = datetime(2026, 12, 21, 18, 0, tzinfo=timezone.utc)
+        assert is_daylight(dt) is False
+
+    def test_margin_extends_window(self):
+        """With 30-minute margin, times near sunrise/sunset should count."""
+        # Summer sunrise at Keelung ~21:05 UTC (05:05 CST).
+        # Use 20:50 UTC (04:50 CST) — dark without margin, light with 30 min
+        just_before = datetime(2026, 6, 21, 20, 50, tzinfo=timezone.utc)
+        assert is_daylight(just_before, margin_minutes=30) is True
+        assert is_daylight(just_before, margin_minutes=0) is False

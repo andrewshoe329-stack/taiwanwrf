@@ -14,7 +14,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone, timedelta
 
 from config import (KEELUNG_LAT, KEELUNG_LON, SPOT_COORDS,
-                     deg_to_compass, setup_logging, sail_rating)
+                     deg_to_compass, setup_logging, sail_rating,
+                     sunrise_sunset, is_daylight)
 from config import fetch_json as _config_fetch_json
 
 # Build coordinate lookup from shared SPOT_COORDS (single source of truth)
@@ -431,8 +432,26 @@ def best_time_for_day(day_recs: list[dict], spot: dict) -> dict[str, object] | N
     if max_sw_hs < MIN_SWELL_HEIGHT_M or max_sw_hs > MAX_SWELL_HEIGHT_M or max_wind_kt > MAX_WIND_KT:
         return None
 
-    scored = []
+    # Filter to daylight windows only — no point recommending nighttime surfing.
+    # A 6h window centred at e.g. 14:00 CST (06:00 UTC) overlaps daylight if
+    # ANY part of the window is in daylight, but we use the window midpoint.
+    daylight_recs = []
     for r in day_recs:
+        dt_utc = r.get('dt_utc')
+        if dt_utc is not None:
+            # Check if this 6h window has substantial daylight.
+            # The window is [dt_utc, dt_utc+6h); check midpoint (dt_utc+3h).
+            mid = dt_utc + timedelta(hours=3)
+            if is_daylight(mid, spot['lat'], spot['lon'], margin_minutes=0):
+                daylight_recs.append(r)
+        else:
+            daylight_recs.append(r)  # keep if we can't determine time
+
+    # Fall back to all records if no daylight windows (shouldn't happen)
+    recs_to_score = daylight_recs if daylight_recs else day_recs
+
+    scored = []
+    for r in recs_to_score:
         dt_utc = r.get('dt_utc')
         th = predict_height(dt_utc) if dt_utc is not None else None
         score = _score_timestep(r, spot, tide_height_m=th)
@@ -446,6 +465,13 @@ def best_time_for_day(day_recs: list[dict], spot: dict) -> dict[str, object] | N
 
     dt_utc = best_rec.get('dt_utc')
     dt_cst = best_rec.get('dt_cst')
+
+    # Sunrise/sunset for this day (in CST)
+    sunrise_cst = sunset_cst = None
+    if dt_utc is not None:
+        sr_utc, ss_utc = sunrise_sunset(dt_utc, spot['lat'], spot['lon'])
+        sunrise_cst = sr_utc + 8  # UTC → CST
+        sunset_cst = ss_utc + 8
 
     # Label the window as a 6-hour block in CST
     if dt_cst is not None:
@@ -500,6 +526,8 @@ def best_time_for_day(day_recs: list[dict], spot: dict) -> dict[str, object] | N
         'tide_context': tide_context,
         'dt_utc': dt_utc,
         'dt_cst': dt_cst,
+        'sunrise_cst': f'{int(sunrise_cst):02d}:{int((sunrise_cst % 1) * 60):02d}' if sunrise_cst is not None else None,
+        'sunset_cst': f'{int(sunset_cst):02d}:{int((sunset_cst % 1) * 60):02d}' if sunset_cst is not None else None,
     }
 
 
@@ -938,6 +966,22 @@ def _render_best_times(all_spot_data: list[dict], all_dks: list[str]) -> str:
                         f'<span style="color:{clr};font-size:10px">'
                         f'{arrow} {ex["type"].title()} {ex["cst"]} ({ex["height_m"]:.2f}m)</span>')
                 html += f'<div style="margin-bottom:4px;font-size:10px;color:#475569">Tides: {" · ".join(tide_pills)}</div>\n'
+        except Exception:
+            pass
+
+        # Sunrise/sunset for this day (use Keelung as representative location)
+        try:
+            sr_utc, ss_utc = sunrise_sunset(d, KEELUNG_LAT, KEELUNG_LON)
+            sr_cst = sr_utc + 8
+            ss_cst = ss_utc + 8
+            sr_str = f'{int(sr_cst):02d}:{int((sr_cst % 1) * 60):02d}'
+            ss_str = f'{int(ss_cst):02d}:{int((ss_cst % 1) * 60):02d}'
+            html += (f'<div style="margin-bottom:4px;font-size:10px;color:#475569">'
+                     f'Daylight: '
+                     f'<span style="color:#fbd38d">&#9788; {sr_str}</span>'
+                     f' – '
+                     f'<span style="color:#f97316">&#9790; {ss_str}</span>'
+                     f'</div>\n')
         except Exception:
             pass
 

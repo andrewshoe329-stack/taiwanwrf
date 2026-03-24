@@ -427,6 +427,46 @@ class TestBestTimeForDay:
         assert bt['tide_class'] in ('low', 'mid', 'high')
         assert 'm' in bt['tide_str']
 
+    def test_skips_nighttime_windows(self):
+        """Should not recommend the 00 UTC (08 CST) window if
+        a nighttime 18 UTC (02 CST) window has better conditions,
+        since 02:00 CST is always dark."""
+        # 18 UTC = 02:00 CST — nighttime with great conditions
+        dt_night = datetime(2026, 3, 22, 18, 0, tzinfo=timezone.utc)
+        # 06 UTC = 14:00 CST — daytime with decent conditions
+        dt_day = datetime(2026, 3, 22, 6, 0, tzinfo=timezone.utc)
+        recs = [
+            {
+                'dk': '2026-03-22', 'dt_utc': dt_night,
+                'dt_cst': dt_night + timedelta(hours=8),
+                'sw_hs': 2.0, 'sw_tp': 14, 'sw_dir': 45,
+                'wind': 3, 'w_dir': 225, 'gust': 5,
+                'hs': 1.5, 'rain6h': 0,
+            },
+            {
+                'dk': '2026-03-22', 'dt_utc': dt_day,
+                'dt_cst': dt_day + timedelta(hours=8),
+                'sw_hs': 1.0, 'sw_tp': 10, 'sw_dir': 45,
+                'wind': 8, 'w_dir': 225, 'gust': 12,
+                'hs': 0.8, 'rain6h': 0,
+            },
+        ]
+        bt = best_time_for_day(recs, self.SPOT)
+        assert bt is not None
+        # Should pick daytime window even though nighttime has better conditions
+        assert bt['dt_utc'] == dt_day
+
+    def test_sunrise_sunset_in_result(self):
+        """Result should include sunrise_cst and sunset_cst."""
+        recs = self._make_recs()
+        bt = best_time_for_day(recs, self.SPOT)
+        assert bt is not None
+        assert bt.get('sunrise_cst') is not None
+        assert bt.get('sunset_cst') is not None
+        # Should be in HH:MM format
+        assert ':' in bt['sunrise_cst']
+        assert ':' in bt['sunset_cst']
+
 
 # ── classify_tide ────────────────────────────────────────────────────────────
 
