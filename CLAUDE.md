@@ -97,7 +97,7 @@ Claude uses this to hedge language — e.g. "actual temps will likely be a degre
 | File | Lines | Purpose |
 |------|-------|---------|
 | `i18n.py` | ~230 | Bilingual translation infrastructure: `T()`, `T_str()`, `bilingual()`, `STRINGS` dict |
-| `config.py` | ~270 | Shared constants + utilities: `KEELUNG_LAT/LON`, `SPOT_COORDS`, `SPOT_COUNTY`, `deg_to_compass()`, `norm_utc()`, `setup_logging()`, `fetch_json()`, `load_json_file()` |
+| `config.py` | ~270 | Shared constants + utilities: `KEELUNG_LAT/LON`, `SPOT_COORDS`, `SPOT_COUNTY`, `deg_to_compass()`, `norm_utc()`, `sunrise_sunset()`, `is_daylight()`, `setup_logging()`, `fetch_json()`, `load_json_file()` |
 | `taiwan_wrf_download.py` | ~687 | Download CWA WRF GRIB2 from S3, subset with eccodes, archive with tar.gz |
 | `wrf_analyze.py` | ~1606 | GRIB2 point extraction, derived fields, unified HTML table, daily summary cards |
 | `ecmwf_fetch.py` | ~274 | Fetch ECMWF IFS from Open-Meteo, 6-hourly conversion, GFS gust/vis backfill |
@@ -116,7 +116,7 @@ Claude uses this to hedge language — e.g. "actual temps will likely be a degre
 | `pwa/` | 5 files | PWA manifest, service worker, icon generator, icons, styles.css |
 | `vercel.json` | ~30 | Static site config (rewrites, cache headers for PWA) |
 | `requirements.txt` | ~6 | `eccodes>=1.5,<2`, `numpy>=1.24,<3`, `anthropic>=0.40,<1` |
-| `tests/` | 14 files, 368 tests | Unit tests for pure functions (pytest), run in CI/CD |
+| `tests/` | 14 files, 378 tests | Unit tests for pure functions (pytest), run in CI/CD |
 
 ---
 
@@ -168,6 +168,8 @@ Scoring system (0–14 max) evaluates each 6h timestep:
 - Wave period: +2 (≥12s), +1 (≥9s)
 - Ratings: Firing! (9+), Good (7+), Marginal (4+), Poor (<4)
 - Dangerous: swell >4.5m or wind >32kt
+- Best-time selection: only daylight windows considered (uses `sunrise_sunset()` from config)
+- Sunrise/sunset displayed in "Best Time to Surf" section per day
 
 ### API Fetching
 - All HTTP calls use `urllib.request` (stdlib only, no requests dependency)
@@ -362,7 +364,7 @@ pip install pytest
 python -m pytest tests/ -v
 ```
 
-368 tests should pass. Tests cover: compass conversion, Beaufort scale, color functions, direction quality scoring, day ratings, sail ratings, time normalization, bbox geometry, GRIB2 constant validation, tide prediction (semidiurnal pattern, extrema detection), accuracy tracking (error metrics, buoy verification), CWA API parsing (station, buoy, tide, tide forecast, township forecast, warnings), AI summary prompt construction (with CWA obs and ensemble spread), and shared HTTP fetch/JSON loading utilities.
+378 tests should pass. Tests cover: compass conversion, Beaufort scale, color functions, direction quality scoring, day ratings, sail ratings, time normalization, bbox geometry, GRIB2 constant validation, tide prediction (semidiurnal pattern, extrema detection), accuracy tracking (error metrics, buoy verification), CWA API parsing (station, buoy, tide, tide forecast, township forecast, warnings), AI summary prompt construction (with CWA obs and ensemble spread), and shared HTTP fetch/JSON loading utilities.
 
 **Tests run in CI/CD** — the GitHub Actions workflow runs `python -m pytest tests/ -v` before deployment.
 

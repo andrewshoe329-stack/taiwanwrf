@@ -2,6 +2,7 @@
 
 import json
 import logging
+import math
 import time
 import urllib.error
 import urllib.parse
@@ -159,6 +160,97 @@ def deg_to_compass(deg: float | None) -> str:
     if deg is None:
         return '—'
     return COMPASS_NAMES[round(deg / 22.5) % 16]
+
+
+# ── Sunrise / sunset calculation ──────────────────────────────────────────────
+
+def sunrise_sunset(date, lat: float = KEELUNG_LAT, lon: float = KEELUNG_LON
+                   ) -> tuple[float, float]:
+    """Return (sunrise_hour_utc, sunset_hour_utc) for a given date and location.
+
+    Uses the NOAA solar equations (accurate to ~2 min).  Returns fractional
+    hours in UTC — add 8 for CST.
+
+    Parameters
+    ----------
+    date : datetime.date or datetime.datetime
+        The calendar date (only year/month/day are used).
+    lat, lon : float
+        Location in decimal degrees (default: Keelung).
+
+    Returns
+    -------
+    (sunrise_utc, sunset_utc) : tuple[float, float]
+        Hours since midnight UTC. E.g. 21.5 = 21:30 UTC = 05:30 CST.
+
+    For northern Taiwan (~25°N) the range is roughly:
+        Summer: sunrise ~05:05, sunset ~18:45 CST
+        Winter: sunrise ~06:35, sunset ~17:15 CST
+    """
+    from datetime import datetime as _dt, timezone as _tz
+    if hasattr(date, 'timetuple'):
+        doy = date.timetuple().tm_yday
+        year = date.year
+    else:
+        doy = 1
+        year = 2026
+
+    # Fractional year (radians)
+    gamma = 2 * math.pi / 365 * (doy - 1)
+
+    # Equation of time (minutes)
+    eqtime = (229.18 * (0.000075
+              + 0.001868 * math.cos(gamma) - 0.032077 * math.sin(gamma)
+              - 0.014615 * math.cos(2 * gamma) - 0.04089 * math.sin(2 * gamma)))
+
+    # Solar declination (radians)
+    decl = (0.006918
+            - 0.399912 * math.cos(gamma) + 0.070257 * math.sin(gamma)
+            - 0.006758 * math.cos(2 * gamma) + 0.000907 * math.sin(2 * gamma)
+            - 0.002697 * math.cos(3 * gamma) + 0.00148 * math.sin(3 * gamma))
+
+    lat_rad = math.radians(lat)
+
+    # Hour angle at sunrise/sunset (cos of hour angle)
+    cos_ha = (-math.sin(math.radians(-0.8333))
+              - math.sin(lat_rad) * math.sin(decl)) / (
+              math.cos(lat_rad) * math.cos(decl))
+
+    # Clamp for polar regions (shouldn't happen at ~25°N)
+    cos_ha = max(-1.0, min(1.0, cos_ha))
+    ha = math.degrees(math.acos(cos_ha))  # in degrees
+
+    # Solar noon in minutes from midnight UTC
+    snoon = 720 - 4 * lon - eqtime  # minutes UTC
+
+    sunrise_min = snoon - ha * 4  # minutes UTC
+    sunset_min = snoon + ha * 4   # minutes UTC
+
+    return (sunrise_min / 60.0, sunset_min / 60.0)
+
+
+def is_daylight(dt_utc, lat: float = KEELUNG_LAT, lon: float = KEELUNG_LON,
+                margin_minutes: float = 30) -> bool:
+    """Check if a UTC datetime falls within daylight hours (with margin).
+
+    The margin extends the daylight window before sunrise and after sunset
+    to account for civil twilight (~30 min).
+    """
+    sr, ss = sunrise_sunset(dt_utc, lat, lon)
+    hour_utc = dt_utc.hour + dt_utc.minute / 60.0
+    margin_h = margin_minutes / 60.0
+
+    # sunrise_sunset returns hours that may be negative (e.g. sunrise at
+    # 21:11 UTC previous day → -2.81) or >24.  Normalise to the same
+    # 24-hour window as hour_utc by checking multiple offsets.
+    sr_lo = sr - margin_h
+    ss_hi = ss + margin_h
+    # Check if hour_utc falls in [sr_lo, ss_hi] considering day wrapping
+    for offset in (0, 24, -24):
+        h = hour_utc + offset
+        if sr_lo <= h <= ss_hi:
+            return True
+    return False
 
 
 def norm_utc(iso: str) -> str:
