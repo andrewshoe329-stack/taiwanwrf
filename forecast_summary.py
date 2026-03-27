@@ -362,8 +362,8 @@ def build_user_prompt(wrf: dict, ecmwf: dict | None, wave: dict | None,
         # Extract per-model average values for the first 24h (up to 4 records)
         model_avgs: dict[str, dict[str, float]] = {}
         MODEL_LABELS = {
-            'gfs_global': 'GFS',
-            'jma_gsm': 'JMA', 'ecmwf_ifs': 'ECMWF',
+            'GFS': 'GFS',
+            'JMA': 'JMA', 'ECMWF': 'ECMWF',
         }
         for model_key, label in MODEL_LABELS.items():
             recs = []

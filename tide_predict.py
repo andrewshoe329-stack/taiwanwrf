@@ -172,6 +172,7 @@ def find_extrema(start: datetime, end: datetime,
             refined_t, refined_h = _refine_extremum(curr_t, step)
             extrema.append({
                 'type': 'high',
+                'time_utc': refined_t.isoformat(),
                 'utc': refined_t.isoformat(),
                 'cst': (refined_t + timedelta(hours=8)).strftime('%Y-%m-%d %H:%M CST'),
                 'height_m': refined_h,
@@ -181,6 +182,7 @@ def find_extrema(start: datetime, end: datetime,
             refined_t, refined_h = _refine_extremum(curr_t, step)
             extrema.append({
                 'type': 'low',
+                'time_utc': refined_t.isoformat(),
                 'utc': refined_t.isoformat(),
                 'cst': (refined_t + timedelta(hours=8)).strftime('%Y-%m-%d %H:%M CST'),
                 'height_m': refined_h,
@@ -229,6 +231,24 @@ def _refine_extremum(approx_t: datetime, search_window: timedelta,
     return best_t, predict_height(best_t)
 
 
+def generate_predictions(start: datetime, end: datetime,
+                         step_hours: int = 1) -> list[dict]:
+    """Generate hourly tide height predictions for the given period.
+
+    Returns a list of dicts with 'time_utc' (ISO string) and 'height_m' (float).
+    """
+    predictions = []
+    step = timedelta(hours=step_hours)
+    t = start
+    while t <= end:
+        predictions.append({
+            'time_utc': t.isoformat(),
+            'height_m': predict_height(t),
+        })
+        t += step
+    return predictions
+
+
 def tide_state(dt: datetime, extrema: list[dict]) -> str:
     """Return 'rising', 'falling', 'high', or 'low' at the given time."""
     if not extrema:
@@ -239,7 +259,7 @@ def tide_state(dt: datetime, extrema: list[dict]) -> str:
     prev_ex = None
     next_ex = None
     for ex in extrema:
-        if ex['utc'] <= iso:
+        if ex.get('time_utc', ex.get('utc', '')) <= iso:
             prev_ex = ex
         elif next_ex is None:
             next_ex = ex
@@ -270,22 +290,27 @@ def main() -> None:
     end = now + timedelta(days=args.days)
 
     extrema = find_extrema(now, end)
+    predictions = generate_predictions(now, end, step_hours=1)
 
     result = {
-        'location': 'Keelung Harbour',
-        'latitude': KEELUNG_LAT,
-        'longitude': KEELUNG_LON,
-        'generated_utc': now.isoformat(),
-        'method': 'harmonic_analysis',
-        'constituents': len(CONSTITUENTS),
-        'datum': 'chart_datum',
+        'meta': {
+            'station': 'Keelung Harbour',
+            'lat': KEELUNG_LAT,
+            'lon': KEELUNG_LON,
+            'generated_utc': now.isoformat(),
+            'method': 'harmonic_analysis',
+            'constituents': len(CONSTITUENTS),
+            'datum': 'chart_datum',
+        },
+        'predictions': predictions,
         'extrema': extrema,
     }
 
     from pathlib import Path
     out = Path(args.output)
     out.write_text(json.dumps(result, indent=2))
-    log.info("Tide prediction → %s  (%d extrema over %d days)", out, len(extrema), args.days)
+    log.info("Tide prediction → %s  (%d predictions, %d extrema over %d days)",
+             out, len(predictions), len(extrema), args.days)
 
     # Preview
     for ex in extrema[:8]:

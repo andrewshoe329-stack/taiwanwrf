@@ -221,6 +221,9 @@ def _fetch_ensemble_for_point(lat: float, lon: float, label: str,
                 log.error("Failed to fetch %s for %s: %s", key, label, e)
                 results[key] = None
 
+    # Map API model keys to human-readable names
+    API_TO_HUMAN = {"gfs_global": "GFS", "jma_gsm": "JMA"}
+
     models_data: dict = {}
     all_model_records: dict[str, list[dict]] = {}
     for model_key, raw in results.items():
@@ -229,19 +232,31 @@ def _fetch_ensemble_for_point(lat: float, lon: float, label: str,
         meta, records = process_model(raw, model_key)
         if not records:
             continue
-        models_data[model_key] = {"meta": meta, "records": records}
-        all_model_records[model_key] = records
+        human_key = API_TO_HUMAN.get(model_key, model_key)
+        models_data[human_key] = {"meta": meta, "records": records}
+        all_model_records[human_key] = records
 
     if ecmwf_recs:
-        all_model_records["ecmwf_ifs"] = ecmwf_recs
+        all_model_records["ECMWF"] = ecmwf_recs
 
     if not all_model_records:
         return None
 
     ensemble_stats = compute_ensemble_stats(all_model_records)
+
+    # Compute top-level spread summary (average across all timesteps)
+    spread: dict = {}
+    for var, spread_key in [("wind_kt", "wind_spread_kt"),
+                            ("temp_c", "temp_spread_c"),
+                            ("precip_mm_6h", "precip_spread_mm")]:
+        spreads = [s[var]["spread"] for s in ensemble_stats
+                   if s.get(var) and s[var].get("spread") is not None]
+        if spreads:
+            spread[spread_key] = round(sum(spreads) / len(spreads), 2)
+
     return {
         "models": models_data,
-        "ensemble": {"records": ensemble_stats},
+        "spread": spread,
     }
 
 
@@ -279,9 +294,8 @@ def main() -> None:
 
     for mk in output.get("models", {}):
         recs = output["models"][mk].get("records", [])
-        cfg_id = MODEL_CONFIGS.get(mk, {}).get("id", mk)
-        log.info("  %s: %d records", cfg_id, len(recs))
-    log.info("Ensemble: %d timesteps", len(output["ensemble"]["records"]))
+        log.info("  %s: %d records", mk, len(recs))
+    log.info("Ensemble spread: %s", output.get("spread", {}))
 
     Path(args.output).write_text(json.dumps(output, indent=2))
     log.info("Wrote %s", args.output)
@@ -306,8 +320,8 @@ def main() -> None:
             h_output = _fetch_ensemble_for_point(lat, lon, hid, h_ecmwf)
             if h_output:
                 harbour_results[hid] = h_output
-                log.info("  %s: %d ensemble timesteps", hid,
-                         len(h_output["ensemble"]["records"]))
+                log.info("  %s: ensemble spread %s", hid,
+                         h_output.get("spread", {}))
             else:
                 log.warning("  %s: no ensemble data", hid)
 
