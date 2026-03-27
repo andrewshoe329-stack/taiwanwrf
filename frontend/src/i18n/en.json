@@ -76,7 +76,17 @@
     "score_swell_height": "Swell height",
     "score_wave_period": "Wave period",
     "view_detail": "View Details",
-    "view_all": "View All Spots"
+    "view_all": "View All Spots",
+    "back": "Back",
+    "facing": "Facing",
+    "optimal_wind": "Optimal Wind",
+    "optimal_swell": "Optimal Swell",
+    "spot_info": "Spot Info",
+    "five_day_forecast": "5-Day Forecast",
+    "swell_compass": "Swell Compass",
+    "score_breakdown": "Score Breakdown",
+    "no_data": "No forecast data available yet",
+    "coming_soon": "Coming soon"
   },
   "rating": {
     "firing": "Firing!",

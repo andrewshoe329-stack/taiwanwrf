@@ -76,7 +76,17 @@
     "score_swell_height": "湧浪高度",
     "score_wave_period": "浪週期",
     "view_detail": "查看詳情",
-    "view_all": "查看所有浪點"
+    "view_all": "查看所有浪點",
+    "back": "返回",
+    "facing": "朝向",
+    "optimal_wind": "最佳風向",
+    "optimal_swell": "最佳浪向",
+    "spot_info": "浪點資訊",
+    "five_day_forecast": "五日預報",
+    "swell_compass": "湧浪羅盤",
+    "score_breakdown": "評分明細",
+    "no_data": "尚無預報資料",
+    "coming_soon": "即將推出"
   },
   "rating": {
     "firing": "超讚！",
