@@ -1,0 +1,87 @@
+name: Build & Deploy
+
+permissions:
+  contents: read
+
+on:
+  workflow_run:
+    workflows: ["Forecast Pipeline"]
+    types: [completed]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Download forecast data
+        if: github.event_name != 'workflow_dispatch'
+        uses: actions/download-artifact@v4
+        with:
+          name: forecast-data
+          path: frontend/public/data/
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # For manual dispatch, fetch data from Firebase
+      - name: Configure Firebase credentials
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          SA_KEY: ${{ secrets.FIREBASE_SA_KEY }}
+          FIREBASE_PROJECT: ${{ secrets.FIREBASE_PROJECT }}
+        run: |
+          if [ -n "$SA_KEY" ]; then
+            echo "$SA_KEY" > /tmp/firebase-sa-key.json
+            echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/firebase-sa-key.json" >> "$GITHUB_ENV"
+            echo "FIREBASE_PROJECT=$FIREBASE_PROJECT" >> "$GITHUB_ENV"
+            echo "FIREBASE_STORAGE_BUCKET=${{ secrets.FIREBASE_STORAGE_BUCKET }}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Fetch data from Firebase (manual dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          pip install --quiet -r requirements.txt
+          mkdir -p frontend/public/data
+          python firebase_storage.py download-summary \
+            --output frontend/public/data/keelung.json 2>/dev/null || true
+          python firebase_storage.py download-accuracy-log \
+            --output frontend/public/data/accuracy.json 2>/dev/null || true
+
+      - name: Build React SPA
+        timeout-minutes: 10
+        run: |
+          cd frontend
+          npm ci --prefer-offline
+          npm run build
+
+      - name: Deploy to Vercel
+        timeout-minutes: 10
+        run: |
+          npm install -g vercel@39.3.0
+          if vercel deploy --prod --yes --token "$VERCEL_TOKEN" 2>&1 | tee /tmp/vercel_output.txt; then
+            echo "Deploy succeeded"
+          elif grep -qi 'rate\|429\|too many\|throttl' /tmp/vercel_output.txt; then
+            echo "::warning::Vercel deploy rate limited — will retry on next run"
+          else
+            echo "::error::Vercel deploy failed"
+            exit 1
+          fi
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}

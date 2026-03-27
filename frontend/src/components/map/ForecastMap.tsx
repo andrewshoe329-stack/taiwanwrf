@@ -73,13 +73,13 @@ const DARK_STYLE: maplibregl.StyleSpecification = {
       id: 'taiwan-fill',
       type: 'fill',
       source: 'taiwan',
-      paint: { 'fill-color': '#141425', 'fill-opacity': 1 },
+      paint: { 'fill-color': '#1a1a30', 'fill-opacity': 1 },
     },
     {
       id: 'taiwan-outline',
       type: 'line',
       source: 'taiwan',
-      paint: { 'line-color': '#555580', 'line-width': 1.5, 'line-opacity': 1 },
+      paint: { 'line-color': '#7070a0', 'line-width': 2, 'line-opacity': 1 },
     },
   ],
 }
@@ -115,7 +115,6 @@ export function ForecastMap() {
       attributionControl: false,
     })
 
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left')
     map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right')
 
     map.on('load', () => {
@@ -205,13 +204,27 @@ export function ForecastMap() {
   return (
     <div ref={wrapperRef} className="relative w-full h-full">
       {/* MapLibre GL container */}
-      <div ref={mapContainerRef} className="absolute inset-0" />
+      <div ref={mapContainerRef} className="absolute inset-0 z-0" />
 
-      {/* Wind particle canvas overlay */}
+      {/* Wind particle canvas overlay — z-10 but pointer-events-none so map controls stay clickable */}
       <canvas
         ref={canvasRef}
         className="absolute inset-0 pointer-events-none z-10"
       />
+
+      {/* Zoom controls — rendered outside the map so the canvas doesn't cover them */}
+      <div className="absolute top-3 left-3 z-20 flex flex-col gap-1">
+        <button
+          onClick={() => mapRef.current?.zoomIn()}
+          className="w-8 h-8 flex items-center justify-center rounded-md text-sm font-bold bg-[var(--color-bg-elevated)]/90 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] backdrop-blur-sm border border-[var(--color-border)]"
+          aria-label="Zoom in"
+        >+</button>
+        <button
+          onClick={() => mapRef.current?.zoomOut()}
+          className="w-8 h-8 flex items-center justify-center rounded-md text-sm font-bold bg-[var(--color-bg-elevated)]/90 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] backdrop-blur-sm border border-[var(--color-border)]"
+          aria-label="Zoom out"
+        >−</button>
+      </div>
 
       {/* Model switcher */}
       <div className="absolute top-3 right-3 z-20 flex gap-1">

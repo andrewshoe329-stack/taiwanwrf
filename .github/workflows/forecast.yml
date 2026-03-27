@@ -1,4 +1,4 @@
-name: Forecast & Deploy
+name: Forecast Pipeline
 
 permissions:
   contents: read
@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  forecast-and-deploy:
+  forecast:
     runs-on: ubuntu-latest
 
     steps:
@@ -26,13 +26,6 @@ jobs:
         with:
           path: ~/.cache/pip
           key: pip-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
         run: |
@@ -77,7 +70,7 @@ jobs:
           python firebase_storage.py download-accuracy-log \
             --output accuracy_log.json 2>/dev/null || true
 
-      # ── Fetch all data sources in parallel-ish steps ───────────────────────
+      # ── Fetch all data sources ────────────────────────────────────────────
 
       - name: Fetch ECMWF forecast (all harbours)
         id: ecmwf
@@ -125,7 +118,7 @@ jobs:
           mkdir -p frontend/public/data
           python wind_grid_fetch.py --output-dir frontend/public/data
 
-      # ── Generate surf forecast for all 14 spots ────────────────────────────
+      # ── Generate surf forecast for all 14 spots ──────────────────────────
 
       - name: Generate surf forecast
         timeout-minutes: 10
@@ -141,7 +134,7 @@ jobs:
             --output-dir public \
             $CWA_TIDE_ARG
 
-      # ── AI forecast summary ────────────────────────────────────────────────
+      # ── AI forecast summary ──────────────────────────────────────────────
 
       - name: Generate AI forecast summary
         continue-on-error: true
@@ -164,7 +157,7 @@ jobs:
             echo "::warning::No WRF summary — skipping AI forecast"
           fi
 
-      # ── Alerts & accuracy tracking ─────────────────────────────────────────
+      # ── Alerts & accuracy tracking ───────────────────────────────────────
 
       - name: Send forecast alerts
         continue-on-error: true
@@ -204,17 +197,11 @@ jobs:
               --input accuracy_log.json
           fi
 
-      # ── Build & deploy ─────────────────────────────────────────────────────
+      # ── Upload artifacts for deploy workflow ─────────────────────────────
 
-      - name: Build Vercel site
+      - name: Prepare data artifacts
         if: "!cancelled()"
-        timeout-minutes: 10
         run: |
-          # Legacy HTML build
-          mkdir -p public/spots
-          cp pwa/manifest.json pwa/sw.js pwa/app.js pwa/icon-192.png pwa/icon-512.png pwa/styles.css public/
-
-          # Copy JSON data to frontend
           mkdir -p frontend/public/data
           for f in keelung_summary_new.json ecmwf_keelung.json wave_keelung.json \
                    tide_keelung.json ensemble_keelung.json cwa_obs.json accuracy_log.json; do
@@ -229,25 +216,10 @@ jobs:
             [ -f "$f" ] && cp "$f" "frontend/public/data/$f"
           done
 
-          # Build React SPA
-          cd frontend
-          npm ci --prefer-offline
-          npm run build
-
-      - name: Deploy to Vercel
+      - name: Upload forecast data
         if: "!cancelled()"
-        timeout-minutes: 10
-        run: |
-          npm install -g vercel@39.3.0
-          if vercel deploy --prod --yes --token "$VERCEL_TOKEN" 2>&1 | tee /tmp/vercel_output.txt; then
-            echo "Deploy succeeded"
-          elif grep -qi 'rate\|429\|too many\|throttl' /tmp/vercel_output.txt; then
-            echo "::warning::Vercel deploy rate limited — will retry on next run"
-          else
-            echo "::error::Vercel deploy failed"
-            exit 1
-          fi
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: forecast-data
+          path: frontend/public/data/
+          retention-days: 1
