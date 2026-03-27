@@ -436,7 +436,7 @@ def call_api(user_prompt: str) -> str:
         log.warning("ANTHROPIC_API_KEY not set — skipping AI summary")
         return ''
 
-    client = anthropic.Anthropic(api_key=api_key)
+    client = anthropic.Anthropic(api_key=api_key, max_retries=5)
     last_exc: Exception = RuntimeError("no attempts made")
     for attempt in range(1, 4):
         try:
@@ -450,16 +450,18 @@ def call_api(user_prompt: str) -> str:
                 raise ValueError("Empty response from API")
             return msg.content[0].text.strip()
         except (anthropic.APIConnectionError, anthropic.RateLimitError,
-                anthropic.InternalServerError, ValueError, OSError) as e:
+                anthropic.InternalServerError, anthropic.APIStatusError,
+                ValueError, OSError) as e:
             last_exc = e
+            if isinstance(e, (anthropic.AuthenticationError,
+                              anthropic.BadRequestError)):
+                log.error("Non-retryable API error: %s", e)
+                return ''
             if attempt < 3:
-                delay = 5 * attempt
+                delay = 10 * attempt
                 log.warning("Anthropic API attempt %d failed (%s); retrying in %ds …",
                             attempt, e, delay)
                 time.sleep(delay)
-        except (anthropic.AuthenticationError, anthropic.BadRequestError) as e:
-            log.error("Non-retryable API error: %s", e)
-            return ''
     log.error("Anthropic API failed after 3 attempts: %s", last_exc)
     return ''
 

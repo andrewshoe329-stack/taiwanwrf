@@ -4,6 +4,79 @@ import { SPOTS } from '@/lib/constants'
 import { useForecastData } from '@/hooks/useForecastData'
 import { SwellCompass } from '@/components/spots/SwellCompass'
 import { ScoreBreakdown } from '@/components/spots/ScoreBreakdown'
+import type { SpotRating } from '@/lib/types'
+
+function toCST(utc: string): Date {
+  const d = new Date(utc)
+  d.setUTCHours(d.getUTCHours() + 8)
+  return d
+}
+
+function formatTimeCst(utc: string): string {
+  const d = toCST(utc)
+  const hh = String(d.getUTCHours()).padStart(2, '0')
+  return `${hh}:00`
+}
+
+function formatDayHeader(utc: string): string {
+  const d = toCST(utc)
+  const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const dd = String(d.getUTCDate()).padStart(2, '0')
+  return `${weekdays[d.getUTCDay()]} ${mm}/${dd}`
+}
+
+function getCstDayKey(utc: string): string {
+  const d = toCST(utc)
+  return `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`
+}
+
+function degToCompass(deg: number): string {
+  const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW']
+  return dirs[Math.round(deg / 22.5) % 16]
+}
+
+function ratingColor(rating: string): string {
+  const map: Record<string, string> = {
+    firing:    'text-[var(--color-firing)]',
+    good:      'text-[var(--color-rating-good)]',
+    marginal:  'text-[var(--color-rating-marginal)]',
+    poor:      'text-[var(--color-rating-poor)]',
+    flat:      'text-[var(--color-text-dim)]',
+    dangerous: 'text-[var(--color-rating-dangerous)]',
+  }
+  return map[rating] ?? 'text-[var(--color-text-dim)]'
+}
+
+function isCurrentTimestep(utc: string, allUtcs: string[]): boolean {
+  const now = Date.now()
+  let closest = 0
+  let closestDiff = Infinity
+  for (let i = 0; i < allUtcs.length; i++) {
+    const t = new Date(allUtcs[i]).getTime()
+    const diff = now - t
+    if (diff >= 0 && diff < closestDiff) {
+      closestDiff = diff
+      closest = i
+    }
+  }
+  return allUtcs[closest] === utc
+}
+
+/** Group ratings by CST day. */
+function groupRatingsByDay(ratings: SpotRating[]): Array<{ dayKey: string; dayLabel: string; ratings: SpotRating[] }> {
+  const groups: Array<{ dayKey: string; dayLabel: string; ratings: SpotRating[] }> = []
+  let currentKey = ''
+  for (const r of ratings) {
+    const key = getCstDayKey(r.valid_utc)
+    if (key !== currentKey) {
+      currentKey = key
+      groups.push({ dayKey: key, dayLabel: formatDayHeader(r.valid_utc), ratings: [] })
+    }
+    groups[groups.length - 1].ratings.push(r)
+  }
+  return groups
+}
 
 export function SpotDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -33,6 +106,10 @@ export function SpotDetailPage() {
 
   // Current rating: first available rating (nearest forecast time)
   const currentRating = spotForecast?.ratings?.[0] ?? undefined
+
+  // Group ratings by day for hourly forecast table
+  const dayGroups = spotForecast?.ratings ? groupRatingsByDay(spotForecast.ratings) : []
+  const allUtcs = spotForecast?.ratings?.map(r => r.valid_utc) ?? []
 
   return (
     <div className="px-4 pt-4 pb-24 max-w-screen-xl mx-auto">
@@ -72,7 +149,7 @@ export function SpotDetailPage() {
         </div>
       </section>
 
-      {/* 5-Day Forecast placeholder */}
+      {/* 5-Day Forecast */}
       <section className="border border-[var(--color-border)] rounded-xl p-4 mb-4">
         <h2 className="text-xs uppercase tracking-wider text-[var(--color-text-muted)] mb-3">
           {t('spots.five_day_forecast')}
@@ -82,6 +159,140 @@ export function SpotDetailPage() {
             {spotForecast.daily_best.map(day => (
               <DayCard key={day.date} date={day.date} rating={day.rating} score={day.score} t={t} />
             ))}
+          </div>
+        ) : (
+          <p className="text-sm text-[var(--color-text-dim)] py-4 text-center">
+            {t('spots.no_data')}
+          </p>
+        )}
+      </section>
+
+      {/* Best Time to Surf */}
+      {spotForecast && spotForecast.best_times.length > 0 && (
+        <section className="border border-[var(--color-border)] rounded-xl p-4 mb-4">
+          <h2 className="text-xs uppercase tracking-wider text-[var(--color-text-muted)] mb-3">
+            {t('spots.best_time')}
+          </h2>
+          <div className="space-y-2">
+            {spotForecast.best_times.map(bt => {
+              const d = new Date(bt.date + 'T00:00:00Z')
+              const dayLabel = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
+              return (
+                <div key={bt.date} className="flex items-center justify-between py-1.5">
+                  <span className="text-xs text-[var(--color-text-secondary)]">{dayLabel}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-[var(--color-text-primary)] font-medium tabular-nums">
+                      {bt.start_cst} – {bt.end_cst} CST
+                    </span>
+                    <span className={`text-[10px] font-medium ${ratingColor(bt.rating)}`}>
+                      {t(`rating.${bt.rating}`)}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Hourly Forecast Table */}
+      <section className="border border-[var(--color-border)] rounded-xl p-4 mb-4">
+        <h2 className="text-xs uppercase tracking-wider text-[var(--color-text-muted)] mb-3">
+          {t('spots.hourly_forecast')}
+        </h2>
+        {dayGroups.length > 0 ? (
+          <div className="overflow-x-auto" style={{ scrollbarWidth: 'thin' }}>
+            <table className="w-full border-collapse text-xs" style={{ minWidth: 440 }}>
+              <thead>
+                <tr className="border-b border-[var(--color-border)]">
+                  <th className="text-left py-2 pr-2 text-[var(--color-text-muted)] font-normal">{t('spots.time')}</th>
+                  <th className="text-right py-2 px-2 text-[var(--color-text-muted)] font-normal">{t('common.wind')}</th>
+                  <th className="text-right py-2 px-2 text-[var(--color-text-muted)] font-normal">{t('spots.swell')}</th>
+                  <th className="text-right py-2 px-2 text-[var(--color-text-muted)] font-normal">{t('spots.period')}</th>
+                  <th className="text-right py-2 px-2 text-[var(--color-text-muted)] font-normal">{t('spots.tide')}</th>
+                  <th className="text-right py-2 pl-2 text-[var(--color-text-muted)] font-normal">{t('spots.rating_label')}</th>
+                </tr>
+              </thead>
+              {dayGroups.map(group => (
+                <tbody key={group.dayKey}>
+                  {/* Day header row */}
+                  <tr>
+                    <td colSpan={6} className="pt-3 pb-1">
+                      <span className="text-[11px] font-semibold text-[var(--color-text-secondary)] tracking-wide">
+                        {group.dayLabel}
+                      </span>
+                    </td>
+                  </tr>
+                  {group.ratings.map(r => {
+                    const isCurrent = isCurrentTimestep(r.valid_utc, allUtcs)
+                    return (
+                      <tr
+                        key={r.valid_utc}
+                        className={`border-b border-[var(--color-border)]/30 ${isCurrent ? 'bg-[var(--color-bg-elevated)]' : ''}`}
+                      >
+                        <td className="py-1.5 pr-2">
+                          <span className="text-[var(--color-text-secondary)] tabular-nums">
+                            {formatTimeCst(r.valid_utc)}
+                          </span>
+                          {isCurrent && (
+                            <span className="ml-1 text-[9px] font-medium text-[var(--color-rating-good)] uppercase">now</span>
+                          )}
+                        </td>
+                        <td className="text-right py-1.5 px-2 tabular-nums text-[var(--color-text-primary)]">
+                          {r.wind_kt != null ? (
+                            <>
+                              {r.wind_dir != null && (
+                                <span className="inline-block w-3 text-center text-[var(--color-text-muted)]" style={{ transform: `rotate(${r.wind_dir + 180}deg)` }}>
+                                  {'\u2191'}
+                                </span>
+                              )}
+                              {' '}{r.wind_kt.toFixed(0)}
+                              <span className="text-[var(--color-text-dim)] ml-0.5">kt</span>
+                              {r.wind_dir != null && (
+                                <span className="text-[var(--color-text-muted)] ml-1">{degToCompass(r.wind_dir)}</span>
+                              )}
+                            </>
+                          ) : '--'}
+                        </td>
+                        <td className="text-right py-1.5 px-2 tabular-nums text-[var(--color-text-primary)]">
+                          {r.swell_height != null ? (
+                            <>
+                              {r.swell_height.toFixed(1)}
+                              <span className="text-[var(--color-text-dim)] ml-0.5">m</span>
+                              {r.swell_dir != null && (
+                                <span className="text-[var(--color-text-muted)] ml-1">{degToCompass(r.swell_dir)}</span>
+                              )}
+                            </>
+                          ) : '--'}
+                        </td>
+                        <td className="text-right py-1.5 px-2 tabular-nums text-[var(--color-text-secondary)]">
+                          {r.swell_period != null ? (
+                            <>
+                              {r.swell_period.toFixed(0)}
+                              <span className="text-[var(--color-text-dim)] ml-0.5">s</span>
+                            </>
+                          ) : '--'}
+                        </td>
+                        <td className="text-right py-1.5 px-2 tabular-nums text-[var(--color-text-secondary)]">
+                          {r.tide_height != null ? (
+                            <>
+                              {r.tide_height.toFixed(2)}
+                              <span className="text-[var(--color-text-dim)] ml-0.5">m</span>
+                            </>
+                          ) : '--'}
+                        </td>
+                        <td className="text-right py-1.5 pl-2">
+                          <span className={`text-[10px] font-medium ${ratingColor(r.rating)}`}>
+                            {t(`rating.${r.rating}`)}
+                          </span>
+                          <span className="text-[var(--color-text-dim)] ml-1 text-[10px]">{r.score}/14</span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              ))}
+            </table>
           </div>
         ) : (
           <p className="text-sm text-[var(--color-text-dim)] py-4 text-center">

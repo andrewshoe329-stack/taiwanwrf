@@ -86,6 +86,12 @@
     "five_day_forecast": "5-Day Forecast",
     "swell_compass": "Swell Compass",
     "score_breakdown": "Score Breakdown",
+    "hourly_forecast": "Hourly Forecast",
+    "time": "Time",
+    "swell": "Swell",
+    "period": "Period",
+    "tide": "Tide",
+    "rating_label": "Rating",
     "no_data": "No forecast data available yet",
     "coming_soon": "Coming soon"
   },
@@ -144,7 +150,8 @@
     "no_data": "No harbour forecast data available yet",
     "show_forecast": "Show forecast",
     "hide_forecast": "Hide forecast",
-    "time": "Time"
+    "time": "Time",
+    "forecast_timeline": "Forecast Timeline"
   },
   "common": {
     "loading": "Loading forecast data...",

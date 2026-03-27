@@ -86,6 +86,12 @@
     "five_day_forecast": "五日預報",
     "swell_compass": "湧浪羅盤",
     "score_breakdown": "評分明細",
+    "hourly_forecast": "逐時預報",
+    "time": "時間",
+    "swell": "湧浪",
+    "period": "週期",
+    "tide": "潮位",
+    "rating_label": "評分",
     "no_data": "尚無預報資料",
     "coming_soon": "即將推出"
   },
@@ -144,7 +150,8 @@
     "no_data": "港口預報資料尚未載入",
     "show_forecast": "顯示預報",
     "hide_forecast": "收起預報",
-    "time": "時間"
+    "time": "時間",
+    "forecast_timeline": "預報時間軸"
   },
   "common": {
     "loading": "載入預報資料中...",

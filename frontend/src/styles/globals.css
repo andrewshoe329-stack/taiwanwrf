@@ -137,6 +137,17 @@ body {
   -webkit-backdrop-filter: blur(20px);
 }
 
+/* ── PWA safe-area header/nav (Dynamic Island, notch, home indicator) ──── */
+.pwa-header {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.pwa-bottom-nav {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.pwa-main {
+  padding-top: calc(3rem + env(safe-area-inset-top, 0px));
+}
+
 .divider {
   border-color: var(--color-border);
 }
