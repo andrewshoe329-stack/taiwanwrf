@@ -1,5 +1,5 @@
 // Service Worker for Taiwan WRF Forecast PWA
-const CACHE_NAME = 'tw-forecast-v1'
+const CACHE_NAME = 'tw-forecast-v2'
 const PRECACHE_URLS = ['/', '/manifest.json', '/icon.svg']
 
 // ── Install: precache app shell ─────────────────────────────────────────────
@@ -96,6 +96,23 @@ self.addEventListener('fetch', (event) => {
   // Vite hashed assets: cache-first (immutable)
   if (url.pathname.startsWith('/assets/')) {
     event.respondWith(cacheFirst(request))
+    return
+  }
+
+  // Map tiles and styles: network-first so basemap stays fresh
+  if (
+    url.hostname === 'basemaps.cartocdn.com' ||
+    url.hostname.endsWith('.cartocdn.com')
+  ) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const clone = response.clone()
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
+          return response
+        })
+        .catch(() => caches.match(request))
+    )
     return
   }
 
