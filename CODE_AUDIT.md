@@ -1,240 +1,274 @@
 # Code Audit Report — Taiwan WRF Forecast Pipeline
 
-**Date:** 2026-03-22
-**Scope:** Full codebase audit covering all Python modules, tests, CI/CD, and PWA files.
+**Date:** 2026-03-27
+**Scope:** Full codebase audit covering all Python modules, CI/CD workflows, PWA assets, tests, and configuration.
 
 ---
 
 ## Executive Summary
 
-Audited 10 Python modules (~4,900 LOC), 8 test files (140 tests), 1 CI/CD workflow, and PWA assets. Found **68 issues** across severity levels:
+The codebase is well-structured with good separation of concerns and thorough documentation in CLAUDE.md. However, the audit identified **7 high-severity issues**, **18 medium-severity issues**, and numerous low-severity items across security, correctness, and reliability dimensions.
 
-| Severity | Count | Description |
-|----------|-------|-------------|
-| Critical | 6     | Bugs, security issues, or missing safeguards that affect correctness or CI reliability |
-| High     | 12    | Logic errors, missing error handling, or resilience gaps |
-| Medium   | 22    | Code quality, validation, performance, or UX issues |
-| Low      | 28    | Style, documentation, minor robustness improvements |
-
----
-
-## Critical Issues
-
-### C1. `setup_logging()` cannot reconfigure log level (config.py:8-11)
-`logging.basicConfig()` only takes effect on the **first** call. Subsequent calls with different levels are silently ignored. If multiple scripts or tests call `setup_logging()` with different levels, only the first wins.
-
-**Fix:** Call `logging.getLogger().setLevel(level)` after `basicConfig()`.
-
-### C2. `norm_utc()` performs zero validation (config.py:34-49)
-- Accepts invalid dates like `2026-13-01T06:00` without error
-- Does not convert non-UTC offsets (e.g., `+05:30` passes through unchanged)
-- Docstring claims normalization but only does string concatenation
-
-**Fix:** Add minimal validation with `datetime.fromisoformat()` or update docstring to document limitations.
-
-### C3. HTTPError not caught in API fetch functions (ecmwf_fetch.py:73, wave_fetch.py:118)
-Both files catch `URLError` and `JSONDecodeError` but not `HTTPError` explicitly. While `HTTPError` is a subclass of `URLError`, some urllib usage patterns require explicit handling. Server 4xx/5xx responses may not retry properly.
-
-**Fix:** Add `urllib.error.HTTPError` to exception tuples.
-
-### C4. `_download_file()` in wave_fetch.py has no error handling (wave_fetch.py:209-212)
-Bare `urllib.request.urlopen()` and `.read()` with no try/except, no retry logic. Any HTTP error or timeout crashes the script.
-
-**Fix:** Add try/except with retry logic consistent with other fetchers.
-
-### C5. Rclone config written without restrictive file permissions (.github/workflows/main.yml:62-63)
-```bash
-printf '%s' "$RCLONE_CONFIG_CONTENT" > ~/.config/rclone/rclone.conf
-```
-No `chmod 600` — credentials file may be world-readable on the runner.
-
-**Fix:** Add `chmod 600 ~/.config/rclone/rclone.conf` after writing.
-
-### C6. npm install without version pinning (.github/workflows/main.yml:376)
-`npm install -g vercel` installs latest version without a lock file. Supply chain risk and potential for breaking changes.
-
-**Fix:** Pin to a specific version: `npm install -g vercel@<version>`.
+The most critical findings are:
+1. **Accuracy feedback loop is compromised** -- precipitation and wave accuracy metrics are computed incorrectly, feeding bad data to the AI summary
+2. **Credential leak in error logs** -- Telegram bot token embedded in URLs appears in exception tracebacks
+3. **Silent data corruption** -- falsy-value bugs (`0.0` treated as missing) and a precipitation heuristic that can multiply values by 1000x
+4. **Documentation drift** -- CLAUDE.md references a `main.yml` workflow that doesn't exist; actual architecture is 3 separate workflows
 
 ---
 
-## High-Severity Issues
+## High Severity
 
-### H1. `--force` flag doesn't force re-subsetting of GRIB2 (taiwan_wrf_download.py:401)
-```python
-if subset_dest.exists() and subset_dest.suffix != ".nc" and not force:
-```
-The `.suffix != ".nc"` condition means GRIB2 files (`.grb2`) are always skipped when they exist, regardless of `--force`. The `not force` check is ANDed, not a separate condition.
+### H1. Precipitation accuracy comparison is apples-to-oranges
+**File:** `accuracy_track.py:264`
+The code compares a 6-hour accumulated forecast value against a single 1-hour observation. This systematically inflates precipitation MAE and positive bias. These corrupted metrics are fed to the AI summary via `forecast_summary.py`, causing Claude to adjust its language based on false bias data -- undermining the entire accuracy feedback loop.
 
-**Fix:** Simplify to `if subset_dest.exists() and not force:`.
+### H2. Wave accuracy field name mismatch
+**File:** `accuracy_track.py:352-362`
+`_compute_wave_accuracy()` looks for short keys (`hs`, `tp`, `dir`) but `wave_keelung.json` uses long keys (`wave_height`, `wave_period`, `wave_direction`). Wave accuracy silently produces no results. The `_compute_buoy_verification` function handles both formats, but `_compute_wave_accuracy` does not, so wave MAE/bias metrics are never computed.
 
-### H2. No retry logic on S3 metadata fetch (taiwan_wrf_download.py:170)
-`fetch_json()` for the S3 model run JSON has no retry/error handling, unlike `download_file()` which has 3-attempt retry with exponential backoff.
+### H3. Falsy `0.0` values silently replaced by ECMWF fallback
+**File:** `wrf_analyze.py:1891-1895, 1698-1710`
+Pattern: `wind = (wrf.get('wind_kt') if wrf else None) or (ec.get('wind_kt') if ec else None)`
+Python's `or` treats `0.0` as falsy. When WRF reports calm wind (0.0 kt), zero temperature, or zero precipitation, the value is silently discarded and replaced by the ECMWF fallback. This is a real data correctness bug affecting calm-weather scenarios.
 
-### H3. ~~Rain 6h calculation uses wrong window size~~ ✅ FIXED
-Early forecast hours now scale up proportionally to represent 6-hour equivalent accumulation.
+### H4. Precipitation heuristic can multiply mm values by 1000
+**File:** `wrf_analyze.py:296-299`
+When the GRIB2 `units` key is missing, a heuristic triggers: `if 0 < val < 0.5: val *= 1000.0`. This assumes the value is in metres and converts to mm. But light rain that is genuinely 0.3 mm (already in mm) gets multiplied to 300 mm -- a catastrophically wrong value. The code logs a warning but applies the conversion anyway.
 
-### H4. Fragile time format detection (ecmwf_fetch.py:173, wave_fetch.py:156-157)
-```python
-datetime.fromisoformat(t if len(t) >= 19 else t + ':00')
-```
-Doesn't handle `Z` suffix, fractional seconds, or non-UTC offsets. Should use `norm_utc()` from config.py instead of ad-hoc parsing.
+### H5. Telegram bot token leaked in error logs
+**File:** `notify.py:297-299, 313`
+The bot token is embedded in the URL path (`https://api.telegram.org/bot{token}/sendMessage`). When an `HTTPError` occurs, line 313 logs the exception which includes the full URL with the embedded token. This is a credential leak in any log aggregation system.
 
-### H5. Grid cache key missing grid_type in wave_fetch.py (wave_fetch.py:312)
-Cache key is `(ni, nj)` only — known latent bug per CLAUDE.md. If messages have different projections with same dimensions, cached grid coordinates would be wrong.
+### H6. Daylight window calculation broken for Taiwan's UTC offset
+**File:** `surf_forecast.py:551-557`
+Sunrise/sunset for Taiwan in UTC wraps past midnight (sunrise ~21:30 UTC previous day, sunset ~10:00 UTC). The linear overlap math (`max(start, sunrise)` to `min(end, sunset)`) produces zero or negative values when the window crosses midnight UTC. The "best time to surf" daylight filter likely falls back to scoring all windows, negating the feature.
 
-### H6. ~~Silent error masking in ecmwf_fetch.py~~ ✅ FIXED
-`_fetch_json()` now returns `None` on failure. Callers distinguish failure from empty data.
-
-### H7. ~~ThreadPoolExecutor silently drops failed spots~~ ✅ FIXED
-Now tracks failure count and aborts if >50% of spots fail or if no spot data is fetched.
-
-### H8. ~~No timeouts on most CI workflow steps~~ ✅ FIXED
-All workflow steps now have `timeout-minutes` set (2–30 min depending on step).
-
-### H9. ~~`_trim_records()` silent fallback on malformed dates~~ ✅ FIXED
-Now logs a warning when falling back to slice-based trimming.
-
-### H10. ~~Array reshape without size validation~~ ✅ FIXED
-Both paramId and main paths now validate array size against `ni*nj` before reshape.
-
-### H11. ~~No validation of Ni/Nj grid dimensions~~ ✅ FIXED
-Grid dimensions are validated to be positive before use.
-
-### H12. Anthropic API retry doesn't catch all network errors (forecast_summary.py:148-149)
-Only catches `APIConnectionError`, `RateLimitError`, `InternalServerError`, and `ValueError`. Misses `socket.timeout`, `ssl.SSLError`, and generic `OSError`.
+### H7. CLAUDE.md references non-existent workflow
+**File:** `CLAUDE.md` vs `.github/workflows/`
+CLAUDE.md documents a single `.github/workflows/main.yml` with a 4x daily schedule. The actual codebase has three separate workflows: `wrf.yml` (1x daily), `forecast.yml` (2x daily), `deploy.yml` (triggered). This documentation drift means developers working from CLAUDE.md will have incorrect mental models of the pipeline.
 
 ---
 
-## Medium-Severity Issues
+## Medium Severity
 
-### M1. `deg_to_compass()` rounding ambiguity at boundaries (config.py:31)
-Python's `round()` uses banker's rounding. At exact boundaries (11.25, 33.75, etc.), direction assignment is unpredictable.
+### M1. XSS via `bilingual()` -- html.escape imported but never used
+**File:** `i18n.py:343-345, 11`
+`bilingual(en, zh)` interpolates parameters directly into HTML without escaping. `html.escape` is imported as `_esc` on line 11 but never used anywhere. If any caller passes externally-sourced strings (CWA station names, spot names from API), this is a stored XSS vector.
 
-### M2. COMPASS_NAMES is mutable list (config.py:21-24)
-Could be accidentally mutated. Should be a tuple.
+### M2. Unescaped HTML in Telegram messages
+**File:** `notify.py:300-304, 228`
+Messages are sent with `parse_mode: 'HTML'` but `format_notification()` does not HTML-escape alert content. CWA warning descriptions from an external API (line 228) could contain HTML metacharacters, breaking messages or enabling content injection.
 
-### M3. `norm_utc()` doesn't handle non-UTC offsets (config.py:43-49)
-Input `2026-03-09T06:00:00+05:30` passes through unchanged — violates the function's contract.
+### M3. `T()` / `T_str()` crash on missing keys
+**File:** `i18n.py:328-340`
+Missing keys raise unhandled `KeyError`, which would crash HTML generation mid-render and deploy a broken partial HTML file to Vercel. No compile-time checks exist on string keys.
 
-### M4. Double-processing of ECMWF data on GFS backfill (ecmwf_fetch.py:236-240)
-`process(raw, raw_fill)` rebuilds all records from scratch instead of just backfilling.
+### M4. Grid cache ignores target coordinates
+**File:** `wrf_analyze.py:177`
+Module-level `_grid_cache` keys on `(grid_type, ni, nj)` but not on `(lat, lon)`. If `read_point()` is ever called for a different location in the same process, it silently returns the grid point nearest to the first location queried. Currently safe (only Keelung used) but a latent correctness bug.
 
-### M5. No JSON schema validation on input files (wrf_analyze.py:1265-1295)
-External JSON files are loaded without type/structure checks.
+### M5. Precip accumulation breaks on missing intermediate files
+**File:** `wrf_analyze.py:369-382`
+`prev_precip_mm` tracking assumes files are processed in consecutive forecast-hour order. If a file is missing (e.g., F012 absent), the delta for F018 spans 12 hours instead of 6, doubling the reported precipitation for that timestep.
 
-### M6. ~~Unescaped tide data in HTML output~~ ✅ FIXED
-Tide data now escaped with `html_mod.escape()` and uses `.get()` for safe access.
+### M6. Cloud cover fraction-vs-percent ambiguity at boundary
+**File:** `wrf_analyze.py:103-104`
+`cloud_raw * 100 if cloud_raw <= 1.0 else cloud_raw` -- a value of exactly 1.0 is ambiguous (100% as fraction, or 1% as percentage). Values like 1.5 (rounding artifact) are passed through as 1.5% instead of 150%.
 
-### M7. Fragile string slicing for time extraction (wrf_analyze.py:695)
-`ex.get('cst', '')[-9:-4]` assumes exact string format — breaks silently if format changes.
+### M7. Local `fetch_json()` shadows shared config utility
+**File:** `taiwan_wrf_download.py:123-125`
+Defines its own `fetch_json()` with no retry logic, contradicting the convention that all modules use `config.fetch_json()` with centralized retries. S3 metadata fetches fail on transient errors without retry.
 
-### M8. ~~No validation of --radius and --workers args~~ ✅ FIXED
-`main()` now validates `--radius > 0` and `--workers >= 1` before calling `run()`.
+### M8. cfgrib latitude slice direction may be wrong
+**File:** `taiwan_wrf_download.py:339-344`
+`ds.sel(latitude=slice(lat_lo, lat_hi))` assumes ascending latitude order. If the coordinate is descending (common in meteorological data), the selection returns empty data.
 
-### M9. ~~Mutually exclusive flags not enforced~~ ✅ FIXED
-`--keelung-only` and `--full-domain` now use `add_mutually_exclusive_group()`.
+### M9. `norm_utc()` silently passes non-UTC offsets
+**File:** `config.py:306-324`
+A timestamp with `+08:00` (CST) passes through unchanged without conversion or warning. The docstring says "assumes input is already in UTC" but does not validate this. Any caller mistakenly passing CST gets silently wrong results.
 
-### M10. Inconsistent logging wrapper usage (taiwan_wrf_download.py:116-118)
-`_log()` wrapper defined but used inconsistently alongside direct `log.info()` calls.
+### M10. CWA operator precedence bug in tide observation filter
+**File:** `cwa_fetch.py:431-437`
+Python `and` binds tighter than `or`, so the `valid_obs` filter allows any observation with `TideHeight != "None"` through regardless of whether it is a dict or has a DateTime.
 
-### M11. Missing return type hints on many functions
-Scattered across all modules. Reduces IDE support and type-checking.
+### M11. Inconsistent cm-to-m conversion in tide forecast
+**File:** `cwa_fetch.py:712-735`
+Nested `TideHeights` values are divided by 100 (cm to m), but fallback top-level values are used raw. If the fallback receives cm values, heights are 100x too large.
 
-### M12. Broad exception catching (wave_fetch.py:204, 260, 325)
-`except Exception` swallows real errors like KeyboardInterrupt (Python < 3.8).
+### M12. CWA API returns data even on failure responses
+**File:** `cwa_fetch.py:100-107`
+`_cwa_get` returns data when the API indicates failure. A warning is logged but callers still receive potentially invalid data.
 
-### M13. No retry logic for CWA wave probe/download (wave_fetch.py:196, 211)
-Unlike ECMWF fetch, S3 downloads have no retry logic.
+### M13. Firestore 1 MiB document size limit
+**File:** `firebase_storage.py:136`
+The entire accuracy log (120+ entries with CWA snapshots) is stored in a single Firestore document. With 4 runs/day for 30 days plus embedded observation data, this will eventually exceed the 1 MiB limit.
 
-### M14. isoformat() may lack +00:00 offset (wave_fetch.py:354)
-If `init_time` is naive datetime, output won't include UTC offset.
+### M14. No output file created when Firestore document missing
+**File:** `firebase_storage.py:240-243`
+When there is no previous summary in Firestore, no file is created. Downstream pipeline steps expecting the file get `FileNotFoundError` instead of a clean signal.
 
-### M15. Incomplete regex for GRIB2 filename (wave_fetch.py:343)
-`r'-(\d{3})\.grb2$'` requires exactly 3 digits — non-zero-padded filenames silently skipped.
+### M15. Accessing private `firebase_admin._apps`
+**File:** `firebase_storage.py:66`
+`firebase_admin._apps` is a private implementation detail. Could break on library updates.
 
-### M16. Service worker may serve stale forecasts offline (pwa/sw.js:27-42)
-Network-first with cache fallback, but no staleness warning if data is >6 hours old.
+### M16. Script injection risk in GitHub Actions
+**File:** `wrf.yml:81, 101, 129, 156, 158`
+Step outputs from `taiwan_wrf_download.py` are interpolated directly into shell commands via `${{ }}` syntax. Should use `env:` blocks to prevent injection.
 
-### M17. Duplicate init_utc check prevents forecast updates (accuracy_track.py:210-212)
-Same `init_utc` with different `verified_utc` — newer accuracy data is discarded.
+### M17. `continue-on-error: true` overused in CI
+**File:** `forecast.yml` (9 steps)
+Pipeline always reports "success" even if most data fetches fail. A run where ECMWF, wave, ensemble, CWA, AI summary, and accuracy tracking all fail still triggers a deploy to Vercel.
 
-### M18. String-based date cutoff comparison (accuracy_track.py:215-216)
-ISO string comparison works but fragile with varying formats.
-
-### M19. Non-portable strftime format (wrf_analyze.py:637)
-`%-m` and `%-d` flags don't work on Windows.
-
-### M20. HTML generation via 340+ lines of string concatenation (wrf_analyze.py:860-1183)
-Acknowledged in CLAUDE.md — hard to test, maintain, and prone to typos.
-
-### M21. Thread-safety gap in grid cache (taiwan_wrf_download.py:112-113, 264)
-Shared `_grid_cache` dict is written by multiple threads without locking.
-
-### M22. ~~Missing test suite for forecast_summary.py~~ ✅ FIXED
-Added `tests/test_forecast_summary.py` with 17 tests covering `_trim_records`, `build_user_prompt`, `render_html`, and `SYSTEM_PROMPT`.
+### M18. Service worker precache is all-or-nothing
+**File:** `pwa/sw.js:25-29`
+`cache.addAll(PRECACHE_URLS)` fails entirely if any of the 17 URLs returns 404 during deploy, blocking all service worker updates.
 
 ---
 
-## Low-Severity Issues (Summary)
+## Low Severity
 
-| ID | File | Issue |
-|----|------|-------|
-| L1 | config.py | `deg_to_compass()` accepts booleans silently |
-| L2 | config.py | Magic numbers (22.5, 16) not extracted as constants |
-| L3 | config.py | `norm_utc()` docstring overstates guarantees |
-| L4 | wrf_analyze.py | Module-level `_grid_cache` grows unbounded |
-| L5 | wrf_analyze.py | Repeated `.get()` calls in wave data (minor perf) |
-| L6 | wrf_analyze.py | Incomplete docstring for `render_unified_html()` |
-| L7 | wrf_analyze.py | Unescaped model_id in HTML (low risk in practice) |
-| L8 | taiwan_wrf_download.py | Misleading RuntimeError init in download_file() |
-| L9 | taiwan_wrf_download.py | Redundant file existence check (line 387) |
-| L10 | taiwan_wrf_download.py | Hardcoded timeout (120s) not configurable |
-| L11 | taiwan_wrf_download.py | Magic numbers (chunk_size, MB conversion) |
-| L12 | taiwan_wrf_download.py | Missing failure mode documentation |
-| L13 | taiwan_wrf_download.py | `__import__()` instead of `importlib.import_module()` |
-| L14 | ecmwf_fetch.py | Unsafe array indexing for first timestamp |
-| L15 | ecmwf_fetch.py | No coordinate proximity validation |
-| L16 | wave_fetch.py | Semicolons as statement separators (style) |
-| L17 | wave_fetch.py | Missing return type annotations |
-| L18 | wave_fetch.py | No coordinate validation on API response |
-| L19 | surf_forecast.py | Config import alias (`compass = deg_to_compass`) |
-| L20 | surf_forecast.py | Spot ordering silently handles unknown IDs |
-| L21 | surf_forecast.py | Missing HTML entity escaping throughout |
-| L22 | surf_forecast.py | Recommendation logic uses emoji string comparison |
-| L23 | surf_forecast.py | 600px mobile breakpoint is arbitrary |
-| L24 | tide_predict.py | String comparison instead of datetime in tide_state() |
-| L25 | tide_predict.py | No runtime validation of CONSTITUENTS phases |
-| L26 | accuracy_track.py | Mismatched observation array lengths handled silently |
-| L27 | forecast_summary.py | Empty summary writes empty file (no error indicator) |
-| L28 | forecast_summary.py | Hardcoded model ID inconsistent with CLAUDE.md |
+### L1. Unused imports
+- `config.py:240` -- `_dt`, `_tz` imported inside `sunrise_sunset()` but never used
+- `i18n.py:11` -- `html.escape` imported as `_esc` but never used
+- `surf_forecast.py:16` -- `html_mod_escape` imported but never used
+- `cwa_discover.py:27` -- `norm_utc` imported but never used
+
+### L2. `sunrise_sunset()` hardcodes 365 days (no leap year)
+**File:** `config.py:249`
+`gamma = 2 * math.pi / 365 * (doy - 1)` -- off by ~1 minute on leap years.
+
+### L3. `sunrise_sunset()` silently uses Jan 1, 2026 for non-date inputs
+**File:** `config.py:244-246`
+Should raise `TypeError` instead of masking bugs with a fallback.
+
+### L4. `sail_rating()` missing None guard on `total_rain`
+**File:** `config.py:334`
+Other parameters are guarded but `total_rain` is not.
+
+### L5. `T_str()` does not validate `lang` parameter
+**File:** `i18n.py:340`
+`T_str('key', 'fr')` raises unhandled `KeyError`.
+
+### L6. STRINGS contains mixed HTML entities and plain characters
+**File:** `i18n.py:21-24 vs 252`
+HTML-rendered strings use `&amp;` while notification strings use literal `&`. Using `T()` in the wrong context produces visible entities.
+
+### L7. `strftime('%-d')` not portable
+**File:** `wrf_analyze.py:899, 1447, 1685, 1882`
+GNU/Linux extension; crashes on Windows.
+
+### L8. Fragile HTML string surgery
+**File:** `wrf_analyze.py:1370-1373, 1997-2000`
+Stripping closing `</div>` tags by string matching to append content. If formatting changes, the HTML structure silently breaks.
+
+### L9. `avg_metric` and `bias_metric` are identical functions
+**File:** `wrf_analyze.py:2069-2075`
+Both compute arithmetic mean. Should be consolidated.
+
+### L10. Missing `encoding='utf-8'` on some `write_text()` calls
+**File:** `wrf_analyze.py:2249-2250, 2265`
+CJK content written without explicit UTF-8 encoding. Works on Linux but could produce mojibake elsewhere.
+
+### L11. ECMWF init_utc derived from first timestamp, not model metadata
+**File:** `ecmwf_fetch.py:207-211`
+Open-Meteo may start at a different hour than the model init cycle.
+
+### L12. GFS gust backfill uses snapshot, not window max
+**File:** `ecmwf_fetch.py:186-188`
+ECMWF gusts use max across 6h window; GFS backfill uses point value. Inconsistent.
+
+### L13. Ensemble spread=0 with n=1 is misleading
+**File:** `ensemble_fetch.py:190-197`
+Downstream interprets spread=0 as "all models agree" rather than "only one model available."
+
+### L14. ECMWF records missing from ensemble `models` output
+**File:** `ensemble_fetch.py:239-240`
+ECMWF is used in spread calculation but not included in `output["models"]`.
+
+### L15. Extremum detection misses events near boundary
+**File:** `tide_predict.py:166`
+Loop stops at `end - step`, missing extrema in the last 6 minutes.
+
+### L16. `predict_height_anchored` silent fallback with no logging
+**File:** `tide_predict.py:92-98`
+Falls back to pure harmonic prediction without logging, making accuracy issues hard to diagnose.
+
+### L17. Global mutable state in surf_forecast.py
+**File:** `surf_forecast.py:32-36`
+`_CWA_TIDE_EXTREMA` and `_CWA_SPOT_OBS` make the module non-reentrant.
+
+### L18. `--all` flag default=True makes it impossible to disable
+**File:** `cwa_fetch.py:1127`
+Dead code -- the flag is always True.
+
+### L19. Telegram tokens accepted via CLI args
+**File:** `notify.py:325-326`
+Visible in `/proc/<pid>/cmdline`. The env var fallback is safer.
+
+### L20. `vercel.json` build command references `frontend/` with Vite
+**File:** `vercel.json:2-4`
+CLAUDE.md says the site is static HTML from Python. The Vercel config may be for a different setup.
+
+### L21. Render-blocking Google Fonts import
+**File:** `pwa/styles.css:4`
+`@import` for Google Fonts blocks rendering on slow networks.
+
+### L22. Nav active state never highlights on spot subpages
+**File:** `html_template.py:61`
+Exact string match means `/spots/fulong` never matches `/surf` nav item.
+
+### L23. `vercel.json` catch-all rewrite masks 404s
+**File:** `vercel.json:7`
+`/(.*) -> /index.html` serves the dashboard for any non-existent path instead of a 404.
+
+### L24. Firebase SA key written to `/tmp` and never cleaned up
+**File:** `wrf.yml:58, forecast.yml:48, deploy.yml:49`
+Service account key persists on the runner disk after the job.
+
+### L25. Third-party Actions pinned to major version tags, not SHAs
+**File:** All workflows
+Supply-chain risk -- a compromised tag update would affect all runs.
+
+### L26. Duplicate timestamp parsing pattern across fetch modules
+**File:** `ecmwf_fetch.py:160, wave_fetch.py:143, ensemble_fetch.py:119`
+`datetime.fromisoformat(t if len(t) >= 19 else t + ':00')` duplicated in 3 files. Should be a shared utility in `config.py`.
+
+### L27. Accuracy tracking uses raw urllib without shared retry logic
+**File:** `accuracy_track.py:65-94`
+`fetch_observations` and `fetch_wave_observations` don't use `config.fetch_json()`.
+
+### L28. `cwa_discover.py` sentinel detection is incomplete
+**File:** `cwa_discover.py:416`
+Only treats `"-99"` as invalid. CWA APIs also use `-999`, `-9999`, `-99.0`.
 
 ---
 
 ## Test Coverage Gaps
 
-| Module | Covered | Not Covered |
-|--------|---------|-------------|
-| config.py | `deg_to_compass`, `norm_utc` | `setup_logging` reconfiguration |
-| wrf_analyze.py | Formatting helpers, emoji, colors | `read_point`, `extract_forecast`, `render_unified_html`, `nearest_idx` |
-| taiwan_wrf_download.py | Geometry helpers, constants | `download_file`, `_subset_eccodes`, `_make_archive`, `run()` |
-| ecmwf_fetch.py | GFS backfill null handling | Network errors, timeouts, rate limits |
-| wave_fetch.py | Basic processing (1 test) | Null fields, missing swell data, timezone handling |
-| surf_forecast.py | Scoring, ratings, compass (34 tests) | HTML generation, `_recommend()`, thread pool |
-| tide_predict.py | Semidiurnal pattern, extrema | `tide_state()`, edge cases |
-| accuracy_track.py | Error metrics | Observation fetch, stale data pruning |
-| forecast_summary.py | `_trim_records`, `build_user_prompt`, `render_html`, `SYSTEM_PROMPT` | `call_api`, `main` |
+| Area | Status |
+|------|--------|
+| `html_template.py` | No tests |
+| `cwa_discover.py` | No tests |
+| `wrf_analyze.py` core GRIB2 extraction | Not tested (only helpers tested) |
+| `surf_forecast.py` HTML generation | Not tested |
+| `notify.py` send functions | Not tested |
+| `ecmwf_fetch.py` | 3 tests (minimal) |
+| `wave_fetch.py` | 2 tests (minimal) |
+| JSON contract validation between pipeline stages | No tests |
+| Integration/end-to-end | No tests |
 
 ---
 
-## Top 10 Priority Fixes
+## Recommended Priority Order
 
-1. **C1** — Fix `setup_logging()` to actually set the level
-2. **C3** — Add `HTTPError` to fetch exception handlers
-3. **C5** — `chmod 600` on rclone config in CI
-4. **H1** — Fix `--force` flag logic in download script
-5. **H4** — Use `norm_utc()` instead of ad-hoc time parsing
-6. **H5** — Include grid_type in wave_fetch cache key
-7. **H8** — Add timeout-minutes to all CI workflow steps
-8. **C2** — Add validation to `norm_utc()` or update docstring
-9. **H6** — Distinguish fetch failure from empty data in ecmwf_fetch
-10. **M22** — Create test suite for forecast_summary.py
+1. **Fix H1 + H2** (accuracy feedback loop) -- the AI summary is calibrating against bad data
+2. **Fix H3** (falsy 0.0 bug) -- use `is not None` checks instead of `or`
+3. **Fix H5** (credential leak) -- sanitize URLs in error logs
+4. **Fix H4** (precip heuristic) -- add explicit units validation or remove the heuristic
+5. **Fix H6** (daylight calc) -- handle UTC midnight crossing for Taiwan
+6. **Fix H7 + M17** (documentation + CI) -- update CLAUDE.md, add deploy gate on critical failures
+7. **Fix M1 + M2** (XSS) -- wire up `html.escape` in `bilingual()` and notification formatting
+8. **Fix M16** (script injection) -- use `env:` blocks in workflows
+9. Address remaining medium items
+10. Improve test coverage for untested modules
