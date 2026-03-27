@@ -1,0 +1,108 @@
+import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import type { SpotForecast, Region } from '@/lib/types'
+
+interface SurfHeatmapProps {
+  spots: SpotForecast[]
+  filter: Region | 'all'
+}
+
+const RATING_STYLES: Record<string, { bg: string; color: string }> = {
+  firing:    { bg: '#ffffff',            color: '#000000' },
+  good:      { bg: '#888888',            color: '#ffffff' },
+  marginal:  { bg: '#444444',            color: '#ffffff' },
+  poor:      { bg: '#222222',            color: '#888888' },
+  flat:      { bg: '#111111',            color: '#444444' },
+  dangerous: { bg: 'var(--color-danger)', color: '#ffffff' },
+}
+
+function formatDayHeader(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00')
+  return d.toLocaleDateString('en-US', { weekday: 'short' })
+}
+
+function formatDateSub(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00')
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+export function SurfHeatmap({ spots, filter }: SurfHeatmapProps) {
+  const { t, i18n } = useTranslation()
+  const lang = i18n.language as 'en' | 'zh'
+
+  const filtered = filter === 'all'
+    ? spots
+    : spots.filter(sf => sf.spot.region === filter)
+
+  if (filtered.length === 0) return null
+
+  // Collect all unique dates across all spots, sorted
+  const allDates = new Set<string>()
+  for (const sf of filtered) {
+    for (const db of sf.daily_best) {
+      allDates.add(db.date)
+    }
+  }
+  const dates = Array.from(allDates).sort().slice(0, 7)
+
+  if (dates.length === 0) return null
+
+  // Build lookup: spot_id -> date -> daily_best entry
+  const lookup: Record<string, Record<string, { rating: string; score: number }>> = {}
+  for (const sf of filtered) {
+    lookup[sf.spot.id] = {}
+    for (const db of sf.daily_best) {
+      lookup[sf.spot.id][db.date] = { rating: db.rating, score: db.score }
+    }
+  }
+
+  return (
+    <div className="mb-5 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+      <table className="w-full border-collapse text-xs" style={{ minWidth: dates.length * 64 + 100 }}>
+        <thead>
+          <tr>
+            <th className="text-left py-2 pr-3 text-[var(--color-text-muted)] font-normal sticky left-0 bg-[var(--color-bg)] z-10">
+              {t('spots.title')}
+            </th>
+            {dates.map(date => (
+              <th key={date} className="text-center py-2 px-1 font-normal" style={{ minWidth: 56 }}>
+                <div className="text-[var(--color-text-secondary)] font-medium">{formatDayHeader(date)}</div>
+                <div className="text-[var(--color-text-dim)] text-[10px]">{formatDateSub(date)}</div>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {filtered.map(sf => (
+            <tr key={sf.spot.id}>
+              <td className="py-1 pr-3 sticky left-0 bg-[var(--color-bg)] z-10">
+                <Link
+                  to={`/spots/${sf.spot.id}`}
+                  className="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors no-underline whitespace-nowrap"
+                >
+                  {sf.spot.name[lang]}
+                </Link>
+              </td>
+              {dates.map(date => {
+                const entry = lookup[sf.spot.id]?.[date]
+                const rating = entry?.rating ?? 'flat'
+                const style = RATING_STYLES[rating] ?? RATING_STYLES.flat
+                return (
+                  <td key={date} className="py-1 px-1 text-center">
+                    <Link
+                      to={`/spots/${sf.spot.id}`}
+                      className="block rounded-md py-1.5 px-1 no-underline transition-opacity hover:opacity-80"
+                      style={{ backgroundColor: style.bg, color: style.color }}
+                    >
+                      {t(`rating.${rating}`)}
+                    </Link>
+                  </td>
+                )
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}

@@ -50,6 +50,7 @@ log = logging.getLogger(__name__)
 # Source: swelleye.com spot guides
 
 SPOTS = [
+    # ── North coast ──────────────────────────────────────────────────────────
     {
         'id': 'fulong',
         'name': 'Fulong 福隆',
@@ -83,6 +84,7 @@ SPOTS = [
         'desc': 'Beach/point · L&R · Mid tide · Beg–Inter',
         'desc_zh': '沙灘/礁岩 · 左右跑 · 中潮 · 初學–中級',
     },
+    # ── Northeast coast ──────────────────────────────────────────────────────
     {
         'id': 'daxi',
         'name': 'Daxi 大溪',
@@ -126,6 +128,85 @@ SPOTS = [
         'opt_tide':  'low-mid',
         'desc': 'Point break · Left · Low-mid tide · Intermediate+',
         'desc_zh': '礁岩浪型 · 左跑 · 低中潮 · 中級以上',
+    },
+    # ── East coast ───────────────────────────────────────────────────────────
+    {
+        'id': 'donghe',
+        'name': 'Donghe 東河',
+        'lat': _COORD_LOOKUP['donghe'][0], 'lon': _COORD_LOOKUP['donghe'][1],
+        'facing': 'E/SE',
+        'opt_wind':  ['W', 'NW', 'SW'],
+        'opt_swell': ['E', 'SE', 'SSE'],
+        'opt_tide':  'mid',
+        'desc': 'Reef break · World-class right · Advanced',
+        'desc_zh': '礁岩浪型 · 世界級右跑 · 高級',
+    },
+    {
+        'id': 'jinzun',
+        'name': 'Jinzun 金樽',
+        'lat': _COORD_LOOKUP['jinzun'][0], 'lon': _COORD_LOOKUP['jinzun'][1],
+        'facing': 'E',
+        'opt_wind':  ['W', 'NW'],
+        'opt_swell': ['E', 'NE', 'SE'],
+        'opt_tide':  'any',
+        'desc': 'Point break · Right · All tides · Inter–Adv',
+        'desc_zh': '礁岩浪型 · 右跑 · 各潮 · 中級–高級',
+    },
+    {
+        'id': 'chenggong',
+        'name': 'Chenggong 成功',
+        'lat': _COORD_LOOKUP['chenggong'][0], 'lon': _COORD_LOOKUP['chenggong'][1],
+        'facing': 'E',
+        'opt_wind':  ['W', 'NW', 'SW'],
+        'opt_swell': ['E', 'NE', 'SE'],
+        'opt_tide':  'any',
+        'desc': 'Beach break · L&R · All tides · All levels',
+        'desc_zh': '沙灘浪型 · 左右跑 · 各潮 · 各級適合',
+    },
+    {
+        'id': 'dulan',
+        'name': 'Dulan 都蘭',
+        'lat': _COORD_LOOKUP['dulan'][0], 'lon': _COORD_LOOKUP['dulan'][1],
+        'facing': 'E',
+        'opt_wind':  ['W', 'NW'],
+        'opt_swell': ['E', 'NE', 'SE'],
+        'opt_tide':  'any',
+        'desc': 'Beach break · Mellow · All tides · Beginner',
+        'desc_zh': '沙灘浪型 · 溫和 · 各潮 · 初學適合',
+    },
+    # ── South coast ──────────────────────────────────────────────────────────
+    {
+        'id': 'nanwan',
+        'name': 'Nanwan 南灣',
+        'lat': _COORD_LOOKUP['nanwan'][0], 'lon': _COORD_LOOKUP['nanwan'][1],
+        'facing': 'S/SW',
+        'opt_wind':  ['N', 'NE', 'NW'],
+        'opt_swell': ['S', 'SW', 'SE'],
+        'opt_tide':  'any',
+        'desc': 'Beach break · L&R · All tides · All levels',
+        'desc_zh': '沙灘浪型 · 左右跑 · 各潮 · 各級適合',
+    },
+    {
+        'id': 'jialeshuei',
+        'name': 'Jialeshuei 佳樂水',
+        'lat': _COORD_LOOKUP['jialeshuei'][0], 'lon': _COORD_LOOKUP['jialeshuei'][1],
+        'facing': 'SE/E',
+        'opt_wind':  ['NW', 'W', 'N'],
+        'opt_swell': ['SE', 'E', 'S'],
+        'opt_tide':  'mid',
+        'desc': 'Point/reef · Powerful · Mid tide · Inter–Adv',
+        'desc_zh': '礁岩浪型 · 有力 · 中潮 · 中級–高級',
+    },
+    {
+        'id': 'baishawan',
+        'name': 'Baishawan 白沙灣',
+        'lat': _COORD_LOOKUP['baishawan'][0], 'lon': _COORD_LOOKUP['baishawan'][1],
+        'facing': 'W',
+        'opt_wind':  ['E', 'NE', 'SE'],
+        'opt_swell': ['W', 'SW', 'NW'],
+        'opt_tide':  'any',
+        'desc': 'Beach break · Gentle · All tides · Beginner',
+        'desc_zh': '沙灘浪型 · 溫和 · 各潮 · 初學適合',
     },
 ]
 
@@ -1596,14 +1677,11 @@ def main() -> None:
         log.info("  %s → %d timesteps", name, len(records))
         return spot_entry, records
 
-    all_entries = [{'lat': KEELUNG['lat'], 'lon': KEELUNG['lon'],
-                    'name': 'Keelung (sailing)', '_is_keelung': True}]
-    all_entries += [{'_is_keelung': False, **s} for s in SPOTS]
+    all_entries = list(SPOTS)
 
-    keelung_records = []
     all_spot_data = []
     failed_count = 0
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    with ThreadPoolExecutor(max_workers=8) as pool:
         futures = {pool.submit(_fetch_and_process, e): e for e in all_entries}
         for future in as_completed(futures):
             try:
@@ -1613,12 +1691,7 @@ def main() -> None:
                 log.error("Failed to process %s: %s", spot_name, e)
                 failed_count += 1
                 continue
-            if entry.get('_is_keelung'):
-                keelung_records = records
-            else:
-                # Reconstruct the original spot dict (without internal keys)
-                spot = {k: v for k, v in entry.items() if not k.startswith('_')}
-                all_spot_data.append({'spot': spot, 'records': records})
+            all_spot_data.append({'spot': entry, 'records': records})
 
     if failed_count > len(all_entries) // 2:
         log.error("More than half of spot fetches failed (%d/%d) — aborting",
@@ -1643,8 +1716,7 @@ def main() -> None:
         (out_dir / 'spots').mkdir(parents=True, exist_ok=True)
 
         # Surf overview page
-        surf_html = render_surf_page(all_spot_data, keelung_records=keelung_records,
-                                     build_utc=build_utc)
+        surf_html = render_surf_page(all_spot_data, build_utc=build_utc)
         (out_dir / 'surf.html').write_text(surf_html, encoding='utf-8')
         log.info("Surf overview → %s/surf.html", out_dir)
 
@@ -1656,14 +1728,14 @@ def main() -> None:
             log.info("Spot page → %s/spots/%s.html", out_dir, spot_id)
     else:
         # ── Legacy single-file output ──────────────────────────────────────
-        html_full = generate_full_html(all_spot_data, keelung_records=keelung_records)
+        html_full = generate_full_html(all_spot_data)
         with open(args.output, 'w', encoding='utf-8') as f:
             f.write(html_full)
         log.info("Wrote %s (%s chars)", args.output, f"{len(html_full):,}")
 
     if args.output_json:
         import json as json_mod
-        planner_data = generate_planner_json(all_spot_data, keelung_records=keelung_records)
+        planner_data = generate_planner_json(all_spot_data)
         with open(args.output_json, 'w', encoding='utf-8') as f:
             json_mod.dump(planner_data, f, ensure_ascii=False, indent=2)
         log.info("Wrote planner JSON: %s", args.output_json)

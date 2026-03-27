@@ -1,0 +1,162 @@
+name: WRF Download & Analysis
+
+permissions:
+  contents: read
+
+on:
+  schedule:
+    # Once daily — 45 min after the 00 UTC CWA model cycle
+    - cron: '45 0 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force run even if CWA cycle is unchanged'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: wrf-pipeline
+  cancel-in-progress: true
+
+jobs:
+  wrf-download:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Cache pip packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y --no-install-recommends libeccodes-dev
+          pip install --quiet -r requirements.txt
+
+      - name: Download and subset WRF data
+        id: download
+        timeout-minutes: 30
+        run: |
+          python taiwan_wrf_download.py --keelung-only --workers 8
+          ARCHIVE=$(grep '^archive_path=' "$GITHUB_OUTPUT" | tail -1 | cut -d= -f2-)
+          if [ -n "$ARCHIVE" ] && [ -f "$ARCHIVE" ]; then
+            echo "archive_size=$(du -sh "$ARCHIVE" | cut -f1)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Configure Firebase credentials
+        env:
+          SA_KEY: ${{ secrets.FIREBASE_SA_KEY }}
+          FIREBASE_PROJECT: ${{ secrets.FIREBASE_PROJECT }}
+        run: |
+          if [ -n "$SA_KEY" ]; then
+            echo "$SA_KEY" > /tmp/firebase-sa-key.json
+            echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/firebase-sa-key.json" >> "$GITHUB_ENV"
+            echo "FIREBASE_PROJECT=$FIREBASE_PROJECT" >> "$GITHUB_ENV"
+            echo "FIREBASE_STORAGE_BUCKET=${{ secrets.FIREBASE_STORAGE_BUCKET }}" >> "$GITHUB_ENV"
+          else
+            echo "::warning::FIREBASE_SA_KEY not set — Firebase storage disabled"
+          fi
+
+      - name: Fetch previous run summary
+        id: prev_summary
+        timeout-minutes: 5
+        run: |
+          python firebase_storage.py download-summary \
+            --output keelung_summary.json 2>/dev/null || true
+          if [ -f keelung_summary.json ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check for new CWA run
+        id: stale_check
+        run: |
+          NEW_INIT="${{ steps.download.outputs.init_utc }}"
+          if [ "${{ inputs.force }}" = "true" ]; then
+            echo "is_new=true" >> "$GITHUB_OUTPUT"
+          elif [ "${{ steps.prev_summary.outputs.found }}" = "true" ] && [ -f keelung_summary.json ]; then
+            PREV_INIT=$(python3 -c \
+              "import json,sys; d=json.load(open('keelung_summary.json')); print(d.get('meta',{}).get('init_utc',''))" \
+              2>/dev/null || echo "")
+            if [ -n "$PREV_INIT" ] && [ "$NEW_INIT" = "$PREV_INIT" ]; then
+              echo "is_new=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "is_new=true" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "is_new=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: List GRIB2 variables (diagnostic)
+        if: steps.stale_check.outputs.is_new == 'true'
+        timeout-minutes: 5
+        run: |
+          RUNDIR="${{ steps.download.outputs.rundir }}"
+          FIRST=$(ls "$RUNDIR"/*_keelung*.grb2 2>/dev/null | sort | head -1)
+          if [ -n "$FIRST" ]; then
+            python wrf_analyze.py --rundir "$RUNDIR" --list-vars 2>&1 || true
+          fi
+
+      # Fetch just enough data for WRF analysis (Keelung only — no harbours)
+      - name: Fetch ECMWF forecast (Keelung)
+        if: steps.stale_check.outputs.is_new == 'true'
+        continue-on-error: true
+        timeout-minutes: 5
+        run: python ecmwf_fetch.py --output ecmwf_keelung.json
+
+      - name: Fetch wave forecast (Keelung)
+        if: steps.stale_check.outputs.is_new == 'true'
+        continue-on-error: true
+        timeout-minutes: 5
+        run: python wave_fetch.py --output wave_keelung.json
+
+      - name: Predict tides
+        if: steps.stale_check.outputs.is_new == 'true'
+        timeout-minutes: 2
+        run: python tide_predict.py --output tide_keelung.json --days 7
+
+      - name: Analyze Keelung forecast
+        if: steps.stale_check.outputs.is_new == 'true'
+        timeout-minutes: 10
+        run: |
+          RUNDIR="${{ steps.download.outputs.rundir }}"
+          PREV_ARG=""
+          if [ "${{ steps.prev_summary.outputs.found }}" = "true" ]; then
+            PREV_ARG="--prev-json keelung_summary.json"
+          fi
+          ECMWF_ARG=""; [ -f ecmwf_keelung.json ] && ECMWF_ARG="--ecmwf-json ecmwf_keelung.json"
+          WAVE_ARG=""; [ -f wave_keelung.json ] && WAVE_ARG="--wave-json wave_keelung.json"
+          TIDE_ARG=""; [ -f tide_keelung.json ] && TIDE_ARG="--tide-json tide_keelung.json"
+
+          # Download accuracy log from Firestore
+          python firebase_storage.py download-accuracy-log \
+            --output accuracy_log.json 2>/dev/null || true
+          ACCURACY_ARG=""; [ -f accuracy_log.json ] && ACCURACY_ARG="--accuracy-log accuracy_log.json"
+
+          python wrf_analyze.py \
+            --rundir "$RUNDIR" \
+            $PREV_ARG $ECMWF_ARG $WAVE_ARG $TIDE_ARG $ACCURACY_ARG \
+            --output-json keelung_summary_new.json \
+            --output-html forecast.html \
+            --output-wind-grid wind_grid_wrf.json
+
+      # Upload WRF summary + archive to Firebase for the forecast workflow to use
+      - name: Upload to Firebase
+        if: steps.stale_check.outputs.is_new == 'true'
+        continue-on-error: true
+        timeout-minutes: 10
+        run: |
+          ARCHIVE_NAME="${{ steps.download.outputs.archive_name }}"
+          python firebase_storage.py upload-archive \
+            --input "${{ steps.download.outputs.archive_path }}" 2>/dev/null || true
+          python firebase_storage.py cleanup-archives \
+            --keep "$ARCHIVE_NAME" --max-age-days 1 2>/dev/null || true
+          python firebase_storage.py upload-summary \
+            --input keelung_summary_new.json

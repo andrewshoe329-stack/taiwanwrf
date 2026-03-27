@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { SPOTS, REGIONS } from '@/lib/constants'
 import { useForecastData } from '@/hooks/useForecastData'
+import { SurfHeatmap } from '@/components/spots/SurfHeatmap'
 import type { Region } from '@/lib/types'
 
 const ALL_REGIONS = ['all', ...REGIONS] as const
@@ -54,6 +55,11 @@ export function SpotsPage() {
           )
         })}
       </div>
+
+      {/* Surf heatmap calendar */}
+      {data.surf?.spots && data.surf.spots.length > 0 && (
+        <SurfHeatmap spots={data.surf.spots} filter={activeRegion} />
+      )}
 
       {/* Spots grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">

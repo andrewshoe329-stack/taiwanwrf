@@ -27,7 +27,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from config import KEELUNG_LAT, KEELUNG_LON, norm_utc, setup_logging
+from config import KEELUNG_LAT, KEELUNG_LON, HARBOUR_COORDS, norm_utc, setup_logging
 from config import fetch_json as _fetch_json_shared
 
 log = logging.getLogger(__name__)
@@ -66,12 +66,13 @@ def _fetch_json(params: dict, label: str) -> dict | None:
     return _fetch_json_shared(url, label=label)
 
 
-def fetch_model(model_key: str) -> dict | None:
+def fetch_model(model_key: str, lat: float = KEELUNG_LAT,
+                lon: float = KEELUNG_LON, label_suffix: str = "") -> dict | None:
     """Fetch a single model's forecast from Open-Meteo."""
     cfg = MODEL_CONFIGS[model_key]
     params = {
-        "latitude":           KEELUNG_LAT,
-        "longitude":          KEELUNG_LON,
+        "latitude":           lat,
+        "longitude":          lon,
         "hourly":             HOURLY_VARS,
         "models":             cfg["om_model"],
         "wind_speed_unit":    "kn",
@@ -81,7 +82,8 @@ def fetch_model(model_key: str) -> dict | None:
         "forecast_days":      7,
         "timezone":           "UTC",
     }
-    return _fetch_json(params, cfg["id"])
+    label = cfg["id"] + (f" ({label_suffix})" if label_suffix else "")
+    return _fetch_json(params, label)
 
 
 # ── Process ───────────────────────────────────────────────────────────────────
@@ -203,69 +205,116 @@ def compute_ensemble_stats(
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
+def _fetch_ensemble_for_point(lat: float, lon: float, label: str,
+                               ecmwf_recs: list | None = None) -> dict | None:
+    """Fetch all ensemble models for one point, compute stats, return output dict."""
+    results: dict[str, dict | None] = {}
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        futures = {
+            pool.submit(fetch_model, key, lat, lon, label): key
+            for key in MODEL_CONFIGS
+        }
+        for future in as_completed(futures):
+            key = futures[future]
+            try:
+                results[key] = future.result()
+            except Exception as e:
+                log.error("Failed to fetch %s for %s: %s", key, label, e)
+                results[key] = None
+
+    models_data: dict = {}
+    all_model_records: dict[str, list[dict]] = {}
+    for model_key, raw in results.items():
+        if raw is None:
+            continue
+        meta, records = process_model(raw, model_key)
+        if not records:
+            continue
+        models_data[model_key] = {"meta": meta, "records": records}
+        all_model_records[model_key] = records
+
+    if ecmwf_recs:
+        all_model_records["ecmwf_ifs"] = ecmwf_recs
+
+    if not all_model_records:
+        return None
+
+    ensemble_stats = compute_ensemble_stats(all_model_records)
+    return {
+        "models": models_data,
+        "ensemble": {"records": ensemble_stats},
+    }
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description='Fetch multi-model ensemble forecasts')
     ap.add_argument('--ecmwf-json', default=None,
                     help='Path to ecmwf_keelung.json (include ECMWF in ensemble)')
     ap.add_argument('--output', default='ensemble_keelung.json',
                     help='Output JSON path (default: ensemble_keelung.json)')
+    ap.add_argument('--all-harbours', action='store_true',
+                    help='Fetch ensemble for all 6 harbours → ensemble_harbours.json')
+    ap.add_argument('--harbours-output', default='ensemble_harbours.json',
+                    help='Output path for all-harbours ensemble JSON')
+    ap.add_argument('--ecmwf-harbours-json', default=None,
+                    help='Path to ecmwf_harbours.json (include ECMWF in per-harbour ensemble)')
     args = ap.parse_args()
     setup_logging()
 
-    # Fetch all models in parallel
-    results: dict[str, dict | None] = {}
-    with ThreadPoolExecutor(max_workers=3) as pool:
-        futures = {pool.submit(fetch_model, key): key for key in MODEL_CONFIGS}
-        for future in as_completed(futures):
-            key = futures[future]
-            try:
-                results[key] = future.result()
-            except Exception as e:
-                log.error("Failed to fetch %s: %s", key, e)
-                results[key] = None
-
-    # Process each model
-    models_data: dict = {}
-    all_model_records: dict[str, list[dict]] = {}
-
-    for model_key, raw in results.items():
-        if raw is None:
-            log.warning("Skipping %s — no data", model_key)
-            continue
-        meta, records = process_model(raw, model_key)
-        if not records:
-            log.warning("Skipping %s — no records after processing", model_key)
-            continue
-        models_data[model_key] = {"meta": meta, "records": records}
-        all_model_records[model_key] = records
-        log.info("  %s: %d records", MODEL_CONFIGS[model_key]["id"], len(records))
-
-    # Include ECMWF if provided
+    # Load ECMWF records for Keelung
+    ecmwf_recs = None
     if args.ecmwf_json:
         try:
             ecmwf_data = json.loads(Path(args.ecmwf_json).read_text())
             ecmwf_recs = ecmwf_data.get("records", [])
             if ecmwf_recs:
-                all_model_records["ecmwf_ifs"] = ecmwf_recs
                 log.info("  ECMWF IFS: %d records (from file)", len(ecmwf_recs))
         except (FileNotFoundError, json.JSONDecodeError) as e:
             log.warning("Could not load ECMWF JSON: %s", e)
 
-    if not all_model_records:
-        log.error("No ensemble models available")
+    # Fetch Keelung ensemble
+    output = _fetch_ensemble_for_point(KEELUNG_LAT, KEELUNG_LON, "keelung", ecmwf_recs)
+    if output is None:
+        log.error("No ensemble models available for Keelung")
         sys.exit(1)
 
-    # Compute ensemble statistics
-    ensemble_stats = compute_ensemble_stats(all_model_records)
-    log.info("Ensemble: %d timesteps, %d models", len(ensemble_stats), len(all_model_records))
-
-    output = {
-        "models": models_data,
-        "ensemble": {"records": ensemble_stats},
-    }
+    for mk in output.get("models", {}):
+        recs = output["models"][mk].get("records", [])
+        cfg_id = MODEL_CONFIGS.get(mk, {}).get("id", mk)
+        log.info("  %s: %d records", cfg_id, len(recs))
+    log.info("Ensemble: %d timesteps", len(output["ensemble"]["records"]))
 
     Path(args.output).write_text(json.dumps(output, indent=2))
     log.info("Wrote %s", args.output)
+
+    # Fetch all harbours
+    if args.all_harbours:
+        # Load per-harbour ECMWF data if available
+        ecmwf_harbour_data = {}
+        if args.ecmwf_harbours_json:
+            try:
+                ecmwf_harbour_data = json.loads(Path(args.ecmwf_harbours_json).read_text())
+            except (FileNotFoundError, json.JSONDecodeError) as e:
+                log.warning("Could not load ECMWF harbours JSON: %s", e)
+
+        harbour_results = {"keelung": output}
+        other_harbours = {k: v for k, v in HARBOUR_COORDS.items() if k != "keelung"}
+
+        for hid, (lat, lon) in other_harbours.items():
+            h_ecmwf = None
+            if hid in ecmwf_harbour_data:
+                h_ecmwf = ecmwf_harbour_data[hid].get("records", [])
+            h_output = _fetch_ensemble_for_point(lat, lon, hid, h_ecmwf)
+            if h_output:
+                harbour_results[hid] = h_output
+                log.info("  %s: %d ensemble timesteps", hid,
+                         len(h_output["ensemble"]["records"]))
+            else:
+                log.warning("  %s: no ensemble data", hid)
+
+        hout = Path(args.harbours_output)
+        hout.write_text(json.dumps(harbour_results, indent=2))
+        log.info("All harbours ensemble → %s  (%d harbours)", hout, len(harbour_results))
 
 
 if __name__ == "__main__":

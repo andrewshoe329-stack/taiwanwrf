@@ -136,7 +136,7 @@ export interface WindGrid {
 
 // ── Surf spot types ──────────────────────────────────────────────────────────
 
-export type Region = 'north' | 'northeast' | 'east' | 'south' | 'west' | 'penghu'
+export type Region = 'north' | 'northeast' | 'east' | 'south'
 
 export interface SpotInfo {
   id: string
@@ -182,6 +182,3 @@ export interface HarbourInfo {
   lon: number
 }
 
-// ── Activity mode ────────────────────────────────────────────────────────────
-
-export type Activity = 'sail' | 'surf'

@@ -2,6 +2,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { SPOTS } from '@/lib/constants'
 import { useForecastData } from '@/hooks/useForecastData'
+import { SwellCompass } from '@/components/spots/SwellCompass'
+import { ScoreBreakdown } from '@/components/spots/ScoreBreakdown'
 
 export function SpotDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -28,6 +30,9 @@ export function SpotDetailPage() {
 
   // Find this spot's forecast data if available
   const spotForecast = data.surf?.spots?.find(sf => sf.spot.id === id)
+
+  // Current rating: first available rating (nearest forecast time)
+  const currentRating = spotForecast?.ratings?.[0] ?? undefined
 
   return (
     <div className="px-4 pt-4 pb-24 max-w-screen-xl mx-auto">
@@ -85,31 +90,33 @@ export function SpotDetailPage() {
         )}
       </section>
 
-      {/* Swell Compass placeholder */}
+      {/* Swell Compass */}
       <section className="border border-[var(--color-border)] rounded-xl p-4 mb-4">
         <h2 className="text-xs uppercase tracking-wider text-[var(--color-text-muted)] mb-3">
           {t('spots.swell_compass')}
         </h2>
-        <div className="flex items-center justify-center py-10">
-          <div className="w-32 h-32 rounded-full border border-[var(--color-border)] flex items-center justify-center">
-            <span className="text-xs text-[var(--color-text-dim)]">{t('spots.coming_soon')}</span>
-          </div>
+        <div className="flex items-center justify-center py-4">
+          <SwellCompass
+            facing={spot.facing}
+            optSwell={spot.opt_swell}
+            swellDir={currentRating?.swell_dir}
+            swellHeight={currentRating?.swell_height}
+          />
         </div>
+        {currentRating?.swell_height != null && (
+          <p className="text-center text-[10px] text-[var(--color-text-muted)] mt-1">
+            {currentRating.swell_height.toFixed(1)} m @ {currentRating.swell_period?.toFixed(0) ?? '--'} s
+          </p>
+        )}
       </section>
 
-      {/* Score Breakdown placeholder */}
+      {/* Score Breakdown */}
       <section className="border border-[var(--color-border)] rounded-xl p-4 mb-4">
         <h2 className="text-xs uppercase tracking-wider text-[var(--color-text-muted)] mb-3">
           {t('spots.score_breakdown')}
         </h2>
-        {spotForecast && spotForecast.ratings.length > 0 ? (
-          <div className="space-y-2">
-            <ScoreFactor label={t('spots.score_swell_dir')} />
-            <ScoreFactor label={t('spots.score_wind_dir')} />
-            <ScoreFactor label={t('spots.score_wind_speed')} />
-            <ScoreFactor label={t('spots.score_swell_height')} />
-            <ScoreFactor label={t('spots.score_wave_period')} />
-          </div>
+        {currentRating ? (
+          <ScoreBreakdown rating={currentRating} spot={spot} />
         ) : (
           <p className="text-sm text-[var(--color-text-dim)] py-4 text-center">
             {t('spots.no_data')}
@@ -156,15 +163,6 @@ function DayCard({ date, rating, score, t }: { date: string; rating: string; sco
         {t(`rating.${rating}`)}
       </span>
       <span className="text-[10px] text-[var(--color-text-dim)]">{score}/14</span>
-    </div>
-  )
-}
-
-function ScoreFactor({ label }: { label: string }) {
-  return (
-    <div className="flex items-center justify-between py-1.5 border-b border-[var(--color-border-subtle)]">
-      <span className="text-xs text-[var(--color-text-secondary)]">{label}</span>
-      <span className="text-xs text-[var(--color-text-dim)]">--</span>
     </div>
   )
 }

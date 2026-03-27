@@ -5,6 +5,9 @@ import type {
   EnsembleData, SurfData, AISummary, AccuracyEntry,
 } from '@/lib/types'
 
+/** Per-harbour data keyed by harbour ID (e.g. "keelung", "kaohsiung"). */
+export type HarbourDataMap<T> = Record<string, T>
+
 export interface AllForecastData {
   keelung: ForecastData | null
   ecmwf: ForecastData | null
@@ -15,6 +18,10 @@ export interface AllForecastData {
   cwa_obs: CwaObs | null
   accuracy: AccuracyEntry[] | null
   summary: AISummary | null
+  // Multi-harbour data
+  ecmwf_harbours: HarbourDataMap<ForecastData> | null
+  wave_harbours: HarbourDataMap<WaveData> | null
+  ensemble_harbours: HarbourDataMap<EnsembleData> | null
   loading: boolean
   error: string | null
 }
@@ -22,7 +29,8 @@ export interface AllForecastData {
 const initial: AllForecastData = {
   keelung: null, ecmwf: null, wave: null, tide: null,
   ensemble: null, surf: null, cwa_obs: null, accuracy: null,
-  summary: null, loading: true, error: null,
+  summary: null, ecmwf_harbours: null, wave_harbours: null,
+  ensemble_harbours: null, loading: true, error: null,
 }
 
 export const ForecastDataContext = createContext<AllForecastData>(initial)
@@ -44,24 +52,30 @@ export function useForecastDataLoader(): AllForecastData {
     let cancelled = false
 
     async function load() {
-      const [keelung, ecmwf, wave, tide, ensemble, surf, cwa_obs, accuracy, summary] =
-        await Promise.all([
-          fetchJson<ForecastData>(DATA_FILES.keelung),
-          fetchJson<ForecastData>(DATA_FILES.ecmwf),
-          fetchJson<WaveData>(DATA_FILES.wave),
-          fetchJson<TideData>(DATA_FILES.tide),
-          fetchJson<EnsembleData>(DATA_FILES.ensemble),
-          fetchJson<SurfData>(DATA_FILES.surf),
-          fetchJson<CwaObs>(DATA_FILES.cwa_obs),
-          fetchJson<AccuracyEntry[]>(DATA_FILES.accuracy),
-          fetchJson<AISummary>(DATA_FILES.summary),
-        ])
+      const [
+        keelung, ecmwf, wave, tide, ensemble, surf, cwa_obs, accuracy, summary,
+        ecmwf_harbours, wave_harbours, ensemble_harbours,
+      ] = await Promise.all([
+        fetchJson<ForecastData>(DATA_FILES.keelung),
+        fetchJson<ForecastData>(DATA_FILES.ecmwf),
+        fetchJson<WaveData>(DATA_FILES.wave),
+        fetchJson<TideData>(DATA_FILES.tide),
+        fetchJson<EnsembleData>(DATA_FILES.ensemble),
+        fetchJson<SurfData>(DATA_FILES.surf),
+        fetchJson<CwaObs>(DATA_FILES.cwa_obs),
+        fetchJson<AccuracyEntry[]>(DATA_FILES.accuracy),
+        fetchJson<AISummary>(DATA_FILES.summary),
+        fetchJson<HarbourDataMap<ForecastData>>(DATA_FILES.ecmwf_harbours),
+        fetchJson<HarbourDataMap<WaveData>>(DATA_FILES.wave_harbours),
+        fetchJson<HarbourDataMap<EnsembleData>>(DATA_FILES.ensemble_harbours),
+      ])
 
       if (cancelled) return
 
       const hasAnyData = keelung || ecmwf || wave || surf
       setData({
         keelung, ecmwf, wave, tide, ensemble, surf, cwa_obs, accuracy, summary,
+        ecmwf_harbours, wave_harbours, ensemble_harbours,
         loading: false,
         error: hasAnyData ? null : 'Failed to load forecast data',
       })

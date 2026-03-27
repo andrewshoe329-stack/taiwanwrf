@@ -14,6 +14,7 @@ from config import (
     fetch_json, load_json_file,
     SPOT_COORDS, SPOT_COUNTY,
     sunrise_sunset, is_daylight,
+    TAIWAN_BBOX, HARBOUR_COORDS, SPOT_REGION,
 )
 
 
@@ -220,9 +221,51 @@ class TestSpotCoords:
         assert original_ids.issubset(set(SPOT_COUNTY.keys()))
 
     def test_county_values_valid(self):
-        valid = {"基隆市", "新北市", "宜蘭縣"}
+        valid = {"基隆市", "新北市", "宜蘭縣", "臺東縣", "屏東縣"}
         for county in SPOT_COUNTY.values():
             assert county in valid
+
+    def test_county_covers_all_spots(self):
+        """Every spot in SPOT_COORDS should have a county mapping."""
+        for s in SPOT_COORDS:
+            assert s['id'] in SPOT_COUNTY, f"{s['id']} missing from SPOT_COUNTY"
+
+
+class TestTaiwanBbox:
+    def test_covers_keelung(self):
+        assert TAIWAN_BBOX['lat_min'] < KEELUNG_LAT < TAIWAN_BBOX['lat_max']
+        assert TAIWAN_BBOX['lon_min'] < KEELUNG_LON < TAIWAN_BBOX['lon_max']
+
+    def test_covers_all_spots(self):
+        for s in SPOT_COORDS:
+            assert TAIWAN_BBOX['lat_min'] <= s['lat'] <= TAIWAN_BBOX['lat_max'], f"{s['id']} lat out of bbox"
+            assert TAIWAN_BBOX['lon_min'] <= s['lon'] <= TAIWAN_BBOX['lon_max'], f"{s['id']} lon out of bbox"
+
+    def test_covers_all_harbours(self):
+        for hid, (lat, lon) in HARBOUR_COORDS.items():
+            assert TAIWAN_BBOX['lat_min'] <= lat <= TAIWAN_BBOX['lat_max'], f"{hid} lat out of bbox"
+            assert TAIWAN_BBOX['lon_min'] <= lon <= TAIWAN_BBOX['lon_max'], f"{hid} lon out of bbox"
+
+
+class TestHarbourCoords:
+    def test_has_5_harbours(self):
+        assert len(HARBOUR_COORDS) == 5
+
+    def test_keelung_uses_high_precision(self):
+        lat, lon = HARBOUR_COORDS['keelung']
+        assert lat == KEELUNG_LAT
+        assert lon == KEELUNG_LON
+
+
+class TestSpotRegion:
+    def test_covers_all_spots(self):
+        for s in SPOT_COORDS:
+            assert s['id'] in SPOT_REGION, f"{s['id']} missing from SPOT_REGION"
+
+    def test_valid_regions(self):
+        valid = {'north', 'northeast', 'east', 'south'}
+        for sid, region in SPOT_REGION.items():
+            assert region in valid, f"{sid} has invalid region {region}"
 
 
 class TestSunriseSunset:

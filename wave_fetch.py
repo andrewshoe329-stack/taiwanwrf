@@ -44,7 +44,7 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from config import KEELUNG_LAT, KEELUNG_LON, deg_to_compass, norm_utc, setup_logging
+from config import KEELUNG_LAT, KEELUNG_LON, HARBOUR_COORDS, deg_to_compass, norm_utc, setup_logging
 from config import fetch_json as _fetch_json_shared
 
 log = logging.getLogger(__name__)
@@ -96,20 +96,21 @@ _HOURLY_WAVE_VARS = ",".join([
 ])
 
 
-def fetch_ecmwf_wave() -> dict | None:
+def fetch_ecmwf_wave(lat: float = KEELUNG_LAT, lon: float = KEELUNG_LON,
+                      label: str = "ECMWF WAM wave") -> dict | None:
     """Fetch ECMWF WAM wave forecast from the Open-Meteo marine API (with retry).
 
     Returns parsed JSON dict on success, or ``None`` on failure.
     """
     params = {
-        "latitude":      KEELUNG_LAT,
-        "longitude":     KEELUNG_LON,
+        "latitude":      lat,
+        "longitude":     lon,
         "hourly":        _HOURLY_WAVE_VARS,
         "timezone":      "UTC",
         "forecast_days": 7,
     }
     url = MARINE_API_URL + "?" + urllib.parse.urlencode(params)
-    return _fetch_json_shared(url, label="ECMWF WAM wave")
+    return _fetch_json_shared(url, label=label)
 
 
 _norm_utc = norm_utc  # kept for any external callers
@@ -370,7 +371,20 @@ def extract_cwa_wave_forecast(model_id: str, run_info: dict,
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
+def _fetch_one_harbour_wave(hid: str, lat: float, lon: float) -> tuple[str, dict | None]:
+    """Fetch ECMWF WAM wave for one harbour."""
+    raw = fetch_ecmwf_wave(lat, lon, label=f"ECMWF WAM ({hid})")
+    if raw is None:
+        return hid, None
+    meta, recs = process_ecmwf_wave(raw)
+    if not recs:
+        return hid, None
+    return hid, {"ecmwf_wave": {"meta": meta, "records": recs}, "cwa_wave": None}
+
+
 def main():
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     ap = argparse.ArgumentParser(
         description="Fetch wave forecasts for Keelung (ECMWF always; CWA optional)."
     )
@@ -383,6 +397,10 @@ def main():
                     help="Directory for CWA wave GRIB2 downloads (default: wave_downloads)")
     ap.add_argument("--list-wave-vars", action="store_true",
                     help="Diagnostic: list GRIB2 shortNames in the first CWA wave file, then exit")
+    ap.add_argument("--all-harbours", action="store_true",
+                    help="Fetch wave data for all 6 harbours → wave_harbours.json")
+    ap.add_argument("--harbours-output", default="wave_harbours.json",
+                    help="Output path for all-harbours wave JSON")
     args = ap.parse_args()
 
     # ── Always: ECMWF wave from Open-Meteo marine API ─────────────────────────
@@ -425,6 +443,28 @@ def main():
     out = Path(args.output)
     out.write_text(json.dumps(result, indent=2))
     log.info("Wave data → %s  (%d ECMWF steps)", out, len(ecmwf_recs))
+
+    # ── All harbours ──────────────────────────────────────────────────────────
+    if args.all_harbours:
+        harbour_data = {"keelung": result}
+        other_harbours = {k: v for k, v in HARBOUR_COORDS.items() if k != "keelung"}
+        with ThreadPoolExecutor(max_workers=5) as pool:
+            futures = {
+                pool.submit(_fetch_one_harbour_wave, hid, lat, lon): hid
+                for hid, (lat, lon) in other_harbours.items()
+            }
+            for future in as_completed(futures):
+                hid, data = future.result()
+                if data is not None:
+                    harbour_data[hid] = data
+                    log.info("  %s: %d wave records", hid,
+                             len(data["ecmwf_wave"]["records"]))
+                else:
+                    log.warning("  %s: no wave data", hid)
+
+        hout = Path(args.harbours_output)
+        hout.write_text(json.dumps(harbour_data, indent=2))
+        log.info("All harbours wave → %s  (%d harbours)", hout, len(harbour_data))
 
     gha = os.environ.get("GITHUB_OUTPUT")
     if gha:

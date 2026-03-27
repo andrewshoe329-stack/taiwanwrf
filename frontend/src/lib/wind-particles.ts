@@ -32,7 +32,7 @@ export interface WindParticleOptions {
 
 export class WindParticleSystem {
   private canvas: HTMLCanvasElement
-  private ctx: CanvasRenderingContext2D
+  private ctx: CanvasRenderingContext2D | null
   private particles: Particle[] = []
   private count: number
   private maxAge: number
@@ -48,7 +48,7 @@ export class WindParticleSystem {
 
   constructor(opts: WindParticleOptions) {
     this.canvas = opts.canvas
-    this.ctx = opts.canvas.getContext('2d')!
+    this.ctx = opts.canvas.getContext('2d')
     this.count = opts.count ?? 4000
     this.maxAge = opts.maxAge ?? 80
     this.speedFactor = opts.speedFactor ?? 0.3
@@ -92,7 +92,7 @@ export class WindParticleSystem {
 
   /** Clear the canvas */
   clear() {
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
+    this.ctx?.clearRect(0, 0, this.canvas.width, this.canvas.height)
   }
 
   private initParticles() {
@@ -154,7 +154,7 @@ export class WindParticleSystem {
   }
 
   private loop = () => {
-    if (!this.running) return
+    if (!this.running || !this.ctx) return
 
     const ctx = this.ctx
     const w = this.canvas.width

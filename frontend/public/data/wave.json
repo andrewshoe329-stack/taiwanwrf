@@ -1,0 +1,252 @@
+{
+  "ecmwf_wave": {
+    "meta": {
+      "model_id": "ECMWF-WAM",
+      "init_utc": "2026-03-27T00:00:00+00:00",
+      "source": "Open-Meteo Marine"
+    },
+    "records": [
+      {
+        "valid_utc": "2026-03-27T00:00:00+00:00",
+        "wave_height": 1.32,
+        "wave_direction": 51,
+        "wave_period": 7.3,
+        "swell_wave_height": 1.26,
+        "swell_wave_direction": 49,
+        "swell_wave_period": 10.4,
+        "wind_wave_height": 0.39,
+        "wind_wave_direction": 48,
+        "wind_wave_period": 5.6
+      },
+      {
+        "valid_utc": "2026-03-27T06:00:00+00:00",
+        "wave_height": 1.37,
+        "wave_direction": 78,
+        "wave_period": 9.6,
+        "swell_wave_height": 0.95,
+        "swell_wave_direction": 55,
+        "swell_wave_period": 11.8,
+        "wind_wave_height": 0.99,
+        "wind_wave_direction": 67,
+        "wind_wave_period": 4.3
+      },
+      {
+        "valid_utc": "2026-03-27T12:00:00+00:00",
+        "wave_height": 1.88,
+        "wave_direction": 83,
+        "wave_period": 10.7,
+        "swell_wave_height": 1.82,
+        "swell_wave_direction": 47,
+        "swell_wave_period": 10.4,
+        "wind_wave_height": 0.49,
+        "wind_wave_direction": 38,
+        "wind_wave_period": 5.0
+      },
+      {
+        "valid_utc": "2026-03-27T18:00:00+00:00",
+        "wave_height": 1.78,
+        "wave_direction": 60,
+        "wave_period": 8.3,
+        "swell_wave_height": 1.53,
+        "swell_wave_direction": 59,
+        "swell_wave_period": 9.3,
+        "wind_wave_height": 0.9,
+        "wind_wave_direction": 55,
+        "wind_wave_period": 6.5
+      },
+      {
+        "valid_utc": "2026-03-28T00:00:00+00:00",
+        "wave_height": 0.78,
+        "wave_direction": 38,
+        "wave_period": 11.9,
+        "swell_wave_height": 0.57,
+        "swell_wave_direction": 47,
+        "swell_wave_period": 11.2,
+        "wind_wave_height": 0.53,
+        "wind_wave_direction": 58,
+        "wind_wave_period": 5.7
+      },
+      {
+        "valid_utc": "2026-03-28T06:00:00+00:00",
+        "wave_height": 1.17,
+        "wave_direction": 71,
+        "wave_period": 7.7,
+        "swell_wave_height": 0.67,
+        "swell_wave_direction": 46,
+        "swell_wave_period": 10.8,
+        "wind_wave_height": 0.96,
+        "wind_wave_direction": 52,
+        "wind_wave_period": 5.3
+      },
+      {
+        "valid_utc": "2026-03-28T12:00:00+00:00",
+        "wave_height": 0.79,
+        "wave_direction": 86,
+        "wave_period": 11.9,
+        "swell_wave_height": 0.56,
+        "swell_wave_direction": 46,
+        "swell_wave_period": 10.8,
+        "wind_wave_height": 0.56,
+        "wind_wave_direction": 57,
+        "wind_wave_period": 6.0
+      },
+      {
+        "valid_utc": "2026-03-28T18:00:00+00:00",
+        "wave_height": 1.24,
+        "wave_direction": 82,
+        "wave_period": 11.9,
+        "swell_wave_height": 1.03,
+        "swell_wave_direction": 56,
+        "swell_wave_period": 13.6,
+        "wind_wave_height": 0.69,
+        "wind_wave_direction": 39,
+        "wind_wave_period": 4.5
+      },
+      {
+        "valid_utc": "2026-03-29T00:00:00+00:00",
+        "wave_height": 1.75,
+        "wave_direction": 55,
+        "wave_period": 7.9,
+        "swell_wave_height": 1.7,
+        "swell_wave_direction": 59,
+        "swell_wave_period": 12.9,
+        "wind_wave_height": 0.42,
+        "wind_wave_direction": 46,
+        "wind_wave_period": 6.0
+      },
+      {
+        "valid_utc": "2026-03-29T06:00:00+00:00",
+        "wave_height": 1.67,
+        "wave_direction": 40,
+        "wave_period": 10.5,
+        "swell_wave_height": 1.6,
+        "swell_wave_direction": 51,
+        "swell_wave_period": 9.2,
+        "wind_wave_height": 0.47,
+        "wind_wave_direction": 49,
+        "wind_wave_period": 4.6
+      },
+      {
+        "valid_utc": "2026-03-29T12:00:00+00:00",
+        "wave_height": 1.96,
+        "wave_direction": 79,
+        "wave_period": 11.4,
+        "swell_wave_height": 1.88,
+        "swell_wave_direction": 48,
+        "swell_wave_period": 12.3,
+        "wind_wave_height": 0.54,
+        "wind_wave_direction": 46,
+        "wind_wave_period": 4.8
+      },
+      {
+        "valid_utc": "2026-03-29T18:00:00+00:00",
+        "wave_height": 1.03,
+        "wave_direction": 51,
+        "wave_period": 9.5,
+        "swell_wave_height": 0.6,
+        "swell_wave_direction": 55,
+        "swell_wave_period": 13.2,
+        "wind_wave_height": 0.84,
+        "wind_wave_direction": 43,
+        "wind_wave_period": 4.1
+      },
+      {
+        "valid_utc": "2026-03-30T00:00:00+00:00",
+        "wave_height": 1.88,
+        "wave_direction": 65,
+        "wave_period": 11.9,
+        "swell_wave_height": 1.82,
+        "swell_wave_direction": 46,
+        "swell_wave_period": 12.0,
+        "wind_wave_height": 0.48,
+        "wind_wave_direction": 44,
+        "wind_wave_period": 6.4
+      },
+      {
+        "valid_utc": "2026-03-30T06:00:00+00:00",
+        "wave_height": 1.52,
+        "wave_direction": 37,
+        "wave_period": 11.5,
+        "swell_wave_height": 1.15,
+        "swell_wave_direction": 48,
+        "swell_wave_period": 9.2,
+        "wind_wave_height": 0.99,
+        "wind_wave_direction": 47,
+        "wind_wave_period": 5.6
+      },
+      {
+        "valid_utc": "2026-03-30T12:00:00+00:00",
+        "wave_height": 1.88,
+        "wave_direction": 86,
+        "wave_period": 10.7,
+        "swell_wave_height": 1.71,
+        "swell_wave_direction": 48,
+        "swell_wave_period": 11.2,
+        "wind_wave_height": 0.78,
+        "wind_wave_direction": 68,
+        "wind_wave_period": 6.8
+      },
+      {
+        "valid_utc": "2026-03-30T18:00:00+00:00",
+        "wave_height": 1.62,
+        "wave_direction": 37,
+        "wave_period": 11.5,
+        "swell_wave_height": 1.43,
+        "swell_wave_direction": 53,
+        "swell_wave_period": 12.3,
+        "wind_wave_height": 0.76,
+        "wind_wave_direction": 43,
+        "wind_wave_period": 6.1
+      },
+      {
+        "valid_utc": "2026-03-31T00:00:00+00:00",
+        "wave_height": 1.4,
+        "wave_direction": 70,
+        "wave_period": 8.9,
+        "swell_wave_height": 1.33,
+        "swell_wave_direction": 56,
+        "swell_wave_period": 9.9,
+        "wind_wave_height": 0.43,
+        "wind_wave_direction": 53,
+        "wind_wave_period": 5.2
+      },
+      {
+        "valid_utc": "2026-03-31T06:00:00+00:00",
+        "wave_height": 1.82,
+        "wave_direction": 43,
+        "wave_period": 10.9,
+        "swell_wave_height": 1.75,
+        "swell_wave_direction": 54,
+        "swell_wave_period": 10.6,
+        "wind_wave_height": 0.51,
+        "wind_wave_direction": 48,
+        "wind_wave_period": 6.0
+      },
+      {
+        "valid_utc": "2026-03-31T12:00:00+00:00",
+        "wave_height": 1.53,
+        "wave_direction": 88,
+        "wave_period": 10.7,
+        "swell_wave_height": 1.27,
+        "swell_wave_direction": 55,
+        "swell_wave_period": 10.4,
+        "wind_wave_height": 0.86,
+        "wind_wave_direction": 57,
+        "wind_wave_period": 5.9
+      },
+      {
+        "valid_utc": "2026-03-31T18:00:00+00:00",
+        "wave_height": 1.16,
+        "wave_direction": 44,
+        "wave_period": 8.6,
+        "swell_wave_height": 0.64,
+        "swell_wave_direction": 57,
+        "swell_wave_period": 9.7,
+        "wind_wave_height": 0.97,
+        "wind_wave_direction": 32,
+        "wind_wave_period": 7.0
+      }
+    ]
+  },
+  "cwa_wave": null
+}

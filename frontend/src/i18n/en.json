@@ -6,6 +6,7 @@
   "nav": {
     "now": "Now",
     "spots": "Spots",
+    "harbours": "Harbours",
     "models": "Models"
   },
   "activity": {
@@ -101,9 +102,7 @@
     "north": "North",
     "northeast": "Northeast",
     "east": "East Coast",
-    "south": "South",
-    "west": "West",
-    "penghu": "Penghu"
+    "south": "South"
   },
   "models_page": {
     "title": "Models & Accuracy",
@@ -126,9 +125,16 @@
     "keelung": "Keelung",
     "kaohsiung": "Kaohsiung",
     "taichung": "Taichung",
-    "hualien": "Hualien",
     "anping": "Anping",
     "magong": "Magong"
+  },
+  "harbours_page": {
+    "title": "Harbours",
+    "subtitle": "Sailing conditions at Taiwan's major harbours",
+    "direction": "Direction",
+    "waves": "Waves",
+    "model_spread": "Model spread",
+    "no_data": "No harbour forecast data available yet"
   },
   "common": {
     "loading": "Loading forecast data...",
@@ -137,7 +143,10 @@
     "stale_warning": "Viewing cached data — may be outdated",
     "refresh": "Refresh",
     "last_updated": "Last updated",
-    "data_source": "Data: CWA WRF 3km + ECMWF IFS + WAM"
+    "data_source": "Data: CWA WRF 3km + ECMWF IFS + WAM",
+    "wind": "Wind",
+    "temp": "Temp",
+    "pressure": "Pressure"
   },
   "units": {
     "kt": "kt",
