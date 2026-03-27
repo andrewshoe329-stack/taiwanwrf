@@ -1,16 +1,18 @@
+import { lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useForecastData } from '@/hooks/useForecastData'
 import { useTimeline } from '@/hooks/useTimeline'
 import { useActivity } from '@/hooks/useActivity'
-import { ForecastMap } from '@/components/map/ForecastMap'
 import { TimelineScrubber } from '@/components/timeline/TimelineScrubber'
-import { WindChart } from '@/components/charts/WindChart'
-import { WaveChart } from '@/components/charts/WaveChart'
-import { TideChart } from '@/components/charts/TideChart'
-import { TempPressureChart } from '@/components/charts/TempPressureChart'
+
+const ForecastMap = lazy(() => import('@/components/map/ForecastMap').then(m => ({ default: m.ForecastMap })))
+const WindChart = lazy(() => import('@/components/charts/WindChart').then(m => ({ default: m.WindChart })))
+const WaveChart = lazy(() => import('@/components/charts/WaveChart').then(m => ({ default: m.WaveChart })))
+const TideChart = lazy(() => import('@/components/charts/TideChart').then(m => ({ default: m.TideChart })))
+const TempPressureChart = lazy(() => import('@/components/charts/TempPressureChart').then(m => ({ default: m.TempPressureChart })))
 
 export function NowPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const data = useForecastData()
   const { index } = useTimeline()
   const { activity } = useActivity()
@@ -52,7 +54,9 @@ export function NowPage() {
     <div className="min-h-screen">
       {/* Map with wind particles */}
       <div className="h-[55vh] md:h-[60vh]">
-        <ForecastMap />
+        <Suspense fallback={<div className="w-full h-full bg-[var(--color-bg-card)]" />}>
+          <ForecastMap />
+        </Suspense>
       </div>
 
       {/* Timeline scrubber */}
@@ -106,18 +110,21 @@ export function NowPage() {
         )}
 
         {/* AI Summary */}
-        {data.summary && (
-          <div className="border border-[var(--color-border)] rounded-xl p-4">
-            <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-3">
-              {t('ai.title')}
-            </p>
-            <div className="space-y-3 text-sm text-[var(--color-text-secondary)] leading-relaxed">
-              <p>{data.summary.wind.en}</p>
-              <p>{data.summary.waves.en}</p>
-              <p>{data.summary.outlook.en}</p>
+        {data.summary && (() => {
+          const lang = i18n.language.startsWith('zh') ? 'zh' : 'en'
+          return (
+            <div className="border border-[var(--color-border)] rounded-xl p-4">
+              <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-3">
+                {t('ai.title')}
+              </p>
+              <div className="space-y-3 text-sm text-[var(--color-text-secondary)] leading-relaxed">
+                <p>{data.summary.wind[lang]}</p>
+                <p>{data.summary.waves[lang]}</p>
+                <p>{data.summary.outlook[lang]}</p>
+              </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
 
         {/* CWA Live Observations */}
         {data.cwa_obs?.station && (
@@ -143,6 +150,7 @@ export function NowPage() {
         )}
 
         {/* Charts */}
+        <Suspense fallback={null}>
         {data.keelung?.records && (
           <div className="border border-[var(--color-border)] rounded-xl p-4">
             <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-3">
@@ -184,6 +192,7 @@ export function NowPage() {
             <TempPressureChart records={data.keelung.records} />
           </div>
         )}
+        </Suspense>
       </div>
     </div>
   )

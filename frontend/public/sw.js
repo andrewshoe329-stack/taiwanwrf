@@ -5,7 +5,14 @@ const PRECACHE_URLS = ['/', '/manifest.json', '/icon.svg']
 // ── Install: precache app shell ─────────────────────────────────────────────
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS))
+    caches.open(CACHE_NAME).then((cache) =>
+      // Add each URL individually so one failure doesn't block the rest
+      Promise.allSettled(
+        PRECACHE_URLS.map((url) => cache.add(url).catch(() => {
+          console.warn('SW: failed to precache', url)
+        }))
+      )
+    )
   )
   self.skipWaiting()
 })
@@ -42,7 +49,7 @@ function cacheFirst(request) {
   return caches.match(request).then((cached) => {
     if (cached) return cached
     return fetch(request).then((response) => {
-      if (response.ok) {
+      if (response.ok || response.type === 'opaque') {
         const clone = response.clone()
         caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
       }
@@ -59,17 +66,17 @@ function cacheFirstWithExpiry(request, maxAgeMs) {
         const age = Date.now() - new Date(dateHeader).getTime()
         if (age < maxAgeMs) return cached
       } else {
-        // No date header — serve from cache anyway
         return cached
       }
     }
     return fetch(request).then((response) => {
-      if (response.ok) {
+      // Cache opaque responses for cross-origin fonts
+      if (response.ok || response.type === 'opaque') {
         const clone = response.clone()
         caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
       }
       return response
-    })
+    }).catch(() => cached || undefined)
   })
 }
 
@@ -77,7 +84,7 @@ self.addEventListener('fetch', (event) => {
   const { request } = event
   const url = new URL(request.url)
 
-  // Only handle same-origin and GET requests
+  // Only handle GET requests
   if (request.method !== 'GET') return
 
   // Data JSON files: network-first (stale data better than no data)
@@ -102,16 +109,16 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // Navigation requests: network-first, fall back to cached index.html
+  // Navigation requests: network-first, fall back to cached index.html for SPA
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
         .then((response) => {
           const clone = response.clone()
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
+          caches.open(CACHE_NAME).then((cache) => cache.put('/', clone))
           return response
         })
-        .catch(() => caches.match('/') || caches.match('/index.html'))
+        .catch(() => caches.match('/').then((r) => r || caches.match('/index.html')))
     )
     return
   }

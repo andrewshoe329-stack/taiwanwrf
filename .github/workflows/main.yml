@@ -498,6 +498,10 @@ jobs:
           if [ -f surf_planner.json ]; then
             cp surf_planner.json frontend/public/data/surf.json
           fi
+          # Copy AI summary if available
+          if [ -f ai_summary.json ]; then
+            cp ai_summary.json frontend/public/data/summary.json
+          fi
 
           # Build React SPA
           cd frontend

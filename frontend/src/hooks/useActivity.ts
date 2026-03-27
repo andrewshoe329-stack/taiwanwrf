@@ -17,7 +17,8 @@ export const ActivityContext = createContext<ActivityState>(defaultState)
 
 export function useActivityProvider(): ActivityState {
   const [activity, setActivity] = useState<Activity>(() => {
-    return (localStorage.getItem('tw-forecast-activity') as Activity) || 'sail'
+    const stored = localStorage.getItem('tw-forecast-activity')
+    return stored === 'sail' || stored === 'surf' ? stored : 'sail'
   })
 
   const toggle = useCallback(() => {

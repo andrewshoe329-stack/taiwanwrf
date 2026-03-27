@@ -51,10 +51,10 @@ export function useWindGrid(): WindGridState {
     loadGrid(m)
   }, [loadGrid])
 
-  // Load initial model
+  // Load initial model on mount only
   useEffect(() => {
-    loadGrid(model)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    loadGrid('wrf')
+  }, [loadGrid])
 
   return { grid, model, setModel, loading }
 }

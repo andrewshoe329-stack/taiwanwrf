@@ -25,6 +25,7 @@ import os
 import sys
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
 from pathlib import Path
 
 from config import fetch_json as _fetch_json_shared
@@ -181,10 +182,11 @@ def fetch_model_grid(model_key: str, lats: list[float], lons: list[float],
     valid_indices = []
     valid_times = []
     for i, t in enumerate(all_times):
-        # Parse hour from ISO timestamp
+        # Parse hour from ISO timestamp (e.g. "2026-03-27T06:00")
         try:
-            hour = int(t[11:13])
-        except (IndexError, ValueError):
+            dt = datetime.fromisoformat(t.replace('Z', '+00:00'))
+            hour = dt.hour
+        except (ValueError, TypeError):
             continue
         if hour % 6 == 0:
             valid_indices.append(i)
@@ -237,8 +239,6 @@ def fetch_model_grid(model_key: str, lats: list[float], lons: list[float],
             "lon_max": lons[-1],
         },
         "grid": {"nx": nx, "ny": ny},
-        "lats": lats,
-        "lons": lons,
         "timesteps": timesteps,
     }
 
@@ -288,7 +288,7 @@ def main() -> None:
             log.error("Failed to fetch %s grid", cfg["id"])
             continue
 
-        out_path = out_dir / f"wind_{model_key}.json"
+        out_path = out_dir / f"wind_grid_{model_key}.json"
         out_path.write_text(json.dumps(result, indent=2, allow_nan=False))
         log.info("Wrote %s (%d timesteps, %d x %d grid)",
                  out_path, len(result["timesteps"]),
