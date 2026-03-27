@@ -175,7 +175,7 @@ export function NowPage() {
           </div>
         )}
 
-        {data.tide && (
+        {data.tide?.predictions && (
           <div className="border border-[var(--color-border)] rounded-xl p-4">
             <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-3">
               Tide

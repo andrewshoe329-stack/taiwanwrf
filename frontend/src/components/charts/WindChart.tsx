@@ -50,6 +50,8 @@ function CustomTooltip(props: any) {
 }
 
 export function WindChart({ records, ecmwfRecords }: WindChartProps) {
+  if (!records?.length) return null
+
   const ecmwfMap = new Map<string, ForecastRecord>()
   ecmwfRecords?.forEach(r => ecmwfMap.set(r.valid_utc, r))
 

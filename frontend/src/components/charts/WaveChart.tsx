@@ -53,6 +53,8 @@ function CustomTooltip(props: any) {
 }
 
 export function WaveChart({ records }: WaveChartProps) {
+  if (!records?.length) return null
+
   const chartData: ChartRow[] = records.map(r => ({
     time: toCST(r.valid_utc),
     timeLabel: toCSTLabel(r.valid_utc),

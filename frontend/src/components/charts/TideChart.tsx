@@ -49,6 +49,8 @@ function CustomTooltip(props: any) {
 }
 
 export function TideChart({ predictions, extrema }: TideChartProps) {
+  if (!predictions?.length) return null
+
   const chartData: ChartRow[] = predictions.map(p => ({
     time: toCST(p.time_utc),
     timeLabel: toCSTLabel(p.time_utc),
