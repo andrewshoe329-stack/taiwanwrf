@@ -42,6 +42,7 @@ export class WindParticleSystem {
   private grid: WindGrid | null = null
   private animId: number | null = null
   private running = false
+  private coastlines: [number, number][][] = []
 
   // Viewport mapping (set by the map component)
   private bounds = { west: 119.0, east: 122.5, south: 21.5, north: 25.5 }
@@ -60,6 +61,11 @@ export class WindParticleSystem {
   setGrid(grid: WindGrid) {
     this.grid = grid
     if (this.particles.length === 0) this.initParticles()
+  }
+
+  /** Set coastline polygons to draw (array of [lon, lat][] rings) */
+  setCoastlines(rings: [number, number][][]) {
+    this.coastlines = rings
   }
 
   /** Update the map viewport bounds (call on map move/zoom) */
@@ -211,6 +217,45 @@ export class WindParticleSystem {
       }
     }
 
+    // Draw coastline outline on top of particles
+    this.drawCoastlines(ctx, w, h)
+
     this.animId = requestAnimationFrame(this.loop)
+  }
+
+  /** Project lon/lat to canvas pixel */
+  private geoToPixel(lon: number, lat: number, w: number, h: number): [number, number] {
+    const { west, east, south, north } = this.bounds
+    const x = ((lon - west) / (east - west)) * w
+    const y = ((north - lat) / (north - south)) * h
+    return [x, y]
+  }
+
+  /** Draw all coastline polygons */
+  private drawCoastlines(ctx: CanvasRenderingContext2D, w: number, h: number) {
+    if (this.coastlines.length === 0) return
+
+    ctx.globalCompositeOperation = 'source-over'
+
+    for (const ring of this.coastlines) {
+      if (ring.length < 3) continue
+
+      // Fill
+      ctx.beginPath()
+      const [fx, fy] = this.geoToPixel(ring[0][0], ring[0][1], w, h)
+      ctx.moveTo(fx, fy)
+      for (let i = 1; i < ring.length; i++) {
+        const [px, py] = this.geoToPixel(ring[i][0], ring[i][1], w, h)
+        ctx.lineTo(px, py)
+      }
+      ctx.closePath()
+      ctx.fillStyle = 'rgba(20, 20, 40, 0.4)'
+      ctx.fill()
+
+      // Stroke
+      ctx.strokeStyle = 'rgba(120, 120, 170, 0.7)'
+      ctx.lineWidth = 1.5
+      ctx.stroke()
+    }
   }
 }
