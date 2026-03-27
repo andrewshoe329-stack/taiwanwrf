@@ -54,32 +54,15 @@ const TAIWAN_GEOJSON: GeoJSON.FeatureCollection = {
   ],
 }
 
-// Minimal dark style with Taiwan baked in — no external tile fetch needed
+// Minimal dark style — background only, Taiwan added programmatically on load
 const DARK_STYLE: maplibregl.StyleSpecification = {
   version: 8,
-  sources: {
-    taiwan: {
-      type: 'geojson',
-      data: TAIWAN_GEOJSON,
-    },
-  },
+  sources: {},
   layers: [
     {
       id: 'background',
       type: 'background',
       paint: { 'background-color': '#0a0a1a' },
-    },
-    {
-      id: 'taiwan-fill',
-      type: 'fill',
-      source: 'taiwan',
-      paint: { 'fill-color': '#1a1a30', 'fill-opacity': 1 },
-    },
-    {
-      id: 'taiwan-outline',
-      type: 'line',
-      source: 'taiwan',
-      paint: { 'line-color': '#7070a0', 'line-width': 2, 'line-opacity': 1 },
     },
   ],
 }
@@ -118,6 +101,21 @@ export function ForecastMap() {
     map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right')
 
     map.on('load', () => {
+      // Add Taiwan outline programmatically — inline style sources can silently fail
+      map.addSource('taiwan', { type: 'geojson', data: TAIWAN_GEOJSON })
+      map.addLayer({
+        id: 'taiwan-fill',
+        type: 'fill',
+        source: 'taiwan',
+        paint: { 'fill-color': '#1a1a30', 'fill-opacity': 1 },
+      })
+      map.addLayer({
+        id: 'taiwan-outline',
+        type: 'line',
+        source: 'taiwan',
+        paint: { 'line-color': '#7070a0', 'line-width': 2, 'line-opacity': 1 },
+      })
+
       mapRef.current = map
       setMapReady(true)
     })

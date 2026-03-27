@@ -37,9 +37,11 @@ export function useWindGrid(): WindGridState {
         const data: WindGrid = await res.json()
         cache.set(m, data)
         setGrid(data)
+      } else {
+        setGrid(null) // Clear stale data if model grid unavailable
       }
     } catch {
-      // Grid unavailable for this model
+      setGrid(null)
     } finally {
       setLoading(false)
     }
