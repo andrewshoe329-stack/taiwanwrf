@@ -362,7 +362,7 @@ def build_user_prompt(wrf: dict, ecmwf: dict | None, wave: dict | None,
         # Extract per-model average values for the first 24h (up to 4 records)
         model_avgs: dict[str, dict[str, float]] = {}
         MODEL_LABELS = {
-            'gfs_global': 'GFS', 'icon_global': 'ICON',
+            'gfs_global': 'GFS',
             'jma_gsm': 'JMA', 'ecmwf_ifs': 'ECMWF',
         }
         for model_key, label in MODEL_LABELS.items():
@@ -380,7 +380,7 @@ def build_user_prompt(wrf: dict, ecmwf: dict | None, wave: dict | None,
                 model_avgs[label] = avgs
 
         if spread or model_avgs:
-            spread_lines = ["Multi-model ensemble spread (GFS/ICON/JMA/ECMWF):"]
+            spread_lines = ["Multi-model ensemble spread (GFS/JMA/ECMWF):"]
             wind_spread = spread.get('wind_spread_kt')
             temp_spread = spread.get('temp_spread_c')
             rain_spread = spread.get('precip_spread_mm')

@@ -14,7 +14,6 @@ const MODEL_LABELS: Record<WindModel, string> = {
   wrf: 'WRF 3km',
   ecmwf: 'ECMWF',
   gfs: 'GFS',
-  icon: 'ICON',
 }
 
 export function ForecastMap() {
@@ -141,7 +140,7 @@ export function ForecastMap() {
 
       {/* Model switcher */}
       <div className="absolute top-3 right-3 z-20 flex gap-1">
-        {(['wrf', 'ecmwf', 'gfs', 'icon'] as WindModel[]).map(m => (
+        {(['wrf', 'ecmwf', 'gfs'] as WindModel[]).map(m => (
           <button
             key={m}
             onClick={() => setModel(m)}

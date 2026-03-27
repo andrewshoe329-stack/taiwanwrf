@@ -17,8 +17,8 @@ class TestComputeEnsembleStats:
     def test_basic_stats(self):
         recs = self._make_records({
             "gfs": [("2026-03-22T00:00:00+00:00", {"wind_kt": 10, "temp_c": 22})],
-            "icon": [("2026-03-22T00:00:00+00:00", {"wind_kt": 14, "temp_c": 24})],
-            "jma": [("2026-03-22T00:00:00+00:00", {"wind_kt": 12, "temp_c": 23})],
+            "jma": [("2026-03-22T00:00:00+00:00", {"wind_kt": 14, "temp_c": 24})],
+            "ecmwf": [("2026-03-22T00:00:00+00:00", {"wind_kt": 12, "temp_c": 23})],
         })
         stats = compute_ensemble_stats(recs)
         assert len(stats) == 1
@@ -32,12 +32,12 @@ class TestComputeEnsembleStats:
     def test_missing_values_excluded(self):
         recs = self._make_records({
             "gfs": [("2026-03-22T00:00:00+00:00", {"wind_kt": 10, "temp_c": None})],
-            "icon": [("2026-03-22T00:00:00+00:00", {"wind_kt": 14, "temp_c": 24})],
+            "jma": [("2026-03-22T00:00:00+00:00", {"wind_kt": 14, "temp_c": 24})],
         })
         stats = compute_ensemble_stats(recs)
         s = stats[0]
         assert s["wind_kt"]["n"] == 2
-        assert s["temp_c"]["n"] == 1  # Only ICON has temp
+        assert s["temp_c"]["n"] == 1  # Only JMA has temp
         assert s["temp_c"]["spread"] == 0  # Single value → no spread
 
     def test_single_model(self):
@@ -59,7 +59,7 @@ class TestComputeEnsembleStats:
                 ("2026-03-22T00:00:00+00:00", {"wind_kt": 10}),
                 ("2026-03-22T06:00:00+00:00", {"wind_kt": 15}),
             ],
-            "icon": [
+            "jma": [
                 ("2026-03-22T00:00:00+00:00", {"wind_kt": 12}),
                 ("2026-03-22T06:00:00+00:00", {"wind_kt": 18}),
             ],
@@ -71,7 +71,7 @@ class TestComputeEnsembleStats:
     def test_disjoint_timesteps(self):
         recs = self._make_records({
             "gfs": [("2026-03-22T00:00:00+00:00", {"wind_kt": 10})],
-            "icon": [("2026-03-22T06:00:00+00:00", {"wind_kt": 12})],
+            "jma": [("2026-03-22T06:00:00+00:00", {"wind_kt": 12})],
         })
         stats = compute_ensemble_stats(recs)
         assert len(stats) == 2

@@ -118,7 +118,7 @@ jobs:
           python ensemble_fetch.py $ECMWF_ARG --output ensemble_keelung.json \
             --all-harbours --harbours-output ensemble_harbours.json $HARBOUR_ECMWF_ARG
 
-      - name: Fetch wind grids (ECMWF, GFS, ICON)
+      - name: Fetch wind grids (ECMWF, GFS)
         continue-on-error: true
         timeout-minutes: 10
         run: |

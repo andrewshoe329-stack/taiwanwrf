@@ -2,8 +2,8 @@
 """
 wind_grid_fetch.py
 ==================
-Fetch gridded u/v wind components from Open-Meteo for ECMWF IFS, GFS, and
-ICON models over a Taiwan-wide bounding box.
+Fetch gridded u/v wind components from Open-Meteo for ECMWF IFS and GFS
+models over a Taiwan-wide bounding box.
 
 Creates a regular lat/lon grid per model, fetches wind_speed_10m and
 wind_direction_10m for each grid point via Open-Meteo, converts to u/v
@@ -54,12 +54,6 @@ MODEL_CONFIGS = {
         "url": "https://api.open-meteo.com/v1/forecast",
         "om_model": "gfs_global",
         "resolution": 0.25,
-    },
-    "icon": {
-        "id": "ICON",
-        "url": "https://api.open-meteo.com/v1/dwd-icon",
-        "om_model": "icon_global",
-        "resolution": 0.125,
     },
 }
 
@@ -247,7 +241,7 @@ def fetch_model_grid(model_key: str, lats: list[float], lons: list[float],
 
 def main() -> None:
     ap = argparse.ArgumentParser(
-        description="Fetch gridded u/v wind from Open-Meteo for ECMWF, GFS, ICON."
+        description="Fetch gridded u/v wind from Open-Meteo for ECMWF, GFS."
     )
     ap.add_argument("--output-dir", default="frontend/public/data",
                     help="Output directory (default: frontend/public/data)")
@@ -259,8 +253,8 @@ def main() -> None:
                     help=f"West boundary (default: {DEFAULT_LON_MIN})")
     ap.add_argument("--lon-max", type=float, default=DEFAULT_LON_MAX,
                     help=f"East boundary (default: {DEFAULT_LON_MAX})")
-    ap.add_argument("--models", default="ecmwf,gfs,icon",
-                    help="Comma-separated model list (default: ecmwf,gfs,icon)")
+    ap.add_argument("--models", default="ecmwf,gfs",
+                    help="Comma-separated model list (default: ecmwf,gfs)")
     args = ap.parse_args()
 
     out_dir = Path(args.output_dir)
