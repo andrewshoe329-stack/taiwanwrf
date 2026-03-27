@@ -86,5 +86,4 @@ export const DATA_FILES = {
   wind_grid_wrf:   `${DATA_BASE}/wind_grid_wrf.json`,
   wind_grid_ecmwf: `${DATA_BASE}/wind_grid_ecmwf.json`,
   wind_grid_gfs:   `${DATA_BASE}/wind_grid_gfs.json`,
-  wind_grid_icon:  `${DATA_BASE}/wind_grid_icon.json`,
 }

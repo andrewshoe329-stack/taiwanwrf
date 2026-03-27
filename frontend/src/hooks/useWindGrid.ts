@@ -2,13 +2,12 @@ import { useState, useEffect, useCallback } from 'react'
 import { DATA_FILES } from '@/lib/constants'
 import type { WindGrid } from '@/lib/types'
 
-export type WindModel = 'wrf' | 'ecmwf' | 'gfs' | 'icon'
+export type WindModel = 'wrf' | 'ecmwf' | 'gfs'
 
 const MODEL_FILES: Record<WindModel, string> = {
   wrf: DATA_FILES.wind_grid_wrf,
   ecmwf: DATA_FILES.wind_grid_ecmwf,
   gfs: DATA_FILES.wind_grid_gfs,
-  icon: DATA_FILES.wind_grid_icon,
 }
 
 export interface WindGridState {

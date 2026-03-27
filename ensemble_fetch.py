@@ -2,7 +2,7 @@
 """
 ensemble_fetch.py
 =================
-Fetch GFS, ICON, and JMA global model forecasts from Open-Meteo and compute
+Fetch GFS and JMA global model forecasts from Open-Meteo and compute
 multi-model ensemble statistics alongside the existing ECMWF IFS forecast.
 
 Outputs ensemble_keelung.json with per-model records and pre-computed spread
@@ -51,7 +51,6 @@ HOURLY_VARS = ",".join([
 # Models to fetch (excluding ECMWF which comes from ecmwf_fetch.py)
 MODEL_CONFIGS = {
     "gfs_global":  {"id": "GFS-Global",  "om_model": "gfs_global"},
-    "icon_global": {"id": "ICON-Global", "om_model": "icon_global"},
     "jma_gsm":     {"id": "JMA-GSM",     "om_model": "jma_gsm"},
 }
 
@@ -209,7 +208,7 @@ def _fetch_ensemble_for_point(lat: float, lon: float, label: str,
                                ecmwf_recs: list | None = None) -> dict | None:
     """Fetch all ensemble models for one point, compute stats, return output dict."""
     results: dict[str, dict | None] = {}
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    with ThreadPoolExecutor(max_workers=2) as pool:
         futures = {
             pool.submit(fetch_model, key, lat, lon, label): key
             for key in MODEL_CONFIGS

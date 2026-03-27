@@ -8,7 +8,6 @@ const MODEL_META: Record<string, { label: string; cssVar: string; bgVar: string 
   WRF:   { label: 'CWA WRF',   cssVar: '--color-wrf',        bgVar: '--color-wrf-bg' },
   ECMWF: { label: 'ECMWF IFS', cssVar: '--color-ecmwf',      bgVar: '--color-ecmwf-bg' },
   GFS:   { label: 'NCEP GFS',  cssVar: '--color-gfs',        bgVar: '--color-gfs-bg' },
-  ICON:  { label: 'DWD ICON',  cssVar: '--color-icon-model',  bgVar: '--color-icon-model-bg' },
   JMA:   { label: 'JMA GSM',   cssVar: '--color-gfs',        bgVar: '--color-gfs-bg' },
 }
 
