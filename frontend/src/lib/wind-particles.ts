@@ -42,8 +42,6 @@ export class WindParticleSystem {
   private grid: WindGrid | null = null
   private animId: number | null = null
   private running = false
-  private coastlines: [number, number][][] = []
-  private projector: ((lon: number, lat: number) => { x: number; y: number }) | null = null
 
   // Viewport mapping (set by the map component)
   private bounds = { west: 119.0, east: 122.5, south: 21.5, north: 25.5 }
@@ -62,16 +60,6 @@ export class WindParticleSystem {
   setGrid(grid: WindGrid) {
     this.grid = grid
     if (this.particles.length === 0) this.initParticles()
-  }
-
-  /** Set coastline polygons to draw (array of [lon, lat][] rings) */
-  setCoastlines(rings: [number, number][][]) {
-    this.coastlines = rings
-  }
-
-  /** Set Mercator projector function from MapLibre map.project() */
-  setProjector(fn: (lon: number, lat: number) => { x: number; y: number }) {
-    this.projector = fn
   }
 
   /** Update the map viewport bounds (call on map move/zoom) */
@@ -223,35 +211,6 @@ export class WindParticleSystem {
       }
     }
 
-    // Draw coastline outline on top of particles
-    this.drawCoastlines(ctx)
-
     this.animId = requestAnimationFrame(this.loop)
-  }
-
-  /** Draw all coastline polygons using Mercator projection */
-  private drawCoastlines(ctx: CanvasRenderingContext2D) {
-    if (this.coastlines.length === 0 || !this.projector) return
-
-    ctx.globalCompositeOperation = 'source-over'
-
-    for (const ring of this.coastlines) {
-      if (ring.length < 3) continue
-
-      ctx.beginPath()
-      const first = this.projector(ring[0][0], ring[0][1])
-      ctx.moveTo(first.x, first.y)
-      for (let i = 1; i < ring.length; i++) {
-        const pt = this.projector(ring[i][0], ring[i][1])
-        ctx.lineTo(pt.x, pt.y)
-      }
-      ctx.closePath()
-      ctx.fillStyle = 'rgba(20, 20, 40, 0.4)'
-      ctx.fill()
-
-      ctx.strokeStyle = 'rgba(120, 120, 170, 0.7)'
-      ctx.lineWidth = 1.5
-      ctx.stroke()
-    }
   }
 }
