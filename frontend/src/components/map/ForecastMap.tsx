@@ -44,6 +44,35 @@ export function ForecastMap() {
     map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right')
 
     map.on('load', () => {
+      // Add Taiwan outline layer
+      fetch('/data/taiwan.geojson')
+        .then(r => r.json())
+        .then(geojson => {
+          if (!map.getSource('taiwan')) {
+            map.addSource('taiwan', { type: 'geojson', data: geojson })
+            map.addLayer({
+              id: 'taiwan-fill',
+              type: 'fill',
+              source: 'taiwan',
+              paint: {
+                'fill-color': '#1a1a2e',
+                'fill-opacity': 0.6,
+              },
+            })
+            map.addLayer({
+              id: 'taiwan-outline',
+              type: 'line',
+              source: 'taiwan',
+              paint: {
+                'line-color': '#3a3a5c',
+                'line-width': 1.2,
+                'line-opacity': 0.8,
+              },
+            })
+          }
+        })
+        .catch(() => { /* geojson unavailable */ })
+
       mapRef.current = map
       setMapReady(true)
     })
