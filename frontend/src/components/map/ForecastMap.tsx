@@ -140,16 +140,21 @@ export function ForecastMap() {
     return () => window.removeEventListener('resize', syncSize)
   }, [syncSize])
 
-  // Sync map bounds to particle system
+  // Sync map bounds + projector to particle system
   useEffect(() => {
     const map = mapRef.current
     if (!map || !mapReady) return
+
+    // Pass Mercator projector so coastline draws correctly
+    particlesRef.current?.setProjector((lon, lat) => map.project([lon, lat]))
 
     const update = () => {
       const b = map.getBounds()
       particlesRef.current?.setBounds(
         b.getWest(), b.getSouth(), b.getEast(), b.getNorth()
       )
+      // Update projector on every move (viewport changes)
+      particlesRef.current?.setProjector((lon, lat) => map.project([lon, lat]))
     }
 
     update()
@@ -179,11 +184,10 @@ export function ForecastMap() {
       {/* MapLibre GL container */}
       <div ref={mapContainerRef} className="absolute inset-0 z-0" />
 
-      {/* Wind particle canvas overlay — pointer-events-none lets map receive drag/touch */}
+      {/* Wind particle + coastline canvas — pointer-events-none passes all touch/drag to map */}
       <canvas
         ref={canvasRef}
-        className="absolute inset-0 pointer-events-none"
-        style={{ zIndex: 1 }}
+        className="absolute inset-0 pointer-events-none z-[1]"
       />
 
       {/* Zoom controls — rendered outside the map so the canvas doesn't cover them */}
