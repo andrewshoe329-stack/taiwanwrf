@@ -772,6 +772,115 @@ def generate_planner_json(all_spot_data: list[dict], keelung_records: list = Non
     return {'days': days}
 
 
+# Spot-to-region mapping for the frontend
+_SPOT_REGION = {
+    'fulong': 'north', 'greenbay': 'north', 'jinshan': 'north',
+    'daxi': 'northeast', 'wushih': 'northeast', 'doublelions': 'northeast', 'chousui': 'northeast',
+    'donghe': 'east', 'jinzun': 'east', 'chenggong': 'east', 'dulan': 'east',
+    'nanwan': 'south', 'jialeshuei': 'south', 'baishawan': 'south',
+    'jici': 'east', 'daan': 'west', 'qigu': 'west',
+    'shanshui': 'penghu', 'fenggui': 'penghu', 'aimen': 'penghu',
+}
+
+
+def generate_frontend_json(all_spot_data: list[dict]) -> dict:
+    """
+    Generate JSON in the format expected by the React frontend.
+    Returns: {"spots": [{"spot": {...}, "ratings": [...], "daily_best": [...], "best_times": [...]}, ...]}
+    """
+    spots = []
+    for sd in all_spot_data:
+        spot_entry = sd['spot']
+        records = sd['records']
+        spot_id = spot_entry.get('id', '')
+        en_name, zh_name = _split_spot_name(spot_entry.get('name', ''))
+
+        # Build per-timestep ratings
+        ratings = []
+        for r in records:
+            score = _score_timestep(r, spot_entry, tide_height_m=_tide_height(r.get('dt_utc')))
+            if score >= 9:
+                rating_label = 'firing'
+            elif score >= 7:
+                rating_label = 'good'
+            elif score >= 4:
+                rating_label = 'marginal'
+            else:
+                rating_label = 'poor'
+
+            sw_hs = r.get('sw_hs') or 0
+            wind_kt = r.get('wind') or 0
+            if sw_hs < MIN_SWELL_HEIGHT_M:
+                rating_label = 'flat'
+            elif sw_hs > MAX_SWELL_HEIGHT_M or wind_kt > MAX_WIND_KT:
+                rating_label = 'dangerous'
+
+            dt_utc = r.get('dt_utc')
+            valid_utc = dt_utc.isoformat() if dt_utc else ''
+
+            ratings.append({
+                'spot_id': spot_id,
+                'valid_utc': valid_utc,
+                'score': score,
+                'rating': rating_label,
+                'swell_height': r.get('sw_hs'),
+                'swell_dir': r.get('sw_dir'),
+                'swell_period': r.get('sw_tp'),
+                'wind_kt': r.get('wind'),
+                'wind_dir': r.get('w_dir'),
+            })
+
+        # Build daily_best
+        by_day = {}
+        for r in records:
+            by_day.setdefault(r['dk'], []).append(r)
+
+        daily_best = []
+        for dk in sorted(by_day.keys()):
+            day_recs = by_day[dk]
+            dr = day_rating(day_recs, spot_entry)
+            label_key = dr.get('label_key', 'poor')
+            best_score = 0
+            for r in day_recs:
+                s = _score_timestep(r, spot_entry, tide_height_m=_tide_height(r.get('dt_utc')))
+                best_score = max(best_score, s)
+            daily_best.append({'date': dk, 'rating': label_key, 'score': best_score})
+
+        # Build best_times
+        best_times = []
+        for dk in sorted(by_day.keys()):
+            bt = best_time_for_day(by_day[dk], spot_entry)
+            if bt and bt.get('dt_cst'):
+                dt_cst = bt['dt_cst']
+                start_cst = dt_cst.strftime('%H:%M') if hasattr(dt_cst, 'strftime') else str(dt_cst)
+                end_h = (dt_cst.hour + 6) % 24
+                end_cst = f'{end_h:02d}:{dt_cst.minute:02d}' if hasattr(dt_cst, 'minute') else ''
+                best_times.append({
+                    'date': dk,
+                    'start_cst': start_cst,
+                    'end_cst': end_cst,
+                    'rating': 'good' if bt['score'] >= 7 else 'marginal',
+                })
+
+        spots.append({
+            'spot': {
+                'id': spot_id,
+                'name': {'en': en_name, 'zh': zh_name},
+                'lat': spot_entry.get('lat', 0),
+                'lon': spot_entry.get('lon', 0),
+                'facing': spot_entry.get('facing', ''),
+                'region': _SPOT_REGION.get(spot_id, 'east'),
+                'opt_wind': spot_entry.get('opt_wind', []),
+                'opt_swell': spot_entry.get('opt_swell', []),
+            },
+            'ratings': ratings,
+            'daily_best': daily_best,
+            'best_times': best_times,
+        })
+
+    return {'spots': spots}
+
+
 # ── HTML generation ────────────────────────────────────────────────────────
 CSS = """
 <style>
@@ -1643,6 +1752,8 @@ def main() -> None:
                     help='Output HTML path (default: surf_forecast.html)')
     ap.add_argument('--output-json', default=None,
                     help='Output planner JSON path (optional, for unified day cards)')
+    ap.add_argument('--output-frontend-json', default=None,
+                    help='Output frontend-format JSON (per-spot ratings + daily_best)')
     ap.add_argument('--output-dir', default=None,
                     help='Output directory for multi-page HTML (generates surf.html + spots/*.html)')
     ap.add_argument('--cwa-obs', default=None,
@@ -1739,6 +1850,13 @@ def main() -> None:
         with open(args.output_json, 'w', encoding='utf-8') as f:
             json_mod.dump(planner_data, f, ensure_ascii=False, indent=2)
         log.info("Wrote planner JSON: %s", args.output_json)
+
+    if args.output_frontend_json:
+        import json as json_mod
+        frontend_data = generate_frontend_json(all_spot_data)
+        with open(args.output_frontend_json, 'w', encoding='utf-8') as f:
+            json_mod.dump(frontend_data, f, ensure_ascii=False, indent=2)
+        log.info("Wrote frontend JSON: %s", args.output_frontend_json)
 
 if __name__ == '__main__':
     setup_logging()

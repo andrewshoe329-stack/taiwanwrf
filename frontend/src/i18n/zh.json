@@ -134,7 +134,10 @@
     "direction": "風向",
     "waves": "浪高",
     "model_spread": "模式分歧",
-    "no_data": "港口預報資料尚未載入"
+    "no_data": "港口預報資料尚未載入",
+    "show_forecast": "顯示預報",
+    "hide_forecast": "收起預報",
+    "time": "時間"
   },
   "common": {
     "loading": "載入預報資料中...",

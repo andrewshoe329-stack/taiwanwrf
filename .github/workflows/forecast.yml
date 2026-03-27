@@ -137,6 +137,7 @@ jobs:
           python surf_forecast.py \
             --output surf_forecast.html \
             --output-json surf_planner.json \
+            --output-frontend-json surf_frontend.json \
             --output-dir public \
             $CWA_TIDE_ARG
 
@@ -221,7 +222,7 @@ jobs:
               cp "$f" "frontend/public/data/$DEST"
             fi
           done
-          [ -f surf_planner.json ] && cp surf_planner.json frontend/public/data/surf.json
+          [ -f surf_frontend.json ] && cp surf_frontend.json frontend/public/data/surf.json
           [ -f ai_summary.json ] && cp ai_summary.json frontend/public/data/summary.json
           for f in ecmwf_harbours.json wave_harbours.json ensemble_harbours.json; do
             [ -f "$f" ] && cp "$f" "frontend/public/data/$f"

@@ -134,7 +134,10 @@
     "direction": "Direction",
     "waves": "Waves",
     "model_spread": "Model spread",
-    "no_data": "No harbour forecast data available yet"
+    "no_data": "No harbour forecast data available yet",
+    "show_forecast": "Show forecast",
+    "hide_forecast": "Hide forecast",
+    "time": "Time"
   },
   "common": {
     "loading": "Loading forecast data...",
