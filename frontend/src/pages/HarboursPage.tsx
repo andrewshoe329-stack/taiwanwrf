@@ -4,20 +4,92 @@ import { HARBOURS } from '@/lib/constants'
 import { useForecastData } from '@/hooks/useForecastData'
 import type { ForecastRecord, WaveRecord } from '@/lib/types'
 
-function toCST(utc: string): string {
+function toCST(utc: string): Date {
   const d = new Date(utc)
   d.setUTCHours(d.getUTCHours() + 8)
+  return d
+}
+
+function formatTime(utc: string): string {
+  const d = toCST(utc)
+  const hh = String(d.getUTCHours()).padStart(2, '0')
+  return `${hh}:00`
+}
+
+function formatDayHeader(utc: string, lang: 'en' | 'zh'): string {
+  const d = toCST(utc)
+  const weekdaysEn = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const weekdaysZh = ['日', '一', '二', '三', '四', '五', '六']
   const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
   const dd = String(d.getUTCDate()).padStart(2, '0')
-  const hh = String(d.getUTCHours()).padStart(2, '0')
-  return `${mm}/${dd} ${hh}:00`
+  const dayName = lang === 'zh' ? weekdaysZh[d.getUTCDay()] : weekdaysEn[d.getUTCDay()]
+  return lang === 'zh' ? `${mm}/${dd} (${dayName})` : `${dayName} ${mm}/${dd}`
+}
+
+function getDayKey(utc: string): string {
+  const d = toCST(utc)
+  return `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`
+}
+
+function degToCompass(deg: number): string {
+  const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW']
+  return dirs[Math.round(deg / 22.5) % 16]
+}
+
+/** Return a Tailwind text color class based on wind speed (Beaufort-ish scale). */
+function windColor(kt: number): string {
+  if (kt >= 34) return 'text-red-400'
+  if (kt >= 22) return 'text-orange-400'
+  if (kt >= 17) return 'text-yellow-400'
+  if (kt >= 11) return 'text-emerald-400'
+  if (kt >= 7)  return 'text-sky-400'
+  return 'text-[var(--color-text-muted)]'
+}
+
+/** Return a Tailwind text color class based on wave height. */
+function waveColor(m: number): string {
+  if (m >= 3.0) return 'text-red-400'
+  if (m >= 2.0) return 'text-orange-400'
+  if (m >= 1.0) return 'text-sky-400'
+  return 'text-[var(--color-text-muted)]'
+}
+
+/** Check if a timestamp is "now" (closest past record). */
+function isCurrentTimestep(utc: string, allUtcs: string[]): boolean {
+  const now = Date.now()
+  let closest = 0
+  let closestDiff = Infinity
+  for (let i = 0; i < allUtcs.length; i++) {
+    const t = new Date(allUtcs[i]).getTime()
+    const diff = now - t
+    if (diff >= 0 && diff < closestDiff) {
+      closestDiff = diff
+      closest = i
+    }
+  }
+  return allUtcs[closest] === utc
+}
+
+/** Group records by CST day. Returns array of [dayKey, dayLabel, indices]. */
+function groupByDay(records: ForecastRecord[], lang: 'en' | 'zh'): Array<{ dayKey: string; dayLabel: string; indices: number[] }> {
+  const groups: Array<{ dayKey: string; dayLabel: string; indices: number[] }> = []
+  let currentKey = ''
+  for (let i = 0; i < records.length; i++) {
+    const key = getDayKey(records[i].valid_utc)
+    if (key !== currentKey) {
+      currentKey = key
+      groups.push({ dayKey: key, dayLabel: formatDayHeader(records[i].valid_utc, lang), indices: [] })
+    }
+    groups[groups.length - 1].indices.push(i)
+  }
+  return groups
 }
 
 export function HarboursPage() {
   const { t, i18n } = useTranslation()
   const lang = (i18n.language.startsWith('zh') ? 'zh' : 'en') as 'en' | 'zh'
   const data = useForecastData()
-  const [expandedHarbour, setExpandedHarbour] = useState<string | null>(null)
+  const [collapsedHarbour, setCollapsedHarbour] = useState<Record<string, boolean>>({})
 
   if (data.loading) {
     return (
@@ -39,7 +111,7 @@ export function HarboursPage() {
         {t('harbours_page.subtitle')}
       </p>
 
-      <div className="space-y-4">
+      <div className="space-y-6">
         {HARBOURS.map(harbour => {
           const ecmwf = data.ecmwf_harbours?.[harbour.id]
           const wave = data.wave_harbours?.[harbour.id]
@@ -68,8 +140,10 @@ export function HarboursPage() {
           const spread = ensemble?.spread
           const hasSpread = spread && (spread.wind_spread_kt != null || spread.temp_spread_c != null)
 
-          const isExpanded = expandedHarbour === harbour.id
+          const isCollapsed = collapsedHarbour[harbour.id] === true
           const hasForecast = records.length > 1
+          const allUtcs = records.map(r => r.valid_utc)
+          const dayGroups = groupByDay(records, lang)
 
           return (
             <div
@@ -101,8 +175,8 @@ export function HarboursPage() {
                 />
                 <MiniStat
                   label={t('harbours_page.direction')}
-                  value={windRec?.wind_dir != null ? `${windRec.wind_dir}` : '--'}
-                  unit="°"
+                  value={windRec?.wind_dir != null ? degToCompass(windRec.wind_dir) : '--'}
+                  unit={windRec?.wind_dir != null ? `${windRec.wind_dir}°` : ''}
                 />
                 <MiniStat
                   label={t('harbours_page.waves')}
@@ -122,81 +196,113 @@ export function HarboursPage() {
                 <div className="mt-3 flex items-center gap-3 text-xs text-[var(--color-text-muted)]">
                   <span>{t('harbours_page.model_spread')}:</span>
                   {spread.wind_spread_kt != null && (
-                    <span>{t('common.wind')} ±{spread.wind_spread_kt.toFixed(1)} kt</span>
+                    <span>{t('common.wind')} +/-{spread.wind_spread_kt.toFixed(1)} kt</span>
                   )}
                   {spread.temp_spread_c != null && (
-                    <span>{t('common.temp')} ±{spread.temp_spread_c.toFixed(1)}°</span>
+                    <span>{t('common.temp')} +/-{spread.temp_spread_c.toFixed(1)}{'\u00B0'}</span>
                   )}
                 </div>
               )}
 
-              {/* Expand/collapse forecast toggle */}
+              {/* Forecast timeline — visible by default */}
               {hasForecast && (
-                <button
-                  onClick={() => setExpandedHarbour(isExpanded ? null : harbour.id)}
-                  className="mt-3 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors flex items-center gap-1"
-                >
-                  <svg className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                    <path d="M6 9l6 6 6-6" />
-                  </svg>
-                  {isExpanded ? t('harbours_page.hide_forecast') : t('harbours_page.show_forecast')}
-                </button>
-              )}
+                <>
+                  <div className="mt-4 flex items-center justify-between">
+                    <h3 className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider">
+                      {t('harbours_page.forecast_timeline')}
+                    </h3>
+                    <button
+                      onClick={() => setCollapsedHarbour(prev => ({ ...prev, [harbour.id]: !prev[harbour.id] }))}
+                      className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors flex items-center gap-1"
+                    >
+                      <svg className={`w-3 h-3 transition-transform ${isCollapsed ? '' : 'rotate-180'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                        <path d="M6 9l6 6 6-6" />
+                      </svg>
+                      {isCollapsed ? t('harbours_page.show_forecast') : t('harbours_page.hide_forecast')}
+                    </button>
+                  </div>
 
-              {/* Expanded forecast table */}
-              {isExpanded && (
-                <div className="mt-3 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-                  <table className="w-full border-collapse text-xs" style={{ minWidth: 400 }}>
-                    <thead>
-                      <tr className="border-b border-[var(--color-border)]">
-                        <th className="text-left py-2 pr-2 text-[var(--color-text-muted)] font-normal">{t('harbours_page.time')}</th>
-                        <th className="text-right py-2 px-2 text-[var(--color-text-muted)] font-normal">{t('common.wind')}</th>
-                        <th className="text-right py-2 px-2 text-[var(--color-text-muted)] font-normal">Dir</th>
-                        <th className="text-right py-2 px-2 text-[var(--color-text-muted)] font-normal">{t('harbours_page.waves')}</th>
-                        <th className="text-right py-2 px-2 text-[var(--color-text-muted)] font-normal">{t('common.temp')}</th>
-                        <th className="text-right py-2 pl-2 text-[var(--color-text-muted)] font-normal">{t('common.pressure')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {records.map((rec, i) => {
-                        const wr = waveRecords[i]
-                        return (
-                          <tr key={rec.valid_utc} className="border-b border-[var(--color-border)]/50">
-                            <td className="py-1.5 pr-2">
-                              <span className="text-[var(--color-text-secondary)] tabular-nums">{toCST(rec.valid_utc)}</span>
-                              {i === 0 && (
-                                <span className="ml-1 text-[10px] text-[var(--color-text-dim)]">CST</span>
-                              )}
-                            </td>
-                            <td className="text-right py-1.5 px-2 text-[var(--color-text-primary)] tabular-nums">
-                              {rec.wind_kt?.toFixed(0) ?? '--'}
-                              {rec.gust_kt != null && (
-                                <span className="text-[var(--color-text-dim)]"> G{rec.gust_kt.toFixed(0)}</span>
-                              )}
-                              <span className="text-[var(--color-text-dim)] ml-0.5">kt</span>
-                            </td>
-                            <td className="text-right py-1.5 px-2 text-[var(--color-text-secondary)] tabular-nums">
-                              {rec.wind_dir != null ? `${rec.wind_dir}°` : '--'}
-                            </td>
-                            <td className="text-right py-1.5 px-2 text-[var(--color-text-primary)] tabular-nums">
-                              {wr?.wave_height != null ? wr.wave_height.toFixed(1) : '--'}
-                              <span className="text-[var(--color-text-dim)] ml-0.5">m</span>
-                              {wr?.wave_period != null && (
-                                <span className="text-[var(--color-text-dim)]"> {wr.wave_period.toFixed(0)}s</span>
-                              )}
-                            </td>
-                            <td className="text-right py-1.5 px-2 text-[var(--color-text-primary)] tabular-nums">
-                              {rec.temp_c?.toFixed(0) ?? '--'}°
-                            </td>
-                            <td className="text-right py-1.5 pl-2 text-[var(--color-text-secondary)] tabular-nums">
-                              {rec.mslp_hpa?.toFixed(0) ?? '--'}
-                            </td>
+                  {!isCollapsed && (
+                    <div className="mt-2 overflow-x-auto" style={{ scrollbarWidth: 'thin' }}>
+                      <table className="w-full border-collapse text-xs" style={{ minWidth: 480 }}>
+                        <thead>
+                          <tr className="border-b border-[var(--color-border)]">
+                            <th className="text-left py-2 pr-2 text-[var(--color-text-muted)] font-normal">{t('harbours_page.time')}</th>
+                            <th className="text-right py-2 px-2 text-[var(--color-text-muted)] font-normal">{t('common.wind')}</th>
+                            <th className="text-right py-2 px-2 text-[var(--color-text-muted)] font-normal">{t('harbours_page.direction')}</th>
+                            <th className="text-right py-2 px-2 text-[var(--color-text-muted)] font-normal">{t('harbours_page.waves')}</th>
+                            <th className="text-right py-2 px-2 text-[var(--color-text-muted)] font-normal">{t('common.temp')}</th>
+                            <th className="text-right py-2 pl-2 text-[var(--color-text-muted)] font-normal">{t('common.pressure')}</th>
                           </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                        </thead>
+                        <tbody>
+                          {dayGroups.map(group => (
+                            <>
+                              {/* Day header row */}
+                              <tr key={`day-${group.dayKey}`}>
+                                <td colSpan={6} className="pt-3 pb-1">
+                                  <span className="text-[11px] font-semibold text-[var(--color-text-secondary)] tracking-wide">
+                                    {group.dayLabel}
+                                  </span>
+                                </td>
+                              </tr>
+                              {group.indices.map(i => {
+                                const rec = records[i]
+                                const wr = waveRecords.find(w => w.valid_utc === rec.valid_utc) ?? waveRecords[i]
+                                const isCurrent = isCurrentTimestep(rec.valid_utc, allUtcs)
+                                return (
+                                  <tr
+                                    key={rec.valid_utc}
+                                    className={`border-b border-[var(--color-border)]/30 ${isCurrent ? 'bg-[var(--color-bg-elevated)]' : ''}`}
+                                  >
+                                    <td className="py-1.5 pr-2">
+                                      <span className="text-[var(--color-text-secondary)] tabular-nums">
+                                        {formatTime(rec.valid_utc)}
+                                      </span>
+                                      {isCurrent && (
+                                        <span className="ml-1 text-[9px] font-medium text-[var(--color-rating-good)] uppercase">now</span>
+                                      )}
+                                    </td>
+                                    <td className={`text-right py-1.5 px-2 tabular-nums font-medium ${rec.wind_kt != null ? windColor(rec.wind_kt) : 'text-[var(--color-text-muted)]'}`}>
+                                      {rec.wind_kt?.toFixed(0) ?? '--'}
+                                      {rec.gust_kt != null && (
+                                        <span className="text-[var(--color-text-dim)] font-normal"> G{rec.gust_kt.toFixed(0)}</span>
+                                      )}
+                                      <span className="text-[var(--color-text-dim)] font-normal ml-0.5">kt</span>
+                                    </td>
+                                    <td className="text-right py-1.5 px-2 text-[var(--color-text-secondary)] tabular-nums">
+                                      {rec.wind_dir != null ? (
+                                        <>
+                                          <span className="inline-block w-3 text-center" style={{ transform: `rotate(${rec.wind_dir + 180}deg)` }}>
+                                            {'\u2191'}
+                                          </span>
+                                          {' '}{degToCompass(rec.wind_dir)}
+                                        </>
+                                      ) : '--'}
+                                    </td>
+                                    <td className={`text-right py-1.5 px-2 tabular-nums ${wr?.wave_height != null ? waveColor(wr.wave_height) : 'text-[var(--color-text-muted)]'}`}>
+                                      {wr?.wave_height != null ? wr.wave_height.toFixed(1) : '--'}
+                                      <span className="text-[var(--color-text-dim)] ml-0.5">m</span>
+                                      {wr?.wave_period != null && (
+                                        <span className="text-[var(--color-text-dim)]"> {wr.wave_period.toFixed(0)}s</span>
+                                      )}
+                                    </td>
+                                    <td className="text-right py-1.5 px-2 text-[var(--color-text-primary)] tabular-nums">
+                                      {rec.temp_c?.toFixed(0) ?? '--'}{'\u00B0'}
+                                    </td>
+                                    <td className="text-right py-1.5 pl-2 text-[var(--color-text-secondary)] tabular-nums">
+                                      {rec.mslp_hpa?.toFixed(0) ?? '--'}
+                                    </td>
+                                  </tr>
+                                )
+                              })}
+                            </>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )

@@ -144,7 +144,8 @@
     "no_data": "No harbour forecast data available yet",
     "show_forecast": "Show forecast",
     "hide_forecast": "Hide forecast",
-    "time": "Time"
+    "time": "Time",
+    "forecast_timeline": "Forecast Timeline"
   },
   "common": {
     "loading": "Loading forecast data...",
