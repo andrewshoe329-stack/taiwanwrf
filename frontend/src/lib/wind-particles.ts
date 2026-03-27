@@ -160,11 +160,12 @@ export class WindParticleSystem {
     const w = this.canvas.width
     const h = this.canvas.height
 
-    // Fade previous frame (trail effect)
+    // Fade previous frame (trail effect) — preserve canvas transparency
+    // Save current content with reduced alpha for trails
     ctx.globalCompositeOperation = 'destination-in'
     ctx.fillStyle = `rgba(0, 0, 0, ${this.fadeFactor})`
     ctx.fillRect(0, 0, w, h)
-    ctx.globalCompositeOperation = 'lighter'
+    ctx.globalCompositeOperation = 'source-over'
 
     ctx.lineWidth = this.lineWidth
     ctx.lineCap = 'round'

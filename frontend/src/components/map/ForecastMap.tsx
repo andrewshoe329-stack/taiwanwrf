@@ -204,10 +204,11 @@ export function ForecastMap() {
       {/* MapLibre GL container */}
       <div ref={mapContainerRef} className="absolute inset-0 z-0" />
 
-      {/* Wind particle canvas overlay — z-10 but pointer-events-none so map controls stay clickable */}
+      {/* Wind particle canvas overlay — pointer-events-none lets map receive drag/touch */}
       <canvas
         ref={canvasRef}
-        className="absolute inset-0 pointer-events-none z-10"
+        className="absolute inset-0 pointer-events-none"
+        style={{ zIndex: 1 }}
       />
 
       {/* Zoom controls — rendered outside the map so the canvas doesn't cover them */}
