@@ -101,9 +101,7 @@
     "north": "North",
     "northeast": "Northeast",
     "east": "East Coast",
-    "south": "South",
-    "west": "West",
-    "penghu": "Penghu"
+    "south": "South"
   },
   "models_page": {
     "title": "Models & Accuracy",
@@ -126,7 +124,6 @@
     "keelung": "Keelung",
     "kaohsiung": "Kaohsiung",
     "taichung": "Taichung",
-    "hualien": "Hualien",
     "anping": "Anping",
     "magong": "Magong"
   },

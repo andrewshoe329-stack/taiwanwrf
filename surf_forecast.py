@@ -131,17 +131,6 @@ SPOTS = [
     },
     # ── East coast ───────────────────────────────────────────────────────────
     {
-        'id': 'jici',
-        'name': 'Jici 磯崎',
-        'lat': _COORD_LOOKUP['jici'][0], 'lon': _COORD_LOOKUP['jici'][1],
-        'facing': 'E',
-        'opt_wind':  ['W', 'NW'],
-        'opt_swell': ['E', 'NE', 'SE'],
-        'opt_tide':  'any',
-        'desc': 'Beach break · Consistent east swell · All levels',
-        'desc_zh': '沙灘浪型 · 穩定東浪 · 各級適合',
-    },
-    {
         'id': 'donghe',
         'name': 'Donghe 東河',
         'lat': _COORD_LOOKUP['donghe'][0], 'lon': _COORD_LOOKUP['donghe'][1],
@@ -215,63 +204,6 @@ SPOTS = [
         'facing': 'W',
         'opt_wind':  ['E', 'NE', 'SE'],
         'opt_swell': ['W', 'SW', 'NW'],
-        'opt_tide':  'any',
-        'desc': 'Beach break · Gentle · All tides · Beginner',
-        'desc_zh': '沙灘浪型 · 溫和 · 各潮 · 初學適合',
-    },
-    # ── West coast ───────────────────────────────────────────────────────────
-    {
-        'id': 'daan',
-        'name': 'Daan 大安',
-        'lat': _COORD_LOOKUP['daan'][0], 'lon': _COORD_LOOKUP['daan'][1],
-        'facing': 'W',
-        'opt_wind':  ['E', 'SE'],
-        'opt_swell': ['W', 'SW', 'NW'],
-        'opt_tide':  'any',
-        'desc': 'Beach break · Typhoon swell only · Inter+',
-        'desc_zh': '沙灘浪型 · 僅颱風浪 · 中級以上',
-    },
-    {
-        'id': 'qigu',
-        'name': 'Qigu 七股',
-        'lat': _COORD_LOOKUP['qigu'][0], 'lon': _COORD_LOOKUP['qigu'][1],
-        'facing': 'W/SW',
-        'opt_wind':  ['E', 'NE'],
-        'opt_swell': ['W', 'SW', 'S'],
-        'opt_tide':  'any',
-        'desc': 'Beach break · Mellow · All tides · Beginner',
-        'desc_zh': '沙灘浪型 · 溫和 · 各潮 · 初學適合',
-    },
-    # ── Penghu ───────────────────────────────────────────────────────────────
-    {
-        'id': 'shanshui',
-        'name': 'Shanshui 山水',
-        'lat': _COORD_LOOKUP['shanshui'][0], 'lon': _COORD_LOOKUP['shanshui'][1],
-        'facing': 'S/SW',
-        'opt_wind':  ['N', 'NE', 'NW'],
-        'opt_swell': ['S', 'SW', 'SE'],
-        'opt_tide':  'any',
-        'desc': 'Beach break · Most popular Penghu · All levels',
-        'desc_zh': '沙灘浪型 · 澎湖最熱門 · 各級適合',
-    },
-    {
-        'id': 'fenggui',
-        'name': 'Fenggui 風櫃',
-        'lat': _COORD_LOOKUP['fenggui'][0], 'lon': _COORD_LOOKUP['fenggui'][1],
-        'facing': 'SW',
-        'opt_wind':  ['NE', 'N', 'E'],
-        'opt_swell': ['SW', 'S', 'W'],
-        'opt_tide':  'low-mid',
-        'desc': 'Reef break · Powerful · Low-mid tide · Advanced',
-        'desc_zh': '礁岩浪型 · 有力 · 低中潮 · 高級',
-    },
-    {
-        'id': 'aimen',
-        'name': 'Aimen 隘門',
-        'lat': _COORD_LOOKUP['aimen'][0], 'lon': _COORD_LOOKUP['aimen'][1],
-        'facing': 'SE',
-        'opt_wind':  ['NW', 'W', 'N'],
-        'opt_swell': ['SE', 'S', 'E'],
         'opt_tide':  'any',
         'desc': 'Beach break · Gentle · All tides · Beginner',
         'desc_zh': '沙灘浪型 · 溫和 · 各潮 · 初學適合',
@@ -1745,11 +1677,8 @@ def main() -> None:
         log.info("  %s → %d timesteps", name, len(records))
         return spot_entry, records
 
-    all_entries = [{'lat': KEELUNG['lat'], 'lon': KEELUNG['lon'],
-                    'name': 'Keelung (sailing)', '_is_keelung': True}]
-    all_entries += [{'_is_keelung': False, **s} for s in SPOTS]
+    all_entries = list(SPOTS)
 
-    keelung_records = []
     all_spot_data = []
     failed_count = 0
     with ThreadPoolExecutor(max_workers=8) as pool:
@@ -1762,12 +1691,7 @@ def main() -> None:
                 log.error("Failed to process %s: %s", spot_name, e)
                 failed_count += 1
                 continue
-            if entry.get('_is_keelung'):
-                keelung_records = records
-            else:
-                # Reconstruct the original spot dict (without internal keys)
-                spot = {k: v for k, v in entry.items() if not k.startswith('_')}
-                all_spot_data.append({'spot': spot, 'records': records})
+            all_spot_data.append({'spot': entry, 'records': records})
 
     if failed_count > len(all_entries) // 2:
         log.error("More than half of spot fetches failed (%d/%d) — aborting",
@@ -1792,8 +1716,7 @@ def main() -> None:
         (out_dir / 'spots').mkdir(parents=True, exist_ok=True)
 
         # Surf overview page
-        surf_html = render_surf_page(all_spot_data, keelung_records=keelung_records,
-                                     build_utc=build_utc)
+        surf_html = render_surf_page(all_spot_data, build_utc=build_utc)
         (out_dir / 'surf.html').write_text(surf_html, encoding='utf-8')
         log.info("Surf overview → %s/surf.html", out_dir)
 
@@ -1805,14 +1728,14 @@ def main() -> None:
             log.info("Spot page → %s/spots/%s.html", out_dir, spot_id)
     else:
         # ── Legacy single-file output ──────────────────────────────────────
-        html_full = generate_full_html(all_spot_data, keelung_records=keelung_records)
+        html_full = generate_full_html(all_spot_data)
         with open(args.output, 'w', encoding='utf-8') as f:
             f.write(html_full)
         log.info("Wrote %s (%s chars)", args.output, f"{len(html_full):,}")
 
     if args.output_json:
         import json as json_mod
-        planner_data = generate_planner_json(all_spot_data, keelung_records=keelung_records)
+        planner_data = generate_planner_json(all_spot_data)
         with open(args.output_json, 'w', encoding='utf-8') as f:
             json_mod.dump(planner_data, f, ensure_ascii=False, indent=2)
         log.info("Wrote planner JSON: %s", args.output_json)

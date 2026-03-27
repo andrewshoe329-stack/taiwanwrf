@@ -18,7 +18,6 @@ export const HARBOURS: HarbourInfo[] = [
   { id: 'keelung',   name: { en: 'Keelung',   zh: '基隆' }, lat: 25.156, lon: 121.788 },
   { id: 'kaohsiung', name: { en: 'Kaohsiung', zh: '高雄' }, lat: 22.615, lon: 120.265 },
   { id: 'taichung',  name: { en: 'Taichung',  zh: '台中' }, lat: 24.280, lon: 120.510 },
-  { id: 'hualien',   name: { en: 'Hualien',   zh: '花蓮' }, lat: 23.975, lon: 121.610 },
   { id: 'anping',    name: { en: 'Anping',    zh: '安平' }, lat: 22.995, lon: 120.160 },
   { id: 'magong',    name: { en: 'Magong',    zh: '馬公' }, lat: 23.565, lon: 119.580 },
 ]
@@ -36,7 +35,6 @@ export const SPOTS: SpotInfo[] = [
   { id: 'doublelions', name: { en: 'Double Lions',  zh: '雙獅' },   lat: 24.847, lon: 121.917, facing: 'E',     region: 'northeast', opt_wind: ['W','SW'],        opt_swell: ['ENE','E','SE','SSE'] },
   { id: 'chousui',     name: { en: 'Chousui',      zh: '臭水' },   lat: 24.820, lon: 121.899, facing: 'E',     region: 'northeast', opt_wind: ['WSW','W'],       opt_swell: ['ENE','E','ESE'] },
   // East coast
-  { id: 'jici',        name: { en: 'Jici',         zh: '磯崎' },   lat: 23.700, lon: 121.540, facing: 'E',     region: 'east',      opt_wind: ['W','NW'],        opt_swell: ['E','NE','SE'] },
   { id: 'donghe',      name: { en: 'Donghe',       zh: '東河' },   lat: 22.970, lon: 121.300, facing: 'E/SE',  region: 'east',      opt_wind: ['W','NW'],        opt_swell: ['E','SE','S'] },
   { id: 'jinzun',      name: { en: 'Jinzun',       zh: '金樽' },   lat: 22.970, lon: 121.280, facing: 'E',     region: 'east',      opt_wind: ['W','NW'],        opt_swell: ['E','NE','SE'] },
   { id: 'chenggong',   name: { en: 'Chenggong',    zh: '成功' },   lat: 23.100, lon: 121.380, facing: 'E',     region: 'east',      opt_wind: ['W','NW'],        opt_swell: ['E','SE'] },
@@ -45,16 +43,9 @@ export const SPOTS: SpotInfo[] = [
   { id: 'nanwan',      name: { en: 'Nanwan',       zh: '南灣' },   lat: 21.955, lon: 120.765, facing: 'S/SW',  region: 'south',     opt_wind: ['N','NE'],        opt_swell: ['S','SW','SE'] },
   { id: 'jialeshuei',  name: { en: 'Jialeshuei',   zh: '佳樂水' }, lat: 21.990, lon: 120.850, facing: 'SE/E',  region: 'south',     opt_wind: ['W','NW'],        opt_swell: ['SE','E','S'] },
   { id: 'baishawan',   name: { en: 'Baishawan',    zh: '白沙灣' }, lat: 21.945, lon: 120.710, facing: 'W',     region: 'south',     opt_wind: ['E','NE'],        opt_swell: ['W','SW'] },
-  // West coast
-  { id: 'daan',        name: { en: 'Daan',         zh: '大安' },   lat: 24.370, lon: 120.550, facing: 'W',     region: 'west',      opt_wind: ['E','SE'],        opt_swell: ['W','SW','NW'] },
-  { id: 'qigu',        name: { en: 'Qigu',         zh: '七股' },   lat: 23.130, lon: 120.070, facing: 'W/SW',  region: 'west',      opt_wind: ['E','NE'],        opt_swell: ['W','SW'] },
-  // Penghu
-  { id: 'shanshui',    name: { en: 'Shanshui',     zh: '山水' },   lat: 23.540, lon: 119.580, facing: 'S/SW',  region: 'penghu',    opt_wind: ['N','NE'],        opt_swell: ['S','SW','SE'] },
-  { id: 'fenggui',     name: { en: 'Fenggui',      zh: '風櫃' },   lat: 23.520, lon: 119.540, facing: 'SW',    region: 'penghu',    opt_wind: ['N','NE'],        opt_swell: ['SW','S','W'] },
-  { id: 'aimen',       name: { en: 'Aimen',        zh: '隘門' },   lat: 23.570, lon: 119.630, facing: 'SE',    region: 'penghu',    opt_wind: ['W','NW'],        opt_swell: ['SE','E','S'] },
 ]
 
-export const REGIONS: Region[] = ['north', 'northeast', 'east', 'south', 'west', 'penghu']
+export const REGIONS: Region[] = ['north', 'northeast', 'east', 'south']
 
 // ── Beaufort scale ───────────────────────────────────────────────────────────
 

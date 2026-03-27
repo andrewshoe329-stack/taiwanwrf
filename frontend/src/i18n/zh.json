@@ -101,9 +101,7 @@
     "north": "北部",
     "northeast": "東北部",
     "east": "東部",
-    "south": "南部",
-    "west": "西部",
-    "penghu": "澎湖"
+    "south": "南部"
   },
   "models_page": {
     "title": "模式與準確度",
@@ -126,7 +124,6 @@
     "keelung": "基隆",
     "kaohsiung": "高雄",
     "taichung": "台中",
-    "hualien": "花蓮",
     "anping": "安平",
     "magong": "馬公"
   },

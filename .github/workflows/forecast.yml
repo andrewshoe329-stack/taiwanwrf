@@ -1,0 +1,251 @@
+name: Forecast & Deploy
+
+permissions:
+  contents: read
+
+on:
+  schedule:
+    # 2x daily — 45 min after 00 and 12 UTC CWA model cycles
+    - cron: '45 0,12 * * *'
+  workflow_dispatch: {}
+
+concurrency:
+  group: forecast-pipeline
+  cancel-in-progress: true
+
+jobs:
+  forecast-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Cache pip packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y --no-install-recommends libeccodes-dev
+          pip install --quiet -r requirements.txt
+          pip install --quiet pytest
+
+      - name: Run unit tests
+        run: python -m pytest tests/ -v --tb=short
+
+      - name: Configure Firebase credentials
+        env:
+          SA_KEY: ${{ secrets.FIREBASE_SA_KEY }}
+          FIREBASE_PROJECT: ${{ secrets.FIREBASE_PROJECT }}
+        run: |
+          if [ -n "$SA_KEY" ]; then
+            echo "$SA_KEY" > /tmp/firebase-sa-key.json
+            echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/firebase-sa-key.json" >> "$GITHUB_ENV"
+            echo "FIREBASE_PROJECT=$FIREBASE_PROJECT" >> "$GITHUB_ENV"
+            echo "FIREBASE_STORAGE_BUCKET=${{ secrets.FIREBASE_STORAGE_BUCKET }}" >> "$GITHUB_ENV"
+          fi
+
+      # Download WRF summary from Firebase (produced by wrf.yml)
+      - name: Fetch WRF summary from Firebase
+        id: wrf_summary
+        timeout-minutes: 5
+        run: |
+          python firebase_storage.py download-summary \
+            --output keelung_summary_new.json 2>/dev/null || true
+          if [ -f keelung_summary_new.json ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::No WRF summary in Firebase — forecast will use ECMWF only"
+          fi
+
+      # Download accuracy log from Firebase
+      - name: Fetch accuracy log
+        timeout-minutes: 3
+        run: |
+          python firebase_storage.py download-accuracy-log \
+            --output accuracy_log.json 2>/dev/null || true
+
+      # ── Fetch all data sources in parallel-ish steps ───────────────────────
+
+      - name: Fetch ECMWF forecast (all harbours)
+        id: ecmwf
+        continue-on-error: true
+        timeout-minutes: 10
+        run: |
+          python ecmwf_fetch.py --output ecmwf_keelung.json \
+            --all-harbours --harbours-output ecmwf_harbours.json
+
+      - name: Fetch wave forecast (all harbours)
+        id: wave
+        continue-on-error: true
+        timeout-minutes: 10
+        run: |
+          python wave_fetch.py --output wave_keelung.json \
+            --all-harbours --harbours-output wave_harbours.json
+
+      - name: Predict tides
+        timeout-minutes: 2
+        run: python tide_predict.py --output tide_keelung.json --days 7
+
+      - name: Fetch CWA observations
+        continue-on-error: true
+        timeout-minutes: 3
+        env:
+          CWA_OPENDATA_KEY: ${{ secrets.CWA_OPENDATA_KEY }}
+        run: |
+          if [ -n "$CWA_OPENDATA_KEY" ]; then
+            python cwa_fetch.py --output cwa_obs.json
+          fi
+
+      - name: Fetch ensemble models (all harbours)
+        continue-on-error: true
+        timeout-minutes: 10
+        run: |
+          ECMWF_ARG=""; [ -f ecmwf_keelung.json ] && ECMWF_ARG="--ecmwf-json ecmwf_keelung.json"
+          HARBOUR_ECMWF_ARG=""; [ -f ecmwf_harbours.json ] && HARBOUR_ECMWF_ARG="--ecmwf-harbours-json ecmwf_harbours.json"
+          python ensemble_fetch.py $ECMWF_ARG --output ensemble_keelung.json \
+            --all-harbours --harbours-output ensemble_harbours.json $HARBOUR_ECMWF_ARG
+
+      - name: Fetch wind grids (ECMWF, GFS, ICON)
+        continue-on-error: true
+        timeout-minutes: 10
+        run: |
+          mkdir -p frontend/public/data
+          python wind_grid_fetch.py --output-dir frontend/public/data
+
+      # ── Generate surf forecast for all 14 spots ────────────────────────────
+
+      - name: Generate surf forecast
+        timeout-minutes: 10
+        run: |
+          CWA_TIDE_ARG=""
+          if [ -f cwa_obs.json ]; then
+            CWA_TIDE_ARG="--cwa-obs cwa_obs.json"
+          fi
+          python surf_forecast.py \
+            --output surf_forecast.html \
+            --output-json surf_planner.json \
+            --output-dir public \
+            $CWA_TIDE_ARG
+
+      # ── AI forecast summary ────────────────────────────────────────────────
+
+      - name: Generate AI forecast summary
+        continue-on-error: true
+        timeout-minutes: 15
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          WRF_ARG=""; [ -f keelung_summary_new.json ] && WRF_ARG="--wrf-json keelung_summary_new.json"
+          ECMWF_ARG=""; [ -f ecmwf_keelung.json ] && ECMWF_ARG="--ecmwf-json ecmwf_keelung.json"
+          WAVE_ARG=""; [ -f wave_keelung.json ] && WAVE_ARG="--wave-json wave_keelung.json"
+          ACCURACY_ARG=""; [ -f accuracy_log.json ] && ACCURACY_ARG="--accuracy-log accuracy_log.json"
+          CWA_ARG=""; [ -f cwa_obs.json ] && CWA_ARG="--cwa-obs cwa_obs.json"
+          ENSEMBLE_ARG=""; [ -f ensemble_keelung.json ] && ENSEMBLE_ARG="--ensemble-json ensemble_keelung.json"
+          if [ -n "$WRF_ARG" ]; then
+            python forecast_summary.py \
+              $WRF_ARG $ECMWF_ARG $WAVE_ARG $ACCURACY_ARG $CWA_ARG $ENSEMBLE_ARG \
+              --output ai_summary.html
+          else
+            echo "::warning::No WRF summary — skipping AI forecast"
+          fi
+
+      # ── Alerts & accuracy tracking ─────────────────────────────────────────
+
+      - name: Send forecast alerts
+        continue-on-error: true
+        timeout-minutes: 2
+        env:
+          LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -f keelung_summary_new.json ]; then
+            WAVE_ARG=""; [ -f wave_keelung.json ] && WAVE_ARG="--wave-json wave_keelung.json"
+            python notify.py --wrf-json keelung_summary_new.json $WAVE_ARG
+          fi
+
+      - name: Track forecast accuracy
+        continue-on-error: true
+        timeout-minutes: 3
+        env:
+          CWA_OPENDATA_KEY: ${{ secrets.CWA_OPENDATA_KEY }}
+        run: |
+          if [ -f keelung_summary_new.json ]; then
+            EXISTING=""; [ -f accuracy_log.json ] && EXISTING="--existing-log accuracy_log.json"
+            WAVE_ARG=""; [ -f wave_keelung.json ] && WAVE_ARG="--wave-json wave_keelung.json"
+            CWA_OBS_ARG=""; [ -f cwa_obs.json ] && CWA_OBS_ARG="--cwa-obs-json cwa_obs.json"
+            python accuracy_track.py \
+              --forecast-json keelung_summary_new.json \
+              $EXISTING $WAVE_ARG $CWA_OBS_ARG \
+              --output accuracy_log.json
+          fi
+
+      - name: Upload accuracy log to Firebase
+        continue-on-error: true
+        timeout-minutes: 5
+        run: |
+          if [ -f accuracy_log.json ]; then
+            python firebase_storage.py upload-accuracy-log \
+              --input accuracy_log.json
+          fi
+
+      # ── Build & deploy ─────────────────────────────────────────────────────
+
+      - name: Build Vercel site
+        if: "!cancelled()"
+        timeout-minutes: 10
+        run: |
+          # Legacy HTML build
+          mkdir -p public/spots
+          cp pwa/manifest.json pwa/sw.js pwa/app.js pwa/icon-192.png pwa/icon-512.png pwa/styles.css public/
+
+          # Copy JSON data to frontend
+          mkdir -p frontend/public/data
+          for f in keelung_summary_new.json ecmwf_keelung.json wave_keelung.json \
+                   tide_keelung.json ensemble_keelung.json cwa_obs.json accuracy_log.json; do
+            if [ -f "$f" ]; then
+              DEST=$(echo "$f" | sed 's/_keelung//; s/_summary_new//; s/_log//')
+              cp "$f" "frontend/public/data/$DEST"
+            fi
+          done
+          [ -f surf_planner.json ] && cp surf_planner.json frontend/public/data/surf.json
+          [ -f ai_summary.json ] && cp ai_summary.json frontend/public/data/summary.json
+          for f in ecmwf_harbours.json wave_harbours.json ensemble_harbours.json; do
+            [ -f "$f" ] && cp "$f" "frontend/public/data/$f"
+          done
+
+          # Build React SPA
+          cd frontend
+          npm ci --prefer-offline
+          npm run build
+
+      - name: Deploy to Vercel
+        if: "!cancelled()"
+        timeout-minutes: 10
+        run: |
+          npm install -g vercel@39.3.0
+          if vercel deploy --prod --yes --token "$VERCEL_TOKEN" 2>&1 | tee /tmp/vercel_output.txt; then
+            echo "Deploy succeeded"
+          elif grep -qi 'rate\|429\|too many\|throttl' /tmp/vercel_output.txt; then
+            echo "::warning::Vercel deploy rate limited — will retry on next run"
+          else
+            echo "::error::Vercel deploy failed"
+            exit 1
+          fi
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}

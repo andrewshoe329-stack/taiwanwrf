@@ -2,102 +2,245 @@
   "keelung": {
     "models": {
       "gfs_global": {
-        "meta": {"model_id": "GFS-0.25", "init_utc": "2026-03-27T00:00:00+00:00", "source": "open-meteo.com"},
+        "meta": {
+          "model_id": "GFS-0.25",
+          "init_utc": "2026-03-27T00:00:00+00:00",
+          "source": "open-meteo.com"
+        },
         "records": [
-          {"valid_utc": "2026-03-27T00:00:00+00:00", "temp_c": 22.4, "wind_kt": 9, "wind_dir": 42, "gust_kt": 15},
-          {"valid_utc": "2026-03-27T06:00:00+00:00", "temp_c": 23.1, "wind_kt": 11, "wind_dir": 38, "gust_kt": 17}
+          {
+            "valid_utc": "2026-03-27T00:00:00+00:00",
+            "temp_c": 22.4,
+            "wind_kt": 9,
+            "wind_dir": 42,
+            "gust_kt": 15
+          },
+          {
+            "valid_utc": "2026-03-27T06:00:00+00:00",
+            "temp_c": 23.1,
+            "wind_kt": 11,
+            "wind_dir": 38,
+            "gust_kt": 17
+          }
         ]
       }
     },
     "ensemble": {
       "records": [
-        {"valid_utc": "2026-03-27T00:00:00+00:00", "wind_mean": 8.5, "wind_min": 6, "wind_max": 11, "wind_spread": 2.5, "temp_mean": 22.3, "temp_spread": 0.8},
-        {"valid_utc": "2026-03-27T06:00:00+00:00", "wind_mean": 10.2, "wind_min": 7, "wind_max": 13, "wind_spread": 3.0, "temp_mean": 22.9, "temp_spread": 0.9}
+        {
+          "valid_utc": "2026-03-27T00:00:00+00:00",
+          "wind_mean": 8.5,
+          "wind_min": 6,
+          "wind_max": 11,
+          "wind_spread": 2.5,
+          "temp_mean": 22.3,
+          "temp_spread": 0.8
+        },
+        {
+          "valid_utc": "2026-03-27T06:00:00+00:00",
+          "wind_mean": 10.2,
+          "wind_min": 7,
+          "wind_max": 13,
+          "wind_spread": 3.0,
+          "temp_mean": 22.9,
+          "temp_spread": 0.9
+        }
       ]
     }
   },
   "kaohsiung": {
     "models": {
       "gfs_global": {
-        "meta": {"model_id": "GFS-0.25", "init_utc": "2026-03-27T00:00:00+00:00", "source": "open-meteo.com"},
+        "meta": {
+          "model_id": "GFS-0.25",
+          "init_utc": "2026-03-27T00:00:00+00:00",
+          "source": "open-meteo.com"
+        },
         "records": [
-          {"valid_utc": "2026-03-27T00:00:00+00:00", "temp_c": 26.5, "wind_kt": 6, "wind_dir": 185, "gust_kt": 10},
-          {"valid_utc": "2026-03-27T06:00:00+00:00", "temp_c": 27.0, "wind_kt": 7, "wind_dir": 192, "gust_kt": 11}
+          {
+            "valid_utc": "2026-03-27T00:00:00+00:00",
+            "temp_c": 26.5,
+            "wind_kt": 6,
+            "wind_dir": 185,
+            "gust_kt": 10
+          },
+          {
+            "valid_utc": "2026-03-27T06:00:00+00:00",
+            "temp_c": 27.0,
+            "wind_kt": 7,
+            "wind_dir": 192,
+            "gust_kt": 11
+          }
         ]
       }
     },
     "ensemble": {
       "records": [
-        {"valid_utc": "2026-03-27T00:00:00+00:00", "wind_mean": 5.5, "wind_min": 3, "wind_max": 8, "wind_spread": 2.0, "temp_mean": 26.4, "temp_spread": 0.6},
-        {"valid_utc": "2026-03-27T06:00:00+00:00", "wind_mean": 6.3, "wind_min": 4, "wind_max": 9, "wind_spread": 2.2, "temp_mean": 26.9, "temp_spread": 0.7}
+        {
+          "valid_utc": "2026-03-27T00:00:00+00:00",
+          "wind_mean": 5.5,
+          "wind_min": 3,
+          "wind_max": 8,
+          "wind_spread": 2.0,
+          "temp_mean": 26.4,
+          "temp_spread": 0.6
+        },
+        {
+          "valid_utc": "2026-03-27T06:00:00+00:00",
+          "wind_mean": 6.3,
+          "wind_min": 4,
+          "wind_max": 9,
+          "wind_spread": 2.2,
+          "temp_mean": 26.9,
+          "temp_spread": 0.7
+        }
       ]
     }
   },
   "taichung": {
     "models": {
       "gfs_global": {
-        "meta": {"model_id": "GFS-0.25", "init_utc": "2026-03-27T00:00:00+00:00", "source": "open-meteo.com"},
+        "meta": {
+          "model_id": "GFS-0.25",
+          "init_utc": "2026-03-27T00:00:00+00:00",
+          "source": "open-meteo.com"
+        },
         "records": [
-          {"valid_utc": "2026-03-27T00:00:00+00:00", "temp_c": 24.3, "wind_kt": 7, "wind_dir": 348, "gust_kt": 12},
-          {"valid_utc": "2026-03-27T06:00:00+00:00", "temp_c": 24.8, "wind_kt": 8, "wind_dir": 352, "gust_kt": 13}
+          {
+            "valid_utc": "2026-03-27T00:00:00+00:00",
+            "temp_c": 24.3,
+            "wind_kt": 7,
+            "wind_dir": 348,
+            "gust_kt": 12
+          },
+          {
+            "valid_utc": "2026-03-27T06:00:00+00:00",
+            "temp_c": 24.8,
+            "wind_kt": 8,
+            "wind_dir": 352,
+            "gust_kt": 13
+          }
         ]
       }
     },
     "ensemble": {
       "records": [
-        {"valid_utc": "2026-03-27T00:00:00+00:00", "wind_mean": 6.5, "wind_min": 4, "wind_max": 9, "wind_spread": 2.1, "temp_mean": 24.1, "temp_spread": 0.7},
-        {"valid_utc": "2026-03-27T06:00:00+00:00", "wind_mean": 7.3, "wind_min": 5, "wind_max": 10, "wind_spread": 2.3, "temp_mean": 24.6, "temp_spread": 0.8}
-      ]
-    }
-  },
-  "hualien": {
-    "models": {
-      "gfs_global": {
-        "meta": {"model_id": "GFS-0.25", "init_utc": "2026-03-27T00:00:00+00:00", "source": "open-meteo.com"},
-        "records": [
-          {"valid_utc": "2026-03-27T00:00:00+00:00", "temp_c": 24.6, "wind_kt": 11, "wind_dir": 88, "gust_kt": 17},
-          {"valid_utc": "2026-03-27T06:00:00+00:00", "temp_c": 25.1, "wind_kt": 13, "wind_dir": 83, "gust_kt": 19}
-        ]
-      }
-    },
-    "ensemble": {
-      "records": [
-        {"valid_utc": "2026-03-27T00:00:00+00:00", "wind_mean": 10.5, "wind_min": 7, "wind_max": 15, "wind_spread": 3.5, "temp_mean": 24.5, "temp_spread": 1.0},
-        {"valid_utc": "2026-03-27T06:00:00+00:00", "wind_mean": 12.8, "wind_min": 9, "wind_max": 17, "wind_spread": 3.8, "temp_mean": 25.0, "temp_spread": 1.1}
+        {
+          "valid_utc": "2026-03-27T00:00:00+00:00",
+          "wind_mean": 6.5,
+          "wind_min": 4,
+          "wind_max": 9,
+          "wind_spread": 2.1,
+          "temp_mean": 24.1,
+          "temp_spread": 0.7
+        },
+        {
+          "valid_utc": "2026-03-27T06:00:00+00:00",
+          "wind_mean": 7.3,
+          "wind_min": 5,
+          "wind_max": 10,
+          "wind_spread": 2.3,
+          "temp_mean": 24.6,
+          "temp_spread": 0.8
+        }
       ]
     }
   },
   "anping": {
     "models": {
       "gfs_global": {
-        "meta": {"model_id": "GFS-0.25", "init_utc": "2026-03-27T00:00:00+00:00", "source": "open-meteo.com"},
+        "meta": {
+          "model_id": "GFS-0.25",
+          "init_utc": "2026-03-27T00:00:00+00:00",
+          "source": "open-meteo.com"
+        },
         "records": [
-          {"valid_utc": "2026-03-27T00:00:00+00:00", "temp_c": 26.0, "wind_kt": 7, "wind_dir": 208, "gust_kt": 11},
-          {"valid_utc": "2026-03-27T06:00:00+00:00", "temp_c": 26.5, "wind_kt": 8, "wind_dir": 218, "gust_kt": 12}
+          {
+            "valid_utc": "2026-03-27T00:00:00+00:00",
+            "temp_c": 26.0,
+            "wind_kt": 7,
+            "wind_dir": 208,
+            "gust_kt": 11
+          },
+          {
+            "valid_utc": "2026-03-27T06:00:00+00:00",
+            "temp_c": 26.5,
+            "wind_kt": 8,
+            "wind_dir": 218,
+            "gust_kt": 12
+          }
         ]
       }
     },
     "ensemble": {
       "records": [
-        {"valid_utc": "2026-03-27T00:00:00+00:00", "wind_mean": 6.2, "wind_min": 4, "wind_max": 9, "wind_spread": 2.0, "temp_mean": 25.9, "temp_spread": 0.6},
-        {"valid_utc": "2026-03-27T06:00:00+00:00", "wind_mean": 7.0, "wind_min": 5, "wind_max": 10, "wind_spread": 2.2, "temp_mean": 26.4, "temp_spread": 0.7}
+        {
+          "valid_utc": "2026-03-27T00:00:00+00:00",
+          "wind_mean": 6.2,
+          "wind_min": 4,
+          "wind_max": 9,
+          "wind_spread": 2.0,
+          "temp_mean": 25.9,
+          "temp_spread": 0.6
+        },
+        {
+          "valid_utc": "2026-03-27T06:00:00+00:00",
+          "wind_mean": 7.0,
+          "wind_min": 5,
+          "wind_max": 10,
+          "wind_spread": 2.2,
+          "temp_mean": 26.4,
+          "temp_spread": 0.7
+        }
       ]
     }
   },
   "magong": {
     "models": {
       "gfs_global": {
-        "meta": {"model_id": "GFS-0.25", "init_utc": "2026-03-27T00:00:00+00:00", "source": "open-meteo.com"},
+        "meta": {
+          "model_id": "GFS-0.25",
+          "init_utc": "2026-03-27T00:00:00+00:00",
+          "source": "open-meteo.com"
+        },
         "records": [
-          {"valid_utc": "2026-03-27T00:00:00+00:00", "temp_c": 23.5, "wind_kt": 15, "wind_dir": 43, "gust_kt": 23},
-          {"valid_utc": "2026-03-27T06:00:00+00:00", "temp_c": 24.0, "wind_kt": 17, "wind_dir": 38, "gust_kt": 25}
+          {
+            "valid_utc": "2026-03-27T00:00:00+00:00",
+            "temp_c": 23.5,
+            "wind_kt": 15,
+            "wind_dir": 43,
+            "gust_kt": 23
+          },
+          {
+            "valid_utc": "2026-03-27T06:00:00+00:00",
+            "temp_c": 24.0,
+            "wind_kt": 17,
+            "wind_dir": 38,
+            "gust_kt": 25
+          }
         ]
       }
     },
     "ensemble": {
       "records": [
-        {"valid_utc": "2026-03-27T00:00:00+00:00", "wind_mean": 14.2, "wind_min": 10, "wind_max": 18, "wind_spread": 3.8, "temp_mean": 23.4, "temp_spread": 0.9},
-        {"valid_utc": "2026-03-27T06:00:00+00:00", "wind_mean": 16.0, "wind_min": 12, "wind_max": 20, "wind_spread": 4.2, "temp_mean": 23.9, "temp_spread": 1.0}
+        {
+          "valid_utc": "2026-03-27T00:00:00+00:00",
+          "wind_mean": 14.2,
+          "wind_min": 10,
+          "wind_max": 18,
+          "wind_spread": 3.8,
+          "temp_mean": 23.4,
+          "temp_spread": 0.9
+        },
+        {
+          "valid_utc": "2026-03-27T06:00:00+00:00",
+          "wind_mean": 16.0,
+          "wind_min": 12,
+          "wind_max": 20,
+          "wind_spread": 4.2,
+          "temp_mean": 23.9,
+          "temp_spread": 1.0
+        }
       ]
     }
   }

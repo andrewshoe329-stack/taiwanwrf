@@ -276,8 +276,6 @@ STRINGS: dict[str, dict[str, str]] = {
     'desc_chousui':        {'en': 'Point break · Left · Low-mid tide · Intermediate+',
                             'zh': '礁岩浪型 · 左跑 · 低中潮 · 中級以上'},
     # East coast
-    'desc_jici':           {'en': 'Beach break · Consistent east swell · All levels',
-                            'zh': '沙灘浪型 · 穩定東浪 · 各級適合'},
     'desc_donghe':         {'en': 'Reef break · World-class right · Advanced',
                             'zh': '礁岩浪型 · 世界級右跑 · 高級'},
     'desc_jinzun':         {'en': 'Point break · Right · All tides · Inter–Adv',
@@ -292,18 +290,6 @@ STRINGS: dict[str, dict[str, str]] = {
     'desc_jialeshuei':     {'en': 'Point/reef · Powerful · Mid tide · Inter–Adv',
                             'zh': '礁岩浪型 · 有力 · 中潮 · 中級–高級'},
     'desc_baishawan':      {'en': 'Beach break · Gentle · All tides · Beginner',
-                            'zh': '沙灘浪型 · 溫和 · 各潮 · 初學適合'},
-    # West coast
-    'desc_daan':           {'en': 'Beach break · Typhoon swell only · Inter+',
-                            'zh': '沙灘浪型 · 僅颱風浪 · 中級以上'},
-    'desc_qigu':           {'en': 'Beach break · Mellow · All tides · Beginner',
-                            'zh': '沙灘浪型 · 溫和 · 各潮 · 初學適合'},
-    # Penghu
-    'desc_shanshui':       {'en': 'Beach break · Most popular Penghu · All levels',
-                            'zh': '沙灘浪型 · 澎湖最熱門 · 各級適合'},
-    'desc_fenggui':        {'en': 'Reef break · Powerful · Low-mid tide · Advanced',
-                            'zh': '礁岩浪型 · 有力 · 低中潮 · 高級'},
-    'desc_aimen':          {'en': 'Beach break · Gentle · All tides · Beginner',
                             'zh': '沙灘浪型 · 溫和 · 各潮 · 初學適合'},
 
     # ── Redesign UI strings ──────────────────────────────────────────────────
@@ -326,7 +312,6 @@ SPOT_DESC_KEYS = {
     'doublelions': 'desc_doublelions',
     'chousui': 'desc_chousui',
     # East coast
-    'jici': 'desc_jici',
     'donghe': 'desc_donghe',
     'jinzun': 'desc_jinzun',
     'chenggong': 'desc_chenggong',
@@ -335,13 +320,6 @@ SPOT_DESC_KEYS = {
     'nanwan': 'desc_nanwan',
     'jialeshuei': 'desc_jialeshuei',
     'baishawan': 'desc_baishawan',
-    # West coast
-    'daan': 'desc_daan',
-    'qigu': 'desc_qigu',
-    # Penghu
-    'shanshui': 'desc_shanshui',
-    'fenggui': 'desc_fenggui',
-    'aimen': 'desc_aimen',
 }
 
 
