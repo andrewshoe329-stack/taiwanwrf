@@ -5,6 +5,7 @@ import { App } from './App'
 const NowPage = lazy(() => import('./pages/NowPage').then(m => ({ default: m.NowPage })))
 const SpotsPage = lazy(() => import('./pages/SpotsPage').then(m => ({ default: m.SpotsPage })))
 const SpotDetailPage = lazy(() => import('./pages/SpotDetailPage').then(m => ({ default: m.SpotDetailPage })))
+const HarboursPage = lazy(() => import('./pages/HarboursPage').then(m => ({ default: m.HarboursPage })))
 const ModelsPage = lazy(() => import('./pages/ModelsPage').then(m => ({ default: m.ModelsPage })))
 
 function LazyFallback() {
@@ -31,6 +32,7 @@ export const router = createBrowserRouter([
       { index: true, element: withSuspense(NowPage) },
       { path: 'spots', element: withSuspense(SpotsPage) },
       { path: 'spots/:id', element: withSuspense(SpotDetailPage) },
+      { path: 'harbours', element: withSuspense(HarboursPage) },
       { path: 'models', element: withSuspense(ModelsPage) },
     ],
   },

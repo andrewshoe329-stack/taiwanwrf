@@ -6,6 +6,7 @@
   "nav": {
     "now": "即時",
     "spots": "浪點",
+    "harbours": "港口",
     "models": "模式"
   },
   "activity": {
@@ -127,6 +128,14 @@
     "anping": "安平",
     "magong": "馬公"
   },
+  "harbours_page": {
+    "title": "港口",
+    "subtitle": "台灣主要港口帆船條件",
+    "direction": "風向",
+    "waves": "浪高",
+    "model_spread": "模式分歧",
+    "no_data": "港口預報資料尚未載入"
+  },
   "common": {
     "loading": "載入預報資料中...",
     "error": "載入資料失敗",
@@ -134,7 +143,10 @@
     "stale_warning": "顯示快取資料——可能已過時",
     "refresh": "重新整理",
     "last_updated": "最後更新",
-    "data_source": "資料：CWA WRF 3km + ECMWF IFS + WAM"
+    "data_source": "資料：CWA WRF 3km + ECMWF IFS + WAM",
+    "wind": "風速",
+    "temp": "溫度",
+    "pressure": "氣壓"
   },
   "units": {
     "kt": "節",

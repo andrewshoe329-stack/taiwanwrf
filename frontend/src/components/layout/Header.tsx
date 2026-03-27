@@ -1,5 +1,4 @@
 import { useTranslation } from 'react-i18next'
-import { ActivityToggle } from './ActivityToggle'
 import { LanguageToggle } from './LanguageToggle'
 
 export function Header() {
@@ -11,10 +10,7 @@ export function Header() {
         <a href="/" className="text-[15px] font-semibold tracking-tight text-[var(--color-text-primary)] no-underline">
           {t('app.title')}
         </a>
-        <div className="flex items-center gap-3">
-          <ActivityToggle />
-          <LanguageToggle />
-        </div>
+        <LanguageToggle />
       </div>
     </header>
   )

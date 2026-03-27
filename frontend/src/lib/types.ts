@@ -182,6 +182,3 @@ export interface HarbourInfo {
   lon: number
 }
 
-// ── Activity mode ────────────────────────────────────────────────────────────
-
-export type Activity = 'sail' | 'surf'
