@@ -221,9 +221,15 @@ class TestSpotCoords:
         assert original_ids.issubset(set(SPOT_COUNTY.keys()))
 
     def test_county_values_valid(self):
-        valid = {"基隆市", "新北市", "宜蘭縣"}
+        valid = {"基隆市", "新北市", "宜蘭縣", "花蓮縣", "臺東縣",
+                 "屏東縣", "臺中市", "臺南市", "澎湖縣"}
         for county in SPOT_COUNTY.values():
             assert county in valid
+
+    def test_county_covers_all_spots(self):
+        """Every spot in SPOT_COORDS should have a county mapping."""
+        for s in SPOT_COORDS:
+            assert s['id'] in SPOT_COUNTY, f"{s['id']} missing from SPOT_COUNTY"
 
 
 class TestTaiwanBbox:

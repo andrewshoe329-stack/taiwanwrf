@@ -133,13 +133,14 @@ jobs:
       # ── Fetch ECMWF IFS point forecast from Open-Meteo ───────────────────────
       # No API key required. Uses only stdlib so no extra pip install needed.
       # Produces ecmwf_keelung.json for side-by-side comparison with WRF.
-      - name: Fetch ECMWF forecast
+      - name: Fetch ECMWF forecast (all harbours)
         id: ecmwf
         if: steps.stale_check.outputs.is_new == 'true'
         continue-on-error: true
-        timeout-minutes: 7
+        timeout-minutes: 10
         run: |
-          python ecmwf_fetch.py --output ecmwf_keelung.json
+          python ecmwf_fetch.py --output ecmwf_keelung.json \
+            --all-harbours --harbours-output ecmwf_harbours.json
           echo "ecmwf_json=ecmwf_keelung.json" >> "$GITHUB_OUTPUT"
 
       # ── Fetch wave forecasts from Open-Meteo marine API ──────────────────────
@@ -148,13 +149,14 @@ jobs:
       # append:  --cwa-wave-model M-W0061  (or whatever the correct ID turns out
       # to be — run wave_fetch.py --cwa-wave-model <ID> --list-wave-vars locally
       # to probe the CWA S3 bucket and inspect the GRIB2 variable names).
-      - name: Fetch wave forecast
+      - name: Fetch wave forecast (all harbours)
         id: wave
         if: steps.stale_check.outputs.is_new == 'true'
         continue-on-error: true
-        timeout-minutes: 7
+        timeout-minutes: 10
         run: |
-          python wave_fetch.py --output wave_keelung.json
+          python wave_fetch.py --output wave_keelung.json \
+            --all-harbours --harbours-output wave_harbours.json
           echo "wave_json=wave_keelung.json" >> "$GITHUB_OUTPUT"
 
       # ── Predict tides for Keelung harbour ─────────────────────────────────────
@@ -218,17 +220,22 @@ jobs:
       # ── Fetch multi-model ensemble ─────────────────────────────────────────
       # GFS + ICON + JMA global models for confidence indicators.
       # Non-blocking: pipeline continues if ensemble fetch fails.
-      - name: Fetch ensemble models
+      - name: Fetch ensemble models (all harbours)
         id: ensemble
         if: steps.stale_check.outputs.is_new == 'true'
-        timeout-minutes: 5
+        timeout-minutes: 10
         continue-on-error: true
         run: |
           ECMWF_ARG=""
+          HARBOUR_ECMWF_ARG=""
           if [ -f ecmwf_keelung.json ]; then
             ECMWF_ARG="--ecmwf-json ecmwf_keelung.json"
           fi
-          python ensemble_fetch.py $ECMWF_ARG --output ensemble_keelung.json
+          if [ -f ecmwf_harbours.json ]; then
+            HARBOUR_ECMWF_ARG="--ecmwf-harbours-json ecmwf_harbours.json"
+          fi
+          python ensemble_fetch.py $ECMWF_ARG --output ensemble_keelung.json \
+            --all-harbours --harbours-output ensemble_harbours.json $HARBOUR_ECMWF_ARG
 
       # ── Fetch gridded wind data for frontend particle animation ──────────────
       - name: Fetch wind grids (ECMWF, GFS, ICON)
@@ -240,7 +247,7 @@ jobs:
           python wind_grid_fetch.py --output-dir frontend/public/data
 
       # ── Generate surf forecast & planner JSON ───────────────────────────────
-      # Fetches ECMWF + marine data for all 7 surf spots plus Keelung sailing.
+      # Fetches ECMWF + marine data for all 20 surf spots plus Keelung sailing.
       # Outputs: surf_forecast.html (spots section) + surf_planner.json (for day cards).
       # Runs BEFORE wrf_analyze so the planner JSON is available for unified day cards.
       - name: Generate surf forecast
@@ -502,6 +509,12 @@ jobs:
           if [ -f ai_summary.json ]; then
             cp ai_summary.json frontend/public/data/summary.json
           fi
+          # Copy multi-harbour data files
+          for f in ecmwf_harbours.json wave_harbours.json ensemble_harbours.json; do
+            if [ -f "$f" ]; then
+              cp "$f" "frontend/public/data/$f"
+            fi
+          done
 
           # Build React SPA
           cd frontend

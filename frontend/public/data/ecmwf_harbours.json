@@ -1,0 +1,80 @@
+{
+  "keelung": {
+    "meta": {"model_id": "ECMWF-IFS-0.25", "init_utc": "2026-03-27T00:00:00+00:00", "source": "open-meteo.com"},
+    "records": [
+      {"valid_utc": "2026-03-27T00:00:00+00:00", "temp_c": 22.1, "wind_kt": 8, "wind_dir": 45, "gust_kt": 14, "mslp_hpa": 1016.2, "precip_mm_6h": 0.0},
+      {"valid_utc": "2026-03-27T06:00:00+00:00", "temp_c": 22.8, "wind_kt": 10, "wind_dir": 40, "gust_kt": 16, "mslp_hpa": 1015.8, "precip_mm_6h": 0.2},
+      {"valid_utc": "2026-03-27T12:00:00+00:00", "temp_c": 24.0, "wind_kt": 12, "wind_dir": 50, "gust_kt": 18, "mslp_hpa": 1015.1, "precip_mm_6h": 0.0},
+      {"valid_utc": "2026-03-27T18:00:00+00:00", "temp_c": 23.5, "wind_kt": 11, "wind_dir": 45, "gust_kt": 17, "mslp_hpa": 1015.5, "precip_mm_6h": 0.1},
+      {"valid_utc": "2026-03-28T00:00:00+00:00", "temp_c": 22.3, "wind_kt": 9, "wind_dir": 40, "gust_kt": 15, "mslp_hpa": 1016.0, "precip_mm_6h": 0.0},
+      {"valid_utc": "2026-03-28T06:00:00+00:00", "temp_c": 22.6, "wind_kt": 7, "wind_dir": 35, "gust_kt": 13, "mslp_hpa": 1016.3, "precip_mm_6h": 0.0},
+      {"valid_utc": "2026-03-28T12:00:00+00:00", "temp_c": 23.8, "wind_kt": 10, "wind_dir": 50, "gust_kt": 16, "mslp_hpa": 1015.6, "precip_mm_6h": 0.3},
+      {"valid_utc": "2026-03-28T18:00:00+00:00", "temp_c": 23.2, "wind_kt": 9, "wind_dir": 45, "gust_kt": 15, "mslp_hpa": 1015.9, "precip_mm_6h": 0.0}
+    ]
+  },
+  "kaohsiung": {
+    "meta": {"model_id": "ECMWF-IFS-0.25", "init_utc": "2026-03-27T00:00:00+00:00", "source": "open-meteo.com"},
+    "records": [
+      {"valid_utc": "2026-03-27T00:00:00+00:00", "temp_c": 26.2, "wind_kt": 5, "wind_dir": 180, "gust_kt": 9, "mslp_hpa": 1013.5, "precip_mm_6h": 0.0},
+      {"valid_utc": "2026-03-27T06:00:00+00:00", "temp_c": 26.8, "wind_kt": 6, "wind_dir": 190, "gust_kt": 10, "mslp_hpa": 1013.2, "precip_mm_6h": 0.0},
+      {"valid_utc": "2026-03-27T12:00:00+00:00", "temp_c": 28.1, "wind_kt": 8, "wind_dir": 200, "gust_kt": 12, "mslp_hpa": 1012.8, "precip_mm_6h": 0.0},
+      {"valid_utc": "2026-03-27T18:00:00+00:00", "temp_c": 27.4, "wind_kt": 7, "wind_dir": 195, "gust_kt": 11, "mslp_hpa": 1013.0, "precip_mm_6h": 0.0},
+      {"valid_utc": "2026-03-28T00:00:00+00:00", "temp_c": 26.5, "wind_kt": 5, "wind_dir": 185, "gust_kt": 9, "mslp_hpa": 1013.4, "precip_mm_6h": 0.0},
+      {"valid_utc": "2026-03-28T06:00:00+00:00", "temp_c": 26.9, "wind_kt": 6, "wind_dir": 190, "gust_kt": 10, "mslp_hpa": 1013.1, "precip_mm_6h": 0.1},
+      {"valid_utc": "2026-03-28T12:00:00+00:00", "temp_c": 27.8, "wind_kt": 7, "wind_dir": 200, "gust_kt": 11, "mslp_hpa": 1012.7, "precip_mm_6h": 0.0},
+      {"valid_utc": "2026-03-28T18:00:00+00:00", "temp_c": 27.1, "wind_kt": 6, "wind_dir": 195, "gust_kt": 10, "mslp_hpa": 1013.0, "precip_mm_6h": 0.0}
+    ]
+  },
+  "taichung": {
+    "meta": {"model_id": "ECMWF-IFS-0.25", "init_utc": "2026-03-27T00:00:00+00:00", "source": "open-meteo.com"},
+    "records": [
+      {"valid_utc": "2026-03-27T00:00:00+00:00", "temp_c": 24.0, "wind_kt": 6, "wind_dir": 350, "gust_kt": 11, "mslp_hpa": 1015.0, "precip_mm_6h": 0.0},
+      {"valid_utc": "2026-03-27T06:00:00+00:00", "temp_c": 24.5, "wind_kt": 7, "wind_dir": 355, "gust_kt": 12, "mslp_hpa": 1014.7, "precip_mm_6h": 0.0},
+      {"valid_utc": "2026-03-27T12:00:00+00:00", "temp_c": 26.0, "wind_kt": 9, "wind_dir": 10, "gust_kt": 14, "mslp_hpa": 1014.2, "precip_mm_6h": 0.0},
+      {"valid_utc": "2026-03-27T18:00:00+00:00", "temp_c": 25.3, "wind_kt": 8, "wind_dir": 5, "gust_kt": 13, "mslp_hpa": 1014.5, "precip_mm_6h": 0.0},
+      {"valid_utc": "2026-03-28T00:00:00+00:00", "temp_c": 24.2, "wind_kt": 6, "wind_dir": 350, "gust_kt": 11, "mslp_hpa": 1014.9, "precip_mm_6h": 0.0},
+      {"valid_utc": "2026-03-28T06:00:00+00:00", "temp_c": 24.7, "wind_kt": 7, "wind_dir": 0, "gust_kt": 12, "mslp_hpa": 1014.6, "precip_mm_6h": 0.0},
+      {"valid_utc": "2026-03-28T12:00:00+00:00", "temp_c": 25.8, "wind_kt": 8, "wind_dir": 10, "gust_kt": 13, "mslp_hpa": 1014.1, "precip_mm_6h": 0.1},
+      {"valid_utc": "2026-03-28T18:00:00+00:00", "temp_c": 25.0, "wind_kt": 7, "wind_dir": 5, "gust_kt": 12, "mslp_hpa": 1014.4, "precip_mm_6h": 0.0}
+    ]
+  },
+  "hualien": {
+    "meta": {"model_id": "ECMWF-IFS-0.25", "init_utc": "2026-03-27T00:00:00+00:00", "source": "open-meteo.com"},
+    "records": [
+      {"valid_utc": "2026-03-27T00:00:00+00:00", "temp_c": 24.3, "wind_kt": 10, "wind_dir": 90, "gust_kt": 16, "mslp_hpa": 1014.8, "precip_mm_6h": 0.0},
+      {"valid_utc": "2026-03-27T06:00:00+00:00", "temp_c": 24.8, "wind_kt": 12, "wind_dir": 85, "gust_kt": 18, "mslp_hpa": 1014.4, "precip_mm_6h": 0.5},
+      {"valid_utc": "2026-03-27T12:00:00+00:00", "temp_c": 25.9, "wind_kt": 15, "wind_dir": 95, "gust_kt": 22, "mslp_hpa": 1013.8, "precip_mm_6h": 1.2},
+      {"valid_utc": "2026-03-27T18:00:00+00:00", "temp_c": 25.2, "wind_kt": 13, "wind_dir": 90, "gust_kt": 20, "mslp_hpa": 1014.1, "precip_mm_6h": 0.3},
+      {"valid_utc": "2026-03-28T00:00:00+00:00", "temp_c": 24.5, "wind_kt": 10, "wind_dir": 85, "gust_kt": 16, "mslp_hpa": 1014.6, "precip_mm_6h": 0.0},
+      {"valid_utc": "2026-03-28T06:00:00+00:00", "temp_c": 24.9, "wind_kt": 8, "wind_dir": 80, "gust_kt": 14, "mslp_hpa": 1014.9, "precip_mm_6h": 0.0},
+      {"valid_utc": "2026-03-28T12:00:00+00:00", "temp_c": 26.1, "wind_kt": 12, "wind_dir": 90, "gust_kt": 19, "mslp_hpa": 1014.2, "precip_mm_6h": 0.8},
+      {"valid_utc": "2026-03-28T18:00:00+00:00", "temp_c": 25.4, "wind_kt": 11, "wind_dir": 85, "gust_kt": 17, "mslp_hpa": 1014.5, "precip_mm_6h": 0.1}
+    ]
+  },
+  "anping": {
+    "meta": {"model_id": "ECMWF-IFS-0.25", "init_utc": "2026-03-27T00:00:00+00:00", "source": "open-meteo.com"},
+    "records": [
+      {"valid_utc": "2026-03-27T00:00:00+00:00", "temp_c": 25.8, "wind_kt": 6, "wind_dir": 210, "gust_kt": 10, "mslp_hpa": 1013.8, "precip_mm_6h": 0.0},
+      {"valid_utc": "2026-03-27T06:00:00+00:00", "temp_c": 26.3, "wind_kt": 7, "wind_dir": 220, "gust_kt": 11, "mslp_hpa": 1013.5, "precip_mm_6h": 0.0},
+      {"valid_utc": "2026-03-27T12:00:00+00:00", "temp_c": 27.5, "wind_kt": 8, "wind_dir": 225, "gust_kt": 13, "mslp_hpa": 1013.0, "precip_mm_6h": 0.0},
+      {"valid_utc": "2026-03-27T18:00:00+00:00", "temp_c": 26.9, "wind_kt": 7, "wind_dir": 215, "gust_kt": 12, "mslp_hpa": 1013.3, "precip_mm_6h": 0.0},
+      {"valid_utc": "2026-03-28T00:00:00+00:00", "temp_c": 26.0, "wind_kt": 5, "wind_dir": 210, "gust_kt": 9, "mslp_hpa": 1013.7, "precip_mm_6h": 0.0},
+      {"valid_utc": "2026-03-28T06:00:00+00:00", "temp_c": 26.4, "wind_kt": 6, "wind_dir": 220, "gust_kt": 10, "mslp_hpa": 1013.4, "precip_mm_6h": 0.0},
+      {"valid_utc": "2026-03-28T12:00:00+00:00", "temp_c": 27.3, "wind_kt": 8, "wind_dir": 225, "gust_kt": 12, "mslp_hpa": 1012.9, "precip_mm_6h": 0.0},
+      {"valid_utc": "2026-03-28T18:00:00+00:00", "temp_c": 26.7, "wind_kt": 7, "wind_dir": 215, "gust_kt": 11, "mslp_hpa": 1013.2, "precip_mm_6h": 0.0}
+    ]
+  },
+  "magong": {
+    "meta": {"model_id": "ECMWF-IFS-0.25", "init_utc": "2026-03-27T00:00:00+00:00", "source": "open-meteo.com"},
+    "records": [
+      {"valid_utc": "2026-03-27T00:00:00+00:00", "temp_c": 23.2, "wind_kt": 14, "wind_dir": 45, "gust_kt": 22, "mslp_hpa": 1015.5, "precip_mm_6h": 0.0},
+      {"valid_utc": "2026-03-27T06:00:00+00:00", "temp_c": 23.8, "wind_kt": 16, "wind_dir": 40, "gust_kt": 24, "mslp_hpa": 1015.0, "precip_mm_6h": 0.0},
+      {"valid_utc": "2026-03-27T12:00:00+00:00", "temp_c": 25.0, "wind_kt": 18, "wind_dir": 50, "gust_kt": 27, "mslp_hpa": 1014.3, "precip_mm_6h": 0.0},
+      {"valid_utc": "2026-03-27T18:00:00+00:00", "temp_c": 24.5, "wind_kt": 17, "wind_dir": 45, "gust_kt": 25, "mslp_hpa": 1014.7, "precip_mm_6h": 0.0},
+      {"valid_utc": "2026-03-28T00:00:00+00:00", "temp_c": 23.5, "wind_kt": 15, "wind_dir": 40, "gust_kt": 23, "mslp_hpa": 1015.2, "precip_mm_6h": 0.0},
+      {"valid_utc": "2026-03-28T06:00:00+00:00", "temp_c": 23.9, "wind_kt": 12, "wind_dir": 35, "gust_kt": 20, "mslp_hpa": 1015.5, "precip_mm_6h": 0.0},
+      {"valid_utc": "2026-03-28T12:00:00+00:00", "temp_c": 24.8, "wind_kt": 16, "wind_dir": 50, "gust_kt": 24, "mslp_hpa": 1014.6, "precip_mm_6h": 0.0},
+      {"valid_utc": "2026-03-28T18:00:00+00:00", "temp_c": 24.2, "wind_kt": 14, "wind_dir": 45, "gust_kt": 22, "mslp_hpa": 1015.0, "precip_mm_6h": 0.0}
+    ]
+  }
+}

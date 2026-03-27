@@ -50,6 +50,7 @@ log = logging.getLogger(__name__)
 # Source: swelleye.com spot guides
 
 SPOTS = [
+    # ── North coast ──────────────────────────────────────────────────────────
     {
         'id': 'fulong',
         'name': 'Fulong 福隆',
@@ -83,6 +84,7 @@ SPOTS = [
         'desc': 'Beach/point · L&R · Mid tide · Beg–Inter',
         'desc_zh': '沙灘/礁岩 · 左右跑 · 中潮 · 初學–中級',
     },
+    # ── Northeast coast ──────────────────────────────────────────────────────
     {
         'id': 'daxi',
         'name': 'Daxi 大溪',
@@ -126,6 +128,153 @@ SPOTS = [
         'opt_tide':  'low-mid',
         'desc': 'Point break · Left · Low-mid tide · Intermediate+',
         'desc_zh': '礁岩浪型 · 左跑 · 低中潮 · 中級以上',
+    },
+    # ── East coast ───────────────────────────────────────────────────────────
+    {
+        'id': 'jici',
+        'name': 'Jici 磯崎',
+        'lat': _COORD_LOOKUP['jici'][0], 'lon': _COORD_LOOKUP['jici'][1],
+        'facing': 'E',
+        'opt_wind':  ['W', 'NW'],
+        'opt_swell': ['E', 'NE', 'SE'],
+        'opt_tide':  'any',
+        'desc': 'Beach break · Consistent east swell · All levels',
+        'desc_zh': '沙灘浪型 · 穩定東浪 · 各級適合',
+    },
+    {
+        'id': 'donghe',
+        'name': 'Donghe 東河',
+        'lat': _COORD_LOOKUP['donghe'][0], 'lon': _COORD_LOOKUP['donghe'][1],
+        'facing': 'E/SE',
+        'opt_wind':  ['W', 'NW', 'SW'],
+        'opt_swell': ['E', 'SE', 'SSE'],
+        'opt_tide':  'mid',
+        'desc': 'Reef break · World-class right · Advanced',
+        'desc_zh': '礁岩浪型 · 世界級右跑 · 高級',
+    },
+    {
+        'id': 'jinzun',
+        'name': 'Jinzun 金樽',
+        'lat': _COORD_LOOKUP['jinzun'][0], 'lon': _COORD_LOOKUP['jinzun'][1],
+        'facing': 'E',
+        'opt_wind':  ['W', 'NW'],
+        'opt_swell': ['E', 'NE', 'SE'],
+        'opt_tide':  'any',
+        'desc': 'Point break · Right · All tides · Inter–Adv',
+        'desc_zh': '礁岩浪型 · 右跑 · 各潮 · 中級–高級',
+    },
+    {
+        'id': 'chenggong',
+        'name': 'Chenggong 成功',
+        'lat': _COORD_LOOKUP['chenggong'][0], 'lon': _COORD_LOOKUP['chenggong'][1],
+        'facing': 'E',
+        'opt_wind':  ['W', 'NW', 'SW'],
+        'opt_swell': ['E', 'NE', 'SE'],
+        'opt_tide':  'any',
+        'desc': 'Beach break · L&R · All tides · All levels',
+        'desc_zh': '沙灘浪型 · 左右跑 · 各潮 · 各級適合',
+    },
+    {
+        'id': 'dulan',
+        'name': 'Dulan 都蘭',
+        'lat': _COORD_LOOKUP['dulan'][0], 'lon': _COORD_LOOKUP['dulan'][1],
+        'facing': 'E',
+        'opt_wind':  ['W', 'NW'],
+        'opt_swell': ['E', 'NE', 'SE'],
+        'opt_tide':  'any',
+        'desc': 'Beach break · Mellow · All tides · Beginner',
+        'desc_zh': '沙灘浪型 · 溫和 · 各潮 · 初學適合',
+    },
+    # ── South coast ──────────────────────────────────────────────────────────
+    {
+        'id': 'nanwan',
+        'name': 'Nanwan 南灣',
+        'lat': _COORD_LOOKUP['nanwan'][0], 'lon': _COORD_LOOKUP['nanwan'][1],
+        'facing': 'S/SW',
+        'opt_wind':  ['N', 'NE', 'NW'],
+        'opt_swell': ['S', 'SW', 'SE'],
+        'opt_tide':  'any',
+        'desc': 'Beach break · L&R · All tides · All levels',
+        'desc_zh': '沙灘浪型 · 左右跑 · 各潮 · 各級適合',
+    },
+    {
+        'id': 'jialeshuei',
+        'name': 'Jialeshuei 佳樂水',
+        'lat': _COORD_LOOKUP['jialeshuei'][0], 'lon': _COORD_LOOKUP['jialeshuei'][1],
+        'facing': 'SE/E',
+        'opt_wind':  ['NW', 'W', 'N'],
+        'opt_swell': ['SE', 'E', 'S'],
+        'opt_tide':  'mid',
+        'desc': 'Point/reef · Powerful · Mid tide · Inter–Adv',
+        'desc_zh': '礁岩浪型 · 有力 · 中潮 · 中級–高級',
+    },
+    {
+        'id': 'baishawan',
+        'name': 'Baishawan 白沙灣',
+        'lat': _COORD_LOOKUP['baishawan'][0], 'lon': _COORD_LOOKUP['baishawan'][1],
+        'facing': 'W',
+        'opt_wind':  ['E', 'NE', 'SE'],
+        'opt_swell': ['W', 'SW', 'NW'],
+        'opt_tide':  'any',
+        'desc': 'Beach break · Gentle · All tides · Beginner',
+        'desc_zh': '沙灘浪型 · 溫和 · 各潮 · 初學適合',
+    },
+    # ── West coast ───────────────────────────────────────────────────────────
+    {
+        'id': 'daan',
+        'name': 'Daan 大安',
+        'lat': _COORD_LOOKUP['daan'][0], 'lon': _COORD_LOOKUP['daan'][1],
+        'facing': 'W',
+        'opt_wind':  ['E', 'SE'],
+        'opt_swell': ['W', 'SW', 'NW'],
+        'opt_tide':  'any',
+        'desc': 'Beach break · Typhoon swell only · Inter+',
+        'desc_zh': '沙灘浪型 · 僅颱風浪 · 中級以上',
+    },
+    {
+        'id': 'qigu',
+        'name': 'Qigu 七股',
+        'lat': _COORD_LOOKUP['qigu'][0], 'lon': _COORD_LOOKUP['qigu'][1],
+        'facing': 'W/SW',
+        'opt_wind':  ['E', 'NE'],
+        'opt_swell': ['W', 'SW', 'S'],
+        'opt_tide':  'any',
+        'desc': 'Beach break · Mellow · All tides · Beginner',
+        'desc_zh': '沙灘浪型 · 溫和 · 各潮 · 初學適合',
+    },
+    # ── Penghu ───────────────────────────────────────────────────────────────
+    {
+        'id': 'shanshui',
+        'name': 'Shanshui 山水',
+        'lat': _COORD_LOOKUP['shanshui'][0], 'lon': _COORD_LOOKUP['shanshui'][1],
+        'facing': 'S/SW',
+        'opt_wind':  ['N', 'NE', 'NW'],
+        'opt_swell': ['S', 'SW', 'SE'],
+        'opt_tide':  'any',
+        'desc': 'Beach break · Most popular Penghu · All levels',
+        'desc_zh': '沙灘浪型 · 澎湖最熱門 · 各級適合',
+    },
+    {
+        'id': 'fenggui',
+        'name': 'Fenggui 風櫃',
+        'lat': _COORD_LOOKUP['fenggui'][0], 'lon': _COORD_LOOKUP['fenggui'][1],
+        'facing': 'SW',
+        'opt_wind':  ['NE', 'N', 'E'],
+        'opt_swell': ['SW', 'S', 'W'],
+        'opt_tide':  'low-mid',
+        'desc': 'Reef break · Powerful · Low-mid tide · Advanced',
+        'desc_zh': '礁岩浪型 · 有力 · 低中潮 · 高級',
+    },
+    {
+        'id': 'aimen',
+        'name': 'Aimen 隘門',
+        'lat': _COORD_LOOKUP['aimen'][0], 'lon': _COORD_LOOKUP['aimen'][1],
+        'facing': 'SE',
+        'opt_wind':  ['NW', 'W', 'N'],
+        'opt_swell': ['SE', 'S', 'E'],
+        'opt_tide':  'any',
+        'desc': 'Beach break · Gentle · All tides · Beginner',
+        'desc_zh': '沙灘浪型 · 溫和 · 各潮 · 初學適合',
     },
 ]
 
@@ -1603,7 +1752,7 @@ def main() -> None:
     keelung_records = []
     all_spot_data = []
     failed_count = 0
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    with ThreadPoolExecutor(max_workers=8) as pool:
         futures = {pool.submit(_fetch_and_process, e): e for e in all_entries}
         for future in as_completed(futures):
             try:

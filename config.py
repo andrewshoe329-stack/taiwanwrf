@@ -162,6 +162,15 @@ SPOT_COUNTY = {
     "keelung": "基隆市", "fulong": "新北市", "greenbay": "新北市",
     "jinshan": "新北市", "daxi": "宜蘭縣", "wushih": "宜蘭縣",
     "doublelions": "宜蘭縣", "chousui": "宜蘭縣",
+    # East coast
+    "jici": "花蓮縣", "donghe": "臺東縣", "jinzun": "臺東縣",
+    "chenggong": "臺東縣", "dulan": "臺東縣",
+    # South
+    "nanwan": "屏東縣", "jialeshuei": "屏東縣", "baishawan": "屏東縣",
+    # West coast
+    "daan": "臺中市", "qigu": "臺南市",
+    # Penghu
+    "shanshui": "澎湖縣", "fenggui": "澎湖縣", "aimen": "澎湖縣",
 }
 
 # ── Full Taiwan coverage ─────────────────────────────────────────────────────
