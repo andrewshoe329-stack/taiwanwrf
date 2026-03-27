@@ -174,7 +174,7 @@ TAIWAN_BBOX = {
 
 # Major harbour coordinates: id → (lat, lon)
 HARBOUR_COORDS = {
-    "keelung":   (25.156, 121.788),   # existing KEELUNG_LAT/LON
+    "keelung":   (KEELUNG_LAT, KEELUNG_LON),
     "kaohsiung": (22.615, 120.265),
     "taichung":  (24.280, 120.510),
     "hualien":   (23.975, 121.610),

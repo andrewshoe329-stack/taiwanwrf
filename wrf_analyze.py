@@ -35,7 +35,7 @@ from datetime import datetime, timedelta, timezone
 
 import numpy as np
 
-from config import KEELUNG_LAT, KEELUNG_LON, COMPASS_NAMES, deg_to_compass, setup_logging, sail_rating, load_json_file
+from config import KEELUNG_LAT, KEELUNG_LON, COMPASS_NAMES, deg_to_compass, setup_logging, sail_rating, load_json_file, norm_utc
 from tide_predict import predict_height
 from i18n import T, T_str, bilingual
 from html_template import render_page
@@ -415,7 +415,7 @@ def extract_wind_grid(rundir: Path, meta: dict) -> dict | None:
         valid_time = None
         if init_time:
             it = datetime.fromisoformat(init_time)
-            valid_time = (it + timedelta(hours=fh)).isoformat()
+            valid_time = norm_utc((it + timedelta(hours=fh)).isoformat())
 
         u_field = None
         v_field = None
