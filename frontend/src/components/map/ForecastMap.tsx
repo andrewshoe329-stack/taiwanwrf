@@ -8,7 +8,18 @@ import { useTimeline } from '@/hooks/useTimeline'
 import { useWindGrid, type WindModel } from '@/hooks/useWindGrid'
 import { SpotMarkers } from './SpotMarkers'
 
-const DARK_TILES = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json'
+// Minimal blank dark style — no land features, just ocean background + our GeoJSON
+const BLANK_DARK_STYLE: maplibregl.StyleSpecification = {
+  version: 8,
+  sources: {},
+  layers: [
+    {
+      id: 'background',
+      type: 'background',
+      paint: { 'background-color': '#0a0a1a' },
+    },
+  ],
+}
 
 const MODEL_LABELS: Record<WindModel, string> = {
   wrf: 'WRF 3km',
@@ -33,7 +44,7 @@ export function ForecastMap() {
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: DARK_TILES,
+      style: BLANK_DARK_STYLE,
       center: TAIWAN_CENTER,
       zoom: TAIWAN_ZOOM,
       minZoom: 5,
@@ -55,8 +66,8 @@ export function ForecastMap() {
               type: 'fill',
               source: 'taiwan',
               paint: {
-                'fill-color': '#1a1a2e',
-                'fill-opacity': 0.6,
+                'fill-color': '#141425',
+                'fill-opacity': 1,
               },
             })
             map.addLayer({
@@ -64,9 +75,9 @@ export function ForecastMap() {
               type: 'line',
               source: 'taiwan',
               paint: {
-                'line-color': '#3a3a5c',
-                'line-width': 1.2,
-                'line-opacity': 0.8,
+                'line-color': '#555580',
+                'line-width': 1.5,
+                'line-opacity': 1,
               },
             })
           }
