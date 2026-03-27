@@ -13,7 +13,10 @@ export function BottomNav() {
   const { pathname } = useLocation()
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 glass border-t border-[var(--color-border)] pb-[env(safe-area-inset-bottom)]">
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-50 glass border-t border-[var(--color-border)]"
+      style={{ paddingBottom: 'var(--sab, env(safe-area-inset-bottom, 0px))' }}
+    >
       <div className="flex items-center justify-around h-14 max-w-md mx-auto">
         {NAV_ITEMS.map(({ path, key, icon }) => {
           const active = path === '/'

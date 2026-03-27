@@ -13,7 +13,7 @@ export function App() {
       <TimelineContext.Provider value={timeline}>
         <div className="min-h-screen bg-[var(--color-bg)]">
           <Header />
-          <main className="pb-16" style={{ paddingTop: 'calc(3rem + env(safe-area-inset-top, 0px))' }}>
+          <main className="pb-16" style={{ paddingTop: 'calc(3rem + var(--sat, env(safe-area-inset-top, 0px)))' }}>
             <Outlet />
           </main>
           <BottomNav />
