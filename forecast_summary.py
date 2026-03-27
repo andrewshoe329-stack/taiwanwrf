@@ -362,8 +362,8 @@ def build_user_prompt(wrf: dict, ecmwf: dict | None, wave: dict | None,
         # Extract per-model average values for the first 24h (up to 4 records)
         model_avgs: dict[str, dict[str, float]] = {}
         MODEL_LABELS = {
-            'gfs_global': 'GFS',
-            'jma_gsm': 'JMA', 'ecmwf_ifs': 'ECMWF',
+            'GFS': 'GFS',
+            'JMA': 'JMA', 'ECMWF': 'ECMWF',
         }
         for model_key, label in MODEL_LABELS.items():
             recs = []
@@ -590,6 +590,8 @@ def main() -> None:
     ap.add_argument('--ensemble-json', default=None,
                     help='Ensemble spread JSON (multi-model agreement)')
     ap.add_argument('--output', default='ai_summary.html', help='Output HTML fragment')
+    ap.add_argument('--output-json', default=None,
+                    help='Output JSON with structured bilingual sections')
     args = ap.parse_args()
 
     # Load data
@@ -623,6 +625,26 @@ def main() -> None:
     with open(args.output, 'w', encoding='utf-8') as f:
         f.write(html)
     log.info("Wrote %s (%d chars)", args.output, len(html))
+
+    if args.output_json:
+        # Parse bilingual sections into structured JSON for the React frontend
+        halves = summary.split('---', 1)
+        en_raw = halves[0].strip()
+        zh_raw = halves[1].strip() if len(halves) > 1 else en_raw
+
+        en_secs = {k.lower(): v for k, v in _parse_sections(en_raw) if k}
+        zh_secs = {k.lower(): v for k, v in _parse_sections(zh_raw) if k}
+
+        json_data = {
+            'wind':    {'en': en_secs.get('wind', ''),    'zh': zh_secs.get('wind', '')},
+            'waves':   {'en': en_secs.get('waves', ''),   'zh': zh_secs.get('waves', '')},
+            'outlook': {'en': en_secs.get('outlook', ''), 'zh': zh_secs.get('outlook', '')},
+        }
+
+        import json as json_mod
+        with open(args.output_json, 'w', encoding='utf-8') as f:
+            json_mod.dump(json_data, f, ensure_ascii=False, indent=2)
+        log.info("Wrote %s", args.output_json)
 
 
 if __name__ == '__main__':

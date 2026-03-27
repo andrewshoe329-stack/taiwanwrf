@@ -119,7 +119,14 @@
     "high_agreement": "高——模式一致",
     "some_divergence": "部分分歧",
     "low_agreement": "模式分歧",
-    "confidence": "信心度"
+    "confidence": "信心度",
+    "subtitle": "多模式比較與驗證",
+    "ensemble_confidence": "系集信心度",
+    "available_models": "可用模式",
+    "no_models": "無模式資料",
+    "by_horizon": "依預報時距",
+    "verification": "驗證",
+    "no_accuracy": "無準確度資料"
   },
   "harbour": {
     "keelung": "基隆",
@@ -134,7 +141,10 @@
     "direction": "風向",
     "waves": "浪高",
     "model_spread": "模式分歧",
-    "no_data": "港口預報資料尚未載入"
+    "no_data": "港口預報資料尚未載入",
+    "show_forecast": "顯示預報",
+    "hide_forecast": "收起預報",
+    "time": "時間"
   },
   "common": {
     "loading": "載入預報資料中...",

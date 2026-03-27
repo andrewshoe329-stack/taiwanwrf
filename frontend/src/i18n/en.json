@@ -119,7 +119,14 @@
     "high_agreement": "High — models agree",
     "some_divergence": "Some divergence",
     "low_agreement": "Models disagree",
-    "confidence": "Confidence"
+    "confidence": "Confidence",
+    "subtitle": "Multi-model comparison and verification",
+    "ensemble_confidence": "Ensemble Confidence",
+    "available_models": "Available Models",
+    "no_models": "No model data available",
+    "by_horizon": "By forecast horizon",
+    "verification": "Verification",
+    "no_accuracy": "No accuracy data available"
   },
   "harbour": {
     "keelung": "Keelung",
@@ -134,7 +141,10 @@
     "direction": "Direction",
     "waves": "Waves",
     "model_spread": "Model spread",
-    "no_data": "No harbour forecast data available yet"
+    "no_data": "No harbour forecast data available yet",
+    "show_forecast": "Show forecast",
+    "hide_forecast": "Hide forecast",
+    "time": "Time"
   },
   "common": {
     "loading": "Loading forecast data...",

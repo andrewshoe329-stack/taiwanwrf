@@ -18,7 +18,7 @@ export interface WindGridState {
 }
 
 export function useWindGrid(): WindGridState {
-  const [model, setModelState] = useState<WindModel>('wrf')
+  const [model, setModelState] = useState<WindModel>('ecmwf')
   const [grid, setGrid] = useState<WindGrid | null>(null)
   const [loading, setLoading] = useState(false)
   const [cache] = useState<Map<WindModel, WindGrid>>(new Map())
@@ -52,7 +52,7 @@ export function useWindGrid(): WindGridState {
 
   // Load initial model on mount only
   useEffect(() => {
-    loadGrid('wrf')
+    loadGrid('ecmwf')
   }, [loadGrid])
 
   return { grid, model, setModel, loading }

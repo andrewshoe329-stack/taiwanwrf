@@ -293,8 +293,8 @@ export function ModelsPage() {
   if (data.keelung) {
     modelEntries.push({
       key: 'WRF',
-      recordCount: data.keelung.records.length,
-      initUtc: data.keelung.meta.init_utc,
+      recordCount: data.keelung.records?.length ?? 0,
+      initUtc: data.keelung.meta?.init_utc,
     })
   }
 
@@ -302,8 +302,8 @@ export function ModelsPage() {
   if (data.ecmwf) {
     modelEntries.push({
       key: 'ECMWF',
-      recordCount: data.ecmwf.records.length,
-      initUtc: data.ecmwf.meta.init_utc,
+      recordCount: data.ecmwf.records?.length ?? 0,
+      initUtc: data.ecmwf.meta?.init_utc,
     })
   }
 

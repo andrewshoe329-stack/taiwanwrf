@@ -1361,12 +1361,9 @@ def render_unified_html(
     wrf_by_valid = {r['valid_utc']: r for r in records if r.get('valid_utc')}
     all_valids = sorted(set(wrf_by_valid) | set(ec_by_valid) | set(wave_by_valid))
 
-    # Ensemble spread lookup
+    # Ensemble spread lookup (per-timestep detail no longer in ensemble JSON;
+    # per-model records under "models" could be used for future per-timestep spread)
     ens_by_valid: dict = {}
-    if ensemble_data:
-        for er in ensemble_data.get('ensemble', {}).get('records', []):
-            if er.get('valid_utc'):
-                ens_by_valid[er['valid_utc']] = er
 
     # Start with the summary section (header + daily cards + alerts + model shift),
     # then strip its closing </div> so we can append the full table.
@@ -2321,7 +2318,7 @@ def main() -> None:
         ensemble_data = load_json_file(args.ensemble_json, "ensemble JSON")
         if ensemble_data:
             n_models = len(ensemble_data.get('models', {}))
-            n_ens = len(ensemble_data.get('ensemble', {}).get('records', []))
+            n_ens = len(ensemble_data.get('spread', {}))
             log.info("Ensemble data: %d models, %d timesteps", n_models, n_ens)
 
     # ── Load accuracy log (optional) ──────────────────────────────────────────
