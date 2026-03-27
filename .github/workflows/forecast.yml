@@ -158,7 +158,8 @@ jobs:
           if [ -n "$WRF_ARG" ]; then
             python forecast_summary.py \
               $WRF_ARG $ECMWF_ARG $WAVE_ARG $ACCURACY_ARG $CWA_ARG $ENSEMBLE_ARG \
-              --output ai_summary.html
+              --output ai_summary.html \
+              --output-json ai_summary.json
           else
             echo "::warning::No WRF summary — skipping AI forecast"
           fi
@@ -218,7 +219,7 @@ jobs:
           for f in keelung_summary_new.json ecmwf_keelung.json wave_keelung.json \
                    tide_keelung.json ensemble_keelung.json cwa_obs.json accuracy_log.json; do
             if [ -f "$f" ]; then
-              DEST=$(echo "$f" | sed 's/_keelung//; s/_summary_new//; s/_log//')
+              DEST=$(echo "$f" | sed 's/_keelung//; s/_summary_new//; s/accuracy_log/accuracy/')
               cp "$f" "frontend/public/data/$DEST"
             fi
           done

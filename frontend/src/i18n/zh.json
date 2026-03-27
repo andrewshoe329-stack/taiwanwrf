@@ -119,7 +119,14 @@
     "high_agreement": "高——模式一致",
     "some_divergence": "部分分歧",
     "low_agreement": "模式分歧",
-    "confidence": "信心度"
+    "confidence": "信心度",
+    "subtitle": "多模式比較與驗證",
+    "ensemble_confidence": "系集信心度",
+    "available_models": "可用模式",
+    "no_models": "無模式資料",
+    "by_horizon": "依預報時距",
+    "verification": "驗證",
+    "no_accuracy": "無準確度資料"
   },
   "harbour": {
     "keelung": "基隆",
