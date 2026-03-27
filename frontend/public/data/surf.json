@@ -1,0 +1,3179 @@
+{
+  "spots": [
+    {
+      "spot": {
+        "id": "fulong",
+        "name": {
+          "en": "Fulong",
+          "zh": "\u798f\u9686"
+        },
+        "lat": 25.019,
+        "lon": 121.94,
+        "facing": "NE/E",
+        "region": "north",
+        "opt_wind": [
+          "S",
+          "SW"
+        ],
+        "opt_swell": [
+          "N",
+          "NE",
+          "E"
+        ]
+      },
+      "ratings": [
+        {
+          "spot_id": "fulong",
+          "valid_utc": "2026-03-27T00:00:00+00:00",
+          "score": 8,
+          "rating": "good",
+          "swell_height": 2.4,
+          "swell_dir": 33,
+          "swell_period": 11.9,
+          "wind_kt": 19.9,
+          "wind_dir": 61,
+          "tide_height": 0.61
+        },
+        {
+          "spot_id": "fulong",
+          "valid_utc": "2026-03-27T06:00:00+00:00",
+          "score": 0,
+          "rating": "flat",
+          "swell_height": 2.5,
+          "swell_dir": 81,
+          "swell_period": 10.1,
+          "wind_kt": 7.7,
+          "wind_dir": 73,
+          "tide_height": 0.6
+        },
+        {
+          "spot_id": "fulong",
+          "valid_utc": "2026-03-27T12:00:00+00:00",
+          "score": 14,
+          "rating": "firing",
+          "swell_height": 1.1,
+          "swell_dir": 39,
+          "swell_period": 8.6,
+          "wind_kt": 16.0,
+          "wind_dir": 65,
+          "tide_height": 0.84
+        },
+        {
+          "spot_id": "fulong",
+          "valid_utc": "2026-03-27T18:00:00+00:00",
+          "score": 8,
+          "rating": "good",
+          "swell_height": 1.4,
+          "swell_dir": 66,
+          "swell_period": 8.5,
+          "wind_kt": 17.2,
+          "wind_dir": 81,
+          "tide_height": 0.79
+        },
+        {
+          "spot_id": "fulong",
+          "valid_utc": "2026-03-28T00:00:00+00:00",
+          "score": 13,
+          "rating": "firing",
+          "swell_height": 1.4,
+          "swell_dir": 83,
+          "swell_period": 10.1,
+          "wind_kt": 19.2,
+          "wind_dir": 54,
+          "tide_height": 0.86
+        },
+        {
+          "spot_id": "fulong",
+          "valid_utc": "2026-03-28T06:00:00+00:00",
+          "score": 8,
+          "rating": "good",
+          "swell_height": 1.1,
+          "swell_dir": 45,
+          "swell_period": 12.8,
+          "wind_kt": 17.0,
+          "wind_dir": 58,
+          "tide_height": 0.28
+        },
+        {
+          "spot_id": "fulong",
+          "valid_utc": "2026-03-28T12:00:00+00:00",
+          "score": 1,
+          "rating": "flat",
+          "swell_height": 1.4,
+          "swell_dir": 75,
+          "swell_period": 9.9,
+          "wind_kt": 8.1,
+          "wind_dir": 34,
+          "tide_height": 1.06
+        },
+        {
+          "spot_id": "fulong",
+          "valid_utc": "2026-03-28T18:00:00+00:00",
+          "score": 10,
+          "rating": "firing",
+          "swell_height": 1.8,
+          "swell_dir": 55,
+          "swell_period": 12.4,
+          "wind_kt": 21.1,
+          "wind_dir": 55,
+          "tide_height": 1.02
+        }
+      ],
+      "best_times": [
+        {
+          "date": "2026-03-27",
+          "start_cst": "07:00",
+          "end_cst": "12:00",
+          "rating": "marginal"
+        },
+        {
+          "date": "2026-03-28",
+          "start_cst": "07:00",
+          "end_cst": "10:00",
+          "rating": "firing"
+        }
+      ],
+      "daily_best": [
+        {
+          "date": "2026-03-27",
+          "rating": "marginal",
+          "score": 5
+        },
+        {
+          "date": "2026-03-28",
+          "rating": "marginal",
+          "score": 4
+        },
+        {
+          "date": "2026-03-29",
+          "rating": "firing",
+          "score": 12
+        },
+        {
+          "date": "2026-03-30",
+          "rating": "firing",
+          "score": 9
+        },
+        {
+          "date": "2026-03-31",
+          "rating": "marginal",
+          "score": 5
+        }
+      ]
+    },
+    {
+      "spot": {
+        "id": "greenbay",
+        "name": {
+          "en": "Green Bay",
+          "zh": "\u7fe1\u7fe0\u7063"
+        },
+        "lat": 25.189,
+        "lon": 121.686,
+        "facing": "NE",
+        "region": "north",
+        "opt_wind": [
+          "W",
+          "SW"
+        ],
+        "opt_swell": [
+          "E",
+          "NE"
+        ]
+      },
+      "ratings": [
+        {
+          "spot_id": "greenbay",
+          "valid_utc": "2026-03-27T00:00:00+00:00",
+          "score": 13,
+          "rating": "firing",
+          "swell_height": 1.2,
+          "swell_dir": 63,
+          "swell_period": 8.6,
+          "wind_kt": 10.5,
+          "wind_dir": 44,
+          "tide_height": 0.59
+        },
+        {
+          "spot_id": "greenbay",
+          "valid_utc": "2026-03-27T06:00:00+00:00",
+          "score": 8,
+          "rating": "good",
+          "swell_height": 1.7,
+          "swell_dir": 69,
+          "swell_period": 11.5,
+          "wind_kt": 6.5,
+          "wind_dir": 46,
+          "tide_height": 0.89
+        },
+        {
+          "spot_id": "greenbay",
+          "valid_utc": "2026-03-27T12:00:00+00:00",
+          "score": 14,
+          "rating": "firing",
+          "swell_height": 1.2,
+          "swell_dir": 41,
+          "swell_period": 8.7,
+          "wind_kt": 16.5,
+          "wind_dir": 34,
+          "tide_height": 0.87
+        },
+        {
+          "spot_id": "greenbay",
+          "valid_utc": "2026-03-27T18:00:00+00:00",
+          "score": 0,
+          "rating": "flat",
+          "swell_height": 2.0,
+          "swell_dir": 43,
+          "swell_period": 10.1,
+          "wind_kt": 11.5,
+          "wind_dir": 52,
+          "tide_height": 0.85
+        },
+        {
+          "spot_id": "greenbay",
+          "valid_utc": "2026-03-28T00:00:00+00:00",
+          "score": 12,
+          "rating": "firing",
+          "swell_height": 2.3,
+          "swell_dir": 39,
+          "swell_period": 11.8,
+          "wind_kt": 6.8,
+          "wind_dir": 35,
+          "tide_height": 0.6
+        },
+        {
+          "spot_id": "greenbay",
+          "valid_utc": "2026-03-28T06:00:00+00:00",
+          "score": 9,
+          "rating": "firing",
+          "swell_height": 1.7,
+          "swell_dir": 55,
+          "swell_period": 9.1,
+          "wind_kt": 14.2,
+          "wind_dir": 51,
+          "tide_height": 0.3
+        },
+        {
+          "spot_id": "greenbay",
+          "valid_utc": "2026-03-28T12:00:00+00:00",
+          "score": 13,
+          "rating": "firing",
+          "swell_height": 1.6,
+          "swell_dir": 49,
+          "swell_period": 9.1,
+          "wind_kt": 21.8,
+          "wind_dir": 33,
+          "tide_height": 0.38
+        },
+        {
+          "spot_id": "greenbay",
+          "valid_utc": "2026-03-28T18:00:00+00:00",
+          "score": 4,
+          "rating": "marginal",
+          "swell_height": 2.0,
+          "swell_dir": 47,
+          "swell_period": 8.6,
+          "wind_kt": 14.0,
+          "wind_dir": 56,
+          "tide_height": 0.32
+        }
+      ],
+      "best_times": [
+        {
+          "date": "2026-03-27",
+          "start_cst": "08:00",
+          "end_cst": "12:00",
+          "rating": "firing"
+        },
+        {
+          "date": "2026-03-28",
+          "start_cst": "07:00",
+          "end_cst": "10:00",
+          "rating": "marginal"
+        }
+      ],
+      "daily_best": [
+        {
+          "date": "2026-03-27",
+          "rating": "poor",
+          "score": 2
+        },
+        {
+          "date": "2026-03-28",
+          "rating": "good",
+          "score": 8
+        },
+        {
+          "date": "2026-03-29",
+          "rating": "poor",
+          "score": 2
+        },
+        {
+          "date": "2026-03-30",
+          "rating": "firing",
+          "score": 9
+        },
+        {
+          "date": "2026-03-31",
+          "rating": "poor",
+          "score": 3
+        }
+      ]
+    },
+    {
+      "spot": {
+        "id": "jinshan",
+        "name": {
+          "en": "Jinshan",
+          "zh": "\u91d1\u5c71"
+        },
+        "lat": 25.238,
+        "lon": 121.638,
+        "facing": "NE",
+        "region": "north",
+        "opt_wind": [
+          "S",
+          "SW"
+        ],
+        "opt_swell": [
+          "N",
+          "NNE",
+          "NE",
+          "E",
+          "ESE"
+        ]
+      },
+      "ratings": [
+        {
+          "spot_id": "jinshan",
+          "valid_utc": "2026-03-27T00:00:00+00:00",
+          "score": 14,
+          "rating": "firing",
+          "swell_height": 1.7,
+          "swell_dir": 64,
+          "swell_period": 11.5,
+          "wind_kt": 12.7,
+          "wind_dir": 37,
+          "tide_height": 0.22
+        },
+        {
+          "spot_id": "jinshan",
+          "valid_utc": "2026-03-27T06:00:00+00:00",
+          "score": 6,
+          "rating": "marginal",
+          "swell_height": 2.1,
+          "swell_dir": 67,
+          "swell_period": 12.2,
+          "wind_kt": 20.7,
+          "wind_dir": 35,
+          "tide_height": 0.96
+        },
+        {
+          "spot_id": "jinshan",
+          "valid_utc": "2026-03-27T12:00:00+00:00",
+          "score": 6,
+          "rating": "marginal",
+          "swell_height": 1.7,
+          "swell_dir": 61,
+          "swell_period": 10.0,
+          "wind_kt": 11.0,
+          "wind_dir": 50,
+          "tide_height": 0.5
+        },
+        {
+          "spot_id": "jinshan",
+          "valid_utc": "2026-03-27T18:00:00+00:00",
+          "score": 2,
+          "rating": "poor",
+          "swell_height": 1.5,
+          "swell_dir": 37,
+          "swell_period": 10.5,
+          "wind_kt": 20.5,
+          "wind_dir": 51,
+          "tide_height": 0.85
+        },
+        {
+          "spot_id": "jinshan",
+          "valid_utc": "2026-03-28T00:00:00+00:00",
+          "score": 14,
+          "rating": "firing",
+          "swell_height": 1.0,
+          "swell_dir": 39,
+          "swell_period": 9.0,
+          "wind_kt": 15.6,
+          "wind_dir": 76,
+          "tide_height": 0.79
+        },
+        {
+          "spot_id": "jinshan",
+          "valid_utc": "2026-03-28T06:00:00+00:00",
+          "score": 5,
+          "rating": "marginal",
+          "swell_height": 1.4,
+          "swell_dir": 64,
+          "swell_period": 10.9,
+          "wind_kt": 16.9,
+          "wind_dir": 83,
+          "tide_height": 0.78
+        },
+        {
+          "spot_id": "jinshan",
+          "valid_utc": "2026-03-28T12:00:00+00:00",
+          "score": 11,
+          "rating": "firing",
+          "swell_height": 2.2,
+          "swell_dir": 68,
+          "swell_period": 8.8,
+          "wind_kt": 7.1,
+          "wind_dir": 57,
+          "tide_height": 0.47
+        },
+        {
+          "spot_id": "jinshan",
+          "valid_utc": "2026-03-28T18:00:00+00:00",
+          "score": 4,
+          "rating": "marginal",
+          "swell_height": 1.2,
+          "swell_dir": 34,
+          "swell_period": 10.3,
+          "wind_kt": 6.6,
+          "wind_dir": 52,
+          "tide_height": 0.46
+        }
+      ],
+      "best_times": [
+        {
+          "date": "2026-03-27",
+          "start_cst": "08:00",
+          "end_cst": "12:00",
+          "rating": "firing"
+        },
+        {
+          "date": "2026-03-28",
+          "start_cst": "07:00",
+          "end_cst": "11:00",
+          "rating": "firing"
+        }
+      ],
+      "daily_best": [
+        {
+          "date": "2026-03-27",
+          "rating": "poor",
+          "score": 2
+        },
+        {
+          "date": "2026-03-28",
+          "rating": "firing",
+          "score": 9
+        },
+        {
+          "date": "2026-03-29",
+          "rating": "firing",
+          "score": 11
+        },
+        {
+          "date": "2026-03-30",
+          "rating": "firing",
+          "score": 12
+        },
+        {
+          "date": "2026-03-31",
+          "rating": "marginal",
+          "score": 5
+        }
+      ]
+    },
+    {
+      "spot": {
+        "id": "daxi",
+        "name": {
+          "en": "Daxi",
+          "zh": "\u5927\u6eaa"
+        },
+        "lat": 24.87,
+        "lon": 121.93,
+        "facing": "SE",
+        "region": "northeast",
+        "opt_wind": [
+          "NW",
+          "W"
+        ],
+        "opt_swell": [
+          "SE",
+          "SSE",
+          "S",
+          "E"
+        ]
+      },
+      "ratings": [
+        {
+          "spot_id": "daxi",
+          "valid_utc": "2026-03-27T00:00:00+00:00",
+          "score": 8,
+          "rating": "good",
+          "swell_height": 1.5,
+          "swell_dir": 87,
+          "swell_period": 10.3,
+          "wind_kt": 19.0,
+          "wind_dir": 80,
+          "tide_height": 1.08
+        },
+        {
+          "spot_id": "daxi",
+          "valid_utc": "2026-03-27T06:00:00+00:00",
+          "score": 2,
+          "rating": "poor",
+          "swell_height": 0.6,
+          "swell_dir": 72,
+          "swell_period": 13.0,
+          "wind_kt": 14.4,
+          "wind_dir": 67,
+          "tide_height": 0.53
+        },
+        {
+          "spot_id": "daxi",
+          "valid_utc": "2026-03-27T12:00:00+00:00",
+          "score": 14,
+          "rating": "firing",
+          "swell_height": 1.3,
+          "swell_dir": 76,
+          "swell_period": 11.4,
+          "wind_kt": 6.8,
+          "wind_dir": 68,
+          "tide_height": 0.5
+        },
+        {
+          "spot_id": "daxi",
+          "valid_utc": "2026-03-27T18:00:00+00:00",
+          "score": 5,
+          "rating": "marginal",
+          "swell_height": 1.6,
+          "swell_dir": 53,
+          "swell_period": 9.3,
+          "wind_kt": 19.6,
+          "wind_dir": 88,
+          "tide_height": 0.74
+        },
+        {
+          "spot_id": "daxi",
+          "valid_utc": "2026-03-28T00:00:00+00:00",
+          "score": 4,
+          "rating": "marginal",
+          "swell_height": 0.7,
+          "swell_dir": 70,
+          "swell_period": 12.6,
+          "wind_kt": 11.0,
+          "wind_dir": 69,
+          "tide_height": 0.8
+        },
+        {
+          "spot_id": "daxi",
+          "valid_utc": "2026-03-28T06:00:00+00:00",
+          "score": 2,
+          "rating": "poor",
+          "swell_height": 1.1,
+          "swell_dir": 53,
+          "swell_period": 12.0,
+          "wind_kt": 19.0,
+          "wind_dir": 70,
+          "tide_height": 0.95
+        },
+        {
+          "spot_id": "daxi",
+          "valid_utc": "2026-03-28T12:00:00+00:00",
+          "score": 11,
+          "rating": "firing",
+          "swell_height": 1.8,
+          "swell_dir": 55,
+          "swell_period": 9.8,
+          "wind_kt": 11.8,
+          "wind_dir": 41,
+          "tide_height": 0.39
+        },
+        {
+          "spot_id": "daxi",
+          "valid_utc": "2026-03-28T18:00:00+00:00",
+          "score": 14,
+          "rating": "firing",
+          "swell_height": 0.9,
+          "swell_dir": 90,
+          "swell_period": 8.8,
+          "wind_kt": 10.7,
+          "wind_dir": 77,
+          "tide_height": 0.66
+        }
+      ],
+      "best_times": [
+        {
+          "date": "2026-03-27",
+          "start_cst": "08:00",
+          "end_cst": "11:00",
+          "rating": "firing"
+        },
+        {
+          "date": "2026-03-28",
+          "start_cst": "06:00",
+          "end_cst": "12:00",
+          "rating": "marginal"
+        }
+      ],
+      "daily_best": [
+        {
+          "date": "2026-03-27",
+          "rating": "marginal",
+          "score": 4
+        },
+        {
+          "date": "2026-03-28",
+          "rating": "marginal",
+          "score": 4
+        },
+        {
+          "date": "2026-03-29",
+          "rating": "firing",
+          "score": 11
+        }
+      ]
+    },
+    {
+      "spot": {
+        "id": "wushih",
+        "name": {
+          "en": "Wushih",
+          "zh": "\u70cf\u77f3"
+        },
+        "lat": 24.862,
+        "lon": 121.921,
+        "facing": "E",
+        "region": "northeast",
+        "opt_wind": [
+          "NW",
+          "W"
+        ],
+        "opt_swell": [
+          "E",
+          "SE",
+          "SSE"
+        ]
+      },
+      "ratings": [
+        {
+          "spot_id": "wushih",
+          "valid_utc": "2026-03-27T00:00:00+00:00",
+          "score": 13,
+          "rating": "firing",
+          "swell_height": 1.9,
+          "swell_dir": 33,
+          "swell_period": 9.8,
+          "wind_kt": 17.5,
+          "wind_dir": 88,
+          "tide_height": 0.75
+        },
+        {
+          "spot_id": "wushih",
+          "valid_utc": "2026-03-27T06:00:00+00:00",
+          "score": 14,
+          "rating": "firing",
+          "swell_height": 1.0,
+          "swell_dir": 44,
+          "swell_period": 12.8,
+          "wind_kt": 18.5,
+          "wind_dir": 84,
+          "tide_height": 0.37
+        },
+        {
+          "spot_id": "wushih",
+          "valid_utc": "2026-03-27T12:00:00+00:00",
+          "score": 13,
+          "rating": "firing",
+          "swell_height": 1.4,
+          "swell_dir": 47,
+          "swell_period": 9.9,
+          "wind_kt": 14.4,
+          "wind_dir": 88,
+          "tide_height": 0.94
+        },
+        {
+          "spot_id": "wushih",
+          "valid_utc": "2026-03-27T18:00:00+00:00",
+          "score": 13,
+          "rating": "firing",
+          "swell_height": 2.2,
+          "swell_dir": 33,
+          "swell_period": 10.4,
+          "wind_kt": 11.9,
+          "wind_dir": 86,
+          "tide_height": 0.84
+        },
+        {
+          "spot_id": "wushih",
+          "valid_utc": "2026-03-28T00:00:00+00:00",
+          "score": 8,
+          "rating": "good",
+          "swell_height": 1.1,
+          "swell_dir": 76,
+          "swell_period": 9.4,
+          "wind_kt": 20.5,
+          "wind_dir": 39,
+          "tide_height": 0.59
+        },
+        {
+          "spot_id": "wushih",
+          "valid_utc": "2026-03-28T06:00:00+00:00",
+          "score": 14,
+          "rating": "firing",
+          "swell_height": 2.1,
+          "swell_dir": 83,
+          "swell_period": 12.7,
+          "wind_kt": 12.6,
+          "wind_dir": 54,
+          "tide_height": 0.54
+        },
+        {
+          "spot_id": "wushih",
+          "valid_utc": "2026-03-28T12:00:00+00:00",
+          "score": 6,
+          "rating": "marginal",
+          "swell_height": 1.2,
+          "swell_dir": 32,
+          "swell_period": 12.7,
+          "wind_kt": 19.4,
+          "wind_dir": 69,
+          "tide_height": 0.91
+        },
+        {
+          "spot_id": "wushih",
+          "valid_utc": "2026-03-28T18:00:00+00:00",
+          "score": 2,
+          "rating": "poor",
+          "swell_height": 1.1,
+          "swell_dir": 80,
+          "swell_period": 11.5,
+          "wind_kt": 8.2,
+          "wind_dir": 72,
+          "tide_height": 0.6
+        }
+      ],
+      "best_times": [
+        {
+          "date": "2026-03-27",
+          "start_cst": "06:00",
+          "end_cst": "10:00",
+          "rating": "marginal"
+        },
+        {
+          "date": "2026-03-28",
+          "start_cst": "06:00",
+          "end_cst": "10:00",
+          "rating": "firing"
+        }
+      ],
+      "daily_best": [
+        {
+          "date": "2026-03-27",
+          "rating": "firing",
+          "score": 11
+        },
+        {
+          "date": "2026-03-28",
+          "rating": "firing",
+          "score": 10
+        },
+        {
+          "date": "2026-03-29",
+          "rating": "good",
+          "score": 8
+        },
+        {
+          "date": "2026-03-30",
+          "rating": "poor",
+          "score": 3
+        },
+        {
+          "date": "2026-03-31",
+          "rating": "marginal",
+          "score": 6
+        }
+      ]
+    },
+    {
+      "spot": {
+        "id": "doublelions",
+        "name": {
+          "en": "Double Lions",
+          "zh": "\u96d9\u7345"
+        },
+        "lat": 24.847,
+        "lon": 121.917,
+        "facing": "E",
+        "region": "northeast",
+        "opt_wind": [
+          "W",
+          "SW"
+        ],
+        "opt_swell": [
+          "ENE",
+          "E",
+          "SE",
+          "SSE"
+        ]
+      },
+      "ratings": [
+        {
+          "spot_id": "doublelions",
+          "valid_utc": "2026-03-27T00:00:00+00:00",
+          "score": 5,
+          "rating": "marginal",
+          "swell_height": 0.7,
+          "swell_dir": 44,
+          "swell_period": 11.2,
+          "wind_kt": 16.0,
+          "wind_dir": 34,
+          "tide_height": 0.95
+        },
+        {
+          "spot_id": "doublelions",
+          "valid_utc": "2026-03-27T06:00:00+00:00",
+          "score": 7,
+          "rating": "good",
+          "swell_height": 1.8,
+          "swell_dir": 65,
+          "swell_period": 11.6,
+          "wind_kt": 10.7,
+          "wind_dir": 30,
+          "tide_height": 0.52
+        },
+        {
+          "spot_id": "doublelions",
+          "valid_utc": "2026-03-27T12:00:00+00:00",
+          "score": 12,
+          "rating": "firing",
+          "swell_height": 0.9,
+          "swell_dir": 70,
+          "swell_period": 10.6,
+          "wind_kt": 11.8,
+          "wind_dir": 87,
+          "tide_height": 0.69
+        },
+        {
+          "spot_id": "doublelions",
+          "valid_utc": "2026-03-27T18:00:00+00:00",
+          "score": 12,
+          "rating": "firing",
+          "swell_height": 1.3,
+          "swell_dir": 58,
+          "swell_period": 11.2,
+          "wind_kt": 21.7,
+          "wind_dir": 45,
+          "tide_height": 0.21
+        },
+        {
+          "spot_id": "doublelions",
+          "valid_utc": "2026-03-28T00:00:00+00:00",
+          "score": 12,
+          "rating": "firing",
+          "swell_height": 1.2,
+          "swell_dir": 74,
+          "swell_period": 11.1,
+          "wind_kt": 18.3,
+          "wind_dir": 74,
+          "tide_height": 0.5
+        },
+        {
+          "spot_id": "doublelions",
+          "valid_utc": "2026-03-28T06:00:00+00:00",
+          "score": 2,
+          "rating": "poor",
+          "swell_height": 1.6,
+          "swell_dir": 79,
+          "swell_period": 8.9,
+          "wind_kt": 18.5,
+          "wind_dir": 58,
+          "tide_height": 0.83
+        },
+        {
+          "spot_id": "doublelions",
+          "valid_utc": "2026-03-28T12:00:00+00:00",
+          "score": 11,
+          "rating": "firing",
+          "swell_height": 2.1,
+          "swell_dir": 34,
+          "swell_period": 11.9,
+          "wind_kt": 13.3,
+          "wind_dir": 48,
+          "tide_height": 0.24
+        },
+        {
+          "spot_id": "doublelions",
+          "valid_utc": "2026-03-28T18:00:00+00:00",
+          "score": 3,
+          "rating": "poor",
+          "swell_height": 1.1,
+          "swell_dir": 49,
+          "swell_period": 10.0,
+          "wind_kt": 19.0,
+          "wind_dir": 58,
+          "tide_height": 0.23
+        }
+      ],
+      "best_times": [
+        {
+          "date": "2026-03-27",
+          "start_cst": "07:00",
+          "end_cst": "11:00",
+          "rating": "good"
+        },
+        {
+          "date": "2026-03-28",
+          "start_cst": "08:00",
+          "end_cst": "11:00",
+          "rating": "marginal"
+        }
+      ],
+      "daily_best": [
+        {
+          "date": "2026-03-27",
+          "rating": "good",
+          "score": 7
+        },
+        {
+          "date": "2026-03-28",
+          "rating": "good",
+          "score": 8
+        },
+        {
+          "date": "2026-03-29",
+          "rating": "good",
+          "score": 8
+        }
+      ]
+    },
+    {
+      "spot": {
+        "id": "chousui",
+        "name": {
+          "en": "Chousui",
+          "zh": "\u81ed\u6c34"
+        },
+        "lat": 24.82,
+        "lon": 121.899,
+        "facing": "E",
+        "region": "northeast",
+        "opt_wind": [
+          "WSW",
+          "W"
+        ],
+        "opt_swell": [
+          "ENE",
+          "E",
+          "ESE"
+        ]
+      },
+      "ratings": [
+        {
+          "spot_id": "chousui",
+          "valid_utc": "2026-03-27T00:00:00+00:00",
+          "score": 14,
+          "rating": "firing",
+          "swell_height": 2.3,
+          "swell_dir": 53,
+          "swell_period": 12.9,
+          "wind_kt": 13.9,
+          "wind_dir": 60,
+          "tide_height": 1.03
+        },
+        {
+          "spot_id": "chousui",
+          "valid_utc": "2026-03-27T06:00:00+00:00",
+          "score": 10,
+          "rating": "firing",
+          "swell_height": 2.1,
+          "swell_dir": 74,
+          "swell_period": 8.4,
+          "wind_kt": 15.6,
+          "wind_dir": 79,
+          "tide_height": 0.69
+        },
+        {
+          "spot_id": "chousui",
+          "valid_utc": "2026-03-27T12:00:00+00:00",
+          "score": 5,
+          "rating": "marginal",
+          "swell_height": 0.7,
+          "swell_dir": 70,
+          "swell_period": 9.5,
+          "wind_kt": 15.6,
+          "wind_dir": 56,
+          "tide_height": 0.82
+        },
+        {
+          "spot_id": "chousui",
+          "valid_utc": "2026-03-27T18:00:00+00:00",
+          "score": 8,
+          "rating": "good",
+          "swell_height": 0.6,
+          "swell_dir": 82,
+          "swell_period": 9.8,
+          "wind_kt": 22.0,
+          "wind_dir": 46,
+          "tide_height": 1.08
+        },
+        {
+          "spot_id": "chousui",
+          "valid_utc": "2026-03-28T00:00:00+00:00",
+          "score": 0,
+          "rating": "flat",
+          "swell_height": 1.8,
+          "swell_dir": 54,
+          "swell_period": 10.6,
+          "wind_kt": 18.0,
+          "wind_dir": 40,
+          "tide_height": 0.23
+        },
+        {
+          "spot_id": "chousui",
+          "valid_utc": "2026-03-28T06:00:00+00:00",
+          "score": 14,
+          "rating": "firing",
+          "swell_height": 0.6,
+          "swell_dir": 34,
+          "swell_period": 11.9,
+          "wind_kt": 11.9,
+          "wind_dir": 53,
+          "tide_height": 0.71
+        },
+        {
+          "spot_id": "chousui",
+          "valid_utc": "2026-03-28T12:00:00+00:00",
+          "score": 10,
+          "rating": "firing",
+          "swell_height": 1.9,
+          "swell_dir": 87,
+          "swell_period": 9.9,
+          "wind_kt": 18.2,
+          "wind_dir": 64,
+          "tide_height": 0.68
+        },
+        {
+          "spot_id": "chousui",
+          "valid_utc": "2026-03-28T18:00:00+00:00",
+          "score": 8,
+          "rating": "good",
+          "swell_height": 1.8,
+          "swell_dir": 45,
+          "swell_period": 8.6,
+          "wind_kt": 17.8,
+          "wind_dir": 60,
+          "tide_height": 0.55
+        }
+      ],
+      "best_times": [
+        {
+          "date": "2026-03-27",
+          "start_cst": "07:00",
+          "end_cst": "11:00",
+          "rating": "firing"
+        },
+        {
+          "date": "2026-03-28",
+          "start_cst": "07:00",
+          "end_cst": "10:00",
+          "rating": "firing"
+        }
+      ],
+      "daily_best": [
+        {
+          "date": "2026-03-27",
+          "rating": "firing",
+          "score": 9
+        },
+        {
+          "date": "2026-03-28",
+          "rating": "marginal",
+          "score": 5
+        },
+        {
+          "date": "2026-03-29",
+          "rating": "poor",
+          "score": 3
+        },
+        {
+          "date": "2026-03-30",
+          "rating": "marginal",
+          "score": 4
+        }
+      ]
+    },
+    {
+      "spot": {
+        "id": "jici",
+        "name": {
+          "en": "Jici",
+          "zh": "\u78ef\u5d0e"
+        },
+        "lat": 23.7,
+        "lon": 121.54,
+        "facing": "E",
+        "region": "east",
+        "opt_wind": [
+          "W",
+          "NW"
+        ],
+        "opt_swell": [
+          "E",
+          "NE",
+          "SE"
+        ]
+      },
+      "ratings": [
+        {
+          "spot_id": "jici",
+          "valid_utc": "2026-03-27T00:00:00+00:00",
+          "score": 13,
+          "rating": "firing",
+          "swell_height": 1.4,
+          "swell_dir": 84,
+          "swell_period": 10.2,
+          "wind_kt": 7.4,
+          "wind_dir": 71,
+          "tide_height": 0.96
+        },
+        {
+          "spot_id": "jici",
+          "valid_utc": "2026-03-27T06:00:00+00:00",
+          "score": 7,
+          "rating": "good",
+          "swell_height": 1.9,
+          "swell_dir": 63,
+          "swell_period": 9.5,
+          "wind_kt": 10.8,
+          "wind_dir": 39,
+          "tide_height": 0.84
+        },
+        {
+          "spot_id": "jici",
+          "valid_utc": "2026-03-27T12:00:00+00:00",
+          "score": 12,
+          "rating": "firing",
+          "swell_height": 2.1,
+          "swell_dir": 61,
+          "swell_period": 8.6,
+          "wind_kt": 9.2,
+          "wind_dir": 38,
+          "tide_height": 0.91
+        },
+        {
+          "spot_id": "jici",
+          "valid_utc": "2026-03-27T18:00:00+00:00",
+          "score": 2,
+          "rating": "poor",
+          "swell_height": 1.6,
+          "swell_dir": 52,
+          "swell_period": 12.0,
+          "wind_kt": 14.8,
+          "wind_dir": 67,
+          "tide_height": 0.28
+        },
+        {
+          "spot_id": "jici",
+          "valid_utc": "2026-03-28T00:00:00+00:00",
+          "score": 7,
+          "rating": "good",
+          "swell_height": 2.5,
+          "swell_dir": 73,
+          "swell_period": 10.6,
+          "wind_kt": 18.3,
+          "wind_dir": 79,
+          "tide_height": 0.27
+        },
+        {
+          "spot_id": "jici",
+          "valid_utc": "2026-03-28T06:00:00+00:00",
+          "score": 5,
+          "rating": "marginal",
+          "swell_height": 1.4,
+          "swell_dir": 71,
+          "swell_period": 9.7,
+          "wind_kt": 20.0,
+          "wind_dir": 77,
+          "tide_height": 0.78
+        },
+        {
+          "spot_id": "jici",
+          "valid_utc": "2026-03-28T12:00:00+00:00",
+          "score": 3,
+          "rating": "poor",
+          "swell_height": 1.4,
+          "swell_dir": 85,
+          "swell_period": 8.3,
+          "wind_kt": 8.0,
+          "wind_dir": 39,
+          "tide_height": 0.35
+        },
+        {
+          "spot_id": "jici",
+          "valid_utc": "2026-03-28T18:00:00+00:00",
+          "score": 6,
+          "rating": "marginal",
+          "swell_height": 1.2,
+          "swell_dir": 86,
+          "swell_period": 12.5,
+          "wind_kt": 19.5,
+          "wind_dir": 45,
+          "tide_height": 0.77
+        }
+      ],
+      "best_times": [
+        {
+          "date": "2026-03-27",
+          "start_cst": "06:00",
+          "end_cst": "12:00",
+          "rating": "marginal"
+        },
+        {
+          "date": "2026-03-28",
+          "start_cst": "08:00",
+          "end_cst": "12:00",
+          "rating": "good"
+        },
+        {
+          "date": "2026-03-29",
+          "start_cst": "08:00",
+          "end_cst": "12:00",
+          "rating": "good"
+        }
+      ],
+      "daily_best": [
+        {
+          "date": "2026-03-27",
+          "rating": "firing",
+          "score": 11
+        },
+        {
+          "date": "2026-03-28",
+          "rating": "marginal",
+          "score": 4
+        },
+        {
+          "date": "2026-03-29",
+          "rating": "marginal",
+          "score": 4
+        },
+        {
+          "date": "2026-03-30",
+          "rating": "firing",
+          "score": 12
+        },
+        {
+          "date": "2026-03-31",
+          "rating": "firing",
+          "score": 11
+        }
+      ]
+    },
+    {
+      "spot": {
+        "id": "donghe",
+        "name": {
+          "en": "Donghe",
+          "zh": "\u6771\u6cb3"
+        },
+        "lat": 22.97,
+        "lon": 121.3,
+        "facing": "E/SE",
+        "region": "east",
+        "opt_wind": [
+          "W",
+          "NW"
+        ],
+        "opt_swell": [
+          "E",
+          "SE",
+          "S"
+        ]
+      },
+      "ratings": [
+        {
+          "spot_id": "donghe",
+          "valid_utc": "2026-03-27T00:00:00+00:00",
+          "score": 13,
+          "rating": "firing",
+          "swell_height": 2.2,
+          "swell_dir": 64,
+          "swell_period": 12.1,
+          "wind_kt": 6.5,
+          "wind_dir": 33,
+          "tide_height": 0.78
+        },
+        {
+          "spot_id": "donghe",
+          "valid_utc": "2026-03-27T06:00:00+00:00",
+          "score": 11,
+          "rating": "firing",
+          "swell_height": 1.8,
+          "swell_dir": 76,
+          "swell_period": 10.1,
+          "wind_kt": 16.2,
+          "wind_dir": 60,
+          "tide_height": 0.76
+        },
+        {
+          "spot_id": "donghe",
+          "valid_utc": "2026-03-27T12:00:00+00:00",
+          "score": 6,
+          "rating": "marginal",
+          "swell_height": 1.5,
+          "swell_dir": 78,
+          "swell_period": 11.4,
+          "wind_kt": 10.8,
+          "wind_dir": 34,
+          "tide_height": 0.25
+        },
+        {
+          "spot_id": "donghe",
+          "valid_utc": "2026-03-27T18:00:00+00:00",
+          "score": 10,
+          "rating": "firing",
+          "swell_height": 1.5,
+          "swell_dir": 42,
+          "swell_period": 11.0,
+          "wind_kt": 11.0,
+          "wind_dir": 73,
+          "tide_height": 0.86
+        },
+        {
+          "spot_id": "donghe",
+          "valid_utc": "2026-03-28T00:00:00+00:00",
+          "score": 14,
+          "rating": "firing",
+          "swell_height": 2.5,
+          "swell_dir": 38,
+          "swell_period": 9.9,
+          "wind_kt": 15.0,
+          "wind_dir": 49,
+          "tide_height": 0.62
+        },
+        {
+          "spot_id": "donghe",
+          "valid_utc": "2026-03-28T06:00:00+00:00",
+          "score": 7,
+          "rating": "good",
+          "swell_height": 1.0,
+          "swell_dir": 36,
+          "swell_period": 9.5,
+          "wind_kt": 12.1,
+          "wind_dir": 67,
+          "tide_height": 0.42
+        },
+        {
+          "spot_id": "donghe",
+          "valid_utc": "2026-03-28T12:00:00+00:00",
+          "score": 14,
+          "rating": "firing",
+          "swell_height": 2.1,
+          "swell_dir": 86,
+          "swell_period": 11.6,
+          "wind_kt": 9.0,
+          "wind_dir": 40,
+          "tide_height": 1.1
+        },
+        {
+          "spot_id": "donghe",
+          "valid_utc": "2026-03-28T18:00:00+00:00",
+          "score": 10,
+          "rating": "firing",
+          "swell_height": 2.3,
+          "swell_dir": 60,
+          "swell_period": 8.5,
+          "wind_kt": 12.3,
+          "wind_dir": 57,
+          "tide_height": 0.42
+        }
+      ],
+      "best_times": [
+        {
+          "date": "2026-03-27",
+          "start_cst": "06:00",
+          "end_cst": "10:00",
+          "rating": "marginal"
+        },
+        {
+          "date": "2026-03-28",
+          "start_cst": "07:00",
+          "end_cst": "12:00",
+          "rating": "firing"
+        },
+        {
+          "date": "2026-03-29",
+          "start_cst": "08:00",
+          "end_cst": "11:00",
+          "rating": "marginal"
+        }
+      ],
+      "daily_best": [
+        {
+          "date": "2026-03-27",
+          "rating": "poor",
+          "score": 2
+        },
+        {
+          "date": "2026-03-28",
+          "rating": "poor",
+          "score": 3
+        },
+        {
+          "date": "2026-03-29",
+          "rating": "good",
+          "score": 8
+        },
+        {
+          "date": "2026-03-30",
+          "rating": "marginal",
+          "score": 4
+        },
+        {
+          "date": "2026-03-31",
+          "rating": "marginal",
+          "score": 6
+        }
+      ]
+    },
+    {
+      "spot": {
+        "id": "jinzun",
+        "name": {
+          "en": "Jinzun",
+          "zh": "\u91d1\u6a3d"
+        },
+        "lat": 22.97,
+        "lon": 121.28,
+        "facing": "E",
+        "region": "east",
+        "opt_wind": [
+          "W",
+          "NW"
+        ],
+        "opt_swell": [
+          "E",
+          "NE",
+          "SE"
+        ]
+      },
+      "ratings": [
+        {
+          "spot_id": "jinzun",
+          "valid_utc": "2026-03-27T00:00:00+00:00",
+          "score": 13,
+          "rating": "firing",
+          "swell_height": 2.0,
+          "swell_dir": 52,
+          "swell_period": 10.0,
+          "wind_kt": 15.1,
+          "wind_dir": 42,
+          "tide_height": 0.7
+        },
+        {
+          "spot_id": "jinzun",
+          "valid_utc": "2026-03-27T06:00:00+00:00",
+          "score": 4,
+          "rating": "marginal",
+          "swell_height": 1.5,
+          "swell_dir": 76,
+          "swell_period": 9.4,
+          "wind_kt": 21.8,
+          "wind_dir": 71,
+          "tide_height": 0.31
+        },
+        {
+          "spot_id": "jinzun",
+          "valid_utc": "2026-03-27T12:00:00+00:00",
+          "score": 4,
+          "rating": "marginal",
+          "swell_height": 1.2,
+          "swell_dir": 89,
+          "swell_period": 10.8,
+          "wind_kt": 11.8,
+          "wind_dir": 39,
+          "tide_height": 0.74
+        },
+        {
+          "spot_id": "jinzun",
+          "valid_utc": "2026-03-27T18:00:00+00:00",
+          "score": 6,
+          "rating": "marginal",
+          "swell_height": 0.6,
+          "swell_dir": 38,
+          "swell_period": 9.7,
+          "wind_kt": 13.6,
+          "wind_dir": 57,
+          "tide_height": 0.75
+        },
+        {
+          "spot_id": "jinzun",
+          "valid_utc": "2026-03-28T00:00:00+00:00",
+          "score": 9,
+          "rating": "firing",
+          "swell_height": 1.2,
+          "swell_dir": 67,
+          "swell_period": 8.8,
+          "wind_kt": 21.8,
+          "wind_dir": 74,
+          "tide_height": 0.47
+        },
+        {
+          "spot_id": "jinzun",
+          "valid_utc": "2026-03-28T06:00:00+00:00",
+          "score": 8,
+          "rating": "good",
+          "swell_height": 1.9,
+          "swell_dir": 48,
+          "swell_period": 12.1,
+          "wind_kt": 11.9,
+          "wind_dir": 70,
+          "tide_height": 1.08
+        },
+        {
+          "spot_id": "jinzun",
+          "valid_utc": "2026-03-28T12:00:00+00:00",
+          "score": 11,
+          "rating": "firing",
+          "swell_height": 2.1,
+          "swell_dir": 74,
+          "swell_period": 11.4,
+          "wind_kt": 6.4,
+          "wind_dir": 58,
+          "tide_height": 1.07
+        },
+        {
+          "spot_id": "jinzun",
+          "valid_utc": "2026-03-28T18:00:00+00:00",
+          "score": 13,
+          "rating": "firing",
+          "swell_height": 1.9,
+          "swell_dir": 65,
+          "swell_period": 8.9,
+          "wind_kt": 16.1,
+          "wind_dir": 67,
+          "tide_height": 0.96
+        }
+      ],
+      "best_times": [
+        {
+          "date": "2026-03-27",
+          "start_cst": "08:00",
+          "end_cst": "10:00",
+          "rating": "good"
+        },
+        {
+          "date": "2026-03-28",
+          "start_cst": "08:00",
+          "end_cst": "12:00",
+          "rating": "good"
+        }
+      ],
+      "daily_best": [
+        {
+          "date": "2026-03-27",
+          "rating": "poor",
+          "score": 2
+        },
+        {
+          "date": "2026-03-28",
+          "rating": "firing",
+          "score": 9
+        },
+        {
+          "date": "2026-03-29",
+          "rating": "good",
+          "score": 7
+        }
+      ]
+    },
+    {
+      "spot": {
+        "id": "chenggong",
+        "name": {
+          "en": "Chenggong",
+          "zh": "\u6210\u529f"
+        },
+        "lat": 23.1,
+        "lon": 121.38,
+        "facing": "E",
+        "region": "east",
+        "opt_wind": [
+          "W",
+          "NW"
+        ],
+        "opt_swell": [
+          "E",
+          "SE"
+        ]
+      },
+      "ratings": [
+        {
+          "spot_id": "chenggong",
+          "valid_utc": "2026-03-27T00:00:00+00:00",
+          "score": 7,
+          "rating": "good",
+          "swell_height": 1.3,
+          "swell_dir": 42,
+          "swell_period": 10.5,
+          "wind_kt": 15.8,
+          "wind_dir": 58,
+          "tide_height": 0.96
+        },
+        {
+          "spot_id": "chenggong",
+          "valid_utc": "2026-03-27T06:00:00+00:00",
+          "score": 11,
+          "rating": "firing",
+          "swell_height": 1.9,
+          "swell_dir": 61,
+          "swell_period": 10.8,
+          "wind_kt": 22.0,
+          "wind_dir": 59,
+          "tide_height": 0.54
+        },
+        {
+          "spot_id": "chenggong",
+          "valid_utc": "2026-03-27T12:00:00+00:00",
+          "score": 5,
+          "rating": "marginal",
+          "swell_height": 2.3,
+          "swell_dir": 51,
+          "swell_period": 9.8,
+          "wind_kt": 18.4,
+          "wind_dir": 73,
+          "tide_height": 0.78
+        },
+        {
+          "spot_id": "chenggong",
+          "valid_utc": "2026-03-27T18:00:00+00:00",
+          "score": 13,
+          "rating": "firing",
+          "swell_height": 1.7,
+          "swell_dir": 42,
+          "swell_period": 9.2,
+          "wind_kt": 14.9,
+          "wind_dir": 43,
+          "tide_height": 1.08
+        },
+        {
+          "spot_id": "chenggong",
+          "valid_utc": "2026-03-28T00:00:00+00:00",
+          "score": 6,
+          "rating": "marginal",
+          "swell_height": 1.9,
+          "swell_dir": 71,
+          "swell_period": 10.4,
+          "wind_kt": 13.7,
+          "wind_dir": 64,
+          "tide_height": 1.04
+        },
+        {
+          "spot_id": "chenggong",
+          "valid_utc": "2026-03-28T06:00:00+00:00",
+          "score": 13,
+          "rating": "firing",
+          "swell_height": 1.1,
+          "swell_dir": 64,
+          "swell_period": 10.7,
+          "wind_kt": 20.3,
+          "wind_dir": 54,
+          "tide_height": 0.51
+        },
+        {
+          "spot_id": "chenggong",
+          "valid_utc": "2026-03-28T12:00:00+00:00",
+          "score": 13,
+          "rating": "firing",
+          "swell_height": 1.1,
+          "swell_dir": 47,
+          "swell_period": 11.6,
+          "wind_kt": 11.5,
+          "wind_dir": 57,
+          "tide_height": 0.43
+        },
+        {
+          "spot_id": "chenggong",
+          "valid_utc": "2026-03-28T18:00:00+00:00",
+          "score": 8,
+          "rating": "good",
+          "swell_height": 0.9,
+          "swell_dir": 62,
+          "swell_period": 12.7,
+          "wind_kt": 17.1,
+          "wind_dir": 38,
+          "tide_height": 0.75
+        }
+      ],
+      "best_times": [
+        {
+          "date": "2026-03-27",
+          "start_cst": "06:00",
+          "end_cst": "10:00",
+          "rating": "firing"
+        },
+        {
+          "date": "2026-03-28",
+          "start_cst": "08:00",
+          "end_cst": "10:00",
+          "rating": "firing"
+        }
+      ],
+      "daily_best": [
+        {
+          "date": "2026-03-27",
+          "rating": "poor",
+          "score": 2
+        },
+        {
+          "date": "2026-03-28",
+          "rating": "poor",
+          "score": 3
+        },
+        {
+          "date": "2026-03-29",
+          "rating": "good",
+          "score": 8
+        }
+      ]
+    },
+    {
+      "spot": {
+        "id": "dulan",
+        "name": {
+          "en": "Dulan",
+          "zh": "\u90fd\u862d"
+        },
+        "lat": 22.88,
+        "lon": 121.23,
+        "facing": "E",
+        "region": "east",
+        "opt_wind": [
+          "W",
+          "SW"
+        ],
+        "opt_swell": [
+          "E",
+          "SE"
+        ]
+      },
+      "ratings": [
+        {
+          "spot_id": "dulan",
+          "valid_utc": "2026-03-27T00:00:00+00:00",
+          "score": 8,
+          "rating": "good",
+          "swell_height": 0.7,
+          "swell_dir": 76,
+          "swell_period": 8.0,
+          "wind_kt": 14.8,
+          "wind_dir": 86,
+          "tide_height": 0.57
+        },
+        {
+          "spot_id": "dulan",
+          "valid_utc": "2026-03-27T06:00:00+00:00",
+          "score": 14,
+          "rating": "firing",
+          "swell_height": 1.5,
+          "swell_dir": 42,
+          "swell_period": 12.8,
+          "wind_kt": 11.1,
+          "wind_dir": 69,
+          "tide_height": 1.02
+        },
+        {
+          "spot_id": "dulan",
+          "valid_utc": "2026-03-27T12:00:00+00:00",
+          "score": 2,
+          "rating": "poor",
+          "swell_height": 1.6,
+          "swell_dir": 73,
+          "swell_period": 12.7,
+          "wind_kt": 20.6,
+          "wind_dir": 41,
+          "tide_height": 0.99
+        },
+        {
+          "spot_id": "dulan",
+          "valid_utc": "2026-03-27T18:00:00+00:00",
+          "score": 2,
+          "rating": "poor",
+          "swell_height": 2.5,
+          "swell_dir": 54,
+          "swell_period": 10.5,
+          "wind_kt": 21.0,
+          "wind_dir": 88,
+          "tide_height": 1.03
+        },
+        {
+          "spot_id": "dulan",
+          "valid_utc": "2026-03-28T00:00:00+00:00",
+          "score": 14,
+          "rating": "firing",
+          "swell_height": 0.5,
+          "swell_dir": 64,
+          "swell_period": 8.5,
+          "wind_kt": 21.7,
+          "wind_dir": 47,
+          "tide_height": 1.09
+        },
+        {
+          "spot_id": "dulan",
+          "valid_utc": "2026-03-28T06:00:00+00:00",
+          "score": 11,
+          "rating": "firing",
+          "swell_height": 2.3,
+          "swell_dir": 38,
+          "swell_period": 10.5,
+          "wind_kt": 10.4,
+          "wind_dir": 79,
+          "tide_height": 0.5
+        },
+        {
+          "spot_id": "dulan",
+          "valid_utc": "2026-03-28T12:00:00+00:00",
+          "score": 14,
+          "rating": "firing",
+          "swell_height": 1.8,
+          "swell_dir": 73,
+          "swell_period": 8.1,
+          "wind_kt": 11.4,
+          "wind_dir": 48,
+          "tide_height": 0.81
+        },
+        {
+          "spot_id": "dulan",
+          "valid_utc": "2026-03-28T18:00:00+00:00",
+          "score": 4,
+          "rating": "marginal",
+          "swell_height": 1.7,
+          "swell_dir": 68,
+          "swell_period": 10.0,
+          "wind_kt": 12.8,
+          "wind_dir": 50,
+          "tide_height": 0.56
+        }
+      ],
+      "best_times": [
+        {
+          "date": "2026-03-27",
+          "start_cst": "06:00",
+          "end_cst": "10:00",
+          "rating": "marginal"
+        },
+        {
+          "date": "2026-03-28",
+          "start_cst": "07:00",
+          "end_cst": "10:00",
+          "rating": "good"
+        }
+      ],
+      "daily_best": [
+        {
+          "date": "2026-03-27",
+          "rating": "good",
+          "score": 8
+        },
+        {
+          "date": "2026-03-28",
+          "rating": "marginal",
+          "score": 5
+        },
+        {
+          "date": "2026-03-29",
+          "rating": "firing",
+          "score": 9
+        },
+        {
+          "date": "2026-03-30",
+          "rating": "marginal",
+          "score": 6
+        }
+      ]
+    },
+    {
+      "spot": {
+        "id": "nanwan",
+        "name": {
+          "en": "Nanwan",
+          "zh": "\u5357\u7063"
+        },
+        "lat": 21.955,
+        "lon": 120.765,
+        "facing": "S/SW",
+        "region": "south",
+        "opt_wind": [
+          "N",
+          "NE"
+        ],
+        "opt_swell": [
+          "S",
+          "SW",
+          "SE"
+        ]
+      },
+      "ratings": [
+        {
+          "spot_id": "nanwan",
+          "valid_utc": "2026-03-27T00:00:00+00:00",
+          "score": 1,
+          "rating": "flat",
+          "swell_height": 1.7,
+          "swell_dir": 64,
+          "swell_period": 9.3,
+          "wind_kt": 11.8,
+          "wind_dir": 44,
+          "tide_height": 0.8
+        },
+        {
+          "spot_id": "nanwan",
+          "valid_utc": "2026-03-27T06:00:00+00:00",
+          "score": 3,
+          "rating": "poor",
+          "swell_height": 0.8,
+          "swell_dir": 71,
+          "swell_period": 12.6,
+          "wind_kt": 20.2,
+          "wind_dir": 76,
+          "tide_height": 0.82
+        },
+        {
+          "spot_id": "nanwan",
+          "valid_utc": "2026-03-27T12:00:00+00:00",
+          "score": 6,
+          "rating": "marginal",
+          "swell_height": 1.2,
+          "swell_dir": 43,
+          "swell_period": 12.8,
+          "wind_kt": 13.7,
+          "wind_dir": 57,
+          "tide_height": 1.09
+        },
+        {
+          "spot_id": "nanwan",
+          "valid_utc": "2026-03-27T18:00:00+00:00",
+          "score": 0,
+          "rating": "flat",
+          "swell_height": 1.9,
+          "swell_dir": 85,
+          "swell_period": 11.8,
+          "wind_kt": 18.8,
+          "wind_dir": 80,
+          "tide_height": 0.89
+        },
+        {
+          "spot_id": "nanwan",
+          "valid_utc": "2026-03-28T00:00:00+00:00",
+          "score": 8,
+          "rating": "good",
+          "swell_height": 1.6,
+          "swell_dir": 62,
+          "swell_period": 9.8,
+          "wind_kt": 20.7,
+          "wind_dir": 37,
+          "tide_height": 0.95
+        },
+        {
+          "spot_id": "nanwan",
+          "valid_utc": "2026-03-28T06:00:00+00:00",
+          "score": 11,
+          "rating": "firing",
+          "swell_height": 1.6,
+          "swell_dir": 39,
+          "swell_period": 9.6,
+          "wind_kt": 14.3,
+          "wind_dir": 37,
+          "tide_height": 0.38
+        },
+        {
+          "spot_id": "nanwan",
+          "valid_utc": "2026-03-28T12:00:00+00:00",
+          "score": 4,
+          "rating": "marginal",
+          "swell_height": 0.7,
+          "swell_dir": 61,
+          "swell_period": 12.0,
+          "wind_kt": 13.3,
+          "wind_dir": 61,
+          "tide_height": 0.61
+        },
+        {
+          "spot_id": "nanwan",
+          "valid_utc": "2026-03-28T18:00:00+00:00",
+          "score": 0,
+          "rating": "flat",
+          "swell_height": 1.8,
+          "swell_dir": 48,
+          "swell_period": 8.1,
+          "wind_kt": 10.1,
+          "wind_dir": 30,
+          "tide_height": 0.4
+        }
+      ],
+      "best_times": [
+        {
+          "date": "2026-03-27",
+          "start_cst": "06:00",
+          "end_cst": "11:00",
+          "rating": "marginal"
+        },
+        {
+          "date": "2026-03-28",
+          "start_cst": "08:00",
+          "end_cst": "10:00",
+          "rating": "firing"
+        }
+      ],
+      "daily_best": [
+        {
+          "date": "2026-03-27",
+          "rating": "poor",
+          "score": 3
+        },
+        {
+          "date": "2026-03-28",
+          "rating": "firing",
+          "score": 9
+        },
+        {
+          "date": "2026-03-29",
+          "rating": "poor",
+          "score": 2
+        }
+      ]
+    },
+    {
+      "spot": {
+        "id": "jialeshuei",
+        "name": {
+          "en": "Jialeshuei",
+          "zh": "\u4f73\u6a02\u6c34"
+        },
+        "lat": 21.99,
+        "lon": 120.85,
+        "facing": "SE/E",
+        "region": "south",
+        "opt_wind": [
+          "W",
+          "NW"
+        ],
+        "opt_swell": [
+          "SE",
+          "E",
+          "S"
+        ]
+      },
+      "ratings": [
+        {
+          "spot_id": "jialeshuei",
+          "valid_utc": "2026-03-27T00:00:00+00:00",
+          "score": 7,
+          "rating": "good",
+          "swell_height": 0.9,
+          "swell_dir": 38,
+          "swell_period": 11.2,
+          "wind_kt": 17.7,
+          "wind_dir": 88,
+          "tide_height": 0.54
+        },
+        {
+          "spot_id": "jialeshuei",
+          "valid_utc": "2026-03-27T06:00:00+00:00",
+          "score": 14,
+          "rating": "firing",
+          "swell_height": 1.4,
+          "swell_dir": 85,
+          "swell_period": 9.9,
+          "wind_kt": 7.3,
+          "wind_dir": 88,
+          "tide_height": 0.99
+        },
+        {
+          "spot_id": "jialeshuei",
+          "valid_utc": "2026-03-27T12:00:00+00:00",
+          "score": 4,
+          "rating": "marginal",
+          "swell_height": 0.7,
+          "swell_dir": 90,
+          "swell_period": 10.0,
+          "wind_kt": 8.0,
+          "wind_dir": 89,
+          "tide_height": 0.95
+        },
+        {
+          "spot_id": "jialeshuei",
+          "valid_utc": "2026-03-27T18:00:00+00:00",
+          "score": 12,
+          "rating": "firing",
+          "swell_height": 2.5,
+          "swell_dir": 58,
+          "swell_period": 11.6,
+          "wind_kt": 12.8,
+          "wind_dir": 53,
+          "tide_height": 0.41
+        },
+        {
+          "spot_id": "jialeshuei",
+          "valid_utc": "2026-03-28T00:00:00+00:00",
+          "score": 9,
+          "rating": "firing",
+          "swell_height": 0.8,
+          "swell_dir": 41,
+          "swell_period": 12.4,
+          "wind_kt": 18.2,
+          "wind_dir": 32,
+          "tide_height": 0.79
+        },
+        {
+          "spot_id": "jialeshuei",
+          "valid_utc": "2026-03-28T06:00:00+00:00",
+          "score": 9,
+          "rating": "firing",
+          "swell_height": 1.0,
+          "swell_dir": 34,
+          "swell_period": 11.0,
+          "wind_kt": 13.1,
+          "wind_dir": 70,
+          "tide_height": 0.98
+        },
+        {
+          "spot_id": "jialeshuei",
+          "valid_utc": "2026-03-28T12:00:00+00:00",
+          "score": 3,
+          "rating": "poor",
+          "swell_height": 1.3,
+          "swell_dir": 44,
+          "swell_period": 9.1,
+          "wind_kt": 19.8,
+          "wind_dir": 33,
+          "tide_height": 0.65
+        },
+        {
+          "spot_id": "jialeshuei",
+          "valid_utc": "2026-03-28T18:00:00+00:00",
+          "score": 5,
+          "rating": "marginal",
+          "swell_height": 2.1,
+          "swell_dir": 74,
+          "swell_period": 9.6,
+          "wind_kt": 15.6,
+          "wind_dir": 70,
+          "tide_height": 0.49
+        }
+      ],
+      "best_times": [
+        {
+          "date": "2026-03-27",
+          "start_cst": "06:00",
+          "end_cst": "12:00",
+          "rating": "firing"
+        },
+        {
+          "date": "2026-03-28",
+          "start_cst": "06:00",
+          "end_cst": "11:00",
+          "rating": "marginal"
+        },
+        {
+          "date": "2026-03-29",
+          "start_cst": "07:00",
+          "end_cst": "10:00",
+          "rating": "firing"
+        }
+      ],
+      "daily_best": [
+        {
+          "date": "2026-03-27",
+          "rating": "marginal",
+          "score": 4
+        },
+        {
+          "date": "2026-03-28",
+          "rating": "firing",
+          "score": 12
+        },
+        {
+          "date": "2026-03-29",
+          "rating": "firing",
+          "score": 12
+        },
+        {
+          "date": "2026-03-30",
+          "rating": "good",
+          "score": 8
+        },
+        {
+          "date": "2026-03-31",
+          "rating": "firing",
+          "score": 10
+        }
+      ]
+    },
+    {
+      "spot": {
+        "id": "baishawan",
+        "name": {
+          "en": "Baishawan",
+          "zh": "\u767d\u6c99\u7063"
+        },
+        "lat": 21.945,
+        "lon": 120.71,
+        "facing": "W",
+        "region": "south",
+        "opt_wind": [
+          "E",
+          "NE"
+        ],
+        "opt_swell": [
+          "W",
+          "SW"
+        ]
+      },
+      "ratings": [
+        {
+          "spot_id": "baishawan",
+          "valid_utc": "2026-03-27T00:00:00+00:00",
+          "score": 5,
+          "rating": "marginal",
+          "swell_height": 2.4,
+          "swell_dir": 86,
+          "swell_period": 11.4,
+          "wind_kt": 18.6,
+          "wind_dir": 49,
+          "tide_height": 0.57
+        },
+        {
+          "spot_id": "baishawan",
+          "valid_utc": "2026-03-27T06:00:00+00:00",
+          "score": 0,
+          "rating": "flat",
+          "swell_height": 1.3,
+          "swell_dir": 75,
+          "swell_period": 10.4,
+          "wind_kt": 19.6,
+          "wind_dir": 48,
+          "tide_height": 0.84
+        },
+        {
+          "spot_id": "baishawan",
+          "valid_utc": "2026-03-27T12:00:00+00:00",
+          "score": 7,
+          "rating": "good",
+          "swell_height": 2.3,
+          "swell_dir": 64,
+          "swell_period": 12.8,
+          "wind_kt": 14.9,
+          "wind_dir": 38,
+          "tide_height": 0.42
+        },
+        {
+          "spot_id": "baishawan",
+          "valid_utc": "2026-03-27T18:00:00+00:00",
+          "score": 0,
+          "rating": "flat",
+          "swell_height": 1.8,
+          "swell_dir": 85,
+          "swell_period": 12.2,
+          "wind_kt": 7.5,
+          "wind_dir": 73,
+          "tide_height": 0.37
+        },
+        {
+          "spot_id": "baishawan",
+          "valid_utc": "2026-03-28T00:00:00+00:00",
+          "score": 0,
+          "rating": "flat",
+          "swell_height": 1.8,
+          "swell_dir": 66,
+          "swell_period": 12.4,
+          "wind_kt": 9.0,
+          "wind_dir": 76,
+          "tide_height": 0.85
+        },
+        {
+          "spot_id": "baishawan",
+          "valid_utc": "2026-03-28T06:00:00+00:00",
+          "score": 5,
+          "rating": "marginal",
+          "swell_height": 1.5,
+          "swell_dir": 82,
+          "swell_period": 9.7,
+          "wind_kt": 21.3,
+          "wind_dir": 31,
+          "tide_height": 1.04
+        },
+        {
+          "spot_id": "baishawan",
+          "valid_utc": "2026-03-28T12:00:00+00:00",
+          "score": 9,
+          "rating": "firing",
+          "swell_height": 2.0,
+          "swell_dir": 75,
+          "swell_period": 12.6,
+          "wind_kt": 17.1,
+          "wind_dir": 72,
+          "tide_height": 0.56
+        },
+        {
+          "spot_id": "baishawan",
+          "valid_utc": "2026-03-28T18:00:00+00:00",
+          "score": 0,
+          "rating": "flat",
+          "swell_height": 2.1,
+          "swell_dir": 53,
+          "swell_period": 10.7,
+          "wind_kt": 11.7,
+          "wind_dir": 46,
+          "tide_height": 0.66
+        }
+      ],
+      "best_times": [
+        {
+          "date": "2026-03-27",
+          "start_cst": "07:00",
+          "end_cst": "10:00",
+          "rating": "firing"
+        },
+        {
+          "date": "2026-03-28",
+          "start_cst": "07:00",
+          "end_cst": "11:00",
+          "rating": "good"
+        },
+        {
+          "date": "2026-03-29",
+          "start_cst": "07:00",
+          "end_cst": "11:00",
+          "rating": "marginal"
+        }
+      ],
+      "daily_best": [
+        {
+          "date": "2026-03-27",
+          "rating": "firing",
+          "score": 11
+        },
+        {
+          "date": "2026-03-28",
+          "rating": "marginal",
+          "score": 5
+        },
+        {
+          "date": "2026-03-29",
+          "rating": "marginal",
+          "score": 4
+        }
+      ]
+    },
+    {
+      "spot": {
+        "id": "daan",
+        "name": {
+          "en": "Daan",
+          "zh": "\u5927\u5b89"
+        },
+        "lat": 24.37,
+        "lon": 120.55,
+        "facing": "W",
+        "region": "west",
+        "opt_wind": [
+          "E",
+          "SE"
+        ],
+        "opt_swell": [
+          "W",
+          "SW",
+          "NW"
+        ]
+      },
+      "ratings": [
+        {
+          "spot_id": "daan",
+          "valid_utc": "2026-03-27T00:00:00+00:00",
+          "score": 0,
+          "rating": "flat",
+          "swell_height": 1.6,
+          "swell_dir": 65,
+          "swell_period": 11.6,
+          "wind_kt": 10.7,
+          "wind_dir": 42,
+          "tide_height": 0.41
+        },
+        {
+          "spot_id": "daan",
+          "valid_utc": "2026-03-27T06:00:00+00:00",
+          "score": 6,
+          "rating": "marginal",
+          "swell_height": 1.5,
+          "swell_dir": 69,
+          "swell_period": 11.4,
+          "wind_kt": 10.1,
+          "wind_dir": 79,
+          "tide_height": 1.07
+        },
+        {
+          "spot_id": "daan",
+          "valid_utc": "2026-03-27T12:00:00+00:00",
+          "score": 5,
+          "rating": "marginal",
+          "swell_height": 1.4,
+          "swell_dir": 74,
+          "swell_period": 9.8,
+          "wind_kt": 8.2,
+          "wind_dir": 63,
+          "tide_height": 0.37
+        },
+        {
+          "spot_id": "daan",
+          "valid_utc": "2026-03-27T18:00:00+00:00",
+          "score": 12,
+          "rating": "firing",
+          "swell_height": 1.5,
+          "swell_dir": 80,
+          "swell_period": 8.4,
+          "wind_kt": 19.1,
+          "wind_dir": 33,
+          "tide_height": 0.21
+        },
+        {
+          "spot_id": "daan",
+          "valid_utc": "2026-03-28T00:00:00+00:00",
+          "score": 0,
+          "rating": "flat",
+          "swell_height": 0.6,
+          "swell_dir": 39,
+          "swell_period": 9.1,
+          "wind_kt": 13.3,
+          "wind_dir": 34,
+          "tide_height": 0.77
+        },
+        {
+          "spot_id": "daan",
+          "valid_utc": "2026-03-28T06:00:00+00:00",
+          "score": 9,
+          "rating": "firing",
+          "swell_height": 1.8,
+          "swell_dir": 31,
+          "swell_period": 10.7,
+          "wind_kt": 12.6,
+          "wind_dir": 31,
+          "tide_height": 0.85
+        },
+        {
+          "spot_id": "daan",
+          "valid_utc": "2026-03-28T12:00:00+00:00",
+          "score": 4,
+          "rating": "marginal",
+          "swell_height": 0.5,
+          "swell_dir": 79,
+          "swell_period": 11.4,
+          "wind_kt": 18.9,
+          "wind_dir": 85,
+          "tide_height": 0.3
+        },
+        {
+          "spot_id": "daan",
+          "valid_utc": "2026-03-28T18:00:00+00:00",
+          "score": 0,
+          "rating": "flat",
+          "swell_height": 1.0,
+          "swell_dir": 67,
+          "swell_period": 9.3,
+          "wind_kt": 11.7,
+          "wind_dir": 78,
+          "tide_height": 0.27
+        }
+      ],
+      "best_times": [
+        {
+          "date": "2026-03-27",
+          "start_cst": "07:00",
+          "end_cst": "12:00",
+          "rating": "good"
+        },
+        {
+          "date": "2026-03-28",
+          "start_cst": "08:00",
+          "end_cst": "10:00",
+          "rating": "marginal"
+        },
+        {
+          "date": "2026-03-29",
+          "start_cst": "08:00",
+          "end_cst": "10:00",
+          "rating": "firing"
+        }
+      ],
+      "daily_best": [
+        {
+          "date": "2026-03-27",
+          "rating": "poor",
+          "score": 2
+        },
+        {
+          "date": "2026-03-28",
+          "rating": "poor",
+          "score": 3
+        },
+        {
+          "date": "2026-03-29",
+          "rating": "good",
+          "score": 8
+        },
+        {
+          "date": "2026-03-30",
+          "rating": "good",
+          "score": 8
+        },
+        {
+          "date": "2026-03-31",
+          "rating": "good",
+          "score": 8
+        }
+      ]
+    },
+    {
+      "spot": {
+        "id": "qigu",
+        "name": {
+          "en": "Qigu",
+          "zh": "\u4e03\u80a1"
+        },
+        "lat": 23.13,
+        "lon": 120.07,
+        "facing": "W/SW",
+        "region": "west",
+        "opt_wind": [
+          "E",
+          "NE"
+        ],
+        "opt_swell": [
+          "W",
+          "SW"
+        ]
+      },
+      "ratings": [
+        {
+          "spot_id": "qigu",
+          "valid_utc": "2026-03-27T00:00:00+00:00",
+          "score": 3,
+          "rating": "poor",
+          "swell_height": 0.6,
+          "swell_dir": 31,
+          "swell_period": 8.9,
+          "wind_kt": 14.0,
+          "wind_dir": 56,
+          "tide_height": 0.91
+        },
+        {
+          "spot_id": "qigu",
+          "valid_utc": "2026-03-27T06:00:00+00:00",
+          "score": 7,
+          "rating": "good",
+          "swell_height": 2.3,
+          "swell_dir": 85,
+          "swell_period": 9.1,
+          "wind_kt": 20.4,
+          "wind_dir": 72,
+          "tide_height": 0.71
+        },
+        {
+          "spot_id": "qigu",
+          "valid_utc": "2026-03-27T12:00:00+00:00",
+          "score": 2,
+          "rating": "poor",
+          "swell_height": 2.3,
+          "swell_dir": 71,
+          "swell_period": 9.4,
+          "wind_kt": 14.7,
+          "wind_dir": 69,
+          "tide_height": 0.36
+        },
+        {
+          "spot_id": "qigu",
+          "valid_utc": "2026-03-27T18:00:00+00:00",
+          "score": 9,
+          "rating": "firing",
+          "swell_height": 0.5,
+          "swell_dir": 42,
+          "swell_period": 8.7,
+          "wind_kt": 19.1,
+          "wind_dir": 79,
+          "tide_height": 1.04
+        },
+        {
+          "spot_id": "qigu",
+          "valid_utc": "2026-03-28T00:00:00+00:00",
+          "score": 1,
+          "rating": "flat",
+          "swell_height": 1.6,
+          "swell_dir": 64,
+          "swell_period": 12.2,
+          "wind_kt": 16.8,
+          "wind_dir": 62,
+          "tide_height": 0.55
+        },
+        {
+          "spot_id": "qigu",
+          "valid_utc": "2026-03-28T06:00:00+00:00",
+          "score": 8,
+          "rating": "good",
+          "swell_height": 2.1,
+          "swell_dir": 71,
+          "swell_period": 8.4,
+          "wind_kt": 17.9,
+          "wind_dir": 51,
+          "tide_height": 0.29
+        },
+        {
+          "spot_id": "qigu",
+          "valid_utc": "2026-03-28T12:00:00+00:00",
+          "score": 1,
+          "rating": "flat",
+          "swell_height": 1.2,
+          "swell_dir": 76,
+          "swell_period": 12.8,
+          "wind_kt": 12.3,
+          "wind_dir": 76,
+          "tide_height": 0.23
+        },
+        {
+          "spot_id": "qigu",
+          "valid_utc": "2026-03-28T18:00:00+00:00",
+          "score": 0,
+          "rating": "flat",
+          "swell_height": 1.5,
+          "swell_dir": 51,
+          "swell_period": 12.7,
+          "wind_kt": 12.9,
+          "wind_dir": 71,
+          "tide_height": 0.79
+        }
+      ],
+      "best_times": [
+        {
+          "date": "2026-03-27",
+          "start_cst": "08:00",
+          "end_cst": "11:00",
+          "rating": "good"
+        },
+        {
+          "date": "2026-03-28",
+          "start_cst": "08:00",
+          "end_cst": "10:00",
+          "rating": "good"
+        }
+      ],
+      "daily_best": [
+        {
+          "date": "2026-03-27",
+          "rating": "marginal",
+          "score": 4
+        },
+        {
+          "date": "2026-03-28",
+          "rating": "good",
+          "score": 8
+        },
+        {
+          "date": "2026-03-29",
+          "rating": "firing",
+          "score": 12
+        },
+        {
+          "date": "2026-03-30",
+          "rating": "marginal",
+          "score": 4
+        }
+      ]
+    },
+    {
+      "spot": {
+        "id": "shanshui",
+        "name": {
+          "en": "Shanshui",
+          "zh": "\u5c71\u6c34"
+        },
+        "lat": 23.54,
+        "lon": 119.58,
+        "facing": "S/SW",
+        "region": "penghu",
+        "opt_wind": [
+          "N",
+          "NE"
+        ],
+        "opt_swell": [
+          "S",
+          "SW",
+          "SE"
+        ]
+      },
+      "ratings": [
+        {
+          "spot_id": "shanshui",
+          "valid_utc": "2026-03-27T00:00:00+00:00",
+          "score": 6,
+          "rating": "marginal",
+          "swell_height": 1.1,
+          "swell_dir": 36,
+          "swell_period": 8.0,
+          "wind_kt": 10.9,
+          "wind_dir": 52,
+          "tide_height": 0.44
+        },
+        {
+          "spot_id": "shanshui",
+          "valid_utc": "2026-03-27T06:00:00+00:00",
+          "score": 0,
+          "rating": "flat",
+          "swell_height": 0.9,
+          "swell_dir": 57,
+          "swell_period": 10.8,
+          "wind_kt": 12.5,
+          "wind_dir": 32,
+          "tide_height": 0.52
+        },
+        {
+          "spot_id": "shanshui",
+          "valid_utc": "2026-03-27T12:00:00+00:00",
+          "score": 0,
+          "rating": "flat",
+          "swell_height": 2.2,
+          "swell_dir": 31,
+          "swell_period": 10.1,
+          "wind_kt": 18.5,
+          "wind_dir": 73,
+          "tide_height": 0.7
+        },
+        {
+          "spot_id": "shanshui",
+          "valid_utc": "2026-03-27T18:00:00+00:00",
+          "score": 0,
+          "rating": "flat",
+          "swell_height": 1.9,
+          "swell_dir": 40,
+          "swell_period": 9.3,
+          "wind_kt": 10.3,
+          "wind_dir": 39,
+          "tide_height": 0.35
+        },
+        {
+          "spot_id": "shanshui",
+          "valid_utc": "2026-03-28T00:00:00+00:00",
+          "score": 0,
+          "rating": "flat",
+          "swell_height": 1.1,
+          "swell_dir": 77,
+          "swell_period": 9.8,
+          "wind_kt": 21.1,
+          "wind_dir": 73,
+          "tide_height": 0.65
+        },
+        {
+          "spot_id": "shanshui",
+          "valid_utc": "2026-03-28T06:00:00+00:00",
+          "score": 6,
+          "rating": "marginal",
+          "swell_height": 1.4,
+          "swell_dir": 38,
+          "swell_period": 8.0,
+          "wind_kt": 12.3,
+          "wind_dir": 80,
+          "tide_height": 0.54
+        },
+        {
+          "spot_id": "shanshui",
+          "valid_utc": "2026-03-28T12:00:00+00:00",
+          "score": 9,
+          "rating": "firing",
+          "swell_height": 1.4,
+          "swell_dir": 56,
+          "swell_period": 12.1,
+          "wind_kt": 16.4,
+          "wind_dir": 66,
+          "tide_height": 0.47
+        },
+        {
+          "spot_id": "shanshui",
+          "valid_utc": "2026-03-28T18:00:00+00:00",
+          "score": 6,
+          "rating": "marginal",
+          "swell_height": 1.5,
+          "swell_dir": 41,
+          "swell_period": 10.0,
+          "wind_kt": 11.1,
+          "wind_dir": 74,
+          "tide_height": 0.77
+        }
+      ],
+      "best_times": [
+        {
+          "date": "2026-03-27",
+          "start_cst": "07:00",
+          "end_cst": "11:00",
+          "rating": "marginal"
+        },
+        {
+          "date": "2026-03-28",
+          "start_cst": "07:00",
+          "end_cst": "11:00",
+          "rating": "good"
+        }
+      ],
+      "daily_best": [
+        {
+          "date": "2026-03-27",
+          "rating": "marginal",
+          "score": 5
+        },
+        {
+          "date": "2026-03-28",
+          "rating": "firing",
+          "score": 11
+        },
+        {
+          "date": "2026-03-29",
+          "rating": "firing",
+          "score": 10
+        },
+        {
+          "date": "2026-03-30",
+          "rating": "marginal",
+          "score": 4
+        },
+        {
+          "date": "2026-03-31",
+          "rating": "firing",
+          "score": 12
+        }
+      ]
+    },
+    {
+      "spot": {
+        "id": "fenggui",
+        "name": {
+          "en": "Fenggui",
+          "zh": "\u98a8\u6ac3"
+        },
+        "lat": 23.52,
+        "lon": 119.54,
+        "facing": "SW",
+        "region": "penghu",
+        "opt_wind": [
+          "N",
+          "NE"
+        ],
+        "opt_swell": [
+          "SW",
+          "S",
+          "W"
+        ]
+      },
+      "ratings": [
+        {
+          "spot_id": "fenggui",
+          "valid_utc": "2026-03-27T00:00:00+00:00",
+          "score": 10,
+          "rating": "firing",
+          "swell_height": 2.4,
+          "swell_dir": 58,
+          "swell_period": 11.5,
+          "wind_kt": 13.0,
+          "wind_dir": 47,
+          "tide_height": 0.82
+        },
+        {
+          "spot_id": "fenggui",
+          "valid_utc": "2026-03-27T06:00:00+00:00",
+          "score": 8,
+          "rating": "good",
+          "swell_height": 1.8,
+          "swell_dir": 38,
+          "swell_period": 9.5,
+          "wind_kt": 10.0,
+          "wind_dir": 39,
+          "tide_height": 0.58
+        },
+        {
+          "spot_id": "fenggui",
+          "valid_utc": "2026-03-27T12:00:00+00:00",
+          "score": 4,
+          "rating": "marginal",
+          "swell_height": 1.4,
+          "swell_dir": 66,
+          "swell_period": 10.9,
+          "wind_kt": 14.5,
+          "wind_dir": 85,
+          "tide_height": 0.98
+        },
+        {
+          "spot_id": "fenggui",
+          "valid_utc": "2026-03-27T18:00:00+00:00",
+          "score": 4,
+          "rating": "marginal",
+          "swell_height": 2.1,
+          "swell_dir": 52,
+          "swell_period": 12.5,
+          "wind_kt": 14.6,
+          "wind_dir": 68,
+          "tide_height": 0.28
+        },
+        {
+          "spot_id": "fenggui",
+          "valid_utc": "2026-03-28T00:00:00+00:00",
+          "score": 9,
+          "rating": "firing",
+          "swell_height": 1.8,
+          "swell_dir": 51,
+          "swell_period": 11.2,
+          "wind_kt": 6.7,
+          "wind_dir": 89,
+          "tide_height": 0.81
+        },
+        {
+          "spot_id": "fenggui",
+          "valid_utc": "2026-03-28T06:00:00+00:00",
+          "score": 2,
+          "rating": "poor",
+          "swell_height": 2.4,
+          "swell_dir": 56,
+          "swell_period": 8.1,
+          "wind_kt": 10.1,
+          "wind_dir": 61,
+          "tide_height": 0.67
+        },
+        {
+          "spot_id": "fenggui",
+          "valid_utc": "2026-03-28T12:00:00+00:00",
+          "score": 6,
+          "rating": "marginal",
+          "swell_height": 1.4,
+          "swell_dir": 53,
+          "swell_period": 11.9,
+          "wind_kt": 15.4,
+          "wind_dir": 60,
+          "tide_height": 0.51
+        },
+        {
+          "spot_id": "fenggui",
+          "valid_utc": "2026-03-28T18:00:00+00:00",
+          "score": 0,
+          "rating": "flat",
+          "swell_height": 0.7,
+          "swell_dir": 55,
+          "swell_period": 12.8,
+          "wind_kt": 7.9,
+          "wind_dir": 86,
+          "tide_height": 0.33
+        }
+      ],
+      "best_times": [
+        {
+          "date": "2026-03-27",
+          "start_cst": "07:00",
+          "end_cst": "11:00",
+          "rating": "good"
+        },
+        {
+          "date": "2026-03-28",
+          "start_cst": "08:00",
+          "end_cst": "11:00",
+          "rating": "marginal"
+        },
+        {
+          "date": "2026-03-29",
+          "start_cst": "07:00",
+          "end_cst": "10:00",
+          "rating": "marginal"
+        }
+      ],
+      "daily_best": [
+        {
+          "date": "2026-03-27",
+          "rating": "firing",
+          "score": 9
+        },
+        {
+          "date": "2026-03-28",
+          "rating": "good",
+          "score": 7
+        },
+        {
+          "date": "2026-03-29",
+          "rating": "poor",
+          "score": 3
+        },
+        {
+          "date": "2026-03-30",
+          "rating": "marginal",
+          "score": 6
+        },
+        {
+          "date": "2026-03-31",
+          "rating": "poor",
+          "score": 2
+        }
+      ]
+    },
+    {
+      "spot": {
+        "id": "aimen",
+        "name": {
+          "en": "Aimen",
+          "zh": "\u9698\u9580"
+        },
+        "lat": 23.57,
+        "lon": 119.63,
+        "facing": "SE",
+        "region": "penghu",
+        "opt_wind": [
+          "W",
+          "NW"
+        ],
+        "opt_swell": [
+          "SE",
+          "E",
+          "S"
+        ]
+      },
+      "ratings": [
+        {
+          "spot_id": "aimen",
+          "valid_utc": "2026-03-27T00:00:00+00:00",
+          "score": 12,
+          "rating": "firing",
+          "swell_height": 0.5,
+          "swell_dir": 51,
+          "swell_period": 8.5,
+          "wind_kt": 18.8,
+          "wind_dir": 86,
+          "tide_height": 0.87
+        },
+        {
+          "spot_id": "aimen",
+          "valid_utc": "2026-03-27T06:00:00+00:00",
+          "score": 9,
+          "rating": "firing",
+          "swell_height": 1.6,
+          "swell_dir": 50,
+          "swell_period": 10.1,
+          "wind_kt": 13.4,
+          "wind_dir": 78,
+          "tide_height": 0.77
+        },
+        {
+          "spot_id": "aimen",
+          "valid_utc": "2026-03-27T12:00:00+00:00",
+          "score": 5,
+          "rating": "marginal",
+          "swell_height": 1.3,
+          "swell_dir": 74,
+          "swell_period": 12.4,
+          "wind_kt": 13.2,
+          "wind_dir": 56,
+          "tide_height": 0.2
+        },
+        {
+          "spot_id": "aimen",
+          "valid_utc": "2026-03-27T18:00:00+00:00",
+          "score": 4,
+          "rating": "marginal",
+          "swell_height": 1.1,
+          "swell_dir": 72,
+          "swell_period": 12.0,
+          "wind_kt": 15.2,
+          "wind_dir": 78,
+          "tide_height": 0.68
+        },
+        {
+          "spot_id": "aimen",
+          "valid_utc": "2026-03-28T00:00:00+00:00",
+          "score": 7,
+          "rating": "good",
+          "swell_height": 0.9,
+          "swell_dir": 37,
+          "swell_period": 11.4,
+          "wind_kt": 13.8,
+          "wind_dir": 88,
+          "tide_height": 0.48
+        },
+        {
+          "spot_id": "aimen",
+          "valid_utc": "2026-03-28T06:00:00+00:00",
+          "score": 9,
+          "rating": "firing",
+          "swell_height": 1.7,
+          "swell_dir": 51,
+          "swell_period": 12.2,
+          "wind_kt": 15.9,
+          "wind_dir": 79,
+          "tide_height": 0.84
+        },
+        {
+          "spot_id": "aimen",
+          "valid_utc": "2026-03-28T12:00:00+00:00",
+          "score": 4,
+          "rating": "marginal",
+          "swell_height": 1.8,
+          "swell_dir": 49,
+          "swell_period": 9.2,
+          "wind_kt": 7.9,
+          "wind_dir": 52,
+          "tide_height": 0.33
+        },
+        {
+          "spot_id": "aimen",
+          "valid_utc": "2026-03-28T18:00:00+00:00",
+          "score": 9,
+          "rating": "firing",
+          "swell_height": 1.7,
+          "swell_dir": 64,
+          "swell_period": 10.1,
+          "wind_kt": 13.8,
+          "wind_dir": 62,
+          "tide_height": 1.03
+        }
+      ],
+      "best_times": [
+        {
+          "date": "2026-03-27",
+          "start_cst": "08:00",
+          "end_cst": "10:00",
+          "rating": "marginal"
+        },
+        {
+          "date": "2026-03-28",
+          "start_cst": "07:00",
+          "end_cst": "10:00",
+          "rating": "good"
+        }
+      ],
+      "daily_best": [
+        {
+          "date": "2026-03-27",
+          "rating": "firing",
+          "score": 9
+        },
+        {
+          "date": "2026-03-28",
+          "rating": "firing",
+          "score": 11
+        },
+        {
+          "date": "2026-03-29",
+          "rating": "poor",
+          "score": 2
+        },
+        {
+          "date": "2026-03-30",
+          "rating": "good",
+          "score": 7
+        }
+      ]
+    }
+  ]
+}

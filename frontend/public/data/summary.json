@@ -1,0 +1,14 @@
+{
+  "wind": {
+    "en": "Northeast monsoon winds of 12-20 knots are expected through Saturday, easing to 8-12 knots by Sunday as a ridge builds over the region. Gusts to 25 knots possible near headlands during the afternoon hours.",
+    "zh": "\u6771\u5317\u5b63\u98a8\u98a8\u901f\u9810\u8a08\u5728\u9031\u516d\u524d\u7dad\u630112-20\u7bc0\uff0c\u9031\u65e5\u96a8\u8457\u9ad8\u58d3\u810a\u5efa\u7acb\u5c07\u6e1b\u5f31\u81f38-12\u7bc0\u3002\u5348\u5f8c\u5cac\u89d2\u9644\u8fd1\u9663\u98a8\u53ef\u905425\u7bc0\u3002"
+  },
+  "waves": {
+    "en": "A moderate NE swell of 1.0-1.8m will persist through Friday, with periods around 9-11 seconds. The swell drops to 0.8m by the weekend as the fetch weakens. Best conditions for northeast-facing breaks on Saturday morning.",
+    "zh": "\u4e2d\u7b49\u6771\u5317\u6d6a\u9ad81.0-1.8\u516c\u5c3a\u5c07\u6301\u7e8c\u81f3\u9031\u4e94\uff0c\u9031\u671f\u7d049-11\u79d2\u3002\u9031\u672b\u96a8\u8457\u98a8\u5340\u6e1b\u5f31\uff0c\u6d6a\u9ad8\u964d\u81f30.8\u516c\u5c3a\u3002\u9031\u516d\u4e0a\u5348\u70ba\u6771\u5317\u5411\u6d6a\u9ede\u6700\u4f73\u689d\u4ef6\u3002"
+  },
+  "outlook": {
+    "en": "A weakening cold front approaches Monday with brief rain showers and a wind shift to northerly 15-20 knots. Temperatures drop 2-3 degrees behind the front. Models agree well on timing but diverge on wind strength, so confidence is moderate.",
+    "zh": "\u6e1b\u5f31\u51b7\u92d2\u65bc\u9031\u4e00\u63a5\u8fd1\uff0c\u4f34\u96a8\u77ed\u66ab\u9663\u96e8\u53ca\u5317\u98a8\u8f4915-20\u7bc0\u3002\u92d2\u9762\u904e\u5f8c\u6c23\u6eab\u4e0b\u964d2-3\u5ea6\u3002\u6a21\u5f0f\u5c0d\u6642\u9593\u9ede\u4e00\u81f4\u4f46\u98a8\u901f\u5206\u6b67\uff0c\u4fe1\u5fc3\u5ea6\u4e2d\u7b49\u3002"
+  }
+}

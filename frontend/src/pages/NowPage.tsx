@@ -4,6 +4,10 @@ import { useTimeline } from '@/hooks/useTimeline'
 import { useActivity } from '@/hooks/useActivity'
 import { ForecastMap } from '@/components/map/ForecastMap'
 import { TimelineScrubber } from '@/components/timeline/TimelineScrubber'
+import { WindChart } from '@/components/charts/WindChart'
+import { WaveChart } from '@/components/charts/WaveChart'
+import { TideChart } from '@/components/charts/TideChart'
+import { TempPressureChart } from '@/components/charts/TempPressureChart'
 
 export function NowPage() {
   const { t } = useTranslation()
@@ -135,6 +139,49 @@ export function NowPage() {
                 </span>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Charts */}
+        {data.keelung?.records && (
+          <div className="border border-[var(--color-border)] rounded-xl p-4">
+            <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-3">
+              {t('common.wind')}
+            </p>
+            <WindChart
+              records={data.keelung.records}
+              ecmwfRecords={data.ecmwf?.records}
+            />
+          </div>
+        )}
+
+        {data.wave?.ecmwf_wave?.records && (
+          <div className="border border-[var(--color-border)] rounded-xl p-4">
+            <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-3">
+              Waves
+            </p>
+            <WaveChart records={data.wave.ecmwf_wave.records} />
+          </div>
+        )}
+
+        {data.tide && (
+          <div className="border border-[var(--color-border)] rounded-xl p-4">
+            <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-3">
+              Tide
+            </p>
+            <TideChart
+              predictions={data.tide.predictions}
+              extrema={data.tide.extrema}
+            />
+          </div>
+        )}
+
+        {data.keelung?.records && (
+          <div className="border border-[var(--color-border)] rounded-xl p-4">
+            <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-3">
+              {t('common.temp')} & {t('common.pressure')}
+            </p>
+            <TempPressureChart records={data.keelung.records} />
           </div>
         )}
       </div>
