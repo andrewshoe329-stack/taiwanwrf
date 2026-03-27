@@ -1,0 +1,143 @@
+{
+  "app": {
+    "title": "台灣帆船衝浪",
+    "subtitle": "風、浪、天氣預報"
+  },
+  "nav": {
+    "now": "即時",
+    "spots": "浪點",
+    "models": "模式"
+  },
+  "activity": {
+    "sail": "帆船",
+    "surf": "衝浪"
+  },
+  "decision": {
+    "go": "出發！",
+    "caution": "注意",
+    "nogo": "留港",
+    "great_sailing": "絕佳航行條件",
+    "good_sailing": "良好航行條件",
+    "marginal_sailing": "勉強——請查看詳情",
+    "nogo_sailing": "不建議出航",
+    "firing_surf": "{{spot}} 超讚！",
+    "good_surf": "{{spot}} 浪況不錯",
+    "marginal_surf": "浪況勉強",
+    "flat_surf": "無浪",
+    "dangerous": "危險條件"
+  },
+  "live": {
+    "title": "即時觀測",
+    "obs_age": "{{minutes}}分鐘前",
+    "wind": "風速",
+    "gust": "陣風",
+    "temp": "溫度",
+    "pressure": "氣壓",
+    "waves": "浪高",
+    "swell": "湧浪",
+    "period": "週期",
+    "visibility": "能見度",
+    "tide": "潮汐",
+    "rising": "漲潮中",
+    "falling": "退潮中",
+    "high_in": "{{hours}}小時後高潮",
+    "low_in": "{{hours}}小時後低潮",
+    "humidity": "濕度",
+    "water_temp": "水溫"
+  },
+  "timeline": {
+    "now": "現在",
+    "play": "播放",
+    "pause": "暫停",
+    "next_update": "約 {{hours}} 小時後更新"
+  },
+  "ai": {
+    "title": "AI 預報摘要",
+    "wind": "風況",
+    "waves": "浪況",
+    "outlook": "展望",
+    "disclaimer": "AI 生成摘要，安全決策前請參考官方資料。",
+    "show_more": "顯示詳情",
+    "show_less": "收起詳情"
+  },
+  "spots": {
+    "title": "衝浪浪點",
+    "best_now": "最佳浪點",
+    "heatmap_title": "七日展望",
+    "ranked_title": "今日排名",
+    "all": "全部",
+    "good_plus": "好浪+",
+    "firing_only": "超讚",
+    "best_time": "最佳時段",
+    "why_rating": "為什麼是這個評分？",
+    "score_swell_dir": "湧浪方向匹配",
+    "score_wind_dir": "離岸風",
+    "score_wind_speed": "風速",
+    "score_swell_height": "湧浪高度",
+    "score_wave_period": "浪週期",
+    "view_detail": "查看詳情",
+    "view_all": "查看所有浪點"
+  },
+  "rating": {
+    "firing": "超讚！",
+    "good": "良好",
+    "marginal": "勉強",
+    "poor": "差",
+    "flat": "無浪",
+    "dangerous": "危險"
+  },
+  "region": {
+    "all": "全部地區",
+    "north": "北部",
+    "northeast": "東北部",
+    "east": "東部",
+    "south": "南部",
+    "west": "西部",
+    "penghu": "澎湖"
+  },
+  "models_page": {
+    "title": "模式與準確度",
+    "comparison": "模式比較",
+    "accuracy": "預報準確度",
+    "wind_speed": "風速",
+    "temperature": "溫度",
+    "wave_height": "浪高",
+    "mae": "平均絕對誤差",
+    "bias": "偏差",
+    "horizon": "預報時距",
+    "history": "驗證歷史",
+    "agreement": "模式一致性",
+    "high_agreement": "高——模式一致",
+    "some_divergence": "部分分歧",
+    "low_agreement": "模式分歧",
+    "confidence": "信心度"
+  },
+  "harbour": {
+    "keelung": "基隆",
+    "kaohsiung": "高雄",
+    "taichung": "台中",
+    "hualien": "花蓮",
+    "anping": "安平",
+    "magong": "馬公"
+  },
+  "common": {
+    "loading": "載入預報資料中...",
+    "error": "載入資料失敗",
+    "retry": "重試",
+    "stale_warning": "顯示快取資料——可能已過時",
+    "refresh": "重新整理",
+    "last_updated": "最後更新",
+    "data_source": "資料：CWA WRF 3km + ECMWF IFS + WAM"
+  },
+  "units": {
+    "kt": "節",
+    "ms": "公尺/秒",
+    "celsius": "°C",
+    "hpa": "百帕",
+    "m": "公尺",
+    "s": "秒",
+    "km": "公里",
+    "mm": "毫米",
+    "pct": "%"
+  }
+}

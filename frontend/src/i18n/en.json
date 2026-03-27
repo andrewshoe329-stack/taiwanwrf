@@ -1,0 +1,143 @@
+{
+  "app": {
+    "title": "Taiwan Sail & Surf",
+    "subtitle": "Wind, Waves & Weather Forecast"
+  },
+  "nav": {
+    "now": "Now",
+    "spots": "Spots",
+    "models": "Models"
+  },
+  "activity": {
+    "sail": "Sail",
+    "surf": "Surf"
+  },
+  "decision": {
+    "go": "Go!",
+    "caution": "Caution",
+    "nogo": "Stay Home",
+    "great_sailing": "Great sailing conditions",
+    "good_sailing": "Good sailing conditions",
+    "marginal_sailing": "Marginal — check details",
+    "nogo_sailing": "Not recommended",
+    "firing_surf": "Firing at {{spot}}!",
+    "good_surf": "Good surf at {{spot}}",
+    "marginal_surf": "Marginal surf conditions",
+    "flat_surf": "Flat — no rideable waves",
+    "dangerous": "Dangerous conditions"
+  },
+  "live": {
+    "title": "Live Conditions",
+    "obs_age": "{{minutes}}m ago",
+    "wind": "Wind",
+    "gust": "Gust",
+    "temp": "Temp",
+    "pressure": "Pressure",
+    "waves": "Waves",
+    "swell": "Swell",
+    "period": "Period",
+    "visibility": "Visibility",
+    "tide": "Tide",
+    "rising": "Rising",
+    "falling": "Falling",
+    "high_in": "High in {{hours}}h",
+    "low_in": "Low in {{hours}}h",
+    "humidity": "Humidity",
+    "water_temp": "Water"
+  },
+  "timeline": {
+    "now": "Now",
+    "play": "Play",
+    "pause": "Pause",
+    "next_update": "Next update in ~{{hours}}h"
+  },
+  "ai": {
+    "title": "AI Forecast Summary",
+    "wind": "Wind",
+    "waves": "Waves",
+    "outlook": "Outlook",
+    "disclaimer": "AI-generated summary. Verify with official sources before making safety decisions.",
+    "show_more": "Show details",
+    "show_less": "Hide details"
+  },
+  "spots": {
+    "title": "Surf Spots",
+    "best_now": "Best Right Now",
+    "heatmap_title": "7-Day Outlook",
+    "ranked_title": "Today's Rankings",
+    "all": "All",
+    "good_plus": "Good+",
+    "firing_only": "Firing",
+    "best_time": "Best Time",
+    "why_rating": "Why this rating?",
+    "score_swell_dir": "Swell direction match",
+    "score_wind_dir": "Offshore wind",
+    "score_wind_speed": "Wind speed",
+    "score_swell_height": "Swell height",
+    "score_wave_period": "Wave period",
+    "view_detail": "View Details",
+    "view_all": "View All Spots"
+  },
+  "rating": {
+    "firing": "Firing!",
+    "good": "Good",
+    "marginal": "Marginal",
+    "poor": "Poor",
+    "flat": "Flat",
+    "dangerous": "Dangerous"
+  },
+  "region": {
+    "all": "All Regions",
+    "north": "North",
+    "northeast": "Northeast",
+    "east": "East Coast",
+    "south": "South",
+    "west": "West",
+    "penghu": "Penghu"
+  },
+  "models_page": {
+    "title": "Models & Accuracy",
+    "comparison": "Model Comparison",
+    "accuracy": "Forecast Accuracy",
+    "wind_speed": "Wind Speed",
+    "temperature": "Temperature",
+    "wave_height": "Wave Height",
+    "mae": "MAE",
+    "bias": "Bias",
+    "horizon": "Forecast Horizon",
+    "history": "Verification History",
+    "agreement": "Model Agreement",
+    "high_agreement": "High — models agree",
+    "some_divergence": "Some divergence",
+    "low_agreement": "Models disagree",
+    "confidence": "Confidence"
+  },
+  "harbour": {
+    "keelung": "Keelung",
+    "kaohsiung": "Kaohsiung",
+    "taichung": "Taichung",
+    "hualien": "Hualien",
+    "anping": "Anping",
+    "magong": "Magong"
+  },
+  "common": {
+    "loading": "Loading forecast data...",
+    "error": "Failed to load data",
+    "retry": "Retry",
+    "stale_warning": "Viewing cached data — may be outdated",
+    "refresh": "Refresh",
+    "last_updated": "Last updated",
+    "data_source": "Data: CWA WRF 3km + ECMWF IFS + WAM"
+  },
+  "units": {
+    "kt": "kt",
+    "ms": "m/s",
+    "celsius": "°C",
+    "hpa": "hPa",
+    "m": "m",
+    "s": "s",
+    "km": "km",
+    "mm": "mm",
+    "pct": "%"
+  }
+}
