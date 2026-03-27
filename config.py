@@ -138,6 +138,23 @@ SPOT_COORDS = [
     {"id": "wushih",      "lat": 24.862, "lon": 121.921},
     {"id": "doublelions", "lat": 24.847, "lon": 121.917},
     {"id": "chousui",     "lat": 24.820, "lon": 121.899},
+    # East coast
+    {"id": "jici",        "lat": 23.700, "lon": 121.540},
+    {"id": "donghe",      "lat": 22.970, "lon": 121.300},
+    {"id": "jinzun",      "lat": 22.970, "lon": 121.280},
+    {"id": "chenggong",   "lat": 23.100, "lon": 121.380},
+    {"id": "dulan",       "lat": 22.880, "lon": 121.230},
+    # South
+    {"id": "nanwan",      "lat": 21.955, "lon": 120.765},
+    {"id": "jialeshuei",  "lat": 21.990, "lon": 120.850},
+    {"id": "baishawan",   "lat": 21.945, "lon": 120.710},
+    # West coast
+    {"id": "daan",        "lat": 24.370, "lon": 120.550},
+    {"id": "qigu",        "lat": 23.130, "lon": 120.070},
+    # Penghu
+    {"id": "shanshui",    "lat": 23.540, "lon": 119.580},
+    {"id": "fenggui",     "lat": 23.520, "lon": 119.540},
+    {"id": "aimen",       "lat": 23.570, "lon": 119.630},
 ]
 
 # Spot → county mapping (for township forecast endpoint selection)
@@ -145,6 +162,49 @@ SPOT_COUNTY = {
     "keelung": "基隆市", "fulong": "新北市", "greenbay": "新北市",
     "jinshan": "新北市", "daxi": "宜蘭縣", "wushih": "宜蘭縣",
     "doublelions": "宜蘭縣", "chousui": "宜蘭縣",
+}
+
+# ── Full Taiwan coverage ─────────────────────────────────────────────────────
+# Bounding box for the entire Taiwan region (main island + Penghu).
+
+TAIWAN_BBOX = {
+    "lat_min": 21.5, "lat_max": 25.5,
+    "lon_min": 119.0, "lon_max": 122.5,
+}
+
+# Major harbour coordinates: id → (lat, lon)
+HARBOUR_COORDS = {
+    "keelung":   (25.156, 121.788),   # existing KEELUNG_LAT/LON
+    "kaohsiung": (22.615, 120.265),
+    "taichung":  (24.280, 120.510),
+    "hualien":   (23.975, 121.610),
+    "anping":    (22.995, 120.160),
+    "magong":    (23.565, 119.580),
+}
+
+# Spot → region mapping
+SPOT_REGION = {
+    "keelung":     "north",
+    "fulong":      "northeast",
+    "greenbay":    "north",
+    "jinshan":     "north",
+    "daxi":        "northeast",
+    "wushih":      "northeast",
+    "doublelions": "northeast",
+    "chousui":     "northeast",
+    "jici":        "east",
+    "donghe":      "east",
+    "jinzun":      "east",
+    "chenggong":   "east",
+    "dulan":       "east",
+    "nanwan":      "south",
+    "jialeshuei":  "south",
+    "baishawan":   "south",
+    "daan":        "west",
+    "qigu":        "west",
+    "shanshui":    "penghu",
+    "fenggui":     "penghu",
+    "aimen":       "penghu",
 }
 
 # ── Shared direction / compass utilities ─────────────────────────────────────

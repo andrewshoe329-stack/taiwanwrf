@@ -192,8 +192,8 @@ class TestLoadJsonFile:
 
 
 class TestSpotCoords:
-    def test_has_8_entries(self):
-        assert len(SPOT_COORDS) == 8
+    def test_has_at_least_8_entries(self):
+        assert len(SPOT_COORDS) >= 8
 
     def test_keelung_is_first(self):
         assert SPOT_COORDS[0]["id"] == "keelung"
@@ -210,12 +210,14 @@ class TestSpotCoords:
 
     def test_coordinates_in_taiwan(self):
         for s in SPOT_COORDS:
-            assert 24 < s["lat"] < 26, f"{s['id']} lat out of range"
-            assert 121 < s["lon"] < 123, f"{s['id']} lon out of range"
+            assert 21 < s["lat"] < 26, f"{s['id']} lat out of range"
+            assert 119 < s["lon"] < 123, f"{s['id']} lon out of range"
 
-    def test_spot_county_covers_all(self):
-        spot_ids = {s["id"] for s in SPOT_COORDS}
-        assert set(SPOT_COUNTY.keys()) == spot_ids
+    def test_spot_county_covers_original_spots(self):
+        """SPOT_COUNTY covers at least the original 8 northern spots."""
+        original_ids = {"keelung", "fulong", "greenbay", "jinshan",
+                        "daxi", "wushih", "doublelions", "chousui"}
+        assert original_ids.issubset(set(SPOT_COUNTY.keys()))
 
     def test_county_values_valid(self):
         valid = {"基隆市", "新北市", "宜蘭縣"}

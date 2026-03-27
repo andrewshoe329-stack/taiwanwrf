@@ -36,6 +36,13 @@ jobs:
 
       # Install ALL system deps + Python deps in a single apt pass.
       # --no-install-recommends shaves ~15 MB of docs/extras off the download.
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
       - name: Install dependencies
         run: |
           sudo apt-get update -q
@@ -223,6 +230,15 @@ jobs:
           fi
           python ensemble_fetch.py $ECMWF_ARG --output ensemble_keelung.json
 
+      # ── Fetch gridded wind data for frontend particle animation ──────────────
+      - name: Fetch wind grids (ECMWF, GFS, ICON)
+        if: steps.stale_check.outputs.is_new == 'true'
+        timeout-minutes: 10
+        continue-on-error: true
+        run: |
+          mkdir -p frontend/public/data
+          python wind_grid_fetch.py --output-dir frontend/public/data
+
       # ── Generate surf forecast & planner JSON ───────────────────────────────
       # Fetches ECMWF + marine data for all 7 surf spots plus Keelung sailing.
       # Outputs: surf_forecast.html (spots section) + surf_planner.json (for day cards).
@@ -295,6 +311,7 @@ jobs:
             $CWA_OBS_ARG \
             --output-json keelung_summary_new.json \
             --output-html forecast.html \
+            --output-wind-grid frontend/public/data/wind_grid_wrf.json \
             --output-dir public
 
       # ── Generate AI forecast summary ──────────────────────────────────────────
@@ -457,21 +474,39 @@ jobs:
           fi
 
       # ── Build & deploy to Vercel ──────────────────────────────────────────────
-      # Python scripts (wrf_analyze.py --output-dir, surf_forecast.py --output-dir)
-      # already generated complete HTML pages in public/.
-      # This step just copies static PWA assets alongside them.
+      # Two builds: legacy HTML pages in public/ + React SPA in frontend/dist/
+      # The React SPA is the primary deployment target.
       - name: Build Vercel site
         if: steps.stale_check.outputs.is_new == 'true' && !cancelled()
-        timeout-minutes: 5
+        timeout-minutes: 10
         run: |
+          # Legacy HTML build (kept for backwards compatibility)
           mkdir -p public/spots
-          # PWA + design system assets
           cp pwa/manifest.json pwa/sw.js pwa/app.js pwa/icon-192.png pwa/icon-512.png pwa/styles.css public/
 
-          echo "Multi-page site structure:"
-          find public -type f -name '*.html' | sort
-          echo "Static assets:"
-          ls -la public/*.css public/*.js public/*.json 2>/dev/null || true
+          # Copy JSON data files to frontend/public/data/ for the React SPA
+          mkdir -p frontend/public/data
+          for f in keelung_summary_new.json ecmwf_keelung.json wave_keelung.json \
+                   tide_keelung.json ensemble_keelung.json cwa_obs.json accuracy_log.json; do
+            if [ -f "$f" ]; then
+              # Map Python output names to frontend expected names
+              DEST=$(echo "$f" | sed 's/_keelung//; s/_summary_new//; s/_log//')
+              cp "$f" "frontend/public/data/$DEST"
+            fi
+          done
+          # Copy surf planner if available
+          if [ -f surf_planner.json ]; then
+            cp surf_planner.json frontend/public/data/surf.json
+          fi
+
+          # Build React SPA
+          cd frontend
+          npm ci --prefer-offline
+          npm run build
+          echo "Frontend build output:"
+          ls -la dist/
+          echo "Data files:"
+          ls -la public/data/ 2>/dev/null || true
 
       - name: Deploy to Vercel
         if: steps.stale_check.outputs.is_new == 'true' && !cancelled()

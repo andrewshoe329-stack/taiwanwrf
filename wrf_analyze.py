@@ -386,6 +386,116 @@ def extract_forecast(rundir: Path) -> tuple[dict, list[dict]]:
     return meta, records
 
 
+# ── Wind grid extraction (for frontend particle animation) ────────────────────
+
+def extract_wind_grid(rundir: Path, meta: dict) -> dict | None:
+    """
+    Extract 2D u10/v10 wind fields from all GRIB2 files in the run directory.
+    Returns a dict matching the WindGrid JSON schema for the frontend.
+    """
+    import eccodes as ec
+
+    grb_files = sorted(rundir.glob('*_keelung*.grb2'))
+    if not grb_files:
+        return None
+
+    init_time = meta.get('init_utc')
+    timesteps = []
+    grid_info = None
+
+    for grb in grb_files:
+        m = re.search(r'-(\d{3})_keelung', grb.name)
+        if not m:
+            continue
+        fh = int(m.group(1))
+        # Only use 6-hourly steps
+        if fh % 6 != 0:
+            continue
+
+        valid_time = None
+        if init_time:
+            it = datetime.fromisoformat(init_time)
+            valid_time = (it + timedelta(hours=fh)).isoformat()
+
+        u_field = None
+        v_field = None
+
+        with open(grb, 'rb') as f:
+            while True:
+                msg = ec.codes_grib_new_from_file(f)
+                if msg is None:
+                    break
+                try:
+                    sname = ec.codes_get(msg, 'shortName')
+                    tol = ec.codes_get(msg, 'typeOfLevel')
+                    lvl = ec.codes_get(msg, 'level')
+
+                    if tol == 'heightAboveGround' and lvl == 10:
+                        ni = ec.codes_get(msg, 'Ni')
+                        nj = ec.codes_get(msg, 'Nj')
+                        if ni <= 0 or nj <= 0:
+                            continue
+
+                        vals = ec.codes_get_values(msg)
+                        if len(vals) != ni * nj:
+                            continue
+
+                        field_2d = vals.reshape(nj, ni)
+
+                        if sname in ('10u', 'UGRD'):
+                            u_field = field_2d
+                        elif sname in ('10v', 'VGRD'):
+                            v_field = field_2d
+
+                        # Capture grid geometry once
+                        if grid_info is None:
+                            lats = ec.codes_get_array(msg, 'latitudes').reshape(nj, ni)
+                            lons = ec.codes_get_array(msg, 'longitudes').reshape(nj, ni)
+                            grid_info = {
+                                'nx': ni, 'ny': nj,
+                                'lat_min': float(lats.min()),
+                                'lat_max': float(lats.max()),
+                                'lon_min': float(lons.min()),
+                                'lon_max': float(lons.max()),
+                            }
+
+                except (KeyError, ValueError, TypeError, OSError):
+                    pass
+                finally:
+                    ec.codes_release(msg)
+
+        if u_field is not None and v_field is not None:
+            # Subsample to reduce JSON size — take every Nth point
+            step = max(1, min(u_field.shape[0], u_field.shape[1]) // 50)
+            u_sub = u_field[::step, ::step]
+            v_sub = v_field[::step, ::step]
+
+            timesteps.append({
+                'valid_utc': valid_time or '',
+                'u': [[round(float(x), 2) for x in row] for row in u_sub],
+                'v': [[round(float(x), 2) for x in row] for row in v_sub],
+            })
+
+    if not timesteps or not grid_info:
+        return None
+
+    # Update grid dims to match subsampled size
+    ny_out = len(timesteps[0]['u'])
+    nx_out = len(timesteps[0]['u'][0]) if ny_out > 0 else 0
+
+    return {
+        'model': 'WRF-3km',
+        'bounds': {
+            'lat_min': grid_info['lat_min'],
+            'lat_max': grid_info['lat_max'],
+            'lon_min': grid_info['lon_min'],
+            'lon_max': grid_info['lon_max'],
+        },
+        'grid': {'nx': nx_out, 'ny': ny_out},
+        'timesteps': timesteps,
+    }
+
+
 # ── HTML rendering ────────────────────────────────────────────────────────────
 
 def _temp_bg(t: float | None) -> str:
@@ -2104,6 +2214,8 @@ def main() -> None:
                    help='Output directory for multi-page HTML (generates index.html, hourly.html, accuracy.html)')
     p.add_argument('--ai-summary',  default=None,
                    help='AI summary HTML fragment to embed in dashboard page')
+    p.add_argument('--output-wind-grid', default=None,
+                   help='Output wind grid JSON for frontend particle animation')
     p.add_argument('--list-vars',   action='store_true',
                    help='Diagnostic: list all GRIB2 shortNames in the first file and exit')
     args = p.parse_args()
@@ -2155,6 +2267,19 @@ def main() -> None:
     out_json = Path(args.output_json)
     out_json.write_text(json.dumps(summary, indent=2))
     log.info("Summary → %s", out_json)
+
+    # ── Export wind grid for frontend particle animation ──────────────────────
+    if args.output_wind_grid:
+        wind_grid = extract_wind_grid(rundir, meta)
+        if wind_grid:
+            wg_path = Path(args.output_wind_grid)
+            wg_path.parent.mkdir(parents=True, exist_ok=True)
+            wg_path.write_text(json.dumps(wind_grid))
+            log.info("Wind grid → %s (%d timesteps, %dx%d)",
+                     wg_path, len(wind_grid['timesteps']),
+                     wind_grid['grid']['nx'], wind_grid['grid']['ny'])
+        else:
+            log.warning("Could not extract wind grid from GRIB2 files")
 
     # ── Load ECMWF comparison data ────────────────────────────────────────────
     ecmwf_records = []

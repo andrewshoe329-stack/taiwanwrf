@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="128" fill="#000"/>
+  <!-- Minimal wave form -->
+  <path d="M64 320 C128 240, 192 400, 256 320 S384 240, 448 320" stroke="#fff" stroke-width="28" fill="none" stroke-linecap="round"/>
+  <!-- Wind line -->
+  <path d="M96 200 L320 200 Q380 200, 360 160" stroke="#fff" stroke-width="16" fill="none" stroke-linecap="round"/>
+  <path d="M128 240 L280 240 Q330 240, 316 208" stroke="#666" stroke-width="12" fill="none" stroke-linecap="round"/>
+</svg>
