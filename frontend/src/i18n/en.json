@@ -86,6 +86,12 @@
     "five_day_forecast": "5-Day Forecast",
     "swell_compass": "Swell Compass",
     "score_breakdown": "Score Breakdown",
+    "hourly_forecast": "Hourly Forecast",
+    "time": "Time",
+    "swell": "Swell",
+    "period": "Period",
+    "tide": "Tide",
+    "rating_label": "Rating",
     "no_data": "No forecast data available yet",
     "coming_soon": "Coming soon"
   },

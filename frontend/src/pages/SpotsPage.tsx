@@ -19,13 +19,21 @@ export function SpotsPage() {
     ? SPOTS
     : SPOTS.filter(s => s.region === activeRegion)
 
-  // Build a lookup of spot id -> best current rating from surf data
-  const spotRatings: Record<string, { rating: string; score: number }> = {}
+  // Build a lookup of spot id -> best current rating + conditions from surf data
+  const spotRatings: Record<string, { rating: string; score: number; wind_kt?: number; wind_dir?: number; swell_height?: number; swell_period?: number }> = {}
   if (data.surf?.spots) {
     for (const sf of data.surf.spots) {
       const best = sf.daily_best?.[0]
+      const currentRating = sf.ratings?.[0]
       if (best) {
-        spotRatings[sf.spot.id] = { rating: best.rating, score: best.score }
+        spotRatings[sf.spot.id] = {
+          rating: best.rating,
+          score: best.score,
+          wind_kt: currentRating?.wind_kt,
+          wind_dir: currentRating?.wind_dir,
+          swell_height: currentRating?.swell_height,
+          swell_period: currentRating?.swell_period,
+        }
       }
     }
   }
@@ -84,7 +92,25 @@ export function SpotsPage() {
                   <RatingBadge rating={ratingInfo.rating} t={t} />
                 )}
               </div>
-              <div className="flex items-center gap-3 mt-3">
+              {/* Current conditions from forecast data */}
+              {ratingInfo && (ratingInfo.wind_kt != null || ratingInfo.swell_height != null) && (
+                <div className="flex items-center gap-3 mt-2 text-xs text-[var(--color-text-secondary)]">
+                  {ratingInfo.wind_kt != null && (
+                    <span className="tabular-nums">
+                      {ratingInfo.wind_kt.toFixed(0)} kt
+                    </span>
+                  )}
+                  {ratingInfo.swell_height != null && (
+                    <span className="tabular-nums">
+                      {ratingInfo.swell_height.toFixed(1)} m
+                      {ratingInfo.swell_period != null && (
+                        <span className="text-[var(--color-text-muted)]"> @ {ratingInfo.swell_period.toFixed(0)}s</span>
+                      )}
+                    </span>
+                  )}
+                </div>
+              )}
+              <div className="flex items-center gap-3 mt-2">
                 <span className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">
                   {t(`region.${spot.region}`)}
                 </span>
