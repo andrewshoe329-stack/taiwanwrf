@@ -25,7 +25,6 @@ export function ForecastMap() {
   const particlesRef = useRef<WindParticleSystem | null>(null)
   const [mapReady, setMapReady] = useState(false)
   const [outlineStatus, setOutlineStatus] = useState<'loading' | 'ok' | 'error'>('loading')
-  const [showParticles, setShowParticles] = useState(true)
 
   const { index } = useTimeline()
   const { grid, model, setModel } = useWindGrid()
@@ -48,50 +47,30 @@ export function ForecastMap() {
     map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right')
 
     map.on('load', async () => {
-      // Load Taiwan coastline outline
+      // Load Taiwan coastline for canvas overlay
       try {
         const resp = await fetch('/data/taiwan.geojson')
         if (!resp.ok) throw new Error(`GeoJSON fetch failed: ${resp.status}`)
         const geojson = await resp.json()
-        map.addSource('taiwan-outline', { type: 'geojson', data: geojson })
 
-        map.addLayer({
-          id: 'taiwan-fill',
-          type: 'fill',
-          source: 'taiwan-outline',
-          paint: {
-            'fill-color': '#22d3ee',
-            'fill-opacity': 0.15,
-          },
-        })
+        // Extract polygon rings from GeoJSON for canvas drawing
+        const rings: [number, number][][] = []
+        for (const feature of geojson.features ?? []) {
+          const coords = feature.geometry?.coordinates
+          if (feature.geometry?.type === 'Polygon' && coords) {
+            for (const ring of coords) rings.push(ring)
+          } else if (feature.geometry?.type === 'MultiPolygon' && coords) {
+            for (const polygon of coords)
+              for (const ring of polygon) rings.push(ring)
+          }
+        }
 
-        // Glow effect: wider blurred line behind the main line
-        map.addLayer({
-          id: 'taiwan-line-glow',
-          type: 'line',
-          source: 'taiwan-outline',
-          paint: {
-            'line-color': '#22d3ee',
-            'line-width': 6,
-            'line-opacity': 0.4,
-            'line-blur': 3,
-          },
-        })
-
-        map.addLayer({
-          id: 'taiwan-line',
-          type: 'line',
-          source: 'taiwan-outline',
-          paint: {
-            'line-color': '#22d3ee',
-            'line-width': 2,
-            'line-opacity': 1,
-          },
-        })
-        console.log('[ForecastMap] Taiwan outline: OK — 3 layers added')
+        // Pass coastline to particle system for canvas rendering
+        particlesRef.current?.setCoastline(rings)
+        console.log('[ForecastMap] Coastline loaded:', rings.length, 'rings')
         setOutlineStatus('ok')
       } catch (err) {
-        console.warn('[ForecastMap] Taiwan outline FAILED:', err)
+        console.warn('[ForecastMap] Coastline load FAILED:', err)
         setOutlineStatus('error')
       }
 
@@ -187,7 +166,7 @@ export function ForecastMap() {
       <canvas
         ref={canvasRef}
         className="absolute inset-0 pointer-events-none"
-        style={{ zIndex: 1, display: showParticles ? 'block' : 'none' }}
+        style={{ zIndex: 1 }}
       />
 
       {/* Model switcher */}
@@ -213,22 +192,16 @@ export function ForecastMap() {
       {/* Spot markers */}
       <SpotMarkers map={mapReady ? mapRef.current : null} />
 
-      {/* Debug controls — remove after confirming outline works */}
-      <div className="absolute bottom-2 left-2 z-30 flex gap-2">
-        <div className="px-2 py-0.5 rounded text-[10px] font-mono backdrop-blur-sm"
+      {/* Debug badge — remove after confirming outline works */}
+      {outlineStatus !== 'ok' && (
+        <div className="absolute bottom-2 left-2 z-30 px-2 py-0.5 rounded text-[10px] font-mono backdrop-blur-sm"
           style={{
-            background: outlineStatus === 'ok' ? 'rgba(34,211,238,0.3)' : outlineStatus === 'error' ? 'rgba(248,113,113,0.3)' : 'rgba(255,255,255,0.1)',
-            color: outlineStatus === 'ok' ? '#22d3ee' : outlineStatus === 'error' ? '#f87171' : '#666',
+            background: outlineStatus === 'error' ? 'rgba(248,113,113,0.3)' : 'rgba(255,255,255,0.1)',
+            color: outlineStatus === 'error' ? '#f87171' : '#666',
           }}>
           outline: {outlineStatus}
         </div>
-        <button
-          onClick={() => setShowParticles(p => !p)}
-          className="px-2 py-0.5 rounded text-[10px] font-mono backdrop-blur-sm border border-[var(--color-border)]"
-          style={{ background: 'rgba(255,255,255,0.1)', color: '#aaa' }}>
-          {showParticles ? 'hide' : 'show'} particles
-        </button>
-      </div>
+      )}
     </div>
   )
 }
