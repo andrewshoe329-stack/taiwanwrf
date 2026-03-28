@@ -24,6 +24,7 @@ export function ForecastMap() {
   const mapRef = useRef<maplibregl.Map | null>(null)
   const particlesRef = useRef<WindParticleSystem | null>(null)
   const [mapReady, setMapReady] = useState(false)
+  const [outlineStatus, setOutlineStatus] = useState<'loading' | 'ok' | 'error'>('loading')
 
   const { index } = useTimeline()
   const { grid, model, setModel } = useWindGrid()
@@ -58,8 +59,21 @@ export function ForecastMap() {
           type: 'fill',
           source: 'taiwan-outline',
           paint: {
-            'fill-color': '#1e3a5f',
-            'fill-opacity': 0.35,
+            'fill-color': '#22d3ee',
+            'fill-opacity': 0.15,
+          },
+        })
+
+        // Glow effect: wider blurred line behind the main line
+        map.addLayer({
+          id: 'taiwan-line-glow',
+          type: 'line',
+          source: 'taiwan-outline',
+          paint: {
+            'line-color': '#22d3ee',
+            'line-width': 6,
+            'line-opacity': 0.4,
+            'line-blur': 3,
           },
         })
 
@@ -68,16 +82,16 @@ export function ForecastMap() {
           type: 'line',
           source: 'taiwan-outline',
           paint: {
-            'line-color': '#38bdf8',
-            'line-width': 2.5,
+            'line-color': '#22d3ee',
+            'line-width': 2,
             'line-opacity': 1,
           },
         })
-        console.log('[ForecastMap] Taiwan outline layers added, source features:',
-          (map.getSource('taiwan-outline') as maplibregl.GeoJSONSource)?.serialize?.()?.data ? 'ok' : 'empty'
-        )
+        console.log('[ForecastMap] Taiwan outline: OK — 3 layers added')
+        setOutlineStatus('ok')
       } catch (err) {
-        console.warn('Taiwan outline not loaded:', err)
+        console.warn('[ForecastMap] Taiwan outline FAILED:', err)
+        setOutlineStatus('error')
       }
 
       mapRef.current = map
@@ -168,11 +182,11 @@ export function ForecastMap() {
       {/* MapLibre GL container — handles all touch/drag/zoom natively */}
       <div ref={mapContainerRef} className="absolute inset-0" />
 
-      {/* Wind particle canvas — behind map's interactive layer */}
+      {/* Wind particle canvas overlay */}
       <canvas
         ref={canvasRef}
         className="absolute inset-0 pointer-events-none"
-        style={{ zIndex: 1, mixBlendMode: 'screen' }}
+        style={{ zIndex: 1 }}
       />
 
       {/* Model switcher */}
@@ -197,6 +211,15 @@ export function ForecastMap() {
 
       {/* Spot markers */}
       <SpotMarkers map={mapReady ? mapRef.current : null} />
+
+      {/* Debug badge — remove after confirming outline works */}
+      <div className="absolute bottom-2 left-2 z-30 px-2 py-0.5 rounded text-[10px] font-mono backdrop-blur-sm"
+        style={{
+          background: outlineStatus === 'ok' ? 'rgba(34,211,238,0.3)' : outlineStatus === 'error' ? 'rgba(248,113,113,0.3)' : 'rgba(255,255,255,0.1)',
+          color: outlineStatus === 'ok' ? '#22d3ee' : outlineStatus === 'error' ? '#f87171' : '#666',
+        }}>
+        outline: {outlineStatus}
+      </div>
     </div>
   )
 }
