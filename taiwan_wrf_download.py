@@ -294,7 +294,6 @@ def _subset_eccodes(src: Path, dst: Path, bbox: dict, ec) -> Path:
 
                 entry = _grid_cache[cache_key]
                 if entry is None:
-                    ec.codes_release(msg)
                     continue
 
                 j_min, j_max, i_min, i_max, new_lat1, new_lon1, extra = entry
@@ -340,8 +339,15 @@ def _subset_cfgrib(src: Path, dst: Path, bbox: dict, cfgrib, xr) -> Path:
         lon_k = "longitude" if "longitude" in ds.dims else "lon"
         lat_lo, lat_hi = sorted([bbox["lat_min"], bbox["lat_max"]])
         lon_lo, lon_hi = sorted([bbox["lon_min"], bbox["lon_max"]])
+        # Check if latitude is descending (common in GRIB2) and reverse
+        # the slice order so xarray selects the correct range.
+        lat_vals = ds[lat_k].values
+        if len(lat_vals) > 1 and lat_vals[0] > lat_vals[-1]:
+            lat_slice = slice(lat_hi, lat_lo)
+        else:
+            lat_slice = slice(lat_lo, lat_hi)
         sub = ds.sel(
-            {lat_k: slice(lat_lo, lat_hi),
+            {lat_k: lat_slice,
              lon_k: slice(lon_lo, lon_hi)}
         )
         merged.append(sub)

@@ -78,6 +78,12 @@ RETRY_DELAY = 3
 
 # ── API fetch helpers ────────────────────────────────────────────────────────
 
+def _sanitize_url(url: str) -> str:
+    """Mask the Authorization parameter value in a URL for safe logging."""
+    import re
+    return re.sub(r'(Authorization=)[^&]+', r'\1***MASKED***', url)
+
+
 def _cwa_get(endpoint: str, api_key: str, params: dict | None = None,
              label: str = "CWA") -> dict | None:
     """Fetch from CWA Open Data API with retries."""
@@ -110,10 +116,12 @@ def _cwa_get(endpoint: str, api_key: str, params: dict | None = None,
                 json.JSONDecodeError, OSError) as e:
             last_err = e
             if attempt < RETRIES:
-                log.warning("%s attempt %d failed: %s", label, attempt, e)
+                log.warning("%s attempt %d failed (%s): %s",
+                            label, attempt, _sanitize_url(url), e)
                 time.sleep(RETRY_DELAY * attempt)
 
-    log.error("%s failed after %d attempts: %s", label, RETRIES, last_err)
+    log.error("%s failed after %d attempts (%s): %s",
+              label, RETRIES, _sanitize_url(url), last_err)
     return None
 
 

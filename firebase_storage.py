@@ -136,7 +136,12 @@ def upload_accuracy_log(entries: list) -> None:
     and also writes the latest entry to the per-entry collection.
     """
     # Full array in a single document for easy download
-    write_document(_COLLECTION, _ACCURACY_DOC, {'entries': entries})
+    doc_data = {'entries': entries}
+    doc_size = len(json.dumps(doc_data).encode('utf-8'))
+    if doc_size > 900_000:
+        log.warning("Accuracy log document is %d bytes — approaching Firestore "
+                     "1MB limit. Consider trimming older entries.", doc_size)
+    write_document(_COLLECTION, _ACCURACY_DOC, doc_data)
 
     # Also write the latest entry individually (for querying)
     if entries:
@@ -164,7 +169,10 @@ def upload_archive(local_path: str) -> str | None:
     blob = bucket.blob(name)
     blob.upload_from_filename(local_path)
     # Make publicly readable so the download link works without auth
-    blob.make_public()
+    try:
+        blob.make_public()
+    except Exception as e:
+        log.warning("Failed to make blob public (%s): %s", name, e)
     log.info("Archive uploaded → gs://%s/%s", bucket.name, name)
     return blob.public_url
 
@@ -246,7 +254,11 @@ def main():
             log.info("No previous summary found in Firestore")
 
     elif args.command == 'upload-summary':
-        data = json.loads(Path(args.input).read_text())
+        try:
+            data = json.loads(Path(args.input).read_text())
+        except (json.JSONDecodeError, OSError) as e:
+            log.error("Failed to read summary file %s: %s", args.input, e)
+            sys.exit(1)
         upload_summary(data)
 
     elif args.command == 'download-accuracy-log':
@@ -258,7 +270,11 @@ def main():
             log.info("No accuracy log found in Firestore")
 
     elif args.command == 'upload-accuracy-log':
-        entries = json.loads(Path(args.input).read_text())
+        try:
+            entries = json.loads(Path(args.input).read_text())
+        except (json.JSONDecodeError, OSError) as e:
+            log.error("Failed to read accuracy log file %s: %s", args.input, e)
+            sys.exit(1)
         upload_accuracy_log(entries)
 
     elif args.command == 'upload-archive':

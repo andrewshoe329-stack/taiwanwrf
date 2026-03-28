@@ -286,7 +286,7 @@ def process_spot(ec: dict, gfs: dict, mar: dict) -> list[dict[str, object]]:
             (_precip[k] or 0) if k < len(_precip) else 0
             for k in range(window_start, i + 1)
         )
-        rain6h = raw_sum  # don't scale partial windows
+        rain6h = raw_sum * (6 / window_len) if window_len < 6 else raw_sum
 
         wi = wave_by_t.get(t)
         wv = {}
@@ -573,8 +573,8 @@ def best_time_for_day(day_recs: list[dict], spot: dict) -> dict[str, object] | N
         'tide_context': tide_context,
         'dt_utc': dt_utc,
         'dt_cst': dt_cst,
-        'sunrise_cst': f'{int(sunrise_cst):02d}:{int((sunrise_cst % 1) * 60):02d}' if sunrise_cst is not None else None,
-        'sunset_cst': f'{int(sunset_cst):02d}:{int((sunset_cst % 1) * 60):02d}' if sunset_cst is not None else None,
+        'sunrise_cst': f'{int(sunrise_cst % 24):02d}:{int((sunrise_cst % 1) * 60):02d}' if sunrise_cst is not None else None,
+        'sunset_cst': f'{int(sunset_cst % 24):02d}:{int((sunset_cst % 1) * 60):02d}' if sunset_cst is not None else None,
     }
 
 
@@ -711,8 +711,6 @@ def generate_planner_json(all_spot_data: list[dict], keelung_records: list = Non
 _SPOT_REGION = {
     'fulong': 'north', 'greenbay': 'north', 'jinshan': 'north',
     'daxi': 'northeast', 'wushih': 'northeast', 'doublelions': 'northeast', 'chousui': 'northeast',
-    'jici': 'east', 'daan': 'west', 'qigu': 'west',
-    'shanshui': 'penghu', 'fenggui': 'penghu', 'aimen': 'penghu',
 }
 
 
@@ -731,7 +729,9 @@ def generate_frontend_json(all_spot_data: list[dict]) -> dict:
         # Build per-timestep ratings
         ratings = []
         for r in records:
-            score = _score_timestep(r, spot_entry, tide_height_m=_tide_height(r.get('dt_utc')))
+            dt_utc = r.get('dt_utc')
+            tide_h = _tide_height(dt_utc) if dt_utc is not None else None
+            score = _score_timestep(r, spot_entry, tide_height_m=tide_h)
             if score >= 9:
                 rating_label = 'firing'
             elif score >= 7:
@@ -748,10 +748,9 @@ def generate_frontend_json(all_spot_data: list[dict]) -> dict:
             elif sw_hs > MAX_SWELL_HEIGHT_M or wind_kt > MAX_WIND_KT:
                 rating_label = 'dangerous'
 
-            dt_utc = r.get('dt_utc')
             valid_utc = dt_utc.isoformat() if dt_utc else ''
 
-            ratings.append({
+            rating_entry = {
                 'spot_id': spot_id,
                 'valid_utc': valid_utc,
                 'score': score,
@@ -761,7 +760,10 @@ def generate_frontend_json(all_spot_data: list[dict]) -> dict:
                 'swell_period': r.get('sw_tp'),
                 'wind_kt': r.get('wind'),
                 'wind_dir': r.get('w_dir'),
-            })
+            }
+            if tide_h is not None:
+                rating_entry['tide_height'] = round(tide_h, 2)
+            ratings.append(rating_entry)
 
         # Build daily_best
         by_day = {}
@@ -802,7 +804,7 @@ def generate_frontend_json(all_spot_data: list[dict]) -> dict:
                 'lat': spot_entry.get('lat', 0),
                 'lon': spot_entry.get('lon', 0),
                 'facing': spot_entry.get('facing', ''),
-                'region': _SPOT_REGION.get(spot_id, 'east'),
+                'region': _SPOT_REGION.get(spot_id, 'north'),
                 'opt_wind': spot_entry.get('opt_wind', []),
                 'opt_swell': spot_entry.get('opt_swell', []),
             },

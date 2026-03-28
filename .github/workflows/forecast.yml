@@ -4,9 +4,9 @@ permissions:
   contents: read
 
 on:
-  schedule:
-    # 4x daily — 45 min after each CWA model cycle (00, 06, 12, 18 UTC)
-    - cron: '45 0,6,12,18 * * *'
+  workflow_run:
+    workflows: ["WRF Download & Analysis"]
+    types: [completed]
   workflow_dispatch: {}
 
 concurrency:
@@ -16,10 +16,16 @@ concurrency:
 jobs:
   forecast:
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
       - name: Cache pip packages
         uses: actions/cache@v5
@@ -41,12 +47,13 @@ jobs:
         env:
           SA_KEY: ${{ secrets.FIREBASE_SA_KEY }}
           FIREBASE_PROJECT: ${{ secrets.FIREBASE_PROJECT }}
+          FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
         run: |
           if [ -n "$SA_KEY" ]; then
             echo "$SA_KEY" > /tmp/firebase-sa-key.json
             echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/firebase-sa-key.json" >> "$GITHUB_ENV"
             echo "FIREBASE_PROJECT=$FIREBASE_PROJECT" >> "$GITHUB_ENV"
-            echo "FIREBASE_STORAGE_BUCKET=${{ secrets.FIREBASE_STORAGE_BUCKET }}" >> "$GITHUB_ENV"
+            echo "FIREBASE_STORAGE_BUCKET=$FIREBASE_STORAGE_BUCKET" >> "$GITHUB_ENV"
           fi
 
       # Download WRF summary from Firebase (produced by wrf.yml)
@@ -113,6 +120,12 @@ jobs:
         run: |
           mkdir -p frontend/public/data
           python wind_grid_fetch.py --output-dir frontend/public/data
+
+      - name: Check critical data availability
+        run: |
+          if [ ! -f ecmwf_keelung.json ] && [ ! -f wave_keelung.json ]; then
+            echo "::warning::Both ECMWF and wave data are missing — forecast quality will be degraded"
+          fi
 
       # ── Generate surf forecast ────────────────────────────────────────────
 

@@ -16,7 +16,10 @@ export function NowPage() {
   const { index } = useTimeline()
 
   const record = data.keelung?.records?.[index]
-  const waveRecord = data.wave?.ecmwf_wave?.records?.[index]
+  const waveRecords = data.wave?.ecmwf_wave?.records
+  const waveRecord = record?.valid_utc
+    ? waveRecords?.find(w => w.valid_utc === record.valid_utc) ?? waveRecords?.[index]
+    : waveRecords?.[index]
 
   // Decision logic — both sail and surf
   const windKt = record?.wind_kt ?? 0

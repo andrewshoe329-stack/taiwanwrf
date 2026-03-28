@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { HARBOURS } from '@/lib/constants'
 import { useForecastData } from '@/hooks/useForecastData'
@@ -113,12 +113,9 @@ export function HarboursPage() {
 
       <div className="space-y-6">
         {HARBOURS.map(harbour => {
-          const ecmwf = data.ecmwf_harbours?.[harbour.id]
-          const wave = data.wave_harbours?.[harbour.id]
-          const ensemble = data.ensemble_harbours?.[harbour.id]
-
-          const records = ecmwf?.records ?? []
-          const waveRecords = wave?.ecmwf_wave?.records ?? []
+          const records = data.ecmwf?.records ?? []
+          const waveRecords = data.wave?.ecmwf_wave?.records ?? []
+          const ensemble = data.ensemble
 
           // Current conditions (first record)
           const windRec: ForecastRecord | undefined = records[0]
@@ -237,9 +234,9 @@ export function HarboursPage() {
                         </thead>
                         <tbody>
                           {dayGroups.map(group => (
-                            <>
+                            <React.Fragment key={group.dayKey}>
                               {/* Day header row */}
-                              <tr key={`day-${group.dayKey}`}>
+                              <tr>
                                 <td colSpan={6} className="pt-3 pb-1">
                                   <span className="text-[11px] font-semibold text-[var(--color-text-secondary)] tracking-wide">
                                     {group.dayLabel}
@@ -296,7 +293,7 @@ export function HarboursPage() {
                                   </tr>
                                 )
                               })}
-                            </>
+                            </React.Fragment>
                           ))}
                         </tbody>
                       </table>
@@ -310,7 +307,7 @@ export function HarboursPage() {
       </div>
 
       {/* No harbour data fallback */}
-      {!data.ecmwf_harbours && !data.wave_harbours && (
+      {!data.ecmwf && !data.wave && (
         <div className="border border-[var(--color-border)] rounded-xl p-8 text-center mt-4">
           <p className="text-sm text-[var(--color-text-muted)]">
             {t('harbours_page.no_data')}

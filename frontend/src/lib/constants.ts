@@ -65,10 +65,6 @@ export const DATA_FILES = {
   cwa_obs:  `${DATA_BASE}/cwa_obs.json`,
   accuracy: `${DATA_BASE}/accuracy.json`,
   summary:  `${DATA_BASE}/summary.json`,
-  // Multi-harbour data (per-harbour ECMWF, wave, ensemble)
-  ecmwf_harbours:    `${DATA_BASE}/ecmwf_harbours.json`,
-  wave_harbours:     `${DATA_BASE}/wave_harbours.json`,
-  ensemble_harbours: `${DATA_BASE}/ensemble_harbours.json`,
   // Wind grids
   wind_grid_wrf:   `${DATA_BASE}/wind_grid_wrf.json`,
   wind_grid_ecmwf: `${DATA_BASE}/wind_grid_ecmwf.json`,

@@ -4,6 +4,15 @@ import { useNavigate } from 'react-router-dom'
 import maplibregl from 'maplibre-gl'
 import { SPOTS, HARBOURS } from '@/lib/constants'
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
 interface SpotMarkersProps {
   map: maplibregl.Map | null
 }
@@ -39,8 +48,8 @@ export function SpotMarkers({ map }: SpotMarkersProps) {
         className: 'spot-popup',
       }).setHTML(`
         <div style="font-family:Inter,sans-serif; font-size:12px; color:#f5f5f5; background:#111; padding:6px 10px; border-radius:8px; border:1px solid #222;">
-          <div style="font-weight:600; margin-bottom:2px;">${spot.name[lang]}</div>
-          <div style="color:#888; font-size:10px;">${spot.facing} facing</div>
+          <div style="font-weight:600; margin-bottom:2px;">${escapeHtml(spot.name[lang])}</div>
+          <div style="color:#888; font-size:10px;">${escapeHtml(spot.facing)} facing</div>
         </div>
       `)
 
@@ -72,7 +81,7 @@ export function SpotMarkers({ map }: SpotMarkersProps) {
         className: 'spot-popup',
       }).setHTML(`
         <div style="font-family:Inter,sans-serif; font-size:12px; color:#f5f5f5; background:#111; padding:6px 10px; border-radius:8px; border:1px solid #222;">
-          <div style="font-weight:600;">${harbour.name[lang]}</div>
+          <div style="font-weight:600;">${escapeHtml(harbour.name[lang])}</div>
           <div style="color:#888; font-size:10px;">Harbour</div>
         </div>
       `)

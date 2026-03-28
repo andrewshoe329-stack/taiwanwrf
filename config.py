@@ -12,7 +12,7 @@ import urllib.request
 # ── Design system theme tokens ────────────────────────────────────────────────
 # Centralised color / spacing / radius constants used by all HTML generators.
 # Python scripts reference THEME['key'] instead of hardcoding hex values.
-# The canonical CSS definitions live in pwa/styles.css as custom properties.
+# The canonical CSS definitions live in frontend/public/ as custom properties.
 
 THEME = {
     # Base backgrounds
@@ -163,7 +163,7 @@ HARBOUR_COORDS = {
 # Spot → region mapping
 SPOT_REGION = {
     "keelung":     "north",
-    "fulong":      "northeast",
+    "fulong":      "north",
     "greenbay":    "north",
     "jinshan":     "north",
     "daxi":        "northeast",
@@ -220,7 +220,8 @@ def sunrise_sunset(date, lat: float = KEELUNG_LAT, lon: float = KEELUNG_LON
         year = 2026
 
     # Fractional year (radians)
-    gamma = 2 * math.pi / 365 * (doy - 1)
+    days_in_year = 366 if (year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)) else 365
+    gamma = 2 * math.pi / days_in_year * (doy - 1)
 
     # Equation of time (minutes)
     eqtime = (229.18 * (0.000075
@@ -287,6 +288,8 @@ def norm_utc(iso: str) -> str:
     offset so string comparison with WRF valid_utc works.
 
     Does NOT validate date correctness or convert non-UTC offsets.
+    If a non-UTC offset is detected, a warning is logged and the string
+    is returned unchanged (no conversion is performed).
     """
     iso = iso.strip()
     if iso.endswith('Z'):
@@ -297,7 +300,7 @@ def norm_utc(iso: str) -> str:
         iso += "+00:00"
     elif len(iso) >= 25 and '+' in iso[19:] and not iso.endswith('+00:00'):
         _log = logging.getLogger(__name__)
-        _log.warning("norm_utc received non-UTC offset: %s", iso)
+        _log.warning("norm_utc received non-UTC offset: %s — returning unchanged", iso)
     return iso
 
 
@@ -390,7 +393,7 @@ def load_json_file(path: str, label: str = "") -> dict | list | None:
     """Load and parse a JSON file, returning None on any error."""
     log = logging.getLogger(__name__)
     try:
-        with open(path) as f:
+        with open(path, encoding='utf-8') as f:
             return json.load(f)
     except (OSError, json.JSONDecodeError, ValueError) as e:
         log.warning("Could not load %s: %s", label or path, e)

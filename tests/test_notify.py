@@ -59,6 +59,18 @@ class TestCheckAlerts:
         assert 'gale_warning' in types
         assert 'strong_wind' in types
 
+    def test_same_type_dedup(self):
+        """Two gale_warning alerts on the same day should be deduped to one."""
+        wrf = self._wrf([
+            {"valid_utc": "2026-03-22T00:00:00+00:00", "wind_kt": 30, "gust_kt": 40, "precip_mm_6h": 0},
+            {"valid_utc": "2026-03-22T12:00:00+00:00", "wind_kt": 32, "gust_kt": 45, "precip_mm_6h": 0},
+        ])
+        alerts = check_alerts(wrf)
+        gale_alerts = [a for a in alerts if a['type'] == 'gale_warning']
+        assert len(gale_alerts) == 1
+        # Dedup keeps first occurrence when severity is equal
+        assert gale_alerts[0]['value'] == 40
+
     def test_empty_records(self):
         assert check_alerts(self._wrf([])) == []
 

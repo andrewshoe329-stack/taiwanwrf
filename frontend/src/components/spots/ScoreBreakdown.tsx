@@ -3,6 +3,7 @@
  * Shows 5 scoring factors as horizontal bars with a total score.
  */
 
+import { useTranslation } from 'react-i18next'
 import type { SpotRating, SpotInfo } from '@/lib/types'
 
 const DIR_ANGLES: Record<string, number> = {
@@ -134,15 +135,6 @@ function computeFactors(rating: SpotRating, spot: SpotInfo): ScoreFactors {
   }
 }
 
-const RATING_LABELS: Record<string, string> = {
-  firing: 'Firing!',
-  good: 'Good',
-  marginal: 'Marginal',
-  poor: 'Poor',
-  flat: 'Flat',
-  dangerous: 'Dangerous',
-}
-
 const RATING_COLORS: Record<string, string> = {
   firing: 'var(--color-firing)',
   good: 'var(--color-rating-good)',
@@ -158,17 +150,18 @@ interface ScoreBreakdownProps {
 }
 
 export function ScoreBreakdown({ rating, spot }: ScoreBreakdownProps) {
+  const { t } = useTranslation()
   const factors = computeFactors(rating, spot)
   const totalScore = rating.score
-  const ratingLabel = RATING_LABELS[rating.rating] ?? rating.rating
+  const ratingLabel = t(`rating.${rating.rating}`, rating.rating)
   const ratingColor = RATING_COLORS[rating.rating] ?? 'var(--color-text-dim)'
 
   const rows: Array<{ name: string; factor: { score: number; max: number; label: string } }> = [
-    { name: 'Swell Direction', factor: factors.swellDir },
-    { name: 'Wind Direction', factor: factors.windDir },
-    { name: 'Wind Speed', factor: factors.windSpeed },
-    { name: 'Swell Height', factor: factors.swellHeight },
-    { name: 'Wave Period', factor: factors.wavePeriod },
+    { name: t('spots.score_swell_dir'), factor: factors.swellDir },
+    { name: t('spots.score_wind_dir'), factor: factors.windDir },
+    { name: t('spots.score_wind_speed'), factor: factors.windSpeed },
+    { name: t('spots.score_swell_height'), factor: factors.swellHeight },
+    { name: t('spots.score_wave_period'), factor: factors.wavePeriod },
   ]
 
   return (

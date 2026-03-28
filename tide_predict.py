@@ -167,8 +167,9 @@ def find_extrema(start: datetime, end: datetime,
         next_t = curr_t + step
         next_h = predict_height(next_t)
 
-        # Local maximum (high tide)
-        if curr_h >= prev_h and curr_h >= next_h and curr_h != prev_h:
+        # Local maximum (high tide) — trigger at the end of any plateau
+        # (curr differs from next) to avoid duplicate detections.
+        if curr_h >= prev_h and curr_h > next_h:
             refined_t, refined_h = _refine_extremum(curr_t, step)
             extrema.append({
                 'type': 'high',
@@ -178,7 +179,7 @@ def find_extrema(start: datetime, end: datetime,
                 'height_m': refined_h,
             })
         # Local minimum (low tide)
-        elif curr_h <= prev_h and curr_h <= next_h and curr_h != prev_h:
+        elif curr_h <= prev_h and curr_h < next_h:
             refined_t, refined_h = _refine_extremum(curr_t, step)
             extrema.append({
                 'type': 'low',

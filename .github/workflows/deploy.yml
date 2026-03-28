@@ -2,6 +2,7 @@ name: Build & Deploy
 
 permissions:
   contents: read
+  actions: read
 
 on:
   workflow_run:
@@ -21,6 +22,11 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -44,16 +50,19 @@ jobs:
         env:
           SA_KEY: ${{ secrets.FIREBASE_SA_KEY }}
           FIREBASE_PROJECT: ${{ secrets.FIREBASE_PROJECT }}
+          FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
         run: |
           if [ -n "$SA_KEY" ]; then
             echo "$SA_KEY" > /tmp/firebase-sa-key.json
             echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/firebase-sa-key.json" >> "$GITHUB_ENV"
             echo "FIREBASE_PROJECT=$FIREBASE_PROJECT" >> "$GITHUB_ENV"
-            echo "FIREBASE_STORAGE_BUCKET=${{ secrets.FIREBASE_STORAGE_BUCKET }}" >> "$GITHUB_ENV"
+            echo "FIREBASE_STORAGE_BUCKET=$FIREBASE_STORAGE_BUCKET" >> "$GITHUB_ENV"
           fi
 
       - name: Fetch data from Firebase (manual dispatch)
         if: github.event_name == 'workflow_dispatch'
+        env:
+          CWA_OPENDATA_KEY: ${{ secrets.CWA_OPENDATA_KEY }}
         run: |
           pip install --quiet -r requirements.txt
           mkdir -p frontend/public/data
@@ -61,6 +70,16 @@ jobs:
             --output frontend/public/data/keelung.json 2>/dev/null || true
           python firebase_storage.py download-accuracy-log \
             --output frontend/public/data/accuracy.json 2>/dev/null || true
+          # Fetch live data sources for a complete deploy
+          python ecmwf_fetch.py --output frontend/public/data/ecmwf.json 2>/dev/null || true
+          python wave_fetch.py --output frontend/public/data/wave.json 2>/dev/null || true
+          python tide_predict.py --output frontend/public/data/tide.json --days 7 2>/dev/null || true
+          python ensemble_fetch.py --output frontend/public/data/ensemble.json 2>/dev/null || true
+          python surf_forecast.py --output-frontend-json frontend/public/data/surf.json 2>/dev/null || true
+          # CWA observations (requires API key)
+          if [ -n "${CWA_OPENDATA_KEY:-}" ]; then
+            python cwa_fetch.py --output frontend/public/data/cwa.json 2>/dev/null || true
+          fi
 
       - name: Build React SPA
         timeout-minutes: 10
