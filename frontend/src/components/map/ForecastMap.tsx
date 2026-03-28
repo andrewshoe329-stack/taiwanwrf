@@ -53,29 +53,29 @@ export function ForecastMap() {
         const geojson = await resp.json()
         map.addSource('taiwan-outline', { type: 'geojson', data: geojson })
 
-        // Find the first label/symbol layer so we insert below labels
-        const firstSymbol = map.getStyle().layers?.find(l => l.type === 'symbol')?.id
-
         map.addLayer({
           id: 'taiwan-fill',
           type: 'fill',
           source: 'taiwan-outline',
           paint: {
             'fill-color': '#1e3a5f',
-            'fill-opacity': 0.5,
+            'fill-opacity': 0.35,
           },
-        }, firstSymbol)
+        })
 
         map.addLayer({
           id: 'taiwan-line',
           type: 'line',
           source: 'taiwan-outline',
           paint: {
-            'line-color': '#60a5fa',
+            'line-color': '#38bdf8',
             'line-width': 2.5,
             'line-opacity': 1,
           },
-        }, firstSymbol)
+        })
+        console.log('[ForecastMap] Taiwan outline layers added, source features:',
+          (map.getSource('taiwan-outline') as maplibregl.GeoJSONSource)?.serialize?.()?.data ? 'ok' : 'empty'
+        )
       } catch (err) {
         console.warn('Taiwan outline not loaded:', err)
       }
