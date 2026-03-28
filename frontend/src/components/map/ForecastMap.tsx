@@ -52,6 +52,10 @@ export function ForecastMap() {
         if (!resp.ok) throw new Error(`GeoJSON fetch failed: ${resp.status}`)
         const geojson = await resp.json()
         map.addSource('taiwan-outline', { type: 'geojson', data: geojson })
+
+        // Find the first label/symbol layer so we insert below labels
+        const firstSymbol = map.getStyle().layers?.find(l => l.type === 'symbol')?.id
+
         map.addLayer({
           id: 'taiwan-fill',
           type: 'fill',
@@ -60,7 +64,8 @@ export function ForecastMap() {
             'fill-color': '#1e3a5f',
             'fill-opacity': 0.5,
           },
-        })
+        }, firstSymbol)
+
         map.addLayer({
           id: 'taiwan-line',
           type: 'line',
@@ -70,7 +75,7 @@ export function ForecastMap() {
             'line-width': 2.5,
             'line-opacity': 1,
           },
-        })
+        }, firstSymbol)
       } catch (err) {
         console.warn('Taiwan outline not loaded:', err)
       }
@@ -167,7 +172,7 @@ export function ForecastMap() {
       <canvas
         ref={canvasRef}
         className="absolute inset-0 pointer-events-none"
-        style={{ zIndex: 1, opacity: 0.85 }}
+        style={{ zIndex: 1, mixBlendMode: 'screen' }}
       />
 
       {/* Model switcher */}
