@@ -296,10 +296,12 @@ def send_line_notify(token: str, message: str) -> bool:
 
 def send_telegram(token: str, chat_id: str, message: str) -> bool:
     """Send a notification via Telegram Bot API."""
+    import html as html_mod
+    safe_message = html_mod.escape(message)
     url = f'https://api.telegram.org/bot{token}/sendMessage'
     data = json.dumps({
         'chat_id': chat_id,
-        'text': message,
+        'text': safe_message,
         'parse_mode': 'HTML',
     }).encode()
     req = urllib.request.Request(url, data=data, headers={
@@ -310,7 +312,7 @@ def send_telegram(token: str, chat_id: str, message: str) -> bool:
             log.info("Telegram message sent (status %d)", r.status)
             return True
     except (urllib.error.HTTPError, urllib.error.URLError, OSError) as e:
-        log.error("Telegram send failed: %s", e)
+        log.error("Telegram send failed (HTTP error)")
         return False
 
 

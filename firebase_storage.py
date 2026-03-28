@@ -63,9 +63,12 @@ def init_firebase() -> None:
     import firebase_admin  # type: ignore[import-untyped]
     from firebase_admin import credentials  # type: ignore[import-untyped]
 
-    if firebase_admin._apps:
+    try:
+        firebase_admin.get_app()
         _initialized = True
         return
+    except ValueError:
+        pass  # no app initialized yet
 
     project = os.environ.get('FIREBASE_PROJECT')
     sa_path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')

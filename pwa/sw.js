@@ -24,7 +24,11 @@ const PRECACHE_URLS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(PRECACHE_URLS);
+      return Promise.all(
+        PRECACHE_URLS.map((url) =>
+          cache.add(url).catch(() => console.warn('SW: failed to precache', url))
+        )
+      );
     })
   );
   self.skipWaiting();
@@ -69,7 +73,7 @@ self.addEventListener('fetch', (event) => {
             });
           });
           // Revalidate in background (update cache for next visit)
-          networkFetch;
+          networkFetch.catch(() => {});
           return cached;
         }
 

@@ -73,7 +73,7 @@ MODELS = {
 DEFAULT_MODEL = "M-A0064"
 FORECAST_INTERVAL = 6   # hours between files
 
-from config import KEELUNG_LAT, KEELUNG_LON, setup_logging  # Keelung, Taiwan
+from config import KEELUNG_LAT, KEELUNG_LON, setup_logging, fetch_json as _shared_fetch_json  # Keelung, Taiwan
 
 log = logging.getLogger(__name__)
 DEFAULT_RADIUS_NM = 50
@@ -121,8 +121,10 @@ def _log(msg: str) -> None:
 # ── Network helpers ──────────────────────────────────────────────────────────
 
 def fetch_json(url: str, timeout: int = 15) -> dict:
-    with urllib.request.urlopen(url, timeout=timeout) as r:
-        return json.load(r)
+    result = _shared_fetch_json(url, label="S3 metadata", timeout=timeout)
+    if result is None:
+        raise OSError(f"Failed to fetch {url}")
+    return result
 
 
 _DOWNLOAD_RETRIES = 3
