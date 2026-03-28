@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { HARBOURS } from '@/lib/constants'
 import { useForecastData } from '@/hooks/useForecastData'
@@ -234,9 +234,9 @@ export function HarboursPage() {
                         </thead>
                         <tbody>
                           {dayGroups.map(group => (
-                            <>
+                            <React.Fragment key={group.dayKey}>
                               {/* Day header row */}
-                              <tr key={`day-${group.dayKey}`}>
+                              <tr>
                                 <td colSpan={6} className="pt-3 pb-1">
                                   <span className="text-[11px] font-semibold text-[var(--color-text-secondary)] tracking-wide">
                                     {group.dayLabel}
@@ -293,7 +293,7 @@ export function HarboursPage() {
                                   </tr>
                                 )
                               })}
-                            </>
+                            </React.Fragment>
                           ))}
                         </tbody>
                       </table>

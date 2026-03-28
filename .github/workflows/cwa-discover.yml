@@ -12,13 +12,17 @@ permissions:
 jobs:
   discover:
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v5
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Install dependencies
         run: |
-          sudo apt-get update -q
-          sudo apt-get install -y --no-install-recommends libeccodes-dev
           pip install --quiet -r requirements.txt
 
       - name: Discover CWA stations and buoys

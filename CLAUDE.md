@@ -68,9 +68,15 @@ GitHub Actions (cron 4x/day)
   ├─11. firebase_storage.py      → Upload archive to Cloud Storage, summary + accuracy log to Firestore
   │     Retention: only latest run's archive kept; previous archives deleted
   │
-  └─12. Vercel deploy            → Multi-page PWA: public/{index,hourly,surf,accuracy}.html
-                                    + public/spots/<id>.html (7 spot pages)
-                                    + PWA assets (manifest, sw.js, app.js, styles.css, icons)
+  ├─12. wind_grid_fetch.py       → Gridded u/v wind fields for map overlay
+  │     Outputs: frontend/public/data/wind_grid_{ecmwf,gfs}.json
+  │
+  ├─13. React frontend build     → Vite + React SPA (frontend/)
+  │     Reads JSON data from frontend/public/data/
+  │     Outputs: frontend/dist/ (static assets)
+  │
+  └─14. Vercel deploy            → React SPA: frontend/dist/
+                                    + JSON data files in /data/
 ```
 
 ### Accuracy Feedback Loop
@@ -101,31 +107,36 @@ Claude uses this to hedge language — e.g. "actual temps will likely be a degre
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `i18n.py` | ~230 | Bilingual translation infrastructure: `T()`, `T_str()`, `bilingual()`, `STRINGS` dict |
-| `config.py` | ~270 | Shared constants + utilities: `KEELUNG_LAT/LON`, `SPOT_COORDS`, `SPOT_COUNTY`, `deg_to_compass()`, `norm_utc()`, `sunrise_sunset()`, `is_daylight()`, `setup_logging()`, `fetch_json()`, `load_json_file()` |
-| `taiwan_wrf_download.py` | ~687 | Download CWA WRF GRIB2 from S3, subset with eccodes, archive with tar.gz |
-| `wrf_analyze.py` | ~1606 | GRIB2 point extraction, derived fields, unified HTML table, daily summary cards |
-| `ecmwf_fetch.py` | ~274 | Fetch ECMWF IFS from Open-Meteo, 6-hourly conversion, GFS gust/vis backfill |
-| `wave_fetch.py` | ~453 | Fetch ECMWF WAM from Open-Meteo marine API, optional CWA wave GRIB2 probe |
-| `surf_forecast.py` | ~1239 | 7 surf spots scoring, daily activity planner, matrix + detail HTML |
-| `tide_predict.py` | ~280 | Tide prediction: harmonic analysis + CWA-anchored cosine interpolation |
-| `accuracy_track.py` | ~600 | Forecast accuracy tracking vs Open-Meteo + CWA observations + tide accuracy |
-| `forecast_summary.py` | ~328 | Anthropic API call (3-attempt retry), prompt + accuracy context, HTML output |
-| `ensemble_fetch.py` | ~289 | Fetch GFS/ICON/JMA from Open-Meteo, compute multi-model spread stats |
-| `notify.py` | ~276 | Threshold-based alerts via LINE Notify and Telegram Bot API |
-| `firebase_storage.py` | ~230 | Firebase Firestore + Cloud Storage: read/write JSON docs, upload/cleanup GRIB2 archives |
-| `cwa_fetch.py` | ~1020 | CWA Open Data API: per-spot weather stations + wave buoys + tide obs + tide forecast + township forecasts (Keelung/New Taipei/Yilan) + weather warnings |
-| `cwa_discover.py` | ~280 | Monthly CWA station/buoy discovery: queries all stations, maps nearest to each spot, writes `cwa_stations.json` |
+| `i18n.py` | ~325 | Bilingual translation infrastructure: `T()`, `T_str()`, `bilingual()`, `STRINGS` dict |
+| `config.py` | ~398 | Shared constants + utilities: `KEELUNG_LAT/LON`, `SPOT_COORDS`, `SPOT_COUNTY`, `SPOT_REGION`, `deg_to_compass()`, `norm_utc()`, `sunrise_sunset()`, `is_daylight()`, `setup_logging()`, `fetch_json()`, `load_json_file()` |
+| `taiwan_wrf_download.py` | ~702 | Download CWA WRF GRIB2 from S3, subset with eccodes, archive with tar.gz |
+| `wrf_analyze.py` | ~2410 | GRIB2 point extraction, derived fields, unified HTML table, daily summary cards |
+| `ecmwf_fetch.py` | ~258 | Fetch ECMWF IFS from Open-Meteo, 6-hourly conversion, GFS gust/vis backfill |
+| `wave_fetch.py` | ~438 | Fetch ECMWF WAM from Open-Meteo marine API, optional CWA wave GRIB2 probe |
+| `surf_forecast.py` | ~1796 | 7 surf spots scoring, daily activity planner, matrix + detail HTML |
+| `tide_predict.py` | ~323 | Tide prediction: harmonic analysis + CWA-anchored cosine interpolation |
+| `accuracy_track.py` | ~736 | Forecast accuracy tracking vs Open-Meteo + CWA observations + tide accuracy |
+| `forecast_summary.py` | ~647 | Anthropic API call (3-attempt retry), prompt + accuracy context, HTML + JSON output |
+| `ensemble_fetch.py` | ~299 | Fetch GFS/ICON/JMA from Open-Meteo, compute multi-model spread stats |
+| `wind_grid_fetch.py` | ~310 | Fetch gridded u/v wind from Open-Meteo for ECMWF/GFS map overlay |
+| `notify.py` | ~401 | Threshold-based alerts via LINE Notify and Telegram Bot API |
+| `firebase_storage.py` | ~280 | Firebase Firestore + Cloud Storage: read/write JSON docs, upload/cleanup GRIB2 archives |
+| `cwa_fetch.py` | ~1167 | CWA Open Data API: per-spot weather stations + wave buoys + tide obs + tide forecast + township forecasts (Keelung/New Taipei/Yilan) + weather warnings |
+| `cwa_discover.py` | ~475 | Monthly CWA station/buoy discovery: queries all stations, maps nearest to each spot, writes `cwa_stations.json` |
 | `cwa_stations.json` | ~varies | Discovered station/buoy mapping (committed by cwa-discover workflow, read by cwa_fetch.py) |
+| `frontend/` | React SPA | Vite + React + TypeScript + MapLibre GL — interactive forecast UI |
+| `frontend/src/router.tsx` | ~77 | React Router config: `/`, `/spots`, `/spots/:id`, `/harbours`, `/models` |
+| `frontend/src/lib/constants.ts` | ~73 | Shared constants: spot coords, regions, Beaufort scale, data file paths |
+| `frontend/src/lib/types.ts` | ~184 | TypeScript interfaces for all JSON data contracts |
 | `.github/workflows/wrf.yml` | ~170 | WRF download, subset, analysis — 4x daily |
 | `.github/workflows/forecast.yml` | ~220 | Forecast pipeline: ECMWF/wave/ensemble fetch, surf, AI summary — 4x daily |
 | `.github/workflows/deploy.yml` | ~70 | Vercel deploy triggered by forecast completion |
 | `.github/workflows/cwa-discover.yml` | ~30 | Monthly workflow to discover CWA stations/buoys and commit mapping |
-| `html_template.py` | ~130 | Shared page shell: `render_page()` wraps content in full HTML5 doc with header/nav/footer |
-| `pwa/` | 6 files | PWA manifest, service worker, app.js (shared JS), icon generator, icons, styles.css |
-| `vercel.json` | ~30 | Static site config (rewrites, cache headers for PWA) |
+| `html_template.py` | ~171 | Shared page shell: `render_page()` wraps content in full HTML5 doc with header/nav/footer (legacy) |
+| `pwa/` | 6 files | Legacy PWA assets (manifest, service worker, icons, styles) — superseded by React frontend |
+| `vercel.json` | ~30 | Static site config (rewrites, cache headers) |
 | `requirements.txt` | ~7 | `eccodes>=1.5,<2`, `numpy>=1.24,<3`, `anthropic>=0.40,<1`, `firebase-admin>=6.0,<7` |
-| `tests/` | 14 files, 419 tests | Unit tests for pure functions (pytest), run in CI/CD |
+| `tests/` | 14 files, 428 tests | Unit tests for pure functions (pytest), run in CI/CD |
 
 ---
 
@@ -162,21 +173,18 @@ All scripts import coordinates, compass functions, and `norm_utc()` from here. *
 - CST display = UTC + 8 hours
 - WRF valid times derived from init_time + forecast_hour
 
-### Multi-Page Architecture
-The site uses a **multi-page** approach with separate HTML files for different content areas:
-- `/` (index.html) — **Dashboard**: hero banner, AI summary, daily cards, quick glance, top spots
-- `/hourly` (hourly.html) — **Hourly Forecast**: full 6-hourly table with WRF + ECMWF comparison
-- `/surf` (surf.html) — **Surf Overview**: rating matrix, best times, filter bar, spot detail tables
-- `/spots/<id>` (spots/*.html) — **Spot Pages**: individual spot detail with 5-day forecast + hourly breakdown
-- `/accuracy` (accuracy.html) — **Accuracy Dashboard**: MAE/bias cards, horizon breakdown, verification history
+### React SPA Frontend (`frontend/`)
+The primary UI is a **React single-page application** built with Vite + TypeScript + MapLibre GL:
+- `/` — **Now**: current conditions, AI summary, wind map overlay
+- `/spots` — **Spots**: surf spot overview with rating matrix and filters
+- `/spots/:id` — **Spot Detail**: individual spot with 5-day forecast + hourly breakdown
+- `/harbours` — **Harbours**: harbour-focused wind/wave/tide forecast
+- `/models` — **Models**: multi-model comparison (WRF vs ECMWF vs ensemble)
 
-Each page is a complete HTML5 document generated by `html_template.render_page()`, which provides:
-- Shared header with site nav + language toggle
-- Shared footer with data source attribution
-- Shared `app.js` for language toggle, timestamp tracking, SW registration, active nav highlighting
-- Current page highlighted in top nav via `nav_active` parameter
+Data is served as static JSON files from `frontend/public/data/` (gitignored except `taiwan.geojson`). The pipeline writes JSON outputs there; the React app fetches them at runtime.
 
-**Backwards compatibility**: When `--output-dir` is NOT passed, scripts still output single-file fragments.
+### Legacy Multi-Page HTML
+The Python scripts (`wrf_analyze.py`, `surf_forecast.py`) still generate static HTML pages via `html_template.render_page()` when `--output-dir public` is passed. This is retained for backwards compatibility but the React frontend is the primary deployment target.
 
 ### HTML Generation
 - Multi-page output: `--output-dir public` generates complete HTML pages
@@ -387,6 +395,30 @@ These are the intermediate JSON files passed between pipeline steps:
    "cwa_snapshot": { "station": {...}, "buoy": {...} } }]
 ```
 
+### `surf_frontend.json` (produced by surf_forecast.py, consumed by React frontend)
+```
+{ "meta": { "generated_utc" },
+  "spots": [{ "id", "name", "lat", "lon", "facing", "region",
+               "days": [{ "date", "label", "score", "best_time",
+                          "records": [{ "valid_utc", "sw_hs", "sw_dir", "sw_tp",
+                                        "wind", "w_dir", "score", "label" }] }] }] }
+```
+
+### `ai_summary.json` (produced by forecast_summary.py)
+```
+{ "generated_utc", "model_init_utc",
+  "sections": { "wind": "...", "waves": "...", "outlook": "..." },
+  "full_text": { "en": "...", "zh": "..." } }
+```
+
+### `wind_grid_{ecmwf,gfs}.json` (produced by wind_grid_fetch.py)
+```
+{ "model": "ECMWF-IFS"|"GFS",
+  "bounds": { "lat_min", "lat_max", "lon_min", "lon_max" },
+  "grid": { "nx", "ny" },
+  "timesteps": [{ "valid_utc", "u": [[...]], "v": [[...]] }] }
+```
+
 ---
 
 ## Running Tests
@@ -397,7 +429,7 @@ pip install pytest
 python -m pytest tests/ -v
 ```
 
-419 tests should pass. Tests cover: compass conversion, Beaufort scale, color functions, direction quality scoring, day ratings, sail ratings, time normalization, bbox geometry, GRIB2 constant validation, tide prediction (semidiurnal pattern, extrema detection, CWA-anchored interpolation), accuracy tracking (error metrics, buoy verification, tide accuracy), CWA API parsing (station, buoy, tide, tide forecast, township forecast, warnings), AI summary prompt construction (with CWA obs and ensemble spread), and shared HTTP fetch/JSON loading utilities.
+428 tests should pass. Tests cover: compass conversion, Beaufort scale, color functions, direction quality scoring, day ratings, sail ratings, time normalization, bbox geometry, GRIB2 constant validation, tide prediction (semidiurnal pattern, extrema detection, CWA-anchored interpolation), accuracy tracking (error metrics, buoy verification, tide accuracy), CWA API parsing (station, buoy, tide, tide forecast, township forecast, warnings), AI summary prompt construction (with CWA obs and ensemble spread), notification alert dedup, and shared HTTP fetch/JSON loading utilities.
 
 **Tests run in CI/CD** — the GitHub Actions workflow runs `python -m pytest tests/ -v` before deployment.
 

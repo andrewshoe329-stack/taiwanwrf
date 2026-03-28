@@ -177,7 +177,8 @@ def _compute_bin_metrics(bin_errors: dict) -> dict:
 def compute_accuracy(forecast_records: list, obs_raw: dict,
                      wave_forecast: list | None = None,
                      wave_obs_raw: dict | None = None,
-                     cwa_buoy: dict | None = None) -> dict | None:
+                     cwa_buoy: dict | None = None,
+                     init_utc: str | None = None) -> dict | None:
     """Compare forecast records against observations, return accuracy metrics.
 
     Returns a dict with 'overall' and 'by_horizon' keys containing expanded
@@ -230,7 +231,16 @@ def compute_accuracy(forecast_records: list, obs_raw: dict,
         obs = obs_by_time[vt]
         n_compared += 1
 
-        fh = rec.get('fh', 0)
+        fh = rec.get('fh')
+        if fh is None and init_utc and vt:
+            try:
+                dt_valid = datetime.fromisoformat(vt)
+                dt_init = datetime.fromisoformat(init_utc)
+                fh = (dt_valid - dt_init).total_seconds() / 3600
+            except (ValueError, TypeError):
+                fh = 0
+        elif fh is None:
+            fh = 0
         bk = _fh_bin(fh)
 
         # Temperature
@@ -614,7 +624,7 @@ def main() -> None:
 
     # Compute accuracy
     metrics = compute_accuracy(past_records, obs, wave_forecast, wave_obs,
-                               cwa_buoy=cwa_buoy)
+                               cwa_buoy=cwa_buoy, init_utc=init_utc)
     if not metrics:
         log.warning("No overlapping forecast/observation data")
         return

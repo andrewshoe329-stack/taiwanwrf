@@ -37,11 +37,8 @@ KNOWN_BUOY_COORDS = {
     "46714C": (24.849, 121.838, "蘇澳"),     # Su-ao buoy
     "C6AH2":  (25.159, 121.740, "基隆"),      # Keelung
     "C6W08":  (24.968, 121.924, "頭城"),      # Toucheng
-    "46699A": (24.634, 121.553, "花蓮"),      # Hualien buoy
     "COMC06": (25.176, 121.762, "基隆嶼"),    # Keelung Islet
     "C4B01":  (25.133, 121.742, "基隆潮位"),   # Keelung tide station
-    "C4C01":  (24.594, 121.857, "花蓮潮位"),   # Hualien tide station
-    "C4D01":  (24.234, 121.543, "成功潮位"),   # Chenggong tide station
 }
 
 # Known CWA weather station coordinates (for northern Taiwan area).

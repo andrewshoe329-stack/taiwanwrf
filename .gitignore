@@ -12,3 +12,6 @@ wave_downloads/
 .env
 public/
 .vercel/
+frontend/public/data/*.json
+node_modules/
+dist/

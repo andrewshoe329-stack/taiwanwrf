@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import React, { lazy, Suspense } from 'react'
 import { createBrowserRouter } from 'react-router-dom'
 import { App } from './App'
 
@@ -16,11 +16,48 @@ function LazyFallback() {
   )
 }
 
+class LazyErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props)
+    this.state = { hasError: false }
+  }
+
+  static getDerivedStateFromError(): { hasError: boolean } {
+    return { hasError: true }
+  }
+
+  handleRetry = () => {
+    this.setState({ hasError: false })
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex flex-col items-center justify-center h-[50vh] gap-4">
+          <p className="text-[var(--color-text-muted)] text-sm">Failed to load page.</p>
+          <button
+            onClick={this.handleRetry}
+            className="px-4 py-2 text-sm rounded-md bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border border-[var(--color-border)] hover:bg-[var(--color-border)] transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
 function withSuspense(Component: React.LazyExoticComponent<React.ComponentType>) {
   return (
-    <Suspense fallback={<LazyFallback />}>
-      <Component />
-    </Suspense>
+    <LazyErrorBoundary>
+      <Suspense fallback={<LazyFallback />}>
+        <Component />
+      </Suspense>
+    </LazyErrorBoundary>
   )
 }
 

@@ -3,7 +3,7 @@
 wind_grid_fetch.py
 ==================
 Fetch gridded u/v wind components from Open-Meteo for ECMWF IFS and GFS
-models over a Taiwan-wide bounding box.
+models over a north/northeast Taiwan bounding box.
 
 Creates a regular lat/lon grid per model, fetches wind_speed_10m and
 wind_direction_10m for each grid point via Open-Meteo, converts to u/v
@@ -33,11 +33,11 @@ from config import norm_utc, setup_logging
 
 log = logging.getLogger(__name__)
 
-# ── Default bounding box (Taiwan-wide) ───────────────────────────────────────
+# ── Default bounding box (north/northeast Taiwan) ────────────────────────────
 
-DEFAULT_LAT_MIN = 21.5
+DEFAULT_LAT_MIN = 24.5
 DEFAULT_LAT_MAX = 25.5
-DEFAULT_LON_MIN = 119.0
+DEFAULT_LON_MIN = 121.0
 DEFAULT_LON_MAX = 122.5
 
 # ── Model configurations ─────────────────────────────────────────────────────
@@ -162,6 +162,9 @@ def fetch_model_grid(model_key: str, lats: list[float], lons: list[float],
         log.warning("%s: %d/%d points failed", model_id, failed, total)
     if not point_data:
         log.error("%s: no data retrieved", model_id)
+        return None
+    if failed > total / 2:
+        log.error("%s: majority of grid points failed (%d/%d)", model_id, failed, total)
         return None
 
     # Extract timesteps from the first successful point

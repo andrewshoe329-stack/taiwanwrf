@@ -234,7 +234,9 @@ def main():
     if records:
         raw_fill = fetch_gfs_gust_vis_json()
         if raw_fill is not None:
-            meta, records = process(raw, raw_fill)
+            meta2, records2 = process(raw, raw_fill)
+            if records2:
+                meta, records = meta2, records2
 
     if not records:
         log.error("No records extracted from Open-Meteo response.")

@@ -27,6 +27,11 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v5
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Cache pip packages
         uses: actions/cache@v5
         with:
@@ -44,8 +49,12 @@ jobs:
         timeout-minutes: 30
         run: |
           python taiwan_wrf_download.py --keelung-only --workers 8
-          ARCHIVE=$(grep '^archive_path=' "$GITHUB_OUTPUT" | tail -1 | cut -d= -f2-)
-          if [ -n "$ARCHIVE" ] && [ -f "$ARCHIVE" ]; then
+
+      - name: Report archive size
+        if: steps.download.outputs.archive_path != ''
+        run: |
+          ARCHIVE="${{ steps.download.outputs.archive_path }}"
+          if [ -f "$ARCHIVE" ]; then
             echo "archive_size=$(du -sh "$ARCHIVE" | cut -f1)" >> "$GITHUB_OUTPUT"
           fi
 
@@ -53,12 +62,13 @@ jobs:
         env:
           SA_KEY: ${{ secrets.FIREBASE_SA_KEY }}
           FIREBASE_PROJECT: ${{ secrets.FIREBASE_PROJECT }}
+          FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
         run: |
           if [ -n "$SA_KEY" ]; then
             echo "$SA_KEY" > /tmp/firebase-sa-key.json
             echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/firebase-sa-key.json" >> "$GITHUB_ENV"
             echo "FIREBASE_PROJECT=$FIREBASE_PROJECT" >> "$GITHUB_ENV"
-            echo "FIREBASE_STORAGE_BUCKET=${{ secrets.FIREBASE_STORAGE_BUCKET }}" >> "$GITHUB_ENV"
+            echo "FIREBASE_STORAGE_BUCKET=$FIREBASE_STORAGE_BUCKET" >> "$GITHUB_ENV"
           else
             echo "::warning::FIREBASE_SA_KEY not set — Firebase storage disabled"
           fi

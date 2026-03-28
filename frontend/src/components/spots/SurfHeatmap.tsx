@@ -17,12 +17,12 @@ const RATING_STYLES: Record<string, { bg: string; color: string }> = {
 }
 
 function formatDayHeader(dateStr: string): string {
-  const d = new Date(dateStr + 'T00:00:00')
+  const d = new Date(dateStr + 'T00:00:00Z')
   return d.toLocaleDateString('en-US', { weekday: 'short' })
 }
 
 function formatDateSub(dateStr: string): string {
-  const d = new Date(dateStr + 'T00:00:00')
+  const d = new Date(dateStr + 'T00:00:00Z')
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 

@@ -205,7 +205,7 @@ def _download_file(url: str, dest: Path) -> None:
             last_exc = e
             if attempt < 3:
                 log.warning("Download %s failed (%s); retry %d/3 …", url, e, attempt)
-                import time as _t; _t.sleep(5 * attempt)
+                time.sleep(5 * attempt)
     raise RuntimeError(f"Download {url} failed after 3 attempts: {last_exc}")
 
 

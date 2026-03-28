@@ -99,7 +99,6 @@ export function WaveChart({ records }: WaveChartProps) {
           stroke="var(--color-text-primary)"
           strokeWidth={1}
           type="monotone"
-          stackId="waves"
           isAnimationActive={false}
         />
         <Area
@@ -111,7 +110,6 @@ export function WaveChart({ records }: WaveChartProps) {
           stroke="#888888"
           strokeWidth={1}
           type="monotone"
-          stackId="waves"
           isAnimationActive={false}
         />
         <Line

@@ -21,31 +21,23 @@ export function useWindGrid(): WindGridState {
   const [model, setModelState] = useState<WindModel>('ecmwf')
   const [grid, setGrid] = useState<WindGrid | null>(null)
   const [loading, setLoading] = useState(false)
-  const [cache] = useState<Map<WindModel, WindGrid>>(new Map())
 
   const loadGrid = useCallback(async (m: WindModel) => {
-    const cached = cache.get(m)
-    if (cached) {
-      setGrid(cached)
-      return
-    }
-
     setLoading(true)
     try {
       const res = await fetch(MODEL_FILES[m])
       if (res.ok) {
         const data: WindGrid = await res.json()
-        cache.set(m, data)
         setGrid(data)
       } else {
-        setGrid(null) // Clear stale data if model grid unavailable
+        setGrid(null)
       }
     } catch {
       setGrid(null)
     } finally {
       setLoading(false)
     }
-  }, [cache])
+  }, [])
 
   const setModel = useCallback((m: WindModel) => {
     setModelState(m)

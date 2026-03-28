@@ -119,21 +119,21 @@ class TestDayRating:
         assert r['label'] == 'Dangerous'
 
     def test_good_conditions(self):
-        # Good swell from NE, light offshore wind from SW, long period
+        # Good swell from NE, light offshore wind from SW, long period → Firing!
         recs = [{'sw_hs': 1.5, 'wind': 5, 'sw_dir': 45, 'w_dir': 225, 'sw_tp': 14}]
         r = day_rating(recs, self.SPOT)
-        assert r['label'] in ('Firing!', 'Good')
+        assert r['label'] == 'Firing!'
 
     def test_all_none_fields(self):
         recs = [{'sw_hs': None, 'wind': None, 'sw_dir': None, 'w_dir': None, 'sw_tp': None}]
         r = day_rating(recs, self.SPOT)
-        assert r['label'] in ('Flat', 'No data', 'Poor')
+        assert r['label'] == 'Flat'
 
     def test_marginal_boundary(self):
-        # Moderate swell, onshore wind, short period → should be Marginal or Poor
-        recs = [{'sw_hs': 0.8, 'wind': 12, 'sw_dir': 90, 'w_dir': 90, 'sw_tp': 8}]
+        # Moderate swell from S (poor dir for Fulong), onshore wind, short period → Marginal or Poor
+        recs = [{'sw_hs': 0.8, 'wind': 12, 'sw_dir': 180, 'w_dir': 45, 'sw_tp': 8}]
         r = day_rating(recs, self.SPOT)
-        assert r['label'] in ('Marginal', 'Poor', 'Good')
+        assert r['label'] in ('Marginal', 'Poor')
 
 
 # ── sail_day_rating ──────────────────────────────────────────────────────────
