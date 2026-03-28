@@ -49,6 +49,7 @@ export function ForecastMap() {
       // Load Taiwan coastline outline
       try {
         const resp = await fetch('/data/taiwan.geojson')
+        if (!resp.ok) throw new Error(`GeoJSON fetch failed: ${resp.status}`)
         const geojson = await resp.json()
         map.addSource('taiwan-outline', { type: 'geojson', data: geojson })
         map.addLayer({
@@ -56,8 +57,8 @@ export function ForecastMap() {
           type: 'fill',
           source: 'taiwan-outline',
           paint: {
-            'fill-color': '#1e293b',
-            'fill-opacity': 0.4,
+            'fill-color': '#1e3a5f',
+            'fill-opacity': 0.5,
           },
         })
         map.addLayer({
@@ -65,13 +66,13 @@ export function ForecastMap() {
           type: 'line',
           source: 'taiwan-outline',
           paint: {
-            'line-color': '#93c5fd',
-            'line-width': 1.5,
-            'line-opacity': 0.8,
+            'line-color': '#60a5fa',
+            'line-width': 2.5,
+            'line-opacity': 1,
           },
         })
-      } catch {
-        // GeoJSON not available — basemap coastlines still visible
+      } catch (err) {
+        console.warn('Taiwan outline not loaded:', err)
       }
 
       mapRef.current = map
@@ -166,7 +167,7 @@ export function ForecastMap() {
       <canvas
         ref={canvasRef}
         className="absolute inset-0 pointer-events-none"
-        style={{ zIndex: 1 }}
+        style={{ zIndex: 1, opacity: 0.85 }}
       />
 
       {/* Model switcher */}
