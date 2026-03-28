@@ -42,6 +42,7 @@ export class WindParticleSystem {
   private grid: WindGrid | null = null
   private animId: number | null = null
   private running = false
+  private coastline: [number, number][][] = []  // array of rings, each ring is [lon, lat][]
 
   // Viewport mapping (set by the map component)
   private bounds = { west: 119.0, east: 122.5, south: 21.5, north: 25.5 }
@@ -54,6 +55,11 @@ export class WindParticleSystem {
     this.speedFactor = opts.speedFactor ?? 0.3
     this.lineWidth = opts.lineWidth ?? 1.2
     this.fadeFactor = opts.fadeFactor ?? 0.97
+  }
+
+  /** Set coastline polygons to draw on the canvas (array of [lon,lat][] rings) */
+  setCoastline(rings: [number, number][][]) {
+    this.coastline = rings
   }
 
   /** Set the wind grid data (call when timeline changes) */
@@ -212,6 +218,35 @@ export class WindParticleSystem {
       }
     }
 
+    // Draw coastline overlay (redrawn each frame so it stays crisp)
+    this.drawCoastline(ctx, w, h)
+
     this.animId = requestAnimationFrame(this.loop)
+  }
+
+  private drawCoastline(ctx: CanvasRenderingContext2D, w: number, h: number) {
+    if (this.coastline.length === 0) return
+
+    const { west, east, south, north } = this.bounds
+
+    ctx.save()
+    ctx.globalCompositeOperation = 'source-over'
+    ctx.strokeStyle = 'rgba(34, 211, 238, 0.7)'  // cyan-400
+    ctx.lineWidth = 1.5
+    ctx.lineJoin = 'round'
+
+    for (const ring of this.coastline) {
+      ctx.beginPath()
+      for (let i = 0; i < ring.length; i++) {
+        const [lon, lat] = ring[i]
+        const x = ((lon - west) / (east - west)) * w
+        const y = ((north - lat) / (north - south)) * h
+        if (i === 0) ctx.moveTo(x, y)
+        else ctx.lineTo(x, y)
+      }
+      ctx.closePath()
+      ctx.stroke()
+    }
+    ctx.restore()
   }
 }
