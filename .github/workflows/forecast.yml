@@ -72,21 +72,19 @@ jobs:
 
       # ── Fetch all data sources ────────────────────────────────────────────
 
-      - name: Fetch ECMWF forecast (all harbours)
+      - name: Fetch ECMWF forecast
         id: ecmwf
         continue-on-error: true
         timeout-minutes: 10
         run: |
-          python ecmwf_fetch.py --output ecmwf_keelung.json \
-            --all-harbours --harbours-output ecmwf_harbours.json
+          python ecmwf_fetch.py --output ecmwf_keelung.json
 
-      - name: Fetch wave forecast (all harbours)
+      - name: Fetch wave forecast
         id: wave
         continue-on-error: true
         timeout-minutes: 10
         run: |
-          python wave_fetch.py --output wave_keelung.json \
-            --all-harbours --harbours-output wave_harbours.json
+          python wave_fetch.py --output wave_keelung.json
 
       - name: Predict tides
         timeout-minutes: 2
@@ -102,14 +100,12 @@ jobs:
             python cwa_fetch.py --output cwa_obs.json
           fi
 
-      - name: Fetch ensemble models (all harbours)
+      - name: Fetch ensemble models
         continue-on-error: true
         timeout-minutes: 10
         run: |
           ECMWF_ARG=""; [ -f ecmwf_keelung.json ] && ECMWF_ARG="--ecmwf-json ecmwf_keelung.json"
-          HARBOUR_ECMWF_ARG=""; [ -f ecmwf_harbours.json ] && HARBOUR_ECMWF_ARG="--ecmwf-harbours-json ecmwf_harbours.json"
-          python ensemble_fetch.py $ECMWF_ARG --output ensemble_keelung.json \
-            --all-harbours --harbours-output ensemble_harbours.json $HARBOUR_ECMWF_ARG
+          python ensemble_fetch.py $ECMWF_ARG --output ensemble_keelung.json
 
       - name: Fetch wind grids (ECMWF, GFS)
         continue-on-error: true
@@ -118,7 +114,7 @@ jobs:
           mkdir -p frontend/public/data
           python wind_grid_fetch.py --output-dir frontend/public/data
 
-      # ── Generate surf forecast for all 14 spots ──────────────────────────
+      # ── Generate surf forecast ────────────────────────────────────────────
 
       - name: Generate surf forecast
         timeout-minutes: 10
@@ -212,9 +208,6 @@ jobs:
           done
           [ -f surf_frontend.json ] && cp surf_frontend.json frontend/public/data/surf.json
           [ -f ai_summary.json ] && cp ai_summary.json frontend/public/data/summary.json
-          for f in ecmwf_harbours.json wave_harbours.json ensemble_harbours.json; do
-            [ -f "$f" ] && cp "$f" "frontend/public/data/$f"
-          done
 
       - name: Upload forecast data
         if: "!cancelled()"
