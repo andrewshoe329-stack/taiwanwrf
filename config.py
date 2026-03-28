@@ -237,7 +237,6 @@ def sunrise_sunset(date, lat: float = KEELUNG_LAT, lon: float = KEELUNG_LON
         Summer: sunrise ~05:05, sunset ~18:45 CST
         Winter: sunrise ~06:35, sunset ~17:15 CST
     """
-    from datetime import datetime as _dt, timezone as _tz
     if hasattr(date, 'timetuple'):
         doy = date.timetuple().tm_yday
         year = date.year
@@ -321,6 +320,9 @@ def norm_utc(iso: str) -> str:
         iso += ":00+00:00"
     elif len(iso) == 19:     # YYYY-MM-DDTHH:MM:SS
         iso += "+00:00"
+    elif len(iso) >= 25 and '+' in iso[19:] and not iso.endswith('+00:00'):
+        _log = logging.getLogger(__name__)
+        _log.warning("norm_utc received non-UTC offset: %s", iso)
     return iso
 
 
@@ -340,6 +342,8 @@ def sail_rating(
                 gust≥22 or wind≥17 or Hs≥1.5 or rain≥15 → Marginal;
                 otherwise → Good.
     """
+    if total_rain is None:
+        total_rain = 0.0
     no_go = (
         (max_gust is not None and max_gust >= 34) or
         (max_wind is not None and max_wind >= 28) or

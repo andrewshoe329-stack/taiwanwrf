@@ -33,10 +33,9 @@ class TestT:
     def test_returns_string(self):
         assert isinstance(T('firing'), str)
 
-    def test_missing_key_raises(self):
-        import pytest
-        with pytest.raises(KeyError):
-            T('nonexistent_key_xyz')
+    def test_missing_key_returns_placeholder(self):
+        result = T('nonexistent_key_xyz')
+        assert 'nonexistent_key_xyz' in result
 
 
 class TestTStr:

@@ -13,7 +13,7 @@ import argparse, json, logging, os, sys, time, urllib.request, urllib.parse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone, timedelta
 
-import html as html_mod_escape
+import html as html_mod
 
 from config import (KEELUNG_LAT, KEELUNG_LON, SPOT_COORDS,
                      deg_to_compass, setup_logging, sail_rating,
@@ -551,9 +551,23 @@ def best_time_for_day(day_recs: list[dict], spot: dict) -> dict[str, object] | N
             sr_h, ss_h = sunrise_sunset(dt_utc, spot['lat'], spot['lon'])
             win_start_h = dt_utc.hour + dt_utc.minute / 60.0
             win_end_h = win_start_h + 6.0
-            overlap_start = max(win_start_h, sr_h)
-            overlap_end = min(win_end_h, ss_h)
-            daylight_hours = max(0.0, overlap_end - overlap_start)
+            # When sunrise > sunset in UTC (e.g. Taiwan: sunrise ~21:30 UTC,
+            # sunset ~10:00 UTC next day), daylight wraps past midnight.
+            # Handle by splitting into two sub-intervals.
+            if sr_h <= ss_h:
+                # Normal case: daylight is [sr_h, ss_h]
+                ol_start = max(win_start_h, sr_h)
+                ol_end = min(win_end_h, ss_h)
+                daylight_hours = max(0.0, ol_end - ol_start)
+            else:
+                # Wrapped case: daylight is [sr_h, 24.0] + [0.0, ss_h]
+                ol1_start = max(win_start_h, sr_h)
+                ol1_end = min(win_end_h, 24.0)
+                part1 = max(0.0, ol1_end - ol1_start)
+                ol2_start = max(win_start_h, 0.0)
+                ol2_end = min(win_end_h, ss_h)
+                part2 = max(0.0, ol2_end - ol2_start)
+                daylight_hours = part1 + part2
             if daylight_hours >= 3.0:
                 daylight_recs.append(r)
         else:

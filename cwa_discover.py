@@ -24,7 +24,6 @@ from cwa_fetch import (
     STATION_ENDPOINT,
     MARINE_OBS_ENDPOINT,
     _group_flat_rows_to_stations,
-    norm_utc,
 )
 
 log = logging.getLogger(__name__)

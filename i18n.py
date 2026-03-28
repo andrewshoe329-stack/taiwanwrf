@@ -331,15 +331,20 @@ def T(key: str) -> str:
     Output: <span lang="en">English</span><span lang="zh">中文</span>
     CSS hides the inactive language based on <html lang="...">.
     """
-    s = STRINGS[key]
+    s = STRINGS.get(key)
+    if s is None:
+        return f'<span lang="en">[{_esc(key)}]</span><span lang="zh">[{_esc(key)}]</span>'
     return f'<span lang="en">{s["en"]}</span><span lang="zh">{s["zh"]}</span>'
 
 
 def T_str(key: str, lang: str) -> str:
     """Return plain text for a specific language ('en' or 'zh')."""
-    return STRINGS[key][lang]
+    s = STRINGS.get(key)
+    if s is None:
+        return f'[{key}]'
+    return s.get(lang, s.get('en', f'[{key}]'))
 
 
 def bilingual(en: str, zh: str) -> str:
     """Inline bilingual span pair for one-off translations."""
-    return f'<span lang="en">{en}</span><span lang="zh">{zh}</span>'
+    return f'<span lang="en">{_esc(en)}</span><span lang="zh">{_esc(zh)}</span>'

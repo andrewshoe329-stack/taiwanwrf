@@ -257,16 +257,28 @@ def compute_accuracy(forecast_records: list, obs_raw: dict,
             wdir_errors.append(err)
             bins[bk]['wdir'].append(err)
 
-        # Precipitation
+        # Precipitation — forecast is 6h accumulated, obs is hourly.
+        # Sum the 6 preceding hourly obs values to get a comparable 6h total.
         fp = rec.get('precip_mm_6h')
-        op = obs.get('precip_mm')
-        if fp is not None and op is not None:
-            # Obs is hourly; forecast is 6h total — compare directly
-            # (obs at 6h mark represents that hour only, but it's the best
-            # point comparison available without summing hourly obs)
-            err = fp - op
-            precip_errors.append(err)
-            bins[bk]['precip'].append(err)
+        if fp is not None and vt in obs_by_time:
+            try:
+                vt_dt = datetime.fromisoformat(vt)
+                obs_6h_sum = 0.0
+                obs_6h_count = 0
+                for h_offset in range(6):
+                    h_time = (vt_dt - timedelta(hours=h_offset)).isoformat()
+                    h_key = norm_utc(h_time) if len(h_time) < 25 else h_time
+                    h_obs = obs_by_time.get(h_key, {})
+                    h_rain = h_obs.get('precip_mm')
+                    if h_rain is not None:
+                        obs_6h_sum += h_rain
+                        obs_6h_count += 1
+                if obs_6h_count >= 4:  # require at least 4 of 6 hours
+                    err = fp - obs_6h_sum
+                    precip_errors.append(err)
+                    bins[bk]['precip'].append(err)
+            except (ValueError, TypeError):
+                pass
 
         # Pressure
         fm = rec.get('mslp_hpa')
@@ -349,17 +361,19 @@ def _compute_wave_accuracy(wave_forecast: list, wave_obs_raw: dict) -> dict | No
             continue
         obs = obs_by_time[vt]
 
-        fhs = rec.get('hs')
+        fhs = rec.get('wave_height') or rec.get('hs')
         ohs = obs.get('hs')
         if fhs is not None and ohs is not None:
             hs_errors.append(fhs - ohs)
 
-        ftp = rec.get('tp') or rec.get('sw_tp')
+        ftp = (rec.get('wave_period') or rec.get('tp')
+               or rec.get('swell_wave_period') or rec.get('sw_tp'))
         otp = obs.get('tp')
         if ftp is not None and otp is not None:
             tp_errors.append(ftp - otp)
 
-        fwd = rec.get('dir') or rec.get('sw_dir')
+        fwd = (rec.get('wave_direction') or rec.get('dir')
+               or rec.get('swell_wave_direction') or rec.get('sw_dir'))
         owd = obs.get('wd')
         if fwd is not None and owd is not None:
             wd_errors.append(_circular_diff(fwd, owd))

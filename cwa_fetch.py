@@ -104,7 +104,7 @@ def _cwa_get(endpoint: str, api_key: str, params: dict | None = None,
                 return data
             log.warning("%s response missing success flag: %s",
                         label, str(data)[:500])
-            return data
+            return None
 
         except (urllib.error.HTTPError, urllib.error.URLError,
                 json.JSONDecodeError, OSError) as e:
@@ -432,8 +432,8 @@ def _fetch_marine_stations(api_key: str,
                     o for o in obs_times
                     if isinstance(o, dict)
                     and o.get("DateTime")
-                    and o.get("WeatherElements", {}).get("WaveHeight", "None") != "None"
-                    or o.get("WeatherElements", {}).get("TideHeight", "None") != "None"
+                    and (o.get("WeatherElements", {}).get("WaveHeight", "None") != "None"
+                         or o.get("WeatherElements", {}).get("TideHeight", "None") != "None")
                 ]
                 if not valid_obs:
                     valid_obs = [o for o in obs_times if isinstance(o, dict)]
@@ -729,7 +729,7 @@ def fetch_tide_forecast(api_key: str,
                             v = v.get("value") or v.get("Value")
                         if v is not None and v != "":
                             try:
-                                height = float(v)
+                                height = float(v) / 100.0  # cm → m
                                 break
                             except (ValueError, TypeError):
                                 pass

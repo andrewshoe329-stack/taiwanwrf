@@ -42,6 +42,14 @@ from html_template import render_page
 
 log = logging.getLogger(__name__)
 
+
+def _coalesce(*values):
+    """Return the first value that is not None."""
+    for v in values:
+        if v is not None:
+            return v
+    return None
+
 # ── GRIB2 variable matching ───────────────────────────────────────────────────
 # Priority-ordered list of (shortName_variants, typeOfLevel, level, output_key)
 # typeOfLevel / level can be None to match any.  First match wins per key.
@@ -101,7 +109,7 @@ DERIVED = {
     'mslp_hpa':  ('hPa', lambda d: d['mslp_pa'] / 100),
     'precip_mm': ('mm',  lambda d: d['precip_raw']),   # units normalised in read_point()
     'cloud_pct': ('%',   lambda d: d['cloud_raw'] * 100
-                                   if d['cloud_raw'] <= 1.0 else d['cloud_raw']),
+                                   if d['cloud_raw'] <= 1.001 else d['cloud_raw']),
     'vis_km':    ('km',  lambda d: d['vis_m'] / 1000),
     'gust_kt':   ('kt',  lambda d: d['gust_ms'] * 1.94384),
     'cape':      ('J/kg',lambda d: d['cape']),
@@ -174,7 +182,7 @@ def list_vars(grib_path: Path) -> None:
                 ec.codes_release(msg)
 
 
-_grid_cache: dict = {}  # module-level cache: (grid_type, ni, nj) → (j, i) index
+_grid_cache: dict = {}  # module-level cache: (grid_type, ni, nj, lat, lon) → (j, i) index
 
 
 def read_point(grib_path: Path, lat: float, lon: float) -> dict[str, float]:
@@ -220,7 +228,7 @@ def read_point(grib_path: Path, lat: float, lon: float) -> dict[str, float]:
                                     if ni2 <= 0 or nj2 <= 0:
                                         raise ValueError(f"Invalid grid dims Ni={ni2}, Nj={nj2}")
                                     gt2 = ec.codes_get(msg, 'gridType')
-                                    ck2 = (gt2, ni2, nj2)
+                                    ck2 = (gt2, ni2, nj2, round(lat, 4), round(lon, 4))
                                     if ck2 not in _grid_cache:
                                         lt2 = ec.codes_get_array(msg, 'latitudes')
                                         ln2 = ec.codes_get_array(msg, 'longitudes')
@@ -260,7 +268,7 @@ def read_point(grib_path: Path, lat: float, lon: float) -> dict[str, float]:
                     log.warning("Invalid grid dims Ni=%s, Nj=%s — skipping", ni, nj)
                     continue
                 grid_type = ec.codes_get(msg, 'gridType')
-                cache_key = (grid_type, ni, nj)
+                cache_key = (grid_type, ni, nj, round(lat, 4), round(lon, 4))
                 expected_size = ni * nj
 
                 if cache_key not in _grid_cache:
@@ -295,7 +303,8 @@ def read_point(grib_path: Path, lat: float, lon: float) -> dict[str, float]:
                         # heuristic — only convert if value looks like metres
                         # (i.e. plausibly < 0.5 m of rain in 6 h).
                         log.warning("GRIB2 units key unavailable for precip; using magnitude heuristic")
-                        if 0 < val < 0.5:
+                        if 0 < val < 0.01:
+                            log.info("Precip value %.6f looks like metres, converting to mm", val)
                             val *= 1000.0
 
                 raw[matched_key] = val
@@ -335,6 +344,7 @@ def extract_forecast(rundir: Path) -> tuple[dict, list[dict]]:
 
     # Track previous precip value for incremental accumulation detection
     prev_precip_mm = None
+    prev_fh = None
     records = []
 
     for grb in grb_files:
@@ -371,7 +381,11 @@ def extract_forecast(rundir: Path) -> tuple[dict, list[dict]]:
             # Analysis hour: no accumulation period yet
             rec['precip_mm_6h'] = 0.0
         elif rec.get('precip_mm') is not None and prev_precip_mm is not None:
-            if rec['precip_mm'] >= prev_precip_mm:
+            if prev_fh is not None and fh - prev_fh != 6:
+                log.warning("Forecast hour gap %dh (F%03d→F%03d) is not 6h; skipping precip delta",
+                            fh - prev_fh, prev_fh, fh)
+                rec['precip_mm_6h'] = None
+            elif rec['precip_mm'] >= prev_precip_mm:
                 rec['precip_mm_6h'] = round(rec['precip_mm'] - prev_precip_mm, 2)
             else:
                 # Model resets accumulation — treat as-is
@@ -380,6 +394,7 @@ def extract_forecast(rundir: Path) -> tuple[dict, list[dict]]:
             rec['precip_mm_6h'] = rec.get('precip_mm')
 
         prev_precip_mm = rec.get('precip_mm')
+        prev_fh = fh
         records.append(rec)
 
     records.sort(key=lambda r: r['fh'])
@@ -1695,19 +1710,19 @@ def render_unified_html(
             html += f'<h3 class="fc-cards-date">📅 {cst_date_str}</h3>\n'
 
         # Effective values
-        ww  = (wrf.get('wind_kt')  if wrf else None) or (ec.get('wind_kt')  if ec else None)
-        wwd = (wrf.get('wind_dir') if wrf else None) or (ec.get('wind_dir') if ec else None)
-        g_v = (wrf.get('gust_kt')  if wrf else None) or (ec.get('gust_kt')  if ec else None)
-        wt  = (wrf.get('temp_c')   if wrf else None) or (ec.get('temp_c')   if ec else None)
-        r_v = (wrf.get('precip_mm_6h') if wrf else None) or (ec.get('precip_mm_6h') if ec else None)
+        ww  = _coalesce(wrf.get('wind_kt')  if wrf else None, ec.get('wind_kt')  if ec else None)
+        wwd = _coalesce(wrf.get('wind_dir') if wrf else None, ec.get('wind_dir') if ec else None)
+        g_v = _coalesce(wrf.get('gust_kt')  if wrf else None, ec.get('gust_kt')  if ec else None)
+        wt  = _coalesce(wrf.get('temp_c')   if wrf else None, ec.get('temp_c')   if ec else None)
+        r_v = _coalesce(wrf.get('precip_mm_6h') if wrf else None, ec.get('precip_mm_6h') if ec else None)
         hs  = wav.get('wave_height')       if wav else None
         tp  = wav.get('wave_period')       if wav else None
         swh = wav.get('swell_wave_height') if wav else None
         wdr = wav.get('wave_direction')    if wav else None
-        wp  = (wrf.get('mslp_hpa')  if wrf else None) or (ec.get('mslp_hpa')  if ec else None)
-        vs  = (wrf.get('vis_km')    if wrf else None) or (ec.get('vis_km')    if ec else None)
-        cl  = (wrf.get('cloud_pct') if wrf else None) or (ec.get('cloud_pct') if ec else None)
-        cp  = (wrf.get('cape')      if wrf else None) or (ec.get('cape')      if ec else None)
+        wp  = _coalesce(wrf.get('mslp_hpa')  if wrf else None, ec.get('mslp_hpa')  if ec else None)
+        vs  = _coalesce(wrf.get('vis_km')    if wrf else None, ec.get('vis_km')    if ec else None)
+        cl  = _coalesce(wrf.get('cloud_pct') if wrf else None, ec.get('cloud_pct') if ec else None)
+        cp  = _coalesce(wrf.get('cape')      if wrf else None, ec.get('cape')      if ec else None)
 
         _eff_hs   = hs
         _alert_html, _alert_bg = _row_alerts(ww, g_v, _eff_hs, r_v)
@@ -1888,11 +1903,11 @@ def _render_quick_glance(ctx: 'ForecastContext') -> str:
             prev_date = cst_date
             html += f'<tr class="date-sep"><td colspan="6">{cst_date}</td></tr>\n'
 
-        wind = (wrf.get('wind_kt') if wrf else None) or (ec.get('wind_kt') if ec else None)
-        wind_dir = (wrf.get('wind_dir') if wrf else None) or (ec.get('wind_dir') if ec else None)
-        gust = (wrf.get('gust_kt') if wrf else None) or (ec.get('gust_kt') if ec else None)
-        temp = (wrf.get('temp_c') if wrf else None) or (ec.get('temp_c') if ec else None)
-        rain = (wrf.get('precip_mm_6h') if wrf else None) or (ec.get('precip_mm_6h') if ec else None)
+        wind = _coalesce(wrf.get('wind_kt') if wrf else None, ec.get('wind_kt') if ec else None)
+        wind_dir = _coalesce(wrf.get('wind_dir') if wrf else None, ec.get('wind_dir') if ec else None)
+        gust = _coalesce(wrf.get('gust_kt') if wrf else None, ec.get('gust_kt') if ec else None)
+        temp = _coalesce(wrf.get('temp_c') if wrf else None, ec.get('temp_c') if ec else None)
+        rain = _coalesce(wrf.get('precip_mm_6h') if wrf else None, ec.get('precip_mm_6h') if ec else None)
         hs = wav.get('wave_height') if wav else None
 
         cls = ' class="row-alt"' if idx % 2 else ''
@@ -2070,14 +2085,10 @@ def render_accuracy_page(accuracy_log: list | None, *, build_utc: str = '', **kw
         vals = [e.get(key) for e in entries if e.get(key) is not None]
         return round(sum(vals) / len(vals), 2) if vals else None
 
-    def bias_metric(entries, key):
-        vals = [e.get(key) for e in entries if e.get(key) is not None]
-        return round(sum(vals) / len(vals), 2) if vals else None
-
     temp_mae = avg_metric(recent, 'temp_mae_c')
-    temp_bias = bias_metric(recent, 'temp_bias_c')
+    temp_bias = avg_metric(recent, 'temp_bias_c')
     wind_mae = avg_metric(recent, 'wind_mae_kt')
-    wind_bias = bias_metric(recent, 'wind_bias_kt')
+    wind_bias = avg_metric(recent, 'wind_bias_kt')
     wdir_mae = avg_metric(recent, 'wdir_mae_deg')
     mslp_mae = avg_metric(recent, 'mslp_mae_hpa')
     wave_mae = None
@@ -2246,8 +2257,8 @@ def main() -> None:
     if not records:
         log.warning("No records extracted. Run with --list-vars to diagnose available fields.")
         # Still write empty outputs so downstream steps don't break
-        Path(args.output_html).write_text('<p>No forecast data extracted.</p>')
-        Path(args.output_json).write_text(json.dumps({'meta': meta, 'records': []}, indent=2))
+        Path(args.output_html).write_text('<p>No forecast data extracted.</p>', encoding='utf-8')
+        Path(args.output_json).write_text(json.dumps({'meta': meta, 'records': []}, indent=2), encoding='utf-8')
         sys.exit(0)
 
     # ── Load previous summary ─────────────────────────────────────────────────
@@ -2262,7 +2273,7 @@ def main() -> None:
     # ── Write JSON summary ────────────────────────────────────────────────────
     summary = {'meta': meta, 'records': records}
     out_json = Path(args.output_json)
-    out_json.write_text(json.dumps(summary, indent=2))
+    out_json.write_text(json.dumps(summary, indent=2), encoding='utf-8')
     log.info("Summary → %s", out_json)
 
     # ── Export wind grid for frontend particle animation ──────────────────────
@@ -2271,7 +2282,7 @@ def main() -> None:
         if wind_grid:
             wg_path = Path(args.output_wind_grid)
             wg_path.parent.mkdir(parents=True, exist_ok=True)
-            wg_path.write_text(json.dumps(wind_grid))
+            wg_path.write_text(json.dumps(wind_grid), encoding='utf-8')
             log.info("Wind grid → %s (%d timesteps, %dx%d)",
                      wg_path, len(wind_grid['timesteps']),
                      wind_grid['grid']['nx'], wind_grid['grid']['ny'])
@@ -2380,7 +2391,7 @@ def main() -> None:
         html_full = render_unified_html(meta, records, prev_records, ecmwf_records,
                                         wave_data, ctx=fctx)
         out_html = Path(args.output_html)
-        out_html.write_text(html_full)
+        out_html.write_text(html_full, encoding='utf-8')
         log.info("HTML → %s", out_html)
 
     # ── Expose to GitHub Actions ──────────────────────────────────────────────

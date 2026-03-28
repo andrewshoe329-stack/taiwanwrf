@@ -342,12 +342,12 @@ class TestFetchTideForecast:
                                     {
                                         "DateTime": "2026-03-23T05:30:00+08:00",
                                         "Tide": "滿潮",
-                                        "AboveLocalMSL": {"value": "0.95"},
+                                        "AboveLocalMSL": {"value": "95"},
                                     },
                                     {
                                         "DateTime": "2026-03-23T11:45:00+08:00",
                                         "Tide": "乾潮",
-                                        "AboveLocalMSL": {"value": "0.15"},
+                                        "AboveLocalMSL": {"value": "15"},
                                     },
                                 ],
                             }],
