@@ -25,6 +25,7 @@ export function ForecastMap() {
   const particlesRef = useRef<WindParticleSystem | null>(null)
   const [mapReady, setMapReady] = useState(false)
   const [outlineStatus, setOutlineStatus] = useState<'loading' | 'ok' | 'error'>('loading')
+  const [showParticles, setShowParticles] = useState(true)
 
   const { index } = useTimeline()
   const { grid, model, setModel } = useWindGrid()
@@ -186,7 +187,7 @@ export function ForecastMap() {
       <canvas
         ref={canvasRef}
         className="absolute inset-0 pointer-events-none"
-        style={{ zIndex: 1 }}
+        style={{ zIndex: 1, display: showParticles ? 'block' : 'none' }}
       />
 
       {/* Model switcher */}
@@ -212,13 +213,21 @@ export function ForecastMap() {
       {/* Spot markers */}
       <SpotMarkers map={mapReady ? mapRef.current : null} />
 
-      {/* Debug badge — remove after confirming outline works */}
-      <div className="absolute bottom-2 left-2 z-30 px-2 py-0.5 rounded text-[10px] font-mono backdrop-blur-sm"
-        style={{
-          background: outlineStatus === 'ok' ? 'rgba(34,211,238,0.3)' : outlineStatus === 'error' ? 'rgba(248,113,113,0.3)' : 'rgba(255,255,255,0.1)',
-          color: outlineStatus === 'ok' ? '#22d3ee' : outlineStatus === 'error' ? '#f87171' : '#666',
-        }}>
-        outline: {outlineStatus}
+      {/* Debug controls — remove after confirming outline works */}
+      <div className="absolute bottom-2 left-2 z-30 flex gap-2">
+        <div className="px-2 py-0.5 rounded text-[10px] font-mono backdrop-blur-sm"
+          style={{
+            background: outlineStatus === 'ok' ? 'rgba(34,211,238,0.3)' : outlineStatus === 'error' ? 'rgba(248,113,113,0.3)' : 'rgba(255,255,255,0.1)',
+            color: outlineStatus === 'ok' ? '#22d3ee' : outlineStatus === 'error' ? '#f87171' : '#666',
+          }}>
+          outline: {outlineStatus}
+        </div>
+        <button
+          onClick={() => setShowParticles(p => !p)}
+          className="px-2 py-0.5 rounded text-[10px] font-mono backdrop-blur-sm border border-[var(--color-border)]"
+          style={{ background: 'rgba(255,255,255,0.1)', color: '#aaa' }}>
+          {showParticles ? 'hide' : 'show'} particles
+        </button>
       </div>
     </div>
   )
