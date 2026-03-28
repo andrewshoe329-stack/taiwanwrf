@@ -24,7 +24,7 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from config import KEELUNG_LAT, KEELUNG_LON, HARBOUR_COORDS, norm_utc, setup_logging
+from config import KEELUNG_LAT, KEELUNG_LON, norm_utc, setup_logging
 from config import fetch_json as _fetch_json_shared
 
 log = logging.getLogger(__name__)
@@ -217,35 +217,12 @@ def process(raw: dict, raw_fill: dict | None = None) -> tuple[dict, list]:
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
-def _fetch_one_harbour(hid: str, lat: float, lon: float) -> tuple[str, dict | None]:
-    """Fetch ECMWF + GFS backfill for one harbour, return (id, summary_dict)."""
-    raw = fetch_ecmwf_json(lat, lon, label=f"ECMWF IFS ({hid})")
-    if raw is None:
-        log.warning("ECMWF fetch failed for %s", hid)
-        return hid, None
-    meta, records = process(raw)
-    if records:
-        raw_fill = fetch_gfs_gust_vis_json(lat, lon, label=f"GFS fill ({hid})")
-        if raw_fill is not None:
-            meta, records = process(raw, raw_fill)
-    if not records:
-        log.warning("No records for %s", hid)
-        return hid, None
-    return hid, {"meta": meta, "records": records}
-
-
 def main():
-    from concurrent.futures import ThreadPoolExecutor, as_completed
-
     ap = argparse.ArgumentParser(
         description="Fetch ECMWF IFS 0.25° point forecast from Open-Meteo."
     )
     ap.add_argument("--output", default="ecmwf_keelung.json",
                     help="Output JSON path (default: ecmwf_keelung.json)")
-    ap.add_argument("--all-harbours", action="store_true",
-                    help="Fetch for all 6 harbours → ecmwf_harbours.json")
-    ap.add_argument("--harbours-output", default="ecmwf_harbours.json",
-                    help="Output path for all-harbours JSON")
     args = ap.parse_args()
 
     # Always fetch Keelung (primary harbour, used by wrf_analyze comparison)
@@ -267,28 +244,6 @@ def main():
     out = Path(args.output)
     out.write_text(json.dumps(summary, indent=2))
     log.info("ECMWF summary → %s  (%d 6-hourly steps)", out, len(records))
-
-    # Fetch all harbours in parallel
-    if args.all_harbours:
-        harbour_data = {"keelung": summary}
-        # Fetch non-Keelung harbours in parallel
-        other_harbours = {k: v for k, v in HARBOUR_COORDS.items() if k != "keelung"}
-        with ThreadPoolExecutor(max_workers=5) as pool:
-            futures = {
-                pool.submit(_fetch_one_harbour, hid, lat, lon): hid
-                for hid, (lat, lon) in other_harbours.items()
-            }
-            for future in as_completed(futures):
-                hid, data = future.result()
-                if data is not None:
-                    harbour_data[hid] = data
-                    log.info("  %s: %d records", hid, len(data["records"]))
-                else:
-                    log.warning("  %s: no data", hid)
-
-        hout = Path(args.harbours_output)
-        hout.write_text(json.dumps(harbour_data, indent=2))
-        log.info("All harbours → %s  (%d harbours)", hout, len(harbour_data))
 
     gha = os.environ.get("GITHUB_OUTPUT")
     if gha:

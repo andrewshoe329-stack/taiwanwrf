@@ -5,8 +5,8 @@ permissions:
 
 on:
   schedule:
-    # Once daily — 45 min after the 00 UTC CWA model cycle
-    - cron: '45 0 * * *'
+    # 4x daily — 45 min after each CWA model cycle (00, 06, 12, 18 UTC)
+    - cron: '45 0,6,12,18 * * *'
   workflow_dispatch:
     inputs:
       force:

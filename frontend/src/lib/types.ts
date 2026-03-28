@@ -136,7 +136,7 @@ export interface WindGrid {
 
 // ── Surf spot types ──────────────────────────────────────────────────────────
 
-export type Region = 'north' | 'northeast' | 'east' | 'south'
+export type Region = 'north' | 'northeast'
 
 export interface SpotInfo {
   id: string

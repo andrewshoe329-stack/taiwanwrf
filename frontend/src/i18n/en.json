@@ -106,9 +106,7 @@
   "region": {
     "all": "All Regions",
     "north": "North",
-    "northeast": "Northeast",
-    "east": "East Coast",
-    "south": "South"
+    "northeast": "Northeast"
   },
   "models_page": {
     "title": "Models & Accuracy",
@@ -135,11 +133,7 @@
     "no_accuracy": "No accuracy data available"
   },
   "harbour": {
-    "keelung": "Keelung",
-    "kaohsiung": "Kaohsiung",
-    "taichung": "Taichung",
-    "anping": "Anping",
-    "magong": "Magong"
+    "keelung": "Keelung"
   },
   "harbours_page": {
     "title": "Harbours",

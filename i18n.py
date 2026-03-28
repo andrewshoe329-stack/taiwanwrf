@@ -275,22 +275,6 @@ STRINGS: dict[str, dict[str, str]] = {
                             'zh': '沙灘浪型 · 左右跑 · 中高潮 · 各級適合'},
     'desc_chousui':        {'en': 'Point break · Left · Low-mid tide · Intermediate+',
                             'zh': '礁岩浪型 · 左跑 · 低中潮 · 中級以上'},
-    # East coast
-    'desc_donghe':         {'en': 'Reef break · World-class right · Advanced',
-                            'zh': '礁岩浪型 · 世界級右跑 · 高級'},
-    'desc_jinzun':         {'en': 'Point break · Right · All tides · Inter–Adv',
-                            'zh': '礁岩浪型 · 右跑 · 各潮 · 中級–高級'},
-    'desc_chenggong':      {'en': 'Beach break · L&R · All tides · All levels',
-                            'zh': '沙灘浪型 · 左右跑 · 各潮 · 各級適合'},
-    'desc_dulan':          {'en': 'Beach break · Mellow · All tides · Beginner',
-                            'zh': '沙灘浪型 · 溫和 · 各潮 · 初學適合'},
-    # South
-    'desc_nanwan':         {'en': 'Beach break · L&R · All tides · All levels',
-                            'zh': '沙灘浪型 · 左右跑 · 各潮 · 各級適合'},
-    'desc_jialeshuei':     {'en': 'Point/reef · Powerful · Mid tide · Inter–Adv',
-                            'zh': '礁岩浪型 · 有力 · 中潮 · 中級–高級'},
-    'desc_baishawan':      {'en': 'Beach break · Gentle · All tides · Beginner',
-                            'zh': '沙灘浪型 · 溫和 · 各潮 · 初學適合'},
 
     # ── Redesign UI strings ──────────────────────────────────────────────────
     'show_more_columns':   {'en': 'More columns', 'zh': '更多欄位'},
@@ -311,15 +295,6 @@ SPOT_DESC_KEYS = {
     'wushih': 'desc_wushih',
     'doublelions': 'desc_doublelions',
     'chousui': 'desc_chousui',
-    # East coast
-    'donghe': 'desc_donghe',
-    'jinzun': 'desc_jinzun',
-    'chenggong': 'desc_chenggong',
-    'dulan': 'desc_dulan',
-    # South
-    'nanwan': 'desc_nanwan',
-    'jialeshuei': 'desc_jialeshuei',
-    'baishawan': 'desc_baishawan',
 }
 
 
