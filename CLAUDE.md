@@ -117,7 +117,9 @@ Claude uses this to hedge language — e.g. "actual temps will likely be a degre
 | `cwa_fetch.py` | ~1020 | CWA Open Data API: per-spot weather stations + wave buoys + tide obs + tide forecast + township forecasts (Keelung/New Taipei/Yilan) + weather warnings |
 | `cwa_discover.py` | ~280 | Monthly CWA station/buoy discovery: queries all stations, maps nearest to each spot, writes `cwa_stations.json` |
 | `cwa_stations.json` | ~varies | Discovered station/buoy mapping (committed by cwa-discover workflow, read by cwa_fetch.py) |
-| `.github/workflows/main.yml` | ~524 | Full CI/CD pipeline with ensemble, notifications, accuracy, concurrency |
+| `.github/workflows/wrf.yml` | ~170 | WRF download, subset, analysis — 4x daily |
+| `.github/workflows/forecast.yml` | ~220 | Forecast pipeline: ECMWF/wave/ensemble fetch, surf, AI summary — 4x daily |
+| `.github/workflows/deploy.yml` | ~70 | Vercel deploy triggered by forecast completion |
 | `.github/workflows/cwa-discover.yml` | ~30 | Monthly workflow to discover CWA stations/buoys and commit mapping |
 | `html_template.py` | ~130 | Shared page shell: `render_page()` wraps content in full HTML5 doc with header/nav/footer |
 | `pwa/` | 6 files | PWA manifest, service worker, app.js (shared JS), icon generator, icons, styles.css |

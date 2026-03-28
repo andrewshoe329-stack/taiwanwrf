@@ -27,7 +27,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from config import KEELUNG_LAT, KEELUNG_LON, HARBOUR_COORDS, norm_utc, setup_logging
+from config import KEELUNG_LAT, KEELUNG_LON, norm_utc, setup_logging
 from config import fetch_json as _fetch_json_shared
 
 log = logging.getLogger(__name__)
@@ -266,12 +266,6 @@ def main() -> None:
                     help='Path to ecmwf_keelung.json (include ECMWF in ensemble)')
     ap.add_argument('--output', default='ensemble_keelung.json',
                     help='Output JSON path (default: ensemble_keelung.json)')
-    ap.add_argument('--all-harbours', action='store_true',
-                    help='Fetch ensemble for all 6 harbours → ensemble_harbours.json')
-    ap.add_argument('--harbours-output', default='ensemble_harbours.json',
-                    help='Output path for all-harbours ensemble JSON')
-    ap.add_argument('--ecmwf-harbours-json', default=None,
-                    help='Path to ecmwf_harbours.json (include ECMWF in per-harbour ensemble)')
     args = ap.parse_args()
     setup_logging()
 
@@ -299,35 +293,6 @@ def main() -> None:
 
     Path(args.output).write_text(json.dumps(output, indent=2))
     log.info("Wrote %s", args.output)
-
-    # Fetch all harbours
-    if args.all_harbours:
-        # Load per-harbour ECMWF data if available
-        ecmwf_harbour_data = {}
-        if args.ecmwf_harbours_json:
-            try:
-                ecmwf_harbour_data = json.loads(Path(args.ecmwf_harbours_json).read_text())
-            except (FileNotFoundError, json.JSONDecodeError) as e:
-                log.warning("Could not load ECMWF harbours JSON: %s", e)
-
-        harbour_results = {"keelung": output}
-        other_harbours = {k: v for k, v in HARBOUR_COORDS.items() if k != "keelung"}
-
-        for hid, (lat, lon) in other_harbours.items():
-            h_ecmwf = None
-            if hid in ecmwf_harbour_data:
-                h_ecmwf = ecmwf_harbour_data[hid].get("records", [])
-            h_output = _fetch_ensemble_for_point(lat, lon, hid, h_ecmwf)
-            if h_output:
-                harbour_results[hid] = h_output
-                log.info("  %s: ensemble spread %s", hid,
-                         h_output.get("spread", {}))
-            else:
-                log.warning("  %s: no ensemble data", hid)
-
-        hout = Path(args.harbours_output)
-        hout.write_text(json.dumps(harbour_results, indent=2))
-        log.info("All harbours ensemble → %s  (%d harbours)", hout, len(harbour_results))
 
 
 if __name__ == "__main__":

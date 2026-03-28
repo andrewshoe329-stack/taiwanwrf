@@ -106,9 +106,7 @@
   "region": {
     "all": "全部地區",
     "north": "北部",
-    "northeast": "東北部",
-    "east": "東部",
-    "south": "南部"
+    "northeast": "東北部"
   },
   "models_page": {
     "title": "模式與準確度",
@@ -135,11 +133,7 @@
     "no_accuracy": "無準確度資料"
   },
   "harbour": {
-    "keelung": "基隆",
-    "kaohsiung": "高雄",
-    "taichung": "台中",
-    "anping": "安平",
-    "magong": "馬公"
+    "keelung": "基隆"
   },
   "harbours_page": {
     "title": "港口",

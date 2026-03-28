@@ -221,7 +221,7 @@ class TestSpotCoords:
         assert original_ids.issubset(set(SPOT_COUNTY.keys()))
 
     def test_county_values_valid(self):
-        valid = {"基隆市", "新北市", "宜蘭縣", "臺東縣", "屏東縣"}
+        valid = {"基隆市", "新北市", "宜蘭縣"}
         for county in SPOT_COUNTY.values():
             assert county in valid
 
@@ -248,8 +248,8 @@ class TestTaiwanBbox:
 
 
 class TestHarbourCoords:
-    def test_has_5_harbours(self):
-        assert len(HARBOUR_COORDS) == 5
+    def test_has_1_harbour(self):
+        assert len(HARBOUR_COORDS) == 1
 
     def test_keelung_uses_high_precision(self):
         lat, lon = HARBOUR_COORDS['keelung']
@@ -263,7 +263,7 @@ class TestSpotRegion:
             assert s['id'] in SPOT_REGION, f"{s['id']} missing from SPOT_REGION"
 
     def test_valid_regions(self):
-        valid = {'north', 'northeast', 'east', 'south'}
+        valid = {'north', 'northeast'}
         for sid, region in SPOT_REGION.items():
             assert region in valid, f"{sid} has invalid region {region}"
 
