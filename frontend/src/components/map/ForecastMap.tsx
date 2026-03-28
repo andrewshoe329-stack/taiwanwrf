@@ -45,7 +45,35 @@ export function ForecastMap() {
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left')
     map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right')
 
-    map.on('load', () => {
+    map.on('load', async () => {
+      // Load Taiwan coastline outline
+      try {
+        const resp = await fetch('/data/taiwan.geojson')
+        const geojson = await resp.json()
+        map.addSource('taiwan-outline', { type: 'geojson', data: geojson })
+        map.addLayer({
+          id: 'taiwan-fill',
+          type: 'fill',
+          source: 'taiwan-outline',
+          paint: {
+            'fill-color': '#1e293b',
+            'fill-opacity': 0.4,
+          },
+        })
+        map.addLayer({
+          id: 'taiwan-line',
+          type: 'line',
+          source: 'taiwan-outline',
+          paint: {
+            'line-color': '#93c5fd',
+            'line-width': 1.5,
+            'line-opacity': 0.8,
+          },
+        })
+      } catch {
+        // GeoJSON not available — basemap coastlines still visible
+      }
+
       mapRef.current = map
       setMapReady(true)
     })
