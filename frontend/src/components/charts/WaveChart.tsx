@@ -11,7 +11,10 @@ interface WaveChartProps {
 function toCST(utc: string): string {
   const d = new Date(utc)
   d.setUTCHours(d.getUTCHours() + 8)
-  return `${String(d.getUTCHours()).padStart(2, '0')}:00`
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const dd = String(d.getUTCDate()).padStart(2, '0')
+  const hh = String(d.getUTCHours()).padStart(2, '0')
+  return `${mm}/${dd} ${hh}:00`
 }
 
 function toCSTLabel(utc: string): string {
