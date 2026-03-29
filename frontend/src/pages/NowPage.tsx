@@ -1,8 +1,9 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useForecastData } from '@/hooks/useForecastData'
 import { useTimeline } from '@/hooks/useTimeline'
 import { TimelineScrubber } from '@/components/timeline/TimelineScrubber'
+import type { TimeRange } from '@/components/charts/chart-utils'
 
 const ForecastMap = lazy(() => import('@/components/map/ForecastMap').then(m => ({ default: m.ForecastMap })))
 const WindChart = lazy(() => import('@/components/charts/WindChart').then(m => ({ default: m.WindChart })))
@@ -14,6 +15,13 @@ export function NowPage() {
   const { t, i18n } = useTranslation()
   const data = useForecastData()
   const { index } = useTimeline()
+
+  // Shared time range from WRF/keelung data — all charts use this
+  const timeRange: TimeRange | undefined = useMemo(() => {
+    const recs = data.keelung?.records
+    if (!recs?.length) return undefined
+    return { startUtc: recs[0].valid_utc, endUtc: recs[recs.length - 1].valid_utc }
+  }, [data.keelung?.records])
 
   const record = data.keelung?.records?.[index]
   const waveRecords = data.wave?.ecmwf_wave?.records
@@ -165,6 +173,7 @@ export function NowPage() {
             <WindChart
               records={data.keelung.records}
               ecmwfRecords={data.ecmwf?.records}
+              timeRange={timeRange}
             />
           </div>
         )}
@@ -174,7 +183,7 @@ export function NowPage() {
             <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-3">
               Waves
             </p>
-            <WaveChart records={data.wave.ecmwf_wave.records} />
+            <WaveChart records={data.wave.ecmwf_wave.records} timeRange={timeRange} />
           </div>
         )}
 
@@ -186,6 +195,7 @@ export function NowPage() {
             <TideChart
               predictions={data.tide.predictions}
               extrema={data.tide.extrema}
+              timeRange={timeRange}
             />
           </div>
         )}
@@ -195,7 +205,7 @@ export function NowPage() {
             <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-3">
               {t('common.temp')} & {t('common.pressure')}
             </p>
-            <TempPressureChart records={data.keelung.records} />
+            <TempPressureChart records={data.keelung.records} timeRange={timeRange} />
           </div>
         )}
         </Suspense>
