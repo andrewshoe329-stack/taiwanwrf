@@ -177,11 +177,10 @@ export function ForecastMap() {
       {/* MapLibre GL container */}
       <div ref={mapContainerRef} className="absolute inset-0" />
 
-      {/* Wind particle canvas overlay */}
+      {/* Wind particle canvas — no z-index so MapLibre controls/markers (z-2+) paint above */}
       <canvas
         ref={canvasRef}
         className="absolute inset-0 pointer-events-none"
-        style={{ zIndex: 1 }}
       />
 
       {/* Model switcher */}
