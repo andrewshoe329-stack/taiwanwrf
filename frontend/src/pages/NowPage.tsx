@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo } from 'react'
+import { lazy, Suspense, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useForecastData } from '@/hooks/useForecastData'
 import { useTimeline } from '@/hooks/useTimeline'
@@ -15,8 +15,8 @@ export function NowPage() {
   const { t, i18n } = useTranslation()
   const data = useForecastData()
   const { index } = useTimeline()
+  const [aiExpanded, setAiExpanded] = useState(true)
 
-  // Shared time range from WRF/keelung data — all charts use this
   const timeRange: TimeRange | undefined = useMemo(() => {
     const recs = data.keelung?.records
     if (!recs?.length) return undefined
@@ -29,7 +29,7 @@ export function NowPage() {
     ? waveRecords?.find(w => w.valid_utc === record.valid_utc) ?? waveRecords?.[index]
     : waveRecords?.[index]
 
-  // Decision logic — both sail and surf
+  // Decision logic
   const windKt = record?.wind_kt ?? 0
   const waveHt = waveRecord?.wave_height ?? 0
 
@@ -41,11 +41,8 @@ export function NowPage() {
   if (waveHt >= 0.6 && waveHt <= 2.5 && windKt < 20) surfDecision = 'go'
   else if (waveHt > 4 || windKt > 30) surfDecision = 'nogo'
 
-  const decisionColors = {
-    go: 'border-[var(--color-rating-good)]',
-    caution: 'border-[var(--color-text-muted)]',
-    nogo: 'border-[var(--color-danger)]',
-  }
+  // CWA observed badge
+  const cwa = data.cwa_obs?.station
 
   if (data.loading) {
     return (
@@ -60,168 +57,165 @@ export function NowPage() {
 
   return (
     <div className="min-h-screen">
-      {/* Map with wind particles */}
-      <div className="h-[55vh] md:h-[60vh]">
+      {/* Map + sticky timeline overlay */}
+      <div className="relative h-[50vh] md:h-[55vh]">
         <Suspense fallback={<div className="w-full h-full bg-[var(--color-bg-card)]" />}>
           <ForecastMap />
         </Suspense>
+        {/* Timeline overlaying bottom of map */}
+        <div className="absolute bottom-0 left-0 right-0 bg-[var(--color-bg)]/80 backdrop-blur-md border-t border-[var(--color-border)]/50">
+          <TimelineScrubber />
+        </div>
       </div>
 
-      {/* Timeline scrubber */}
-      <div className="bg-[var(--color-bg)] border-b border-[var(--color-border)]">
-        <TimelineScrubber />
-      </div>
+      {/* Conditions bar: decisions + stats in one compact row */}
+      <div className="border-b border-[var(--color-border)] bg-[var(--color-bg)]">
+        <div className="max-w-screen-lg mx-auto px-4 py-3">
+          <div className="flex items-center gap-4 overflow-x-auto">
+            {/* Decisions */}
+            <DecisionPill label={t('activity.sail')} decision={sailDecision} t={t} />
+            <DecisionPill label={t('activity.surf')} decision={surfDecision} t={t} />
 
-      {/* Content below the fold */}
-      <div className="px-4 py-5 max-w-screen-lg mx-auto space-y-4">
-        {/* Dual Decision Banners — Sail + Surf side by side */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className={`border rounded-xl p-4 ${decisionColors[sailDecision]}`}>
-            <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-1">
-              {t('activity.sail')}
-            </p>
-            <p className="text-lg font-semibold text-[var(--color-text-primary)]">
-              {t(`decision.${sailDecision}`)}
-            </p>
+            <div className="w-px h-6 bg-[var(--color-border)] shrink-0" />
+
+            {/* Stats */}
             {record && (
-              <p className="text-xs text-[var(--color-text-secondary)] mt-2">
-                {record.wind_kt?.toFixed(0) ?? '--'} kt
-                {record.gust_kt ? ` G${record.gust_kt.toFixed(0)}` : ''}
-              </p>
+              <>
+                <Stat label={t('common.wind')} value={`${record.wind_kt?.toFixed(0) ?? '--'}`} unit="kt"
+                  detail={record.gust_kt ? `G${record.gust_kt.toFixed(0)}` : undefined}
+                  observed={cwa?.wind_kt != null ? `${cwa.wind_kt.toFixed(0)} obs` : undefined} />
+                <Stat label={t('common.temp')} value={`${record.temp_c?.toFixed(0) ?? '--'}`} unit="°C"
+                  observed={cwa?.temp_c != null ? `${cwa.temp_c.toFixed(1)} obs` : undefined} />
+                <Stat label={t('common.pressure')} value={`${record.mslp_hpa?.toFixed(0) ?? '--'}`} unit="hPa" />
+              </>
             )}
-          </div>
-          <div className={`border rounded-xl p-4 ${decisionColors[surfDecision]}`}>
-            <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-1">
-              {t('activity.surf')}
-            </p>
-            <p className="text-lg font-semibold text-[var(--color-text-primary)]">
-              {t(`decision.${surfDecision}`)}
-            </p>
             {waveRecord && (
-              <p className="text-xs text-[var(--color-text-secondary)] mt-2">
-                {waveRecord.wave_height?.toFixed(1) ?? '--'} m @ {waveRecord.wave_period?.toFixed(0) ?? '--'}s
-              </p>
+              <>
+                <Stat label="Swell" value={`${waveRecord.swell_wave_height?.toFixed(1) ?? '--'}`} unit="m"
+                  detail={`@ ${waveRecord.swell_wave_period?.toFixed(0) ?? '--'}s`} />
+                <Stat label="Wind Sea" value={`${waveRecord.wind_wave_height?.toFixed(1) ?? '--'}`} unit="m" />
+              </>
             )}
           </div>
         </div>
+      </div>
 
-        {/* Quick stats grid */}
-        {record && (
-          <div className="grid grid-cols-3 gap-3">
-            <StatCard label={t('common.wind')} value={`${record.wind_kt?.toFixed(0) ?? '--'}`} unit="kt" />
-            <StatCard label={t('common.temp')} value={`${record.temp_c?.toFixed(0) ?? '--'}`} unit="°C" />
-            <StatCard label={t('common.pressure')} value={`${record.mslp_hpa?.toFixed(0) ?? '--'}`} unit="hPa" />
-          </div>
-        )}
-
-        {/* Wave conditions */}
-        {waveRecord && (
-          <div className="grid grid-cols-3 gap-3">
-            <StatCard label="Swell" value={`${waveRecord.swell_wave_height?.toFixed(1) ?? '--'}`} unit="m" />
-            <StatCard label="Period" value={`${waveRecord.swell_wave_period?.toFixed(0) ?? '--'}`} unit="s" />
-            <StatCard label="Wind Sea" value={`${waveRecord.wind_wave_height?.toFixed(1) ?? '--'}`} unit="m" />
-          </div>
-        )}
-
-        {/* AI Summary */}
+      {/* Content */}
+      <div className="px-4 py-4 max-w-screen-lg mx-auto space-y-4">
+        {/* AI Summary — collapsible */}
         {data.summary && (() => {
           const lang = i18n.language.startsWith('zh') ? 'zh' : 'en'
           return (
-            <div className="border border-[var(--color-border)] rounded-xl p-4">
-              <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-3">
-                {t('ai.title')}
-              </p>
-              <div className="space-y-3 text-sm text-[var(--color-text-secondary)] leading-relaxed">
-                <p>{data.summary.wind[lang]}</p>
-                <p>{data.summary.waves[lang]}</p>
-                <p>{data.summary.outlook[lang]}</p>
-              </div>
+            <div className="border border-[var(--color-border)] rounded-xl overflow-hidden">
+              <button
+                onClick={() => setAiExpanded(!aiExpanded)}
+                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-[var(--color-bg-elevated)]/50 transition-colors"
+              >
+                <span className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)]">
+                  {t('ai.title')}
+                </span>
+                <svg
+                  width="12" height="12" viewBox="0 0 12 12"
+                  className={`text-[var(--color-text-muted)] transition-transform ${aiExpanded ? 'rotate-180' : ''}`}
+                  fill="none" stroke="currentColor" strokeWidth="2"
+                >
+                  <path d="M2 4 L6 8 L10 4" />
+                </svg>
+              </button>
+              {aiExpanded && (
+                <div className="px-4 pb-4 space-y-2 text-sm text-[var(--color-text-secondary)] leading-relaxed">
+                  <p>{data.summary.wind[lang]}</p>
+                  <p>{data.summary.waves[lang]}</p>
+                  <p>{data.summary.outlook[lang]}</p>
+                </div>
+              )}
             </div>
           )
         })()}
 
-        {/* CWA Live Observations */}
-        {data.cwa_obs?.station && (
-          <div className="border border-[var(--color-border)] rounded-xl p-4">
-            <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-3">
-              {t('live.title')}
-            </p>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <span className="text-[var(--color-text-muted)]">{t('common.wind')}</span>
-                <span className="ml-2 text-[var(--color-text-primary)]">
-                  {data.cwa_obs.station.wind_kt?.toFixed(0) ?? '--'} kt
-                </span>
-              </div>
-              <div>
-                <span className="text-[var(--color-text-muted)]">{t('common.temp')}</span>
-                <span className="ml-2 text-[var(--color-text-primary)]">
-                  {data.cwa_obs.station.temp_c?.toFixed(1) ?? '--'}°C
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Charts */}
+        {/* Charts — 2-col on desktop, 1-col on mobile */}
         <Suspense fallback={null}>
-        {data.keelung?.records && (
-          <div className="border border-[var(--color-border)] rounded-xl p-4">
-            <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-3">
-              {t('common.wind')}
-            </p>
-            <WindChart
-              records={data.keelung.records}
-              ecmwfRecords={data.ecmwf?.records}
-              timeRange={timeRange}
-            />
-          </div>
-        )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {data.keelung?.records && (
+              <ChartCard title={t('common.wind')}>
+                <WindChart
+                  records={data.keelung.records}
+                  ecmwfRecords={data.ecmwf?.records}
+                  timeRange={timeRange}
+                />
+              </ChartCard>
+            )}
 
-        {data.wave?.ecmwf_wave?.records && (
-          <div className="border border-[var(--color-border)] rounded-xl p-4">
-            <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-3">
-              Waves
-            </p>
-            <WaveChart records={data.wave.ecmwf_wave.records} timeRange={timeRange} />
-          </div>
-        )}
+            {data.wave?.ecmwf_wave?.records && (
+              <ChartCard title="Waves">
+                <WaveChart records={data.wave.ecmwf_wave.records} timeRange={timeRange} />
+              </ChartCard>
+            )}
 
-        {data.tide?.predictions && (
-          <div className="border border-[var(--color-border)] rounded-xl p-4">
-            <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-3">
-              Tide
-            </p>
-            <TideChart
-              predictions={data.tide.predictions}
-              extrema={data.tide.extrema}
-              timeRange={timeRange}
-            />
-          </div>
-        )}
+            {data.tide?.predictions && (
+              <ChartCard title="Tide">
+                <TideChart
+                  predictions={data.tide.predictions}
+                  extrema={data.tide.extrema}
+                  timeRange={timeRange}
+                />
+              </ChartCard>
+            )}
 
-        {data.keelung?.records && (
-          <div className="border border-[var(--color-border)] rounded-xl p-4">
-            <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-3">
-              {t('common.temp')} & {t('common.pressure')}
-            </p>
-            <TempPressureChart records={data.keelung.records} timeRange={timeRange} />
+            {data.keelung?.records && (
+              <ChartCard title={`${t('common.temp')} & ${t('common.pressure')}`}>
+                <TempPressureChart records={data.keelung.records} timeRange={timeRange} />
+              </ChartCard>
+            )}
           </div>
-        )}
         </Suspense>
       </div>
     </div>
   )
 }
 
-function StatCard({ label, value, unit }: { label: string; value: string; unit: string }) {
+/* ── Sub-components ─────────────────────────────────────────────────────── */
+
+function DecisionPill({ label, decision, t }: {
+  label: string
+  decision: 'go' | 'caution' | 'nogo'
+  t: (key: string) => string
+}) {
+  const colors = {
+    go: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+    caution: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+    nogo: 'bg-red-500/15 text-red-400 border-red-500/30',
+  }
   return (
-    <div className="border border-[var(--color-border)] rounded-lg p-3 text-center">
-      <p className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wider mb-1">{label}</p>
-      <p className="text-xl font-semibold text-[var(--color-text-primary)] tabular-nums">
-        {value}
-        <span className="text-xs text-[var(--color-text-muted)] ml-1">{unit}</span>
+    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium shrink-0 ${colors[decision]}`}>
+      <span className="text-[var(--color-text-muted)] text-[10px] uppercase">{label}</span>
+      <span>{t(`decision.${decision}`)}</span>
+    </div>
+  )
+}
+
+function Stat({ label, value, unit, detail, observed }: {
+  label: string; value: string; unit: string; detail?: string; observed?: string
+}) {
+  return (
+    <div className="shrink-0 text-center min-w-[52px]">
+      <p className="text-[9px] text-[var(--color-text-muted)] uppercase tracking-wider">{label}</p>
+      <p className="text-sm font-semibold text-[var(--color-text-primary)] tabular-nums leading-tight">
+        {value}<span className="text-[10px] text-[var(--color-text-muted)] ml-0.5">{unit}</span>
       </p>
+      {detail && <p className="text-[10px] text-[var(--color-text-muted)] leading-tight">{detail}</p>}
+      {observed && <p className="text-[9px] text-emerald-500/80 leading-tight">{observed}</p>}
+    </div>
+  )
+}
+
+function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="border border-[var(--color-border)] rounded-xl p-4">
+      <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-3">
+        {title}
+      </p>
+      {children}
     </div>
   )
 }
