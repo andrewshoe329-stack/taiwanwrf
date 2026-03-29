@@ -84,9 +84,12 @@ export interface CwaObs {
   }
   warnings?: Array<{
     type: string
+    type_en?: string
     severity: string
     area: string
+    area_en?: string
     description: string
+    description_en?: string
     issued_utc: string
     expires_utc: string
   }>

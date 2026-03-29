@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useForecastData } from '@/hooks/useForecastData'
 
-/** Prominent banner showing active CWA weather warnings. */
+/** Prominent banner showing active CWA weather warnings in the user's language. */
 export function WeatherWarnings() {
   const { i18n } = useTranslation()
-  const lang = i18n.language.startsWith('zh') ? 'zh' : 'en'
+  const isZh = i18n.language.startsWith('zh')
   const data = useForecastData()
   const [dismissed, setDismissed] = useState<Set<string>>(new Set())
 
@@ -26,6 +26,10 @@ export function WeatherWarnings() {
     <div className="space-y-2 mx-4 md:mx-0 mb-4">
       {active.map(w => {
         const isSevere = w.severity === 'warning' || w.severity === 'severe'
+        const wType = isZh ? w.type : (w.type_en ?? w.type)
+        const wArea = isZh ? w.area : (w.area_en ?? w.area)
+        const wDesc = isZh ? w.description : (w.description_en ?? w.description)
+
         return (
           <div
             key={w.issued_utc}
@@ -35,21 +39,21 @@ export function WeatherWarnings() {
                 : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
             }`}
           >
-            <span className="text-base shrink-0 mt-0.5">{isSevere ? '\u26A0' : '\u26A0'}</span>
+            <span className="text-base shrink-0 mt-0.5">{'\u26A0'}</span>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-medium">
-                {w.type}{w.area ? ` \u2014 ${w.area}` : ''}
+                {wType}{wArea ? ` \u2014 ${wArea}` : ''}
               </p>
               <p className={`text-xs mt-1 leading-relaxed ${
                 isSevere ? 'text-red-400/80' : 'text-amber-400/80'
               }`}>
-                {w.description}
+                {wDesc}
               </p>
             </div>
             <button
               onClick={() => setDismissed(prev => new Set(prev).add(w.issued_utc))}
               className="shrink-0 text-xs opacity-50 hover:opacity-100 transition-opacity"
-              aria-label={lang === 'zh' ? '關閉' : 'Dismiss'}
+              aria-label={isZh ? '關閉' : 'Dismiss'}
             >
               {'\u2715'}
             </button>
