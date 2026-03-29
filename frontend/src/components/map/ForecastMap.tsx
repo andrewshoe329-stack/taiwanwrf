@@ -21,19 +21,19 @@ const DARK_STYLE: maplibregl.StyleSpecification = {
     {
       id: 'background',
       type: 'background',
-      paint: { 'background-color': '#0a0a1a' },
+      paint: { 'background-color': '#060918' },
     },
     {
       id: 'land-fill',
       type: 'fill',
       source: 'land',
-      paint: { 'fill-color': '#1a1a2e', 'fill-opacity': 0.6 },
+      paint: { 'fill-color': '#1e293b' },
     },
     {
       id: 'land-outline',
       type: 'line',
       source: 'land',
-      paint: { 'line-color': '#334155', 'line-width': 1 },
+      paint: { 'line-color': '#475569', 'line-width': 1.5 },
     },
   ],
 }

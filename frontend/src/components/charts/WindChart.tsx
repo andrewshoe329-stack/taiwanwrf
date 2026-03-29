@@ -3,7 +3,13 @@ import {
   CartesianGrid, Tooltip, ReferenceLine,
 } from 'recharts'
 import type { ForecastRecord } from '@/lib/types'
-import { toCST, toCSTLabel, tickInterval, MultiLineTick, filterByTimeRange, findNowTime, type TimeRange } from './chart-utils'
+import { useIsMobile } from '@/hooks/useIsMobile'
+import {
+  toCST, toCSTLabel, tickInterval, MultiLineTick,
+  filterByTimeRange, findNowTime,
+  chartMargin, chartHeight, xAxisHeight, YAXIS_WIDTH, NOW_LABEL,
+  type TimeRange,
+} from './chart-utils'
 
 interface WindChartProps {
   records: ForecastRecord[]
@@ -39,6 +45,7 @@ function CustomTooltip(props: any) {
 
 export function WindChart({ records, ecmwfRecords, timeRange }: WindChartProps) {
   if (!records?.length) return null
+  const mobile = useIsMobile()
 
   const filtered = filterByTimeRange(records, timeRange)
   const ecmwfMap = new Map<string, ForecastRecord>()
@@ -56,21 +63,21 @@ export function WindChart({ records, ecmwfRecords, timeRange }: WindChartProps) 
   const nowTime = findNowTime(chartData)
 
   return (
-    <ResponsiveContainer width="100%" height={240}>
-      <LineChart data={chartData} margin={{ top: 8, right: 52, bottom: 16, left: -12 }}>
+    <ResponsiveContainer width="100%" height={chartHeight(mobile)}>
+      <LineChart data={chartData} margin={chartMargin(mobile, false)}>
         <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
         <XAxis
           dataKey="time"
           tick={<MultiLineTick />}
           stroke="var(--color-border)"
           interval={tickInterval(chartData.length)}
-          height={40}
+          height={xAxisHeight(mobile)}
         />
         <YAxis
           tick={{ fill: 'var(--color-text-muted)', fontSize: 10 }}
           stroke="var(--color-border)"
           unit=" kt"
-          width={44}
+          width={YAXIS_WIDTH}
         />
         <Tooltip content={CustomTooltip} />
         <Area
@@ -107,7 +114,7 @@ export function WindChart({ records, ecmwfRecords, timeRange }: WindChartProps) 
             stroke="var(--color-text-muted)"
             strokeWidth={1}
             strokeDasharray="4 3"
-            label={{ value: 'Now', fill: 'var(--color-text-muted)', fontSize: 10, position: 'insideTopRight', offset: 4 }}
+            label={NOW_LABEL}
           />
         )}
       </LineChart>
