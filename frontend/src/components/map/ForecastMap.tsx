@@ -17,7 +17,6 @@ const MODEL_LABELS: Record<WindModel, string> = {
 }
 
 export function ForecastMap() {
-  const wrapperRef = useRef<HTMLDivElement>(null)
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const particlesRef = useRef<WindParticleSystem | null>(null)
@@ -27,12 +26,14 @@ export function ForecastMap() {
   const { index } = useTimeline()
   const { grid, model, setModel } = useWindGrid()
 
-  // Initialize map + particle canvas inside the map container
   useEffect(() => {
     if (!mapContainerRef.current) return
 
+    const container = mapContainerRef.current
+
+    // Create map
     const map = new maplibregl.Map({
-      container: mapContainerRef.current,
+      container,
       style: DARK_TILES,
       center: TAIWAN_CENTER,
       zoom: TAIWAN_ZOOM,
@@ -44,14 +45,17 @@ export function ForecastMap() {
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left')
     map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right')
 
+    // Log map errors so we can debug
+    map.on('error', (e) => {
+      console.warn('[ForecastMap] Map error:', e.error?.message ?? e)
+    })
+
     // Create particle canvas INSIDE the map container
-    // z-index 1 = above basemap canvas, below controls (z-2) and markers (z-5)
     const canvas = document.createElement('canvas')
     canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;'
-    mapContainerRef.current.appendChild(canvas)
+    container.appendChild(canvas)
     canvasRef.current = canvas
 
-    // Init particle system
     const ps = new WindParticleSystem({
       canvas,
       count: window.innerWidth < 768 ? 2000 : 4000,
@@ -61,30 +65,25 @@ export function ForecastMap() {
       fadeFactor: 0.97,
     })
     particlesRef.current = ps
-    ps.start()
 
-    // Size canvas to container
     const syncSize = () => {
-      if (!mapContainerRef.current) return
-      const { clientWidth: w, clientHeight: h } = mapContainerRef.current
+      const { clientWidth: w, clientHeight: h } = container
+      if (w === 0 || h === 0) return
       canvas.width = w
       canvas.height = h
       ps.resize(w, h)
     }
-    syncSize()
-    window.addEventListener('resize', syncSize)
 
-    // Sync map bounds to particle system
     const syncBounds = () => {
       const b = map.getBounds()
       ps.setBounds(b.getWest(), b.getSouth(), b.getEast(), b.getNorth())
     }
 
-    map.on('load', async () => {
-      // Load Taiwan coastline
+    // Load coastline + labels immediately (don't wait for map style)
+    const loadCoastline = async () => {
       try {
-        const resp = await fetch('/data/taiwan.geojson?v=2')
-        if (!resp.ok) throw new Error(`GeoJSON fetch failed: ${resp.status}`)
+        const resp = await fetch('/data/taiwan.geojson?v=3')
+        if (!resp.ok) throw new Error(`GeoJSON ${resp.status}`)
         const geojson = await resp.json()
 
         const rings: [number, number][][] = []
@@ -98,30 +97,37 @@ export function ForecastMap() {
           }
         }
         ps.setCoastline(rings)
-
-        // Location labels
-        const labels: { lon: number; lat: number; text: string; type: 'spot' | 'harbour' | 'city' }[] = []
-        for (const spot of SPOTS) {
-          labels.push({ lon: spot.lon, lat: spot.lat, text: spot.name.en, type: 'spot' })
-        }
-        for (const h of HARBOURS) {
-          labels.push({ lon: h.lon, lat: h.lat, text: h.name.en, type: 'harbour' })
-        }
-        labels.push({ lon: 121.565, lat: 25.033, text: 'Taipei', type: 'city' })
-        labels.push({ lon: 121.817, lat: 24.760, text: 'Yilan', type: 'city' })
-        ps.setLabels(labels)
-        console.log('[ForecastMap] Coastline:', rings.length, 'rings,', labels.length, 'labels')
       } catch (err) {
         console.warn('[ForecastMap] Coastline failed:', err)
       }
 
-      syncBounds()
-      mapRef.current = map
-      setMapReady(true)
-    })
+      // Labels (always set, independent of geojson)
+      const labels: { lon: number; lat: number; text: string; type: 'spot' | 'harbour' | 'city' }[] = []
+      for (const spot of SPOTS) {
+        labels.push({ lon: spot.lon, lat: spot.lat, text: spot.name.en, type: 'spot' })
+      }
+      for (const h of HARBOURS) {
+        labels.push({ lon: h.lon, lat: h.lat, text: h.name.en, type: 'harbour' })
+      }
+      labels.push({ lon: 121.565, lat: 25.033, text: 'Taipei', type: 'city' })
+      labels.push({ lon: 121.817, lat: 24.760, text: 'Yilan', type: 'city' })
+      ps.setLabels(labels)
+    }
 
+    // Initialize everything without waiting for map style to load
+    syncSize()
+    syncBounds()
+    loadCoastline()
+    ps.start()
+
+    // Mark map ready immediately so markers render
+    mapRef.current = map
+    setMapReady(true)
+
+    // Keep canvas in sync with map
     map.on('move', syncBounds)
     map.on('moveend', syncSize)
+    window.addEventListener('resize', syncSize)
 
     return () => {
       window.removeEventListener('resize', syncSize)
@@ -138,10 +144,8 @@ export function ForecastMap() {
   // Update wind grid on model/timestep change
   useEffect(() => {
     if (!grid || !particlesRef.current) return
-
     const interpolated = interpolateWindGrid(grid, index)
     if (!interpolated) return
-
     particlesRef.current.setGrid({
       ...grid,
       timesteps: [{ valid_utc: '', u: interpolated.u, v: interpolated.v }],
@@ -149,11 +153,11 @@ export function ForecastMap() {
   }, [grid, index])
 
   return (
-    <div ref={wrapperRef} className="relative w-full h-full">
-      {/* MapLibre container — canvas is appended inside via useEffect */}
+    <div className="relative w-full h-full" style={{ background: '#0a0a1a' }}>
+      {/* MapLibre container */}
       <div ref={mapContainerRef} className="absolute inset-0" />
 
-      {/* Model switcher — z-20 to float above everything */}
+      {/* Model switcher */}
       <div className="absolute top-3 right-3 z-20 flex gap-1">
         {(['wrf', 'ecmwf', 'gfs'] as WindModel[]).map(m => (
           <button
