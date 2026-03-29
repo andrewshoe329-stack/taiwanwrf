@@ -76,6 +76,14 @@ body {
   font-family: inherit;
 }
 
+/* Elevate markers and popups above the wind particle canvas (z-index: 1) */
+.maplibregl-marker {
+  z-index: 5 !important;
+}
+.maplibregl-popup {
+  z-index: 10 !important;
+}
+
 .maplibregl-popup-content {
   background: var(--color-bg-card) !important;
   color: var(--color-text-primary) !important;
