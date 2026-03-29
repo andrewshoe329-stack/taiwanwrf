@@ -3,9 +3,12 @@ import {
   CartesianGrid, Tooltip, ReferenceLine,
 } from 'recharts'
 import type { TidePrediction, TideExtremum } from '@/lib/types'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import {
   toCST, toCSTLabel, tickInterval, MultiLineTick,
-  filterByTimeRange, downsampleTide, findNowTime, type TimeRange,
+  filterByTimeRange, downsampleTide, findNowTime,
+  chartMargin, chartHeight, xAxisHeight, YAXIS_WIDTH, NOW_LABEL,
+  type TimeRange,
 } from './chart-utils'
 
 interface TideChartProps {
@@ -40,8 +43,8 @@ function CustomTooltip(props: any) {
 
 export function TideChart({ predictions, extrema, timeRange }: TideChartProps) {
   if (!predictions?.length) return null
+  const mobile = useIsMobile()
 
-  // Filter to shared time range, then downsample for cleaner chart
   const filtered = filterByTimeRange(predictions, timeRange, 'time_utc')
   const sampled = downsampleTide(filtered, 100)
 
@@ -54,7 +57,6 @@ export function TideChart({ predictions, extrema, timeRange }: TideChartProps) {
 
   const nowTime = findNowTime(chartData)
 
-  // Filter extrema to visible range and find nearest chart points
   const visibleExtrema = extrema.filter(e => {
     const ms = new Date(e.time_utc).getTime()
     return chartData.length >= 2 &&
@@ -63,21 +65,21 @@ export function TideChart({ predictions, extrema, timeRange }: TideChartProps) {
   })
 
   return (
-    <ResponsiveContainer width="100%" height={200}>
-      <AreaChart data={chartData} margin={{ top: 16, right: 52, bottom: 16, left: -12 }}>
+    <ResponsiveContainer width="100%" height={chartHeight(mobile)}>
+      <AreaChart data={chartData} margin={chartMargin(mobile, false)}>
         <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
         <XAxis
           dataKey="time"
           tick={<MultiLineTick />}
           stroke="var(--color-border)"
           interval={tickInterval(chartData.length)}
-          height={40}
+          height={xAxisHeight(mobile)}
         />
         <YAxis
           tick={{ fill: 'var(--color-text-muted)', fontSize: 10 }}
           stroke="var(--color-border)"
           unit=" m"
-          width={44}
+          width={YAXIS_WIDTH}
           domain={['auto', 'auto']}
         />
         <Tooltip content={CustomTooltip} />
@@ -97,10 +99,9 @@ export function TideChart({ predictions, extrema, timeRange }: TideChartProps) {
             stroke="var(--color-text-muted)"
             strokeWidth={1}
             strokeDasharray="4 3"
-            label={{ value: 'Now', fill: 'var(--color-text-muted)', fontSize: 10, position: 'insideTopRight', offset: 4 }}
+            label={NOW_LABEL}
           />
         )}
-        {/* H/L labels as reference lines — cleaner than dots */}
         {visibleExtrema.map((e, i) => {
           const ms = new Date(e.time_utc).getTime()
           let closest = chartData[0]

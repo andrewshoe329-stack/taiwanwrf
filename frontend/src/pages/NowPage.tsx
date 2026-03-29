@@ -68,17 +68,16 @@ export function NowPage() {
         </div>
       </div>
 
-      {/* Conditions bar: decisions + stats in one compact row */}
+      {/* Conditions bar */}
       <div className="border-b border-[var(--color-border)] bg-[var(--color-bg)]">
-        <div className="max-w-screen-lg mx-auto px-4 py-3">
-          <div className="flex items-center gap-4 overflow-x-auto">
-            {/* Decisions */}
+        <div className="max-w-screen-lg mx-auto px-4 py-3 space-y-2">
+          {/* Decisions — fixed-width pills so stats don't jump */}
+          <div className="flex items-center gap-2">
             <DecisionPill label={t('activity.sail')} decision={sailDecision} t={t} />
             <DecisionPill label={t('activity.surf')} decision={surfDecision} t={t} />
-
-            <div className="w-px h-6 bg-[var(--color-border)] shrink-0" />
-
-            {/* Stats */}
+          </div>
+          {/* Stats — scrollable row */}
+          <div className="flex items-center gap-4 overflow-x-auto">
             {record && (
               <>
                 <Stat label={t('common.wind')} value={`${record.wind_kt?.toFixed(0) ?? '--'}`} unit="kt"
@@ -101,12 +100,12 @@ export function NowPage() {
       </div>
 
       {/* Content */}
-      <div className="px-4 py-4 max-w-screen-lg mx-auto space-y-4">
+      <div className="md:px-4 py-4 max-w-screen-lg mx-auto space-y-4">
         {/* AI Summary — collapsible */}
         {data.summary && (() => {
           const lang = i18n.language.startsWith('zh') ? 'zh' : 'en'
           return (
-            <div className="border border-[var(--color-border)] rounded-xl overflow-hidden">
+            <div className="mx-4 md:mx-0 border border-[var(--color-border)] rounded-xl overflow-hidden">
               <button
                 onClick={() => setAiExpanded(!aiExpanded)}
                 className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-[var(--color-bg-elevated)]/50 transition-colors"
@@ -133,9 +132,9 @@ export function NowPage() {
           )
         })()}
 
-        {/* Charts — 2-col on desktop, 1-col on mobile */}
+        {/* Charts — 2-col on desktop, full-bleed stacked on mobile */}
         <Suspense fallback={null}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 md:gap-4 gap-0">
             {data.keelung?.records && (
               <ChartCard title={t('common.wind')}>
                 <WindChart
@@ -187,9 +186,9 @@ function DecisionPill({ label, decision, t }: {
     nogo: 'bg-red-500/15 text-red-400 border-red-500/30',
   }
   return (
-    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium shrink-0 ${colors[decision]}`}>
+    <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium w-[120px] ${colors[decision]}`}>
       <span className="text-[var(--color-text-muted)] text-[10px] uppercase">{label}</span>
-      <span>{t(`decision.${decision}`)}</span>
+      <span className="truncate">{t(`decision.${decision}`)}</span>
     </div>
   )
 }
@@ -211,8 +210,11 @@ function Stat({ label, value, unit, detail, observed }: {
 
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="border border-[var(--color-border)] rounded-xl p-4">
-      <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-3">
+    <div className="
+      border-b border-[var(--color-border)] px-2 py-3
+      md:border md:rounded-xl md:p-4
+    ">
+      <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-2 md:mb-3 ml-1 md:ml-0">
         {title}
       </p>
       {children}

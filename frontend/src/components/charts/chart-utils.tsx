@@ -1,5 +1,5 @@
 /**
- * Shared chart utilities: time conversion, tick formatting, tooltip.
+ * Shared chart utilities: time conversion, tick formatting, responsive layout.
  */
 
 /** Convert UTC string to CST Date object */
@@ -40,7 +40,6 @@ export function tickInterval(dataLen: number): number {
 
 /**
  * Shared time range: clips records to a start/end UTC window.
- * Any record with a UTC time field outside the range is dropped.
  */
 export interface TimeRange {
   startUtc: string
@@ -79,7 +78,6 @@ export function downsampleTide<T>(records: T[], targetCount: number = 120): T[] 
 
 /**
  * Find the chart `time` key closest to "now", if now falls within the data range.
- * Returns undefined if now is outside the range.
  */
 export function findNowTime(chartData: { time: string; timeMs: number }[]): string | undefined {
   if (chartData.length < 2) return undefined
@@ -94,6 +92,50 @@ export function findNowTime(chartData: { time: string; timeMs: number }[]): stri
   return closest.time
 }
 
+/* ── Responsive chart layout ─────────────────────────────────────────────
+ *
+ * All charts use identical margins so the plot areas (and "Now" lines)
+ * align vertically when stacked on mobile.
+ *
+ * Mobile:  no right Y-axis → all charts same width
+ * Desktop: dual-axis charts get a right Y-axis; single-axis charts
+ *          use matching right margin so widths stay consistent.
+ */
+
+export const YAXIS_WIDTH = 44
+
+/** Shared chart margins. On mobile all charts are identical. */
+export function chartMargin(mobile: boolean, dualAxis: boolean) {
+  if (mobile) {
+    // Identical for every chart → "Now" lines align
+    return { top: 8, right: 8, bottom: 4, left: -8 }
+  }
+  // Desktop: single-axis charts pad right to match dual-axis Y-axis width
+  return {
+    top: 8,
+    right: dualAxis ? 8 : YAXIS_WIDTH + 8,
+    bottom: 8,
+    left: -8,
+  }
+}
+
+export function chartHeight(mobile: boolean) {
+  return mobile ? 280 : 240
+}
+
+export function xAxisHeight(mobile: boolean) {
+  return mobile ? 32 : 40
+}
+
+/** Shared "Now" ReferenceLine label props */
+export const NOW_LABEL = {
+  value: 'Now',
+  fill: 'var(--color-text-muted)',
+  fontSize: 10,
+  position: 'insideTopRight' as const,
+  offset: 4,
+}
+
 /**
  * Custom tick component for Recharts XAxis.
  * Shows hour on every tick, "Mon 3/29" above on first tick and day changes.
@@ -105,30 +147,25 @@ export function MultiLineTick(props: any) {
   if (!payload?.value) return null
 
   const value: string = payload.value
-  // Format: "Mon 03/29 08:00"
   const parts = value.split(' ')
   if (parts.length < 3) return null
-  const dayName = parts[0]  // "Mon"
-  const date = parts[1]     // "03/29"
-  const hour = parts[2]     // "08:00"
+  const dayName = parts[0]
+  const date = parts[1]
+  const hour = parts[2]
 
-  // Show day label on first tick or when day changes
   const dayKey = `${dayName} ${date}`
   const showDate = index === 0 || dayKey !== prevTickDay
   prevTickDay = dayKey
 
-  // Compact: "Mon 3/29"
   const shortDate = date.replace(/^0/, '').replace('/0', '/')
   const dayLabel = `${dayName} ${shortDate}`
-
-  // Compact hour: "08h"
   const shortHour = hour.replace(':00', 'h')
 
   return (
     <g transform={`translate(${x},${y})`}>
       {showDate && (
         <text
-          dy={12}
+          dy={10}
           textAnchor="middle"
           fill="var(--color-text-secondary)"
           fontSize={9}
@@ -138,7 +175,7 @@ export function MultiLineTick(props: any) {
         </text>
       )}
       <text
-        dy={showDate ? 23 : 12}
+        dy={showDate ? 21 : 10}
         textAnchor="middle"
         fill="var(--color-text-muted)"
         fontSize={9}
