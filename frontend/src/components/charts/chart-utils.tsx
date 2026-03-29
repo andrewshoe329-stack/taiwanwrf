@@ -30,19 +30,27 @@ export function toCSTLabel(utc: string): string {
 /**
  * Generate evenly-spaced tick values (ms timestamps) for the numeric axis.
  * Targets ~6-8 ticks, snapped to 6-hour CST boundaries.
+ * Accepts either a TimeRange (preferred, for cross-chart consistency) or data array.
  */
-export function timeTicks(data: { timeMs: number }[]): number[] {
-  if (data.length < 2) return data.map(d => d.timeMs)
-  const min = data[0].timeMs
-  const max = data[data.length - 1].timeMs
-  const range = max - min
+export function timeTicks(range: TimeRange | undefined, data?: { timeMs: number }[]): number[] {
+  let min: number, max: number
+  if (range) {
+    min = new Date(range.startUtc).getTime()
+    max = new Date(range.endUtc).getTime()
+  } else if (data && data.length >= 2) {
+    min = data[0].timeMs
+    max = data[data.length - 1].timeMs
+  } else {
+    return data?.map(d => d.timeMs) ?? []
+  }
+  const span = max - min
   // Pick interval: 6h, 12h, or 24h to get ~6-8 ticks
   const SIX_H = 6 * 3600_000
   const TWELVE_H = 12 * 3600_000
   const TWENTY_FOUR_H = 24 * 3600_000
   let interval = SIX_H
-  if (range / SIX_H > 12) interval = TWELVE_H
-  if (range / TWELVE_H > 12) interval = TWENTY_FOUR_H
+  if (span / SIX_H > 12) interval = TWELVE_H
+  if (span / TWELVE_H > 12) interval = TWENTY_FOUR_H
 
   // Snap first tick to next CST boundary
   // CST = UTC+8, so midnight CST = 16:00 UTC prev day
@@ -141,13 +149,24 @@ export function downsampleTide<T>(records: T[], targetCount: number = 120): T[] 
 }
 
 /**
- * Return current time in ms if it falls within the chart data range, else undefined.
+ * Return current time in ms if it falls within the given time range, else undefined.
  */
-export function findNowMs(chartData: { timeMs: number }[]): number | undefined {
-  if (chartData.length < 2) return undefined
+export function findNowMs(range: TimeRange | undefined): number | undefined {
+  if (!range) return undefined
   const now = Date.now()
-  if (now < chartData[0].timeMs || now > chartData[chartData.length - 1].timeMs) return undefined
+  const start = new Date(range.startUtc).getTime()
+  const end = new Date(range.endUtc).getTime()
+  if (now < start || now > end) return undefined
   return now
+}
+
+/**
+ * Convert TimeRange to a numeric [startMs, endMs] domain for the x-axis.
+ * All charts using the same timeRange will have identical pixel mapping.
+ */
+export function timeDomain(range: TimeRange | undefined): [number, number] | undefined {
+  if (!range) return undefined
+  return [new Date(range.startUtc).getTime(), new Date(range.endUtc).getTime()]
 }
 
 /* ── Responsive chart layout ─────────────────────────────────────────── */

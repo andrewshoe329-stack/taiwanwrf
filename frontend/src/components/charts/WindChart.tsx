@@ -5,7 +5,7 @@ import {
 import type { ForecastRecord } from '@/lib/types'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import {
-  toCSTLabel, MultiLineTick, timeTicks,
+  toCSTLabel, MultiLineTick, timeTicks, timeDomain,
   filterByTimeRange, findNowMs,
   chartMargin, chartHeight, xAxisHeight, YAXIS_WIDTH, NOW_LABEL,
   type TimeRange,
@@ -58,8 +58,9 @@ export function WindChart({ records, ecmwfRecords, timeRange }: WindChartProps) 
     ecmwf_wind: ecmwfMap.get(r.valid_utc)?.wind_kt,
   }))
 
-  const nowMs = findNowMs(chartData)
-  const ticks = timeTicks(chartData)
+  const nowMs = findNowMs(timeRange)
+  const domain = timeDomain(timeRange) ?? ['dataMin', 'dataMax'] as any
+  const ticks = timeTicks(timeRange, chartData)
 
   return (
     <ResponsiveContainer width="100%" height={chartHeight(mobile)}>
@@ -69,7 +70,7 @@ export function WindChart({ records, ecmwfRecords, timeRange }: WindChartProps) 
           dataKey="timeMs"
           type="number"
           scale="time"
-          domain={['dataMin', 'dataMax']}
+          domain={domain}
           ticks={ticks}
           tick={<MultiLineTick />}
           stroke="var(--color-border)"

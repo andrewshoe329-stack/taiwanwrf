@@ -5,25 +5,30 @@ import {
 import type { ForecastRecord } from '@/lib/types'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import {
-  toCSTLabel, MultiLineTick, timeTicks,
+  toCSTLabel, MultiLineTick, timeTicks, timeDomain,
   filterByTimeRange, findNowMs,
   chartMargin, chartHeight, xAxisHeight, YAXIS_WIDTH, NOW_LABEL,
   type TimeRange,
 } from './chart-utils'
 
-interface TempPressureChartProps {
+interface ChartProps {
   records: ForecastRecord[]
   timeRange?: TimeRange
 }
 
-interface ChartRow {
+interface TempRow {
   timeMs: number
   timeLabel: string
   temp?: number
+}
+
+interface PressureRow {
+  timeMs: number
+  timeLabel: string
   pressure?: number
 }
 
-function CustomTooltip(props: any) {
+function TempTooltip(props: any) {
   if (!props.active || !props.payload?.length) return null
   return (
     <div style={{
@@ -31,109 +36,155 @@ function CustomTooltip(props: any) {
       borderRadius: 8, padding: '8px 12px', fontSize: 12,
     }}>
       <p style={{ color: '#666666', marginBottom: 4 }}>{props.payload[0]?.payload?.timeLabel}</p>
-      {props.payload.map((p: any) => {
-        const unit = p.dataKey === 'temp' ? '°C' : 'hPa'
-        return (
-          <p key={String(p.dataKey)} style={{ color: p.color, margin: 0 }}>
-            {p.name}: {typeof p.value === 'number' ? p.value.toFixed(1) : '--'} {unit}
-          </p>
-        )
-      })}
+      {props.payload.map((p: any, i: number) => (
+        <p key={i} style={{ color: p.color, margin: 0 }}>
+          Temp: {typeof p.value === 'number' ? p.value.toFixed(1) : '--'} °C
+        </p>
+      ))}
     </div>
   )
 }
 
-export function TempPressureChart({ records, timeRange }: TempPressureChartProps) {
+function PressureTooltip(props: any) {
+  if (!props.active || !props.payload?.length) return null
+  return (
+    <div style={{
+      background: '#0a0a0a', border: '1px solid #1a1a1a',
+      borderRadius: 8, padding: '8px 12px', fontSize: 12,
+    }}>
+      <p style={{ color: '#666666', marginBottom: 4 }}>{props.payload[0]?.payload?.timeLabel}</p>
+      {props.payload.map((p: any, i: number) => (
+        <p key={i} style={{ color: p.color, margin: 0 }}>
+          Pressure: {typeof p.value === 'number' ? p.value.toFixed(1) : '--'} hPa
+        </p>
+      ))}
+    </div>
+  )
+}
+
+/** Temperature chart */
+export function TempChart({ records, timeRange }: ChartProps) {
   if (!records?.length) return null
   const mobile = useIsMobile()
 
   const filtered = filterByTimeRange(records, timeRange)
-  const chartData: ChartRow[] = filtered.map(r => ({
+  const chartData: TempRow[] = filtered.map(r => ({
     timeMs: new Date(r.valid_utc).getTime(),
     timeLabel: toCSTLabel(r.valid_utc),
     temp: r.temp_c,
+  }))
+
+  const nowMs = findNowMs(timeRange)
+  const domain = timeDomain(timeRange) ?? ['dataMin', 'dataMax'] as any
+  const ticks = timeTicks(timeRange, chartData)
+
+  return (
+    <ResponsiveContainer width="100%" height={chartHeight(mobile)}>
+      <LineChart data={chartData} margin={chartMargin(mobile, false)}>
+        <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
+        <XAxis
+          dataKey="timeMs"
+          type="number"
+          scale="time"
+          domain={domain}
+          ticks={ticks}
+          tick={<MultiLineTick />}
+          stroke="var(--color-border)"
+          height={xAxisHeight(mobile)}
+        />
+        <YAxis
+          tick={{ fill: 'var(--color-text-muted)', fontSize: 10 }}
+          stroke="var(--color-border)"
+          unit="°C"
+          width={YAXIS_WIDTH}
+          domain={['auto', 'auto']}
+        />
+        <Tooltip content={TempTooltip} />
+        <Line
+          dataKey="temp"
+          name="Temp"
+          stroke="var(--color-text-primary)"
+          strokeWidth={1.5}
+          dot={false}
+          type="monotone"
+          isAnimationActive={false}
+        />
+        {nowMs != null && (
+          <ReferenceLine
+            x={nowMs}
+            stroke="var(--color-text-muted)"
+            strokeWidth={1}
+            strokeDasharray="4 3"
+            label={NOW_LABEL}
+          />
+        )}
+      </LineChart>
+    </ResponsiveContainer>
+  )
+}
+
+/** Pressure chart */
+export function PressureChart({ records, timeRange }: ChartProps) {
+  if (!records?.length) return null
+  const mobile = useIsMobile()
+
+  const filtered = filterByTimeRange(records, timeRange)
+  const chartData: PressureRow[] = filtered.map(r => ({
+    timeMs: new Date(r.valid_utc).getTime(),
+    timeLabel: toCSTLabel(r.valid_utc),
     pressure: r.mslp_hpa,
   }))
 
-  const nowMs = findNowMs(chartData)
-  const ticks = timeTicks(chartData)
+  const nowMs = findNowMs(timeRange)
+  const domain = timeDomain(timeRange) ?? ['dataMin', 'dataMax'] as any
+  const ticks = timeTicks(timeRange, chartData)
 
   return (
-    <div>
-      <ResponsiveContainer width="100%" height={chartHeight(mobile)}>
-        <LineChart data={chartData} margin={chartMargin(mobile, !mobile)}>
-          <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
-          <XAxis
-            dataKey="timeMs"
-            type="number"
-            scale="time"
-            domain={['dataMin', 'dataMax']}
-            ticks={ticks}
-            tick={<MultiLineTick />}
-            stroke="var(--color-border)"
-            height={xAxisHeight(mobile)}
+    <ResponsiveContainer width="100%" height={chartHeight(mobile)}>
+      <LineChart data={chartData} margin={chartMargin(mobile, false)}>
+        <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
+        <XAxis
+          dataKey="timeMs"
+          type="number"
+          scale="time"
+          domain={domain}
+          ticks={ticks}
+          tick={<MultiLineTick />}
+          stroke="var(--color-border)"
+          height={xAxisHeight(mobile)}
+        />
+        <YAxis
+          tick={{ fill: 'var(--color-text-muted)', fontSize: 10 }}
+          stroke="var(--color-border)"
+          unit=" hPa"
+          width={YAXIS_WIDTH}
+          domain={['auto', 'auto']}
+        />
+        <Tooltip content={PressureTooltip} />
+        <Line
+          dataKey="pressure"
+          name="Pressure"
+          stroke="var(--color-text-primary)"
+          strokeWidth={1.5}
+          dot={false}
+          type="monotone"
+          isAnimationActive={false}
+        />
+        {nowMs != null && (
+          <ReferenceLine
+            x={nowMs}
+            stroke="var(--color-text-muted)"
+            strokeWidth={1}
+            strokeDasharray="4 3"
+            label={NOW_LABEL}
           />
-          <YAxis
-            yAxisId="temp"
-            tick={{ fill: 'var(--color-text-muted)', fontSize: 10 }}
-            stroke="var(--color-border)"
-            unit="°C"
-            width={YAXIS_WIDTH}
-            domain={['auto', 'auto']}
-          />
-          {!mobile && (
-            <YAxis
-              yAxisId="pressure"
-              orientation="right"
-              tick={{ fill: 'var(--color-text-muted)', fontSize: 10 }}
-              stroke="var(--color-border)"
-              unit=" hPa"
-              width={YAXIS_WIDTH}
-              domain={['auto', 'auto']}
-            />
-          )}
-          <Tooltip content={CustomTooltip} />
-          <Line
-            yAxisId="temp"
-            dataKey="temp"
-            name="Temp"
-            stroke="var(--color-text-primary)"
-            strokeWidth={1.5}
-            dot={false}
-            type="monotone"
-            isAnimationActive={false}
-          />
-          {/* Pressure: separate axis on desktop, hidden on mobile (shown in tooltip only) */}
-          {!mobile && (
-            <Line
-              yAxisId="pressure"
-              dataKey="pressure"
-              name="Pressure"
-              stroke="#888888"
-              strokeWidth={1}
-              strokeDasharray="4 3"
-              dot={false}
-              type="monotone"
-              isAnimationActive={false}
-            />
-          )}
-          {nowMs != null && (
-            <ReferenceLine
-              yAxisId="temp"
-              x={nowMs}
-              stroke="var(--color-text-muted)"
-              strokeWidth={1}
-              strokeDasharray="4 3"
-              label={NOW_LABEL}
-            />
-          )}
-        </LineChart>
-      </ResponsiveContainer>
-      {mobile && (
-        <p className="text-[9px] text-[var(--color-text-muted)] mt-1 ml-9">
-          Pressure available in tooltip
-        </p>
-      )}
-    </div>
+        )}
+      </LineChart>
+    </ResponsiveContainer>
   )
+}
+
+/** @deprecated Use TempChart and PressureChart separately */
+export function TempPressureChart({ records, timeRange }: ChartProps) {
+  return <TempChart records={records} timeRange={timeRange} />
 }
