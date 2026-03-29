@@ -5,8 +5,8 @@ import {
 import type { ForecastRecord } from '@/lib/types'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import {
-  toCST, toCSTLabel, tickInterval, MultiLineTick,
-  filterByTimeRange, findNowTime,
+  toCSTLabel, MultiLineTick, timeTicks,
+  filterByTimeRange, findNowMs,
   chartMargin, chartHeight, xAxisHeight, YAXIS_WIDTH, NOW_LABEL,
   type TimeRange,
 } from './chart-utils'
@@ -17,9 +17,8 @@ interface TempPressureChartProps {
 }
 
 interface ChartRow {
-  time: string
-  timeLabel: string
   timeMs: number
+  timeLabel: string
   temp?: number
   pressure?: number
 }
@@ -44,34 +43,20 @@ function CustomTooltip(props: any) {
   )
 }
 
-/** Inline legend for mobile (replaces hidden right Y-axis) */
-function DualLegend({ items }: { items: { color: string; label: string; dashed?: boolean }[] }) {
-  return (
-    <div className="flex gap-3 mt-1 ml-9">
-      {items.map(({ color, label }) => (
-        <span key={label} className="flex items-center gap-1 text-[9px] text-[var(--color-text-muted)]">
-          <span className="inline-block w-2 h-2 rounded-full" style={{ background: color }} />
-          {label}
-        </span>
-      ))}
-    </div>
-  )
-}
-
 export function TempPressureChart({ records, timeRange }: TempPressureChartProps) {
   if (!records?.length) return null
   const mobile = useIsMobile()
 
   const filtered = filterByTimeRange(records, timeRange)
   const chartData: ChartRow[] = filtered.map(r => ({
-    time: toCST(r.valid_utc),
-    timeLabel: toCSTLabel(r.valid_utc),
     timeMs: new Date(r.valid_utc).getTime(),
+    timeLabel: toCSTLabel(r.valid_utc),
     temp: r.temp_c,
     pressure: r.mslp_hpa,
   }))
 
-  const nowTime = findNowTime(chartData)
+  const nowMs = findNowMs(chartData)
+  const ticks = timeTicks(chartData)
 
   return (
     <div>
@@ -79,10 +64,13 @@ export function TempPressureChart({ records, timeRange }: TempPressureChartProps
         <LineChart data={chartData} margin={chartMargin(mobile, !mobile)}>
           <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
           <XAxis
-            dataKey="time"
+            dataKey="timeMs"
+            type="number"
+            scale="time"
+            domain={['dataMin', 'dataMax']}
+            ticks={ticks}
             tick={<MultiLineTick />}
             stroke="var(--color-border)"
-            interval={tickInterval(chartData.length)}
             height={xAxisHeight(mobile)}
           />
           <YAxis
@@ -115,21 +103,24 @@ export function TempPressureChart({ records, timeRange }: TempPressureChartProps
             type="monotone"
             isAnimationActive={false}
           />
-          <Line
-            yAxisId={mobile ? 'temp' : 'pressure'}
-            dataKey="pressure"
-            name="Pressure"
-            stroke="#888888"
-            strokeWidth={1}
-            strokeDasharray="4 3"
-            dot={false}
-            type="monotone"
-            isAnimationActive={false}
-          />
-          {nowTime && (
+          {/* Pressure: separate axis on desktop, hidden on mobile (shown in tooltip only) */}
+          {!mobile && (
+            <Line
+              yAxisId="pressure"
+              dataKey="pressure"
+              name="Pressure"
+              stroke="#888888"
+              strokeWidth={1}
+              strokeDasharray="4 3"
+              dot={false}
+              type="monotone"
+              isAnimationActive={false}
+            />
+          )}
+          {nowMs != null && (
             <ReferenceLine
               yAxisId="temp"
-              x={nowTime}
+              x={nowMs}
               stroke="var(--color-text-muted)"
               strokeWidth={1}
               strokeDasharray="4 3"
@@ -139,10 +130,9 @@ export function TempPressureChart({ records, timeRange }: TempPressureChartProps
         </LineChart>
       </ResponsiveContainer>
       {mobile && (
-        <DualLegend items={[
-          { color: 'var(--color-text-primary)', label: 'Temp (°C)' },
-          { color: '#888888', label: 'Pressure (hPa)' },
-        ]} />
+        <p className="text-[9px] text-[var(--color-text-muted)] mt-1 ml-9">
+          Pressure available in tooltip
+        </p>
       )}
     </div>
   )

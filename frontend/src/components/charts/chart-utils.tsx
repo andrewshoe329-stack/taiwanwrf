@@ -1,46 +1,110 @@
 /**
  * Shared chart utilities: time conversion, tick formatting, responsive layout.
+ *
+ * All charts use a NUMERIC x-axis (timeMs) so that the "Now" reference line
+ * aligns to the exact same pixel across charts with different data density
+ * (e.g. tide has ~100 points, wind has ~20).
  */
 
-/** Convert UTC string to CST Date object */
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+/** Convert UTC ISO string → CST Date (UTC+8) */
 export function cstDate(utc: string): Date {
   const d = new Date(utc)
   d.setUTCHours(d.getUTCHours() + 8)
   return d
 }
 
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-
-/** Unique key for each data point: DDD MM/DD HH:00 */
-export function toCST(utc: string): string {
+/** Full CST label for tooltips: "Mon 3/29 08:00 CST" */
+export function toCSTLabel(utc: string): string {
   const d = cstDate(utc)
   const day = DAY_NAMES[d.getUTCDay()]
-  const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
-  const dd = String(d.getUTCDate()).padStart(2, '0')
+  const mm = d.getUTCMonth() + 1
+  const dd = d.getUTCDate()
   const hh = String(d.getUTCHours()).padStart(2, '0')
-  return `${day} ${mm}/${dd} ${hh}:00`
+  return `${day} ${mm}/${dd} ${hh}:00 CST`
 }
 
-/** Full label for tooltips */
-export function toCSTLabel(utc: string): string {
-  return `${toCST(utc)} CST`
-}
+/* ── Numeric X-axis tick formatting ──────────────────────────────────── */
 
 /**
- * Compute tick interval: show a tick every N data points.
- * Aims for ~6-10 visible ticks regardless of data length.
+ * Generate evenly-spaced tick values (ms timestamps) for the numeric axis.
+ * Targets ~6-8 ticks, snapped to 6-hour CST boundaries.
  */
-export function tickInterval(dataLen: number): number {
-  if (dataLen <= 12) return 1
-  if (dataLen <= 24) return 3
-  if (dataLen <= 48) return 6
-  if (dataLen <= 96) return 12
-  return 24
+export function timeTicks(data: { timeMs: number }[]): number[] {
+  if (data.length < 2) return data.map(d => d.timeMs)
+  const min = data[0].timeMs
+  const max = data[data.length - 1].timeMs
+  const range = max - min
+  // Pick interval: 6h, 12h, or 24h to get ~6-8 ticks
+  const SIX_H = 6 * 3600_000
+  const TWELVE_H = 12 * 3600_000
+  const TWENTY_FOUR_H = 24 * 3600_000
+  let interval = SIX_H
+  if (range / SIX_H > 12) interval = TWELVE_H
+  if (range / TWELVE_H > 12) interval = TWENTY_FOUR_H
+
+  // Snap first tick to next CST boundary
+  // CST = UTC+8, so midnight CST = 16:00 UTC prev day
+  const cstOffset = 8 * 3600_000
+  const firstAligned = Math.ceil((min + cstOffset) / interval) * interval - cstOffset
+  const ticks: number[] = []
+  for (let t = firstAligned; t <= max; t += interval) {
+    if (t >= min) ticks.push(t)
+  }
+  return ticks
 }
 
-/**
- * Shared time range: clips records to a start/end UTC window.
- */
+/** Format a ms timestamp for the x-axis tick label */
+let prevTickDay = ''
+
+export function MultiLineTick(props: any) {
+  const { x, y, payload, index } = props
+  if (payload?.value == null) return null
+
+  // Numeric axis: value is ms timestamp
+  const ms = typeof payload.value === 'number' ? payload.value : Number(payload.value)
+  if (isNaN(ms)) return null
+
+  const d = new Date(ms)
+  d.setUTCHours(d.getUTCHours() + 8) // CST
+
+  const dayName = DAY_NAMES[d.getUTCDay()]
+  const mm = d.getUTCMonth() + 1
+  const dd = d.getUTCDate()
+  const hh = String(d.getUTCHours()).padStart(2, '0')
+
+  const dayKey = `${dayName} ${mm}/${dd}`
+  const showDate = index === 0 || dayKey !== prevTickDay
+  prevTickDay = dayKey
+
+  return (
+    <g transform={`translate(${x},${y})`}>
+      {showDate && (
+        <text
+          dy={10}
+          textAnchor="middle"
+          fill="var(--color-text-secondary)"
+          fontSize={9}
+          fontWeight={500}
+        >
+          {dayKey}
+        </text>
+      )}
+      <text
+        dy={showDate ? 21 : 10}
+        textAnchor="middle"
+        fill="var(--color-text-muted)"
+        fontSize={9}
+      >
+        {hh}h
+      </text>
+    </g>
+  )
+}
+
+/* ── Shared time range filter ────────────────────────────────────────── */
+
 export interface TimeRange {
   startUtc: string
   endUtc: string
@@ -61,8 +125,8 @@ export function filterByTimeRange<T extends Record<string, any>>(
 }
 
 /**
- * Downsample tide predictions to ~hourly (keep every Nth point).
- * Preserves first and last point for correct range.
+ * Downsample tide predictions (keep every Nth point).
+ * Preserves first and last for correct range.
  */
 export function downsampleTide<T>(records: T[], targetCount: number = 120): T[] {
   if (records.length <= targetCount) return records
@@ -77,40 +141,23 @@ export function downsampleTide<T>(records: T[], targetCount: number = 120): T[] 
 }
 
 /**
- * Find the chart `time` key closest to "now", if now falls within the data range.
+ * Return current time in ms if it falls within the chart data range, else undefined.
  */
-export function findNowTime(chartData: { time: string; timeMs: number }[]): string | undefined {
+export function findNowMs(chartData: { timeMs: number }[]): number | undefined {
   if (chartData.length < 2) return undefined
-  const nowMs = Date.now()
-  if (nowMs < chartData[0].timeMs || nowMs > chartData[chartData.length - 1].timeMs) return undefined
-  let closest = chartData[0]
-  let minDiff = Math.abs(nowMs - closest.timeMs)
-  for (const row of chartData) {
-    const diff = Math.abs(nowMs - row.timeMs)
-    if (diff < minDiff) { minDiff = diff; closest = row }
-  }
-  return closest.time
+  const now = Date.now()
+  if (now < chartData[0].timeMs || now > chartData[chartData.length - 1].timeMs) return undefined
+  return now
 }
 
-/* ── Responsive chart layout ─────────────────────────────────────────────
- *
- * All charts use identical margins so the plot areas (and "Now" lines)
- * align vertically when stacked on mobile.
- *
- * Mobile:  no right Y-axis → all charts same width
- * Desktop: dual-axis charts get a right Y-axis; single-axis charts
- *          use matching right margin so widths stay consistent.
- */
+/* ── Responsive chart layout ─────────────────────────────────────────── */
 
 export const YAXIS_WIDTH = 44
 
-/** Shared chart margins. On mobile all charts are identical. */
 export function chartMargin(mobile: boolean, dualAxis: boolean) {
   if (mobile) {
-    // Identical for every chart → "Now" lines align
     return { top: 8, right: 8, bottom: 4, left: -8 }
   }
-  // Desktop: single-axis charts pad right to match dual-axis Y-axis width
   return {
     top: 8,
     right: dualAxis ? 8 : YAXIS_WIDTH + 8,
@@ -127,61 +174,10 @@ export function xAxisHeight(mobile: boolean) {
   return mobile ? 32 : 40
 }
 
-/** Shared "Now" ReferenceLine label props */
 export const NOW_LABEL = {
   value: 'Now',
   fill: 'var(--color-text-muted)',
   fontSize: 10,
   position: 'insideTopRight' as const,
   offset: 4,
-}
-
-/**
- * Custom tick component for Recharts XAxis.
- * Shows hour on every tick, "Mon 3/29" above on first tick and day changes.
- */
-let prevTickDay = ''
-
-export function MultiLineTick(props: any) {
-  const { x, y, payload, index } = props
-  if (!payload?.value) return null
-
-  const value: string = payload.value
-  const parts = value.split(' ')
-  if (parts.length < 3) return null
-  const dayName = parts[0]
-  const date = parts[1]
-  const hour = parts[2]
-
-  const dayKey = `${dayName} ${date}`
-  const showDate = index === 0 || dayKey !== prevTickDay
-  prevTickDay = dayKey
-
-  const shortDate = date.replace(/^0/, '').replace('/0', '/')
-  const dayLabel = `${dayName} ${shortDate}`
-  const shortHour = hour.replace(':00', 'h')
-
-  return (
-    <g transform={`translate(${x},${y})`}>
-      {showDate && (
-        <text
-          dy={10}
-          textAnchor="middle"
-          fill="var(--color-text-secondary)"
-          fontSize={9}
-          fontWeight={500}
-        >
-          {dayLabel}
-        </text>
-      )}
-      <text
-        dy={showDate ? 21 : 10}
-        textAnchor="middle"
-        fill="var(--color-text-muted)"
-        fontSize={9}
-      >
-        {shortHour}
-      </text>
-    </g>
-  )
 }

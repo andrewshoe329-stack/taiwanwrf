@@ -5,8 +5,8 @@ import {
 import type { WaveRecord } from '@/lib/types'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import {
-  toCST, toCSTLabel, tickInterval, MultiLineTick,
-  filterByTimeRange, findNowTime,
+  toCSTLabel, MultiLineTick, timeTicks,
+  filterByTimeRange, findNowMs,
   chartMargin, chartHeight, xAxisHeight, YAXIS_WIDTH, NOW_LABEL,
   type TimeRange,
 } from './chart-utils'
@@ -17,9 +17,8 @@ interface WaveChartProps {
 }
 
 interface ChartRow {
-  time: string
-  timeLabel: string
   timeMs: number
+  timeLabel: string
   swell?: number
   wind_sea?: number
   total?: number
@@ -66,16 +65,16 @@ export function WaveChart({ records, timeRange }: WaveChartProps) {
 
   const filtered = filterByTimeRange(records, timeRange)
   const chartData: ChartRow[] = filtered.map(r => ({
-    time: toCST(r.valid_utc),
-    timeLabel: toCSTLabel(r.valid_utc),
     timeMs: new Date(r.valid_utc).getTime(),
+    timeLabel: toCSTLabel(r.valid_utc),
     swell: r.swell_wave_height,
     wind_sea: r.wind_wave_height,
     total: r.wave_height,
     period: r.wave_period,
   }))
 
-  const nowTime = findNowTime(chartData)
+  const nowMs = findNowMs(chartData)
+  const ticks = timeTicks(chartData)
 
   return (
     <div>
@@ -83,10 +82,13 @@ export function WaveChart({ records, timeRange }: WaveChartProps) {
         <AreaChart data={chartData} margin={chartMargin(mobile, !mobile)}>
           <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
           <XAxis
-            dataKey="time"
+            dataKey="timeMs"
+            type="number"
+            scale="time"
+            domain={['dataMin', 'dataMax']}
+            ticks={ticks}
             tick={<MultiLineTick />}
             stroke="var(--color-border)"
-            interval={tickInterval(chartData.length)}
             height={xAxisHeight(mobile)}
           />
           <YAxis
@@ -139,21 +141,24 @@ export function WaveChart({ records, timeRange }: WaveChartProps) {
             type="monotone"
             isAnimationActive={false}
           />
-          <Line
-            yAxisId={mobile ? 'height' : 'period'}
-            dataKey="period"
-            name="Period"
-            stroke="var(--color-text-muted)"
-            strokeWidth={1}
-            strokeDasharray="4 3"
-            dot={false}
-            type="monotone"
-            isAnimationActive={false}
-          />
-          {nowTime && (
+          {/* Period: separate axis on desktop, hidden on mobile (shown in tooltip only) */}
+          {!mobile && (
+            <Line
+              yAxisId="period"
+              dataKey="period"
+              name="Period"
+              stroke="var(--color-text-muted)"
+              strokeWidth={1}
+              strokeDasharray="4 3"
+              dot={false}
+              type="monotone"
+              isAnimationActive={false}
+            />
+          )}
+          {nowMs != null && (
             <ReferenceLine
               yAxisId="height"
-              x={nowTime}
+              x={nowMs}
               stroke="var(--color-text-muted)"
               strokeWidth={1}
               strokeDasharray="4 3"
@@ -165,7 +170,7 @@ export function WaveChart({ records, timeRange }: WaveChartProps) {
       {mobile && (
         <DualLegend items={[
           { color: 'var(--color-text-primary)', label: 'Height (m)' },
-          { color: 'var(--color-text-muted)', label: 'Period (s)' },
+          { color: '#888888', label: 'Wind Sea (m)' },
         ]} />
       )}
     </div>

@@ -256,8 +256,21 @@ export class WindParticleSystem {
     ctx.save()
     ctx.globalCompositeOperation = 'source-over'
 
-    // Draw coastline rings
     if (this.coastline.length > 0) {
+      // Fill land polygons first (subtle dark fill, visible even if MapLibre fails)
+      ctx.fillStyle = 'rgba(30, 41, 59, 0.5)'
+      for (const ring of this.coastline) {
+        ctx.beginPath()
+        for (let i = 0; i < ring.length; i++) {
+          const [x, y] = this.project(ring[i][0], ring[i][1], w, h)
+          if (i === 0) ctx.moveTo(x, y)
+          else ctx.lineTo(x, y)
+        }
+        ctx.closePath()
+        ctx.fill()
+      }
+
+      // Stroke coastline outline on top
       ctx.strokeStyle = 'rgba(34, 211, 238, 0.6)'
       ctx.lineWidth = 1.5
       ctx.lineJoin = 'round'

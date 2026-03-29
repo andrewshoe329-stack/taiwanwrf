@@ -5,8 +5,8 @@ import {
 import type { TidePrediction, TideExtremum } from '@/lib/types'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import {
-  toCST, toCSTLabel, tickInterval, MultiLineTick,
-  filterByTimeRange, downsampleTide, findNowTime,
+  toCSTLabel, MultiLineTick, timeTicks,
+  filterByTimeRange, downsampleTide, findNowMs,
   chartMargin, chartHeight, xAxisHeight, YAXIS_WIDTH, NOW_LABEL,
   type TimeRange,
 } from './chart-utils'
@@ -18,9 +18,8 @@ interface TideChartProps {
 }
 
 interface ChartRow {
-  time: string
-  timeLabel: string
   timeMs: number
+  timeLabel: string
   height: number
 }
 
@@ -49,13 +48,12 @@ export function TideChart({ predictions, extrema, timeRange }: TideChartProps) {
   const sampled = downsampleTide(filtered, 100)
 
   const chartData: ChartRow[] = sampled.map(p => ({
-    time: toCST(p.time_utc),
-    timeLabel: toCSTLabel(p.time_utc),
     timeMs: new Date(p.time_utc).getTime(),
+    timeLabel: toCSTLabel(p.time_utc),
     height: p.height_m,
   }))
 
-  const nowTime = findNowTime(chartData)
+  const nowMs = findNowMs(chartData)
 
   const visibleExtrema = extrema.filter(e => {
     const ms = new Date(e.time_utc).getTime()
@@ -64,15 +62,20 @@ export function TideChart({ predictions, extrema, timeRange }: TideChartProps) {
       ms <= chartData[chartData.length - 1].timeMs
   })
 
+  const ticks = timeTicks(chartData)
+
   return (
     <ResponsiveContainer width="100%" height={chartHeight(mobile)}>
       <AreaChart data={chartData} margin={chartMargin(mobile, false)}>
         <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
         <XAxis
-          dataKey="time"
+          dataKey="timeMs"
+          type="number"
+          scale="time"
+          domain={['dataMin', 'dataMax']}
+          ticks={ticks}
           tick={<MultiLineTick />}
           stroke="var(--color-border)"
-          interval={tickInterval(chartData.length)}
           height={xAxisHeight(mobile)}
         />
         <YAxis
@@ -93,38 +96,29 @@ export function TideChart({ predictions, extrema, timeRange }: TideChartProps) {
           type="monotone"
           isAnimationActive={false}
         />
-        {nowTime && (
+        {nowMs != null && (
           <ReferenceLine
-            x={nowTime}
+            x={nowMs}
             stroke="var(--color-text-muted)"
             strokeWidth={1}
             strokeDasharray="4 3"
             label={NOW_LABEL}
           />
         )}
-        {visibleExtrema.map((e, i) => {
-          const ms = new Date(e.time_utc).getTime()
-          let closest = chartData[0]
-          let minDiff = Infinity
-          for (const row of chartData) {
-            const diff = Math.abs(ms - row.timeMs)
-            if (diff < minDiff) { minDiff = diff; closest = row }
-          }
-          return (
-            <ReferenceLine
-              key={i}
-              x={closest.time}
-              stroke="none"
-              label={{
-                value: `${e.type === 'high' ? 'H' : 'L'} ${e.height_m.toFixed(1)}m`,
-                fill: 'var(--color-text-secondary)',
-                fontSize: 9,
-                position: e.type === 'high' ? 'insideTop' : 'insideBottom',
-                offset: 4,
-              }}
-            />
-          )
-        })}
+        {visibleExtrema.map((e, i) => (
+          <ReferenceLine
+            key={i}
+            x={new Date(e.time_utc).getTime()}
+            stroke="none"
+            label={{
+              value: `${e.type === 'high' ? 'H' : 'L'} ${e.height_m.toFixed(1)}m`,
+              fill: 'var(--color-text-secondary)',
+              fontSize: 9,
+              position: e.type === 'high' ? 'insideTop' : 'insideBottom',
+              offset: 4,
+            }}
+          />
+        ))}
       </AreaChart>
     </ResponsiveContainer>
   )
