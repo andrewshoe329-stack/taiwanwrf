@@ -78,6 +78,23 @@ export function downsampleTide<T>(records: T[], targetCount: number = 120): T[] 
 }
 
 /**
+ * Find the chart `time` key closest to "now", if now falls within the data range.
+ * Returns undefined if now is outside the range.
+ */
+export function findNowTime(chartData: { time: string; timeMs: number }[]): string | undefined {
+  if (chartData.length < 2) return undefined
+  const nowMs = Date.now()
+  if (nowMs < chartData[0].timeMs || nowMs > chartData[chartData.length - 1].timeMs) return undefined
+  let closest = chartData[0]
+  let minDiff = Math.abs(nowMs - closest.timeMs)
+  for (const row of chartData) {
+    const diff = Math.abs(nowMs - row.timeMs)
+    if (diff < minDiff) { minDiff = diff; closest = row }
+  }
+  return closest.time
+}
+
+/**
  * Custom tick component for Recharts XAxis.
  * Shows hour on every tick, "Mon 3/29" above on first tick and day changes.
  */

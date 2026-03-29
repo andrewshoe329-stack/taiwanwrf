@@ -5,7 +5,7 @@ import {
 import type { TidePrediction, TideExtremum } from '@/lib/types'
 import {
   toCST, toCSTLabel, tickInterval, MultiLineTick,
-  filterByTimeRange, downsampleTide, type TimeRange,
+  filterByTimeRange, downsampleTide, findNowTime, type TimeRange,
 } from './chart-utils'
 
 interface TideChartProps {
@@ -52,25 +52,7 @@ export function TideChart({ predictions, extrema, timeRange }: TideChartProps) {
     height: p.height_m,
   }))
 
-  // "Now" marker
-  const nowMs = Date.now()
-  const hasNow = chartData.length >= 2 &&
-    nowMs >= chartData[0].timeMs &&
-    nowMs <= chartData[chartData.length - 1].timeMs
-
-  let nowTime: string | undefined
-  if (hasNow) {
-    let closest = chartData[0]
-    let minDiff = Math.abs(nowMs - closest.timeMs)
-    for (const row of chartData) {
-      const diff = Math.abs(nowMs - row.timeMs)
-      if (diff < minDiff) {
-        minDiff = diff
-        closest = row
-      }
-    }
-    nowTime = closest.time
-  }
+  const nowTime = findNowTime(chartData)
 
   // Filter extrema to visible range and find nearest chart points
   const visibleExtrema = extrema.filter(e => {
@@ -82,7 +64,7 @@ export function TideChart({ predictions, extrema, timeRange }: TideChartProps) {
 
   return (
     <ResponsiveContainer width="100%" height={200}>
-      <AreaChart data={chartData} margin={{ top: 16, right: 8, bottom: 16, left: -12 }}>
+      <AreaChart data={chartData} margin={{ top: 16, right: 52, bottom: 16, left: -12 }}>
         <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
         <XAxis
           dataKey="time"
@@ -115,7 +97,7 @@ export function TideChart({ predictions, extrema, timeRange }: TideChartProps) {
             stroke="var(--color-text-muted)"
             strokeWidth={1}
             strokeDasharray="4 3"
-            label={{ value: 'Now', fill: 'var(--color-text-muted)', fontSize: 10, position: 'top' }}
+            label={{ value: 'Now', fill: 'var(--color-text-muted)', fontSize: 10, position: 'insideTopRight', offset: 4 }}
           />
         )}
         {/* H/L labels as reference lines — cleaner than dots */}
@@ -136,7 +118,8 @@ export function TideChart({ predictions, extrema, timeRange }: TideChartProps) {
                 value: `${e.type === 'high' ? 'H' : 'L'} ${e.height_m.toFixed(1)}m`,
                 fill: 'var(--color-text-secondary)',
                 fontSize: 9,
-                position: e.type === 'high' ? 'top' : 'bottom',
+                position: e.type === 'high' ? 'insideTop' : 'insideBottom',
+                offset: 4,
               }}
             />
           )

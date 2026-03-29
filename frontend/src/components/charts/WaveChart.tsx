@@ -1,9 +1,9 @@
 import {
   ResponsiveContainer, AreaChart, Area, Line, XAxis, YAxis,
-  CartesianGrid, Tooltip,
+  CartesianGrid, Tooltip, ReferenceLine,
 } from 'recharts'
 import type { WaveRecord } from '@/lib/types'
-import { toCST, toCSTLabel, tickInterval, MultiLineTick, filterByTimeRange, type TimeRange } from './chart-utils'
+import { toCST, toCSTLabel, tickInterval, MultiLineTick, filterByTimeRange, findNowTime, type TimeRange } from './chart-utils'
 
 interface WaveChartProps {
   records: WaveRecord[]
@@ -13,6 +13,7 @@ interface WaveChartProps {
 interface ChartRow {
   time: string
   timeLabel: string
+  timeMs: number
   swell?: number
   wind_sea?: number
   total?: number
@@ -46,11 +47,14 @@ export function WaveChart({ records, timeRange }: WaveChartProps) {
   const chartData: ChartRow[] = filtered.map(r => ({
     time: toCST(r.valid_utc),
     timeLabel: toCSTLabel(r.valid_utc),
+    timeMs: new Date(r.valid_utc).getTime(),
     swell: r.swell_wave_height,
     wind_sea: r.wind_wave_height,
     total: r.wave_height,
     period: r.wave_period,
   }))
+
+  const nowTime = findNowTime(chartData)
 
   return (
     <ResponsiveContainer width="100%" height={240}>
@@ -76,7 +80,7 @@ export function WaveChart({ records, timeRange }: WaveChartProps) {
           tick={{ fill: 'var(--color-text-muted)', fontSize: 10 }}
           stroke="var(--color-border)"
           unit=" s"
-          width={40}
+          width={44}
         />
         <Tooltip content={CustomTooltip} />
         <Area
@@ -122,6 +126,15 @@ export function WaveChart({ records, timeRange }: WaveChartProps) {
           type="monotone"
           isAnimationActive={false}
         />
+        {nowTime && (
+          <ReferenceLine
+            x={nowTime}
+            stroke="var(--color-text-muted)"
+            strokeWidth={1}
+            strokeDasharray="4 3"
+            label={{ value: 'Now', fill: 'var(--color-text-muted)', fontSize: 10, position: 'insideTopRight', offset: 4 }}
+          />
+        )}
       </AreaChart>
     </ResponsiveContainer>
   )

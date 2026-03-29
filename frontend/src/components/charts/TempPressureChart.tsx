@@ -1,9 +1,9 @@
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis,
-  CartesianGrid, Tooltip,
+  CartesianGrid, Tooltip, ReferenceLine,
 } from 'recharts'
 import type { ForecastRecord } from '@/lib/types'
-import { toCST, toCSTLabel, tickInterval, MultiLineTick, filterByTimeRange, type TimeRange } from './chart-utils'
+import { toCST, toCSTLabel, tickInterval, MultiLineTick, filterByTimeRange, findNowTime, type TimeRange } from './chart-utils'
 
 interface TempPressureChartProps {
   records: ForecastRecord[]
@@ -13,6 +13,7 @@ interface TempPressureChartProps {
 interface ChartRow {
   time: string
   timeLabel: string
+  timeMs: number
   temp?: number
   pressure?: number
 }
@@ -44,9 +45,12 @@ export function TempPressureChart({ records, timeRange }: TempPressureChartProps
   const chartData: ChartRow[] = filtered.map(r => ({
     time: toCST(r.valid_utc),
     timeLabel: toCSTLabel(r.valid_utc),
+    timeMs: new Date(r.valid_utc).getTime(),
     temp: r.temp_c,
     pressure: r.mslp_hpa,
   }))
+
+  const nowTime = findNowTime(chartData)
 
   return (
     <ResponsiveContainer width="100%" height={240}>
@@ -73,7 +77,7 @@ export function TempPressureChart({ records, timeRange }: TempPressureChartProps
           tick={{ fill: 'var(--color-text-muted)', fontSize: 10 }}
           stroke="var(--color-border)"
           unit=" hPa"
-          width={52}
+          width={44}
           domain={['auto', 'auto']}
         />
         <Tooltip content={CustomTooltip} />
@@ -98,6 +102,15 @@ export function TempPressureChart({ records, timeRange }: TempPressureChartProps
           type="monotone"
           isAnimationActive={false}
         />
+        {nowTime && (
+          <ReferenceLine
+            x={nowTime}
+            stroke="var(--color-text-muted)"
+            strokeWidth={1}
+            strokeDasharray="4 3"
+            label={{ value: 'Now', fill: 'var(--color-text-muted)', fontSize: 10, position: 'insideTopRight', offset: 4 }}
+          />
+        )}
       </LineChart>
     </ResponsiveContainer>
   )
