@@ -8,7 +8,35 @@ import { useTimeline } from '@/hooks/useTimeline'
 import { useWindGrid, type WindModel } from '@/hooks/useWindGrid'
 import { SpotMarkers } from './SpotMarkers'
 
-const DARK_TILES = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json'
+// Inline dark style — no external tile service needed
+const DARK_STYLE: maplibregl.StyleSpecification = {
+  version: 8,
+  sources: {
+    land: {
+      type: 'geojson',
+      data: '/data/taiwan.geojson?v=3',
+    },
+  },
+  layers: [
+    {
+      id: 'background',
+      type: 'background',
+      paint: { 'background-color': '#0a0a1a' },
+    },
+    {
+      id: 'land-fill',
+      type: 'fill',
+      source: 'land',
+      paint: { 'fill-color': '#1a1a2e', 'fill-opacity': 0.6 },
+    },
+    {
+      id: 'land-outline',
+      type: 'line',
+      source: 'land',
+      paint: { 'line-color': '#334155', 'line-width': 1 },
+    },
+  ],
+}
 
 const MODEL_LABELS: Record<WindModel, string> = {
   wrf: 'WRF 3km',
@@ -34,7 +62,7 @@ export function ForecastMap() {
     // Create map
     const map = new maplibregl.Map({
       container,
-      style: DARK_TILES,
+      style: DARK_STYLE,
       center: TAIWAN_CENTER,
       zoom: TAIWAN_ZOOM,
       minZoom: 5,
