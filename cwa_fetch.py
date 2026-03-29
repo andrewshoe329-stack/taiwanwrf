@@ -929,7 +929,11 @@ def _apply_fallback_translations(warnings: list[dict]) -> list[dict]:
             area = w.get('area', '')
             parts = [_AREA_MAP.get(a.strip(), a.strip()) for a in area.split('、') if a.strip()]
             w['area_en'] = ', '.join(parts) if parts else area
-        # description_en fallback: just leave as Chinese if API didn't translate
+        if 'description_en' not in w:
+            # Generate a basic English description from type + area
+            t = w.get('type_en', w.get('type', ''))
+            a = w.get('area_en', w.get('area', ''))
+            w['description_en'] = f"{t} in effect for {a}." if a else f"{t} in effect."
     return warnings
 
 
