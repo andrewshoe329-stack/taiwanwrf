@@ -50,17 +50,17 @@ log = logging.getLogger(__name__)
 # Source: swelleye.com spot guides
 
 SPOTS = [
-    # ── North coast ──────────────────────────────────────────────────────────
+    # ── North coast (W→E: Jinshan → Green Bay → Fulong) ─────────────────────
     {
-        'id': 'fulong',
-        'name': 'Fulong 福隆',
-        'lat': _COORD_LOOKUP['fulong'][0], 'lon': _COORD_LOOKUP['fulong'][1],
-        'facing': 'NE/E',
+        'id': 'jinshan',
+        'name': 'Jinshan 金山',
+        'lat': _COORD_LOOKUP['jinshan'][0], 'lon': _COORD_LOOKUP['jinshan'][1],
+        'facing': 'NE',
         'opt_wind':  ['S', 'SW'],
-        'opt_swell': ['N', 'NE', 'E'],
-        'opt_tide':  'any',
-        'desc': 'Rivermouth beach break · L&R · All levels',
-        'desc_zh': '河口沙灘浪型 · 左右跑 · 各級適合',
+        'opt_swell': ['N', 'NNE', 'NE', 'E', 'ESE'],
+        'opt_tide':  'mid',
+        'desc': 'Beach/point · L&R · Mid tide · Beg–Inter',
+        'desc_zh': '沙灘/礁岩 · 左右跑 · 中潮 · 初學–中級',
     },
     {
         'id': 'greenbay',
@@ -74,17 +74,17 @@ SPOTS = [
         'desc_zh': '沙灘浪型 · 左右跑 · 各級適合',
     },
     {
-        'id': 'jinshan',
-        'name': 'Jinshan 金山',
-        'lat': _COORD_LOOKUP['jinshan'][0], 'lon': _COORD_LOOKUP['jinshan'][1],
-        'facing': 'NE',
+        'id': 'fulong',
+        'name': 'Fulong 福隆',
+        'lat': _COORD_LOOKUP['fulong'][0], 'lon': _COORD_LOOKUP['fulong'][1],
+        'facing': 'NE/E',
         'opt_wind':  ['S', 'SW'],
-        'opt_swell': ['N', 'NNE', 'NE', 'E', 'ESE'],
-        'opt_tide':  'mid',
-        'desc': 'Beach/point · L&R · Mid tide · Beg–Inter',
-        'desc_zh': '沙灘/礁岩 · 左右跑 · 中潮 · 初學–中級',
+        'opt_swell': ['N', 'NE', 'E'],
+        'opt_tide':  'any',
+        'desc': 'Rivermouth beach break · L&R · All levels',
+        'desc_zh': '河口沙灘浪型 · 左右跑 · 各級適合',
     },
-    # ── Northeast coast ──────────────────────────────────────────────────────
+    # ── NE coast (N→S: Daxi → Double Lions → Wushih → Chousui) ──────────────
     {
         'id': 'daxi',
         'name': 'Daxi 大溪',
@@ -97,17 +97,6 @@ SPOTS = [
         'desc_zh': '半月形沙灘 · 左右跑 · 中高潮 · 初學–中級',
     },
     {
-        'id': 'wushih',
-        'name': 'Wushih 烏石',
-        'lat': _COORD_LOOKUP['wushih'][0], 'lon': _COORD_LOOKUP['wushih'][1],
-        'facing': 'E',
-        'opt_wind':  ['NW', 'W'],
-        'opt_swell': ['E', 'SE', 'SSE'],
-        'opt_tide':  'mid',
-        'desc': 'Beach break · L&R · Mid tide · All levels',
-        'desc_zh': '沙灘浪型 · 左右跑 · 中潮 · 各級適合',
-    },
-    {
         'id': 'doublelions',
         'name': 'Double Lions 雙獅',
         'lat': _COORD_LOOKUP['doublelions'][0], 'lon': _COORD_LOOKUP['doublelions'][1],
@@ -117,6 +106,17 @@ SPOTS = [
         'opt_tide':  'mid-high',
         'desc': 'Beach break · L&R · Mid-high tide · All levels',
         'desc_zh': '沙灘浪型 · 左右跑 · 中高潮 · 各級適合',
+    },
+    {
+        'id': 'wushih',
+        'name': 'Wushih 烏石',
+        'lat': _COORD_LOOKUP['wushih'][0], 'lon': _COORD_LOOKUP['wushih'][1],
+        'facing': 'E',
+        'opt_wind':  ['NW', 'W'],
+        'opt_swell': ['E', 'SE', 'SSE'],
+        'opt_tide':  'mid',
+        'desc': 'Beach break · L&R · Mid tide · All levels',
+        'desc_zh': '沙灘浪型 · 左右跑 · 中潮 · 各級適合',
     },
     {
         'id': 'chousui',

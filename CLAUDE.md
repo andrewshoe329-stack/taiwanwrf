@@ -235,9 +235,9 @@ Scoring system (0–14 max) evaluates each 6h timestep:
 
 | Spot | Coordinates | Facing | Optimal Wind | Optimal Swell |
 |------|-------------|--------|-------------|---------------|
-| Fulong 福隆 | 25.019, 121.940 | NE/E | S, SW | N, NE, E |
-| Green Bay 翡翠灣 | 25.189, 121.686 | NE | W, SW | E, NE |
 | Jinshan 金山 (中角灣) | 25.241, 121.633 | NE | S, SW | N, NNE, NE, E, ESE |
+| Green Bay 翡翠灣 | 25.189, 121.686 | NE | W, SW | E, NE |
+| Fulong 福隆 | 25.019, 121.940 | NE/E | S, SW | N, NE, E |
 | Daxi 大溪 (蜜月灣) | 24.933, 121.886 | SE | NW, W | SE, SSE, S, E |
 | Double Lions 雙獅 (外澳) | 24.881, 121.837 | E | W, SW | ENE, E, SE, SSE |
 | Wushih 烏石 (北堤) | 24.871, 121.837 | E | NW, W | E, SE, SSE |

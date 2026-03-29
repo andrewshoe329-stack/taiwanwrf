@@ -45,9 +45,6 @@ export function PrecipChart({ records, timeRange }: PrecipChartProps) {
   const mobile = useIsMobile()
 
   const filtered = filterByTimeRange(records, timeRange)
-  // Only show if there's any precipitation data
-  const hasPrecip = filtered.some(r => r.precip_mm_6h != null && r.precip_mm_6h > 0)
-  if (!hasPrecip) return null
 
   const chartData: ChartRow[] = filtered.map(r => ({
     timeMs: new Date(r.valid_utc).getTime(),

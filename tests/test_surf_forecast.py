@@ -97,7 +97,7 @@ class TestDirQuality:
 # ── day_rating ───────────────────────────────────────────────────────────────
 
 class TestDayRating:
-    SPOT = SPOTS[0]  # Fulong
+    SPOT = next(s for s in SPOTS if s['id'] == 'fulong')
 
     def test_no_data(self):
         r = day_rating([], self.SPOT)
@@ -226,7 +226,7 @@ class TestRecommend:
 class TestGeneratePlannerJson:
     """Tests for generate_planner_json() sidecar data output."""
 
-    SPOT = SPOTS[0]  # Fulong
+    SPOT = next(s for s in SPOTS if s['id'] == 'fulong')
 
     def _make_spot_data(self, days=None):
         """Create minimal all_spot_data for one spot over given date keys."""
@@ -319,7 +319,7 @@ class TestGeneratePlannerJson:
 # ── _score_timestep ─────────────────────────────────────────────────────────
 
 class TestScoreTimestep:
-    SPOT = SPOTS[0]  # Fulong
+    SPOT = next(s for s in SPOTS if s['id'] == 'fulong')
 
     def test_good_conditions_high_score(self):
         r = {'sw_hs': 1.5, 'wind': 5, 'sw_dir': 45, 'w_dir': 225, 'sw_tp': 14}
@@ -333,7 +333,7 @@ class TestScoreTimestep:
 
     def test_tide_bonus_for_jinshan(self):
         """Jinshan prefers mid tide — mid tide should score higher than low tide."""
-        jinshan = SPOTS[2]  # Jinshan, opt_tide='mid'
+        jinshan = next(s for s in SPOTS if s['id'] == 'jinshan')
         r = {'sw_hs': 1.0, 'wind': 8, 'sw_dir': 45, 'w_dir': 225, 'sw_tp': 10}
         score_mid  = _score_timestep(r, jinshan, tide_height_m=0.45)  # mid
         score_low  = _score_timestep(r, jinshan, tide_height_m=0.10)  # low
@@ -350,7 +350,7 @@ class TestScoreTimestep:
 # ── best_time_for_day ────────────────────────────────────────────────────────
 
 class TestBestTimeForDay:
-    SPOT = SPOTS[0]  # Fulong
+    SPOT = next(s for s in SPOTS if s['id'] == 'fulong')
 
     def _make_recs(self, hours=(0, 6, 12, 18)):
         """Create records at given UTC hours on 2026-03-22."""
