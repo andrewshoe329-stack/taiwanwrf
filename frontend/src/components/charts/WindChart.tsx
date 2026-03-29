@@ -5,8 +5,8 @@ import {
 import type { ForecastRecord } from '@/lib/types'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import {
-  toCST, toCSTLabel, tickInterval, MultiLineTick,
-  filterByTimeRange, findNowTime,
+  toCSTLabel, MultiLineTick, timeTicks,
+  filterByTimeRange, findNowMs,
   chartMargin, chartHeight, xAxisHeight, YAXIS_WIDTH, NOW_LABEL,
   type TimeRange,
 } from './chart-utils'
@@ -18,9 +18,8 @@ interface WindChartProps {
 }
 
 interface ChartRow {
-  time: string
-  timeLabel: string
   timeMs: number
+  timeLabel: string
   wrf_wind?: number
   wrf_gust?: number
   ecmwf_wind?: number
@@ -52,25 +51,28 @@ export function WindChart({ records, ecmwfRecords, timeRange }: WindChartProps) 
   ecmwfRecords?.forEach(r => ecmwfMap.set(r.valid_utc, r))
 
   const chartData: ChartRow[] = filtered.map(r => ({
-    time: toCST(r.valid_utc),
-    timeLabel: toCSTLabel(r.valid_utc),
     timeMs: new Date(r.valid_utc).getTime(),
+    timeLabel: toCSTLabel(r.valid_utc),
     wrf_wind: r.wind_kt,
     wrf_gust: r.gust_kt,
     ecmwf_wind: ecmwfMap.get(r.valid_utc)?.wind_kt,
   }))
 
-  const nowTime = findNowTime(chartData)
+  const nowMs = findNowMs(chartData)
+  const ticks = timeTicks(chartData)
 
   return (
     <ResponsiveContainer width="100%" height={chartHeight(mobile)}>
       <LineChart data={chartData} margin={chartMargin(mobile, false)}>
         <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
         <XAxis
-          dataKey="time"
+          dataKey="timeMs"
+          type="number"
+          scale="time"
+          domain={['dataMin', 'dataMax']}
+          ticks={ticks}
           tick={<MultiLineTick />}
           stroke="var(--color-border)"
-          interval={tickInterval(chartData.length)}
           height={xAxisHeight(mobile)}
         />
         <YAxis
@@ -108,9 +110,9 @@ export function WindChart({ records, ecmwfRecords, timeRange }: WindChartProps) 
           type="monotone"
           isAnimationActive={false}
         />
-        {nowTime && (
+        {nowMs != null && (
           <ReferenceLine
-            x={nowTime}
+            x={nowMs}
             stroke="var(--color-text-muted)"
             strokeWidth={1}
             strokeDasharray="4 3"
