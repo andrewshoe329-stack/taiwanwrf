@@ -80,6 +80,21 @@ export class WindParticleSystem {
     this.bounds = { west, south, east, north }
   }
 
+  /** Get current viewport bounds */
+  getBounds() {
+    return { ...this.bounds }
+  }
+
+  /** Get labels for hit-testing */
+  getLabels() {
+    return this.labels
+  }
+
+  /** Project lon/lat to canvas pixel (public for hit-testing) */
+  projectPoint(lon: number, lat: number): [number, number] {
+    return this.project(lon, lat, this.canvas.width, this.canvas.height)
+  }
+
   /** Resize canvas to match container */
   resize(width: number, height: number) {
     this.canvas.width = width
