@@ -37,8 +37,7 @@ export function tickInterval(dataLen: number): number {
 
 /**
  * Custom tick component for Recharts XAxis.
- * Shows compact date + hour: "3/29" on first line, "08:00" on second line.
- * Date only shown on first tick and when day changes.
+ * Shows hour on every tick, compact date above on first tick and day changes.
  */
 let prevTickDate = ''
 
@@ -59,6 +58,9 @@ export function MultiLineTick(props: any) {
   // Compact date: "3/29" instead of "03/29"
   const shortDate = date.replace(/^0/, '').replace('/0', '/')
 
+  // Compact hour: "08" instead of "08:00"
+  const shortHour = hour.replace(':00', 'h')
+
   return (
     <g transform={`translate(${x},${y})`}>
       {showDate && (
@@ -73,12 +75,12 @@ export function MultiLineTick(props: any) {
         </text>
       )}
       <text
-        dy={showDate ? 24 : 14}
+        dy={showDate ? 23 : 12}
         textAnchor="middle"
         fill="var(--color-text-muted)"
-        fontSize={10}
+        fontSize={9}
       >
-        {hour}
+        {shortHour}
       </text>
     </g>
   )

@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useState } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { TAIWAN_CENTER, TAIWAN_ZOOM, SPOTS, HARBOURS } from '@/lib/constants'
@@ -8,7 +8,6 @@ import { useTimeline } from '@/hooks/useTimeline'
 import { useWindGrid, type WindModel } from '@/hooks/useWindGrid'
 import { SpotMarkers } from './SpotMarkers'
 
-// CartoDB dark-matter — accurate monochrome basemap with real coastlines
 const DARK_TILES = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json'
 
 const MODEL_LABELS: Record<WindModel, string> = {
@@ -20,16 +19,15 @@ const MODEL_LABELS: Record<WindModel, string> = {
 export function ForecastMap() {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const mapContainerRef = useRef<HTMLDivElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const particlesRef = useRef<WindParticleSystem | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [mapReady, setMapReady] = useState(false)
-  const [outlineStatus, setOutlineStatus] = useState<'loading' | 'ok' | 'error'>('loading')
 
   const { index } = useTimeline()
   const { grid, model, setModel } = useWindGrid()
 
-  // Initialize map
+  // Initialize map + particle canvas inside the map container
   useEffect(() => {
     if (!mapContainerRef.current) return
 
@@ -46,14 +44,49 @@ export function ForecastMap() {
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left')
     map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right')
 
+    // Create particle canvas INSIDE the map container
+    // z-index 1 = above basemap canvas, below controls (z-2) and markers (z-5)
+    const canvas = document.createElement('canvas')
+    canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;'
+    mapContainerRef.current.appendChild(canvas)
+    canvasRef.current = canvas
+
+    // Init particle system
+    const ps = new WindParticleSystem({
+      canvas,
+      count: window.innerWidth < 768 ? 2000 : 4000,
+      maxAge: 80,
+      speedFactor: 0.3,
+      lineWidth: 1.2,
+      fadeFactor: 0.97,
+    })
+    particlesRef.current = ps
+    ps.start()
+
+    // Size canvas to container
+    const syncSize = () => {
+      if (!mapContainerRef.current) return
+      const { clientWidth: w, clientHeight: h } = mapContainerRef.current
+      canvas.width = w
+      canvas.height = h
+      ps.resize(w, h)
+    }
+    syncSize()
+    window.addEventListener('resize', syncSize)
+
+    // Sync map bounds to particle system
+    const syncBounds = () => {
+      const b = map.getBounds()
+      ps.setBounds(b.getWest(), b.getSouth(), b.getEast(), b.getNorth())
+    }
+
     map.on('load', async () => {
-      // Load Taiwan coastline for canvas overlay
+      // Load Taiwan coastline
       try {
-        const resp = await fetch('/data/taiwan.geojson')
+        const resp = await fetch('/data/taiwan.geojson?v=2')
         if (!resp.ok) throw new Error(`GeoJSON fetch failed: ${resp.status}`)
         const geojson = await resp.json()
 
-        // Extract polygon rings from GeoJSON for canvas drawing
         const rings: [number, number][][] = []
         for (const feature of geojson.features ?? []) {
           const coords = feature.geometry?.coordinates
@@ -64,11 +97,9 @@ export function ForecastMap() {
               for (const ring of polygon) rings.push(ring)
           }
         }
+        ps.setCoastline(rings)
 
-        // Pass coastline and labels to particle system for canvas rendering
-        particlesRef.current?.setCoastline(rings)
-
-        // Build location labels
+        // Location labels
         const labels: { lon: number; lat: number; text: string; type: 'spot' | 'harbour' | 'city' }[] = []
         for (const spot of SPOTS) {
           labels.push({ lon: spot.lon, lat: spot.lat, text: spot.name.en, type: 'spot' })
@@ -76,88 +107,33 @@ export function ForecastMap() {
         for (const h of HARBOURS) {
           labels.push({ lon: h.lon, lat: h.lat, text: h.name.en, type: 'harbour' })
         }
-        // Major nearby cities for reference
         labels.push({ lon: 121.565, lat: 25.033, text: 'Taipei', type: 'city' })
-        labels.push({ lon: 121.525, lat: 25.130, text: 'Beitou', type: 'city' })
         labels.push({ lon: 121.817, lat: 24.760, text: 'Yilan', type: 'city' })
-
-        particlesRef.current?.setLabels(labels)
-        console.log('[ForecastMap] Coastline loaded:', rings.length, 'rings,', labels.length, 'labels')
-        setOutlineStatus('ok')
+        ps.setLabels(labels)
+        console.log('[ForecastMap] Coastline:', rings.length, 'rings,', labels.length, 'labels')
       } catch (err) {
-        console.warn('[ForecastMap] Coastline load FAILED:', err)
-        setOutlineStatus('error')
+        console.warn('[ForecastMap] Coastline failed:', err)
       }
 
+      syncBounds()
       mapRef.current = map
       setMapReady(true)
     })
 
+    map.on('move', syncBounds)
+    map.on('moveend', syncSize)
+
     return () => {
+      window.removeEventListener('resize', syncSize)
+      ps.stop()
+      ps.clear()
+      particlesRef.current = null
+      canvasRef.current = null
       mapRef.current = null
       setMapReady(false)
       map.remove()
     }
   }, [])
-
-  // Initialize particle system
-  useEffect(() => {
-    if (!canvasRef.current) return
-
-    const ps = new WindParticleSystem({
-      canvas: canvasRef.current,
-      count: window.innerWidth < 768 ? 2000 : 4000,
-      maxAge: 80,
-      speedFactor: 0.3,
-      lineWidth: 1.2,
-      fadeFactor: 0.97,
-    })
-
-    particlesRef.current = ps
-    ps.start()
-
-    return () => {
-      ps.stop()
-      ps.clear()
-      particlesRef.current = null
-    }
-  }, [])
-
-  // Sync canvas size with wrapper
-  const syncSize = useCallback(() => {
-    if (!wrapperRef.current || !canvasRef.current) return
-    const { clientWidth: w, clientHeight: h } = wrapperRef.current
-    canvasRef.current.width = w
-    canvasRef.current.height = h
-    particlesRef.current?.resize(w, h)
-  }, [])
-
-  useEffect(() => {
-    syncSize()
-    window.addEventListener('resize', syncSize)
-    return () => window.removeEventListener('resize', syncSize)
-  }, [syncSize])
-
-  // Sync map bounds to particle system
-  useEffect(() => {
-    const map = mapRef.current
-    if (!map || !mapReady) return
-
-    const update = () => {
-      const b = map.getBounds()
-      particlesRef.current?.setBounds(
-        b.getWest(), b.getSouth(), b.getEast(), b.getNorth()
-      )
-    }
-
-    update()
-    map.on('move', update)
-    map.on('moveend', syncSize)
-    return () => {
-      map.off('move', update)
-      map.off('moveend', syncSize)
-    }
-  }, [mapReady, syncSize])
 
   // Update wind grid on model/timestep change
   useEffect(() => {
@@ -174,16 +150,10 @@ export function ForecastMap() {
 
   return (
     <div ref={wrapperRef} className="relative w-full h-full">
-      {/* MapLibre GL container */}
+      {/* MapLibre container — canvas is appended inside via useEffect */}
       <div ref={mapContainerRef} className="absolute inset-0" />
 
-      {/* Wind particle canvas — no z-index so MapLibre controls/markers (z-2+) paint above */}
-      <canvas
-        ref={canvasRef}
-        className="absolute inset-0 pointer-events-none"
-      />
-
-      {/* Model switcher */}
+      {/* Model switcher — z-20 to float above everything */}
       <div className="absolute top-3 right-3 z-20 flex gap-1">
         {(['wrf', 'ecmwf', 'gfs'] as WindModel[]).map(m => (
           <button
@@ -205,17 +175,6 @@ export function ForecastMap() {
 
       {/* Spot markers */}
       <SpotMarkers map={mapReady ? mapRef.current : null} />
-
-      {/* Debug badge — remove after confirming outline works */}
-      {outlineStatus !== 'ok' && (
-        <div className="absolute bottom-2 left-2 z-30 px-2 py-0.5 rounded text-[10px] font-mono backdrop-blur-sm"
-          style={{
-            background: outlineStatus === 'error' ? 'rgba(248,113,113,0.3)' : 'rgba(255,255,255,0.1)',
-            color: outlineStatus === 'error' ? '#f87171' : '#666',
-          }}>
-          outline: {outlineStatus}
-        </div>
-      )}
     </div>
   )
 }
