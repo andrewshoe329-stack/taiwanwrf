@@ -5,7 +5,7 @@ import {
 import type { TidePrediction, TideExtremum } from '@/lib/types'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import {
-  toCSTLabel, MultiLineTick, timeTicks,
+  toCSTLabel, MultiLineTick, timeTicks, timeDomain,
   filterByTimeRange, downsampleTide, findNowMs,
   chartMargin, chartHeight, xAxisHeight, YAXIS_WIDTH, NOW_LABEL,
   type TimeRange,
@@ -53,7 +53,9 @@ export function TideChart({ predictions, extrema, timeRange }: TideChartProps) {
     height: p.height_m,
   }))
 
-  const nowMs = findNowMs(chartData)
+  const nowMs = findNowMs(timeRange)
+  const domain = timeDomain(timeRange) ?? ['dataMin', 'dataMax'] as any
+  const ticks = timeTicks(timeRange, chartData)
 
   const visibleExtrema = extrema.filter(e => {
     const ms = new Date(e.time_utc).getTime()
@@ -61,8 +63,6 @@ export function TideChart({ predictions, extrema, timeRange }: TideChartProps) {
       ms >= chartData[0].timeMs &&
       ms <= chartData[chartData.length - 1].timeMs
   })
-
-  const ticks = timeTicks(chartData)
 
   return (
     <ResponsiveContainer width="100%" height={chartHeight(mobile)}>
@@ -72,7 +72,7 @@ export function TideChart({ predictions, extrema, timeRange }: TideChartProps) {
           dataKey="timeMs"
           type="number"
           scale="time"
-          domain={['dataMin', 'dataMax']}
+          domain={domain}
           ticks={ticks}
           tick={<MultiLineTick />}
           stroke="var(--color-border)"

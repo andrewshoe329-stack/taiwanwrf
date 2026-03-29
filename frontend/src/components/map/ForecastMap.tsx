@@ -1,42 +1,9 @@
-import { useRef, useEffect, useState } from 'react'
-import maplibregl from 'maplibre-gl'
-import 'maplibre-gl/dist/maplibre-gl.css'
-import { TAIWAN_CENTER, TAIWAN_ZOOM, SPOTS, HARBOURS } from '@/lib/constants'
+import { useRef, useEffect } from 'react'
+import { TAIWAN_BBOX, SPOTS, HARBOURS } from '@/lib/constants'
 import { WindParticleSystem } from '@/lib/wind-particles'
 import { interpolateWindGrid } from '@/lib/interpolate'
 import { useTimeline } from '@/hooks/useTimeline'
 import { useWindGrid, type WindModel } from '@/hooks/useWindGrid'
-import { SpotMarkers } from './SpotMarkers'
-
-// Inline dark style — no external tile service needed
-const DARK_STYLE: maplibregl.StyleSpecification = {
-  version: 8,
-  sources: {
-    land: {
-      type: 'geojson',
-      data: '/data/taiwan.geojson?v=3',
-    },
-  },
-  layers: [
-    {
-      id: 'background',
-      type: 'background',
-      paint: { 'background-color': '#060918' },
-    },
-    {
-      id: 'land-fill',
-      type: 'fill',
-      source: 'land',
-      paint: { 'fill-color': '#1e293b' },
-    },
-    {
-      id: 'land-outline',
-      type: 'line',
-      source: 'land',
-      paint: { 'line-color': '#475569', 'line-width': 1.5 },
-    },
-  ],
-}
 
 const MODEL_LABELS: Record<WindModel, string> = {
   wrf: 'WRF 3km',
@@ -44,43 +11,25 @@ const MODEL_LABELS: Record<WindModel, string> = {
   gfs: 'GFS',
 }
 
+/**
+ * Canvas-only forecast map. No WebGL / MapLibre dependency.
+ * Renders: ocean background, land fill + coastline, wind particles, spot labels.
+ */
 export function ForecastMap() {
-  const mapContainerRef = useRef<HTMLDivElement>(null)
-  const mapRef = useRef<maplibregl.Map | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const particlesRef = useRef<WindParticleSystem | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const [mapReady, setMapReady] = useState(false)
 
   const { index } = useTimeline()
   const { grid, model, setModel } = useWindGrid()
 
   useEffect(() => {
-    if (!mapContainerRef.current) return
+    if (!containerRef.current) return
+    const container = containerRef.current
 
-    const container = mapContainerRef.current
-
-    // Create map
-    const map = new maplibregl.Map({
-      container,
-      style: DARK_STYLE,
-      center: TAIWAN_CENTER,
-      zoom: TAIWAN_ZOOM,
-      minZoom: 5,
-      maxZoom: 12,
-      attributionControl: false,
-    })
-
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left')
-    map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right')
-
-    // Log map errors so we can debug
-    map.on('error', (e) => {
-      console.warn('[ForecastMap] Map error:', e.error?.message ?? e)
-    })
-
-    // Create particle canvas INSIDE the map container
+    // Create canvas filling the container
     const canvas = document.createElement('canvas')
-    canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;'
+    canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;'
     container.appendChild(canvas)
     canvasRef.current = canvas
 
@@ -94,6 +43,9 @@ export function ForecastMap() {
     })
     particlesRef.current = ps
 
+    // Set fixed bounds covering northern Taiwan
+    ps.setBounds(TAIWAN_BBOX.lon_min, TAIWAN_BBOX.lat_min, TAIWAN_BBOX.lon_max, TAIWAN_BBOX.lat_max)
+
     const syncSize = () => {
       const { clientWidth: w, clientHeight: h } = container
       if (w === 0 || h === 0) return
@@ -102,12 +54,7 @@ export function ForecastMap() {
       ps.resize(w, h)
     }
 
-    const syncBounds = () => {
-      const b = map.getBounds()
-      ps.setBounds(b.getWest(), b.getSouth(), b.getEast(), b.getNorth())
-    }
-
-    // Load coastline + labels immediately (don't wait for map style)
+    // Load coastline
     const loadCoastline = async () => {
       try {
         const resp = await fetch('/data/taiwan.geojson?v=3')
@@ -129,7 +76,7 @@ export function ForecastMap() {
         console.warn('[ForecastMap] Coastline failed:', err)
       }
 
-      // Labels (always set, independent of geojson)
+      // Labels for spots, harbours, and cities
       const labels: { lon: number; lat: number; text: string; type: 'spot' | 'harbour' | 'city' }[] = []
       for (const spot of SPOTS) {
         labels.push({ lon: spot.lon, lat: spot.lat, text: spot.name.en, type: 'spot' })
@@ -142,30 +89,17 @@ export function ForecastMap() {
       ps.setLabels(labels)
     }
 
-    // Initialize everything without waiting for map style to load
     syncSize()
-    syncBounds()
     loadCoastline()
     ps.start()
 
-    // Mark map ready immediately so markers render
-    mapRef.current = map
-    setMapReady(true)
-
-    // Keep canvas in sync with map
-    map.on('move', syncBounds)
-    map.on('moveend', syncSize)
     window.addEventListener('resize', syncSize)
-
     return () => {
       window.removeEventListener('resize', syncSize)
       ps.stop()
       ps.clear()
       particlesRef.current = null
       canvasRef.current = null
-      mapRef.current = null
-      setMapReady(false)
-      map.remove()
     }
   }, [])
 
@@ -182,8 +116,7 @@ export function ForecastMap() {
 
   return (
     <div className="relative w-full h-full" style={{ background: '#060918' }}>
-      {/* MapLibre container */}
-      <div ref={mapContainerRef} className="absolute inset-0" />
+      <div ref={containerRef} className="absolute inset-0" />
 
       {/* Model switcher */}
       <div className="absolute top-3 right-3 z-20 flex gap-1">
@@ -204,9 +137,6 @@ export function ForecastMap() {
           </button>
         ))}
       </div>
-
-      {/* Spot markers */}
-      <SpotMarkers map={mapReady ? mapRef.current : null} />
     </div>
   )
 }

@@ -8,8 +8,10 @@ import type { TimeRange } from '@/components/charts/chart-utils'
 const ForecastMap = lazy(() => import('@/components/map/ForecastMap').then(m => ({ default: m.ForecastMap })))
 const WindChart = lazy(() => import('@/components/charts/WindChart').then(m => ({ default: m.WindChart })))
 const WaveChart = lazy(() => import('@/components/charts/WaveChart').then(m => ({ default: m.WaveChart })))
+const WavePeriodChart = lazy(() => import('@/components/charts/WaveChart').then(m => ({ default: m.WavePeriodChart })))
 const TideChart = lazy(() => import('@/components/charts/TideChart').then(m => ({ default: m.TideChart })))
-const TempPressureChart = lazy(() => import('@/components/charts/TempPressureChart').then(m => ({ default: m.TempPressureChart })))
+const TempChart = lazy(() => import('@/components/charts/TempPressureChart').then(m => ({ default: m.TempChart })))
+const PressureChart = lazy(() => import('@/components/charts/TempPressureChart').then(m => ({ default: m.PressureChart })))
 
 export function NowPage() {
   const { t, i18n } = useTranslation()
@@ -146,7 +148,7 @@ export function NowPage() {
             )}
 
             {data.wave?.ecmwf_wave?.records && (
-              <ChartCard title="Waves">
+              <ChartCard title="Wave Height">
                 <WaveChart records={data.wave.ecmwf_wave.records} timeRange={timeRange} />
               </ChartCard>
             )}
@@ -161,9 +163,21 @@ export function NowPage() {
               </ChartCard>
             )}
 
+            {data.wave?.ecmwf_wave?.records && (
+              <ChartCard title="Swell Period">
+                <WavePeriodChart records={data.wave.ecmwf_wave.records} timeRange={timeRange} />
+              </ChartCard>
+            )}
+
             {data.keelung?.records && (
-              <ChartCard title={`${t('common.temp')} & ${t('common.pressure')}`}>
-                <TempPressureChart records={data.keelung.records} timeRange={timeRange} />
+              <ChartCard title={t('common.temp')}>
+                <TempChart records={data.keelung.records} timeRange={timeRange} />
+              </ChartCard>
+            )}
+
+            {data.keelung?.records && (
+              <ChartCard title={t('common.pressure')}>
+                <PressureChart records={data.keelung.records} timeRange={timeRange} />
               </ChartCard>
             )}
           </div>
