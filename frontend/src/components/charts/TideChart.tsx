@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis,
   CartesianGrid, Tooltip, ReferenceLine,
@@ -57,12 +58,23 @@ export function TideChart({ predictions, extrema, timeRange }: TideChartProps) {
   const domain = timeDomain(timeRange) ?? ['dataMin', 'dataMax'] as any
   const ticks = timeTicks(timeRange, chartData)
 
-  const visibleExtrema = extrema.filter(e => {
-    const ms = new Date(e.time_utc).getTime()
-    return chartData.length >= 2 &&
-      ms >= chartData[0].timeMs &&
-      ms <= chartData[chartData.length - 1].timeMs
-  })
+  const visibleExtrema = useMemo(() => {
+    const visible = extrema.filter(e => {
+      const ms = new Date(e.time_utc).getTime()
+      return chartData.length >= 2 &&
+        ms >= chartData[0].timeMs &&
+        ms <= chartData[chartData.length - 1].timeMs
+    })
+    // Thin out labels: skip if too close to previous (< 4h apart in pixel space)
+    const minGapMs = 4 * 3600 * 1000
+    const thinned: typeof visible = []
+    for (const e of visible) {
+      const ms = new Date(e.time_utc).getTime()
+      const prev = thinned.length > 0 ? new Date(thinned[thinned.length - 1].time_utc).getTime() : -Infinity
+      if (ms - prev >= minGapMs) thinned.push(e)
+    }
+    return thinned
+  }, [extrema, chartData])
 
   return (
     <ResponsiveContainer width="100%" height={chartHeight(mobile)}>

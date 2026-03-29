@@ -12,6 +12,49 @@ export function degToCompass(deg: number): string {
   return COMPASS_DIRS[Math.round(deg / 22.5) % 16]
 }
 
+// ── Direction analysis ─────────────────────────────────────────────────────
+
+const DIR_ANGLES: Record<string, number> = {
+  N: 0, NNE: 22.5, NE: 45, ENE: 67.5,
+  E: 90, ESE: 112.5, SE: 135, SSE: 157.5,
+  S: 180, SSW: 202.5, SW: 225, WSW: 247.5,
+  W: 270, WNW: 292.5, NW: 315, NNW: 337.5,
+}
+
+/** Circular distance between two angles in degrees. */
+function circularDist(a: number, b: number): number {
+  const d = Math.abs(a - b) % 360
+  return d > 180 ? 360 - d : d
+}
+
+/** Compute facing angle from a spot's facing string (e.g. "NE/E"). */
+export function facingAngle(facing: string): number {
+  const parts = facing.split('/')
+  const angles = parts.map(p => DIR_ANGLES[p.trim()] ?? 0)
+  const sinSum = angles.reduce((s, a) => s + Math.sin((a * Math.PI) / 180), 0)
+  const cosSum = angles.reduce((s, a) => s + Math.cos((a * Math.PI) / 180), 0)
+  const avg = (Math.atan2(sinSum, cosSum) * 180) / Math.PI
+  return (avg + 360) % 360
+}
+
+export type WindType = 'offshore' | 'cross' | 'onshore'
+
+/** Check if wind direction is offshore/cross/onshore for a given beach facing. */
+export function windType(windDir: number, facing: string): WindType {
+  const fAngle = facingAngle(facing)
+  const diff = circularDist(windDir, fAngle)
+  if (diff >= 135) return 'offshore'
+  if (diff >= 60) return 'cross'
+  return 'onshore'
+}
+
+/** CSS color class for wind type. */
+export function windTypeColorClass(wt: WindType): string {
+  if (wt === 'offshore') return 'text-[var(--color-offshore)]'
+  if (wt === 'cross') return 'text-[var(--color-cross)]'
+  return 'text-[var(--color-onshore)]'
+}
+
 // ── Time formatting (UTC → CST / UTC+8) ─────────────────────────────────────
 
 /** Convert UTC ISO string to a CST Date (UTC+8, using UTC methods). */

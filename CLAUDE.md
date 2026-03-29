@@ -237,11 +237,11 @@ Scoring system (0–14 max) evaluates each 6h timestep:
 |------|-------------|--------|-------------|---------------|
 | Fulong 福隆 | 25.019, 121.940 | NE/E | S, SW | N, NE, E |
 | Green Bay 翡翠灣 | 25.189, 121.686 | NE | W, SW | E, NE |
-| Jinshan 金山 | 25.238, 121.638 | NE | S, SW | N, NNE, NE, E, ESE |
-| Daxi 大溪 | 24.870, 121.930 | SE | NW, W | SE, SSE, S, E |
-| Wushih 烏石 | 24.862, 121.921 | E | NW, W | E, SE, SSE |
-| Double Lions 雙獅 | 24.847, 121.917 | E | W, SW | ENE, E, SE, SSE |
-| Chousui 臭水 | 24.820, 121.899 | E | WSW, W | ENE, E, ESE |
+| Jinshan 金山 (中角灣) | 25.241, 121.633 | NE | S, SW | N, NNE, NE, E, ESE |
+| Daxi 大溪 (蜜月灣) | 24.933, 121.886 | SE | NW, W | SE, SSE, S, E |
+| Double Lions 雙獅 (外澳) | 24.881, 121.837 | E | W, SW | ENE, E, SE, SSE |
+| Wushih 烏石 (北堤) | 24.871, 121.837 | E | NW, W | E, SE, SSE |
+| Chousui 臭水 (大坑沙灘) | 24.855, 121.838 | E | WSW, W | ENE, E, ESE |
 
 ---
 

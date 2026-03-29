@@ -1,15 +1,22 @@
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import {
+  ResponsiveContainer, LineChart, Line, XAxis, YAxis,
+  CartesianGrid, Tooltip, Legend,
+} from 'recharts'
 import { useForecastData } from '@/hooks/useForecastData'
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner'
-import type { AccuracyEntry } from '@/lib/types'
+import { DataFreshness } from '@/components/layout/DataFreshness'
+import { useIsMobile } from '@/hooks/useIsMobile'
+import type { AccuracyEntry, ForecastRecord } from '@/lib/types'
 
 /* ── Helpers ─────────────────────────────────────────────────────────────────── */
 
-const MODEL_META: Record<string, { label: string; cssVar: string; bgVar: string }> = {
-  WRF:   { label: 'CWA WRF',   cssVar: '--color-wrf',        bgVar: '--color-wrf-bg' },
-  ECMWF: { label: 'ECMWF IFS', cssVar: '--color-ecmwf',      bgVar: '--color-ecmwf-bg' },
-  GFS:   { label: 'NCEP GFS',  cssVar: '--color-gfs',        bgVar: '--color-gfs-bg' },
-  JMA:   { label: 'JMA GSM',   cssVar: '--color-gfs',        bgVar: '--color-gfs-bg' },
+const MODEL_META: Record<string, { label: string; color: string; bgVar: string }> = {
+  WRF:   { label: 'CWA WRF',   color: '#f5f5f5',  bgVar: '--color-wrf-bg' },
+  ECMWF: { label: 'ECMWF IFS', color: '#5eead4',   bgVar: '--color-ecmwf-bg' },
+  GFS:   { label: 'NCEP GFS',  color: '#fbbf24',   bgVar: '--color-gfs-bg' },
+  JMA:   { label: 'JMA GSM',   color: '#f87171',   bgVar: '--color-gfs-bg' },
 }
 
 function fmt(v: number | undefined | null, unit: string, decimals = 1): string {
@@ -17,7 +24,6 @@ function fmt(v: number | undefined | null, unit: string, decimals = 1): string {
   return `${v.toFixed(decimals)}${unit}`
 }
 
-/** Map spread magnitude to a confidence descriptor and opacity class. */
 function spreadConfidence(
   windSpread?: number,
   tempSpread?: number,
@@ -31,155 +37,169 @@ function spreadConfidence(
 
 /* ── Sub-components ──────────────────────────────────────────────────────────── */
 
-function ModelCard({
-  modelKey,
-  recordCount,
-  initUtc,
-}: {
-  modelKey: string
-  recordCount: number
-  initUtc?: string
+function ModelCard({ modelKey, recordCount, initUtc }: {
+  modelKey: string; recordCount: number; initUtc?: string
 }) {
-  const meta = MODEL_META[modelKey] ?? { label: modelKey, cssVar: '--color-text-secondary', bgVar: '--color-bg-elevated' }
-
+  const meta = MODEL_META[modelKey] ?? { label: modelKey, color: '#a0a0a0', bgVar: '--color-bg-elevated' }
   return (
     <div className="border border-[var(--color-border)] rounded-xl p-4 space-y-3">
       <div className="flex items-center gap-2">
-        <span
-          className="inline-block w-2 h-2 rounded-full"
-          style={{ background: `var(${meta.cssVar})` }}
-        />
-        <h3 className="text-sm font-medium text-[var(--color-text-primary)]">
-          {meta.label}
-        </h3>
+        <span className="inline-block w-2 h-2 rounded-full" style={{ background: meta.color }} />
+        <h3 className="text-sm font-medium text-[var(--color-text-primary)]">{meta.label}</h3>
       </div>
-
       <div className="space-y-1 text-xs text-[var(--color-text-secondary)]">
-        {initUtc && (
-          <p>
-            <span className="text-[var(--color-text-muted)]">Init: </span>
-            {initUtc.replace('T', ' ').slice(0, 16)} UTC
-          </p>
-        )}
-        <p>
-          <span className="text-[var(--color-text-muted)]">Records: </span>
-          {recordCount}
-        </p>
+        {initUtc && <p><span className="text-[var(--color-text-muted)]">Init: </span>{initUtc.replace('T', ' ').slice(0, 16)} UTC</p>}
+        <p><span className="text-[var(--color-text-muted)]">Records: </span>{recordCount}</p>
       </div>
     </div>
   )
 }
 
-function SpreadIndicator({
-  windSpread,
-  tempSpread,
-}: {
-  windSpread?: number
-  tempSpread?: number
-}) {
+function SpreadIndicator({ windSpread, tempSpread }: { windSpread?: number; tempSpread?: number }) {
   const { t } = useTranslation()
   const conf = spreadConfidence(windSpread, tempSpread)
-
-  const barColor =
-    conf.level === 'high'
-      ? 'bg-[var(--color-text-primary)]'
-      : conf.level === 'moderate'
-        ? 'bg-[var(--color-text-secondary)]'
-        : 'bg-[var(--color-text-dim)]'
+  const barColor = conf.level === 'high' ? 'bg-emerald-400' : conf.level === 'moderate' ? 'bg-amber-400' : 'bg-red-400'
 
   return (
     <div className="border border-[var(--color-border)] rounded-xl p-4 space-y-3">
       <h3 className="text-xs font-medium tracking-wide uppercase text-[var(--color-text-muted)]">
         {t('models_page.ensemble_confidence', 'Ensemble Confidence')}
       </h3>
-
-      {/* Confidence label */}
-      <p className={`text-2xl font-semibold ${conf.opacity}`}>
-        {conf.label}
-      </p>
-
-      {/* Visual bar */}
+      <p className={`text-2xl font-semibold ${conf.opacity}`}>{conf.label}</p>
       <div className="flex gap-1">
-        {[0, 1, 2, 3, 4].map((i) => (
-          <div
-            key={i}
-            className={`h-1 flex-1 rounded-full ${
-              i < (conf.level === 'high' ? 5 : conf.level === 'moderate' ? 3 : 1)
-                ? barColor
-                : 'bg-[var(--color-border)]'
-            }`}
-          />
+        {[0, 1, 2, 3, 4].map(i => (
+          <div key={i} className={`h-1 flex-1 rounded-full ${
+            i < (conf.level === 'high' ? 5 : conf.level === 'moderate' ? 3 : 1) ? barColor : 'bg-[var(--color-border)]'
+          }`} />
         ))}
       </div>
-
-      {/* Spread values */}
       <div className="flex gap-6 text-xs text-[var(--color-text-secondary)]">
-        <div>
-          <span className="text-[var(--color-text-muted)]">Wind spread: </span>
-          {fmt(windSpread, ' kt')}
-        </div>
-        <div>
-          <span className="text-[var(--color-text-muted)]">Temp spread: </span>
-          {fmt(tempSpread, ' C', 1)}{tempSpread != null ? '\u00b0' : ''}
-        </div>
+        <div><span className="text-[var(--color-text-muted)]">Wind: </span>{fmt(windSpread, ' kt')}</div>
+        <div><span className="text-[var(--color-text-muted)]">Temp: </span>{fmt(tempSpread, '°', 1)}</div>
       </div>
     </div>
   )
 }
 
+/** Wind comparison chart — WRF vs ECMWF side by side */
+function WindComparisonChart({ wrfRecords, ecmwfRecords }: {
+  wrfRecords: ForecastRecord[]; ecmwfRecords: ForecastRecord[]
+}) {
+  const mobile = useIsMobile()
+
+  const chartData = useMemo(() => {
+    const ecmwfMap = new Map(ecmwfRecords.map(r => [r.valid_utc, r]))
+    return wrfRecords.slice(0, 20).map(r => {
+      const ec = ecmwfMap.get(r.valid_utc)
+      const d = new Date(r.valid_utc)
+      d.setUTCHours(d.getUTCHours() + 8)
+      return {
+        time: `${String(d.getUTCMonth() + 1)}/${d.getUTCDate()} ${String(d.getUTCHours()).padStart(2, '0')}h`,
+        wrf: r.wind_kt,
+        ecmwf: ec?.wind_kt,
+      }
+    })
+  }, [wrfRecords, ecmwfRecords])
+
+  if (chartData.length < 2) return null
+
+  return (
+    <ResponsiveContainer width="100%" height={mobile ? 180 : 220}>
+      <LineChart data={chartData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+        <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
+        <XAxis dataKey="time" tick={{ fill: 'var(--color-text-muted)', fontSize: 9 }} stroke="var(--color-border)" interval={Math.max(1, Math.floor(chartData.length / 6))} />
+        <YAxis tick={{ fill: 'var(--color-text-muted)', fontSize: 10 }} stroke="var(--color-border)" unit=" kt" width={45} />
+        <Tooltip contentStyle={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 8, fontSize: 12 }} />
+        <Legend wrapperStyle={{ fontSize: 11 }} />
+        <Line dataKey="wrf" name="WRF" stroke="#f5f5f5" strokeWidth={1.5} dot={false} type="monotone" isAnimationActive={false} />
+        <Line dataKey="ecmwf" name="ECMWF" stroke="#5eead4" strokeWidth={1.5} dot={false} type="monotone" isAnimationActive={false} strokeDasharray="4 3" />
+      </LineChart>
+    </ResponsiveContainer>
+  )
+}
+
+/** Accuracy trend chart — MAE over last 30 days */
+function AccuracyTrendChart({ entries }: { entries: AccuracyEntry[] }) {
+  const mobile = useIsMobile()
+
+  const chartData = useMemo(() => {
+    return entries.slice(-30).map(e => {
+      const d = new Date(e.verified_utc)
+      return {
+        date: `${d.getUTCMonth() + 1}/${d.getUTCDate()}`,
+        temp: e.temp_mae_c,
+        wind: e.wind_mae_kt,
+        wave: e.wave?.hs_mae_m,
+      }
+    })
+  }, [entries])
+
+  if (chartData.length < 2) return null
+
+  return (
+    <ResponsiveContainer width="100%" height={mobile ? 180 : 220}>
+      <LineChart data={chartData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+        <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
+        <XAxis dataKey="date" tick={{ fill: 'var(--color-text-muted)', fontSize: 9 }} stroke="var(--color-border)" interval={Math.max(1, Math.floor(chartData.length / 6))} />
+        <YAxis tick={{ fill: 'var(--color-text-muted)', fontSize: 10 }} stroke="var(--color-border)" width={35} />
+        <Tooltip contentStyle={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 8, fontSize: 12 }} />
+        <Legend wrapperStyle={{ fontSize: 11 }} />
+        <Line dataKey="temp" name="Temp °C" stroke="#fbbf24" strokeWidth={1.5} dot={false} type="monotone" isAnimationActive={false} />
+        <Line dataKey="wind" name="Wind kt" stroke="#5eead4" strokeWidth={1.5} dot={false} type="monotone" isAnimationActive={false} />
+        <Line dataKey="wave" name="Wave m" stroke="#f5f5f5" strokeWidth={1.5} dot={false} type="monotone" isAnimationActive={false} />
+      </LineChart>
+    </ResponsiveContainer>
+  )
+}
+
 function AccuracyCard({ entry }: { entry: AccuracyEntry }) {
   const { t } = useTranslation()
-
   return (
     <div className="border border-[var(--color-border)] rounded-xl p-4 space-y-4">
       <div className="flex items-baseline justify-between">
         <h3 className="text-xs font-medium tracking-wide uppercase text-[var(--color-text-muted)]">
-          {t('models_page.accuracy', 'Accuracy Metrics')}
+          {t('models_page.accuracy', 'Latest Accuracy')}
         </h3>
         <span className="text-xs text-[var(--color-text-dim)]">
           {entry.verified_utc?.replace('T', ' ').slice(0, 16)} UTC
         </span>
       </div>
-
-      {/* Primary MAE grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <MetricCell label="Temp MAE" value={fmt(entry.temp_mae_c, '\u00b0C')} />
-        <MetricCell label="Wind MAE" value={fmt(entry.wind_mae_kt, ' kt')} />
-        <MetricCell label="MSLP MAE" value={fmt(entry.mslp_mae_hpa, ' hPa')} />
-        <MetricCell label="Wind Dir MAE" value={fmt(entry.wdir_mae_deg, '\u00b0')} />
+        <MetricCell label="Temp MAE" value={fmt(entry.temp_mae_c, '°C')} good={entry.temp_mae_c != null && entry.temp_mae_c < 2} />
+        <MetricCell label="Wind MAE" value={fmt(entry.wind_mae_kt, ' kt')} good={entry.wind_mae_kt != null && entry.wind_mae_kt < 5} />
+        <MetricCell label="MSLP MAE" value={fmt(entry.mslp_mae_hpa, ' hPa')} good={entry.mslp_mae_hpa != null && entry.mslp_mae_hpa < 2} />
+        <MetricCell label="Wind Dir" value={fmt(entry.wdir_mae_deg, '°')} good={entry.wdir_mae_deg != null && entry.wdir_mae_deg < 30} />
       </div>
-
-      {/* Bias row */}
       {(entry.temp_bias_c != null || entry.wind_bias_kt != null) && (
         <div className="flex gap-6 text-xs text-[var(--color-text-secondary)]">
           {entry.temp_bias_c != null && (
             <div>
               <span className="text-[var(--color-text-muted)]">Temp bias: </span>
-              {entry.temp_bias_c > 0 ? '+' : ''}{entry.temp_bias_c.toFixed(1)}{'\u00b0C'}
+              <span className={entry.temp_bias_c > 1 ? 'text-red-400' : entry.temp_bias_c < -1 ? 'text-sky-400' : ''}>
+                {entry.temp_bias_c > 0 ? '+' : ''}{entry.temp_bias_c.toFixed(1)}°C
+              </span>
             </div>
           )}
           {entry.wind_bias_kt != null && (
             <div>
               <span className="text-[var(--color-text-muted)]">Wind bias: </span>
-              {entry.wind_bias_kt > 0 ? '+' : ''}{entry.wind_bias_kt.toFixed(1)} kt
+              <span className={Math.abs(entry.wind_bias_kt) > 3 ? 'text-amber-400' : ''}>
+                {entry.wind_bias_kt > 0 ? '+' : ''}{entry.wind_bias_kt.toFixed(1)} kt
+              </span>
             </div>
           )}
         </div>
       )}
-
-      {/* Wave metrics */}
       {entry.wave && (
         <div>
           <p className="text-xs text-[var(--color-text-muted)] mb-2">Wave verification</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <MetricCell label="Hs MAE" value={fmt(entry.wave.hs_mae_m, ' m')} />
+            <MetricCell label="Hs MAE" value={fmt(entry.wave.hs_mae_m, ' m')} good={entry.wave.hs_mae_m != null && entry.wave.hs_mae_m < 0.5} />
             <MetricCell label="Hs bias" value={fmt(entry.wave.hs_bias_m, ' m')} />
             <MetricCell label="Tp MAE" value={fmt(entry.wave.tp_mae_s, ' s')} />
           </div>
         </div>
       )}
-
-      {/* Horizon breakdown */}
       {entry.by_horizon && Object.keys(entry.by_horizon).length > 0 && (
         <HorizonBreakdown horizons={entry.by_horizon} />
       )}
@@ -187,11 +207,11 @@ function AccuracyCard({ entry }: { entry: AccuracyEntry }) {
   )
 }
 
-function MetricCell({ label, value }: { label: string; value: string }) {
+function MetricCell({ label, value, good }: { label: string; value: string; good?: boolean }) {
   return (
     <div className="bg-[var(--color-bg-elevated)] rounded-lg px-3 py-2">
       <p className="text-xs text-[var(--color-text-muted)] mb-0.5">{label}</p>
-      <p className="text-sm font-medium text-[var(--color-text-primary)]">{value}</p>
+      <p className={`text-sm font-medium ${good ? 'text-emerald-400' : 'text-[var(--color-text-primary)]'}`}>{value}</p>
     </div>
   )
 }
@@ -199,47 +219,30 @@ function MetricCell({ label, value }: { label: string; value: string }) {
 function HorizonBreakdown({ horizons }: { horizons: Record<string, Record<string, number>> }) {
   const { t } = useTranslation()
   const keys = Object.keys(horizons).sort()
-
   if (keys.length === 0) return null
 
   return (
     <div>
-      <p className="text-xs text-[var(--color-text-muted)] mb-2">
-        {t('models_page.by_horizon', 'By forecast horizon')}
-      </p>
+      <p className="text-xs text-[var(--color-text-muted)] mb-2">{t('models_page.by_horizon', 'By forecast horizon')}</p>
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-[var(--color-border)]">
-              <th className="text-left py-1.5 pr-3 text-[var(--color-text-muted)] font-normal">
-                Horizon
-              </th>
-              <th className="text-right py-1.5 px-2 text-[var(--color-text-muted)] font-normal">
-                Temp
-              </th>
-              <th className="text-right py-1.5 px-2 text-[var(--color-text-muted)] font-normal">
-                Wind
-              </th>
-              <th className="text-right py-1.5 px-2 text-[var(--color-text-muted)] font-normal">
-                MSLP
-              </th>
+              <th className="text-left py-1.5 pr-3 text-[var(--color-text-muted)] font-normal">Horizon</th>
+              <th className="text-right py-1.5 px-2 text-[var(--color-text-muted)] font-normal">Temp</th>
+              <th className="text-right py-1.5 px-2 text-[var(--color-text-muted)] font-normal">Wind</th>
+              <th className="text-right py-1.5 px-2 text-[var(--color-text-muted)] font-normal">MSLP</th>
             </tr>
           </thead>
           <tbody>
-            {keys.map((horizon) => {
+            {keys.map(horizon => {
               const h = horizons[horizon]
               return (
                 <tr key={horizon} className="border-b border-[var(--color-border-subtle)]">
                   <td className="py-1.5 pr-3 text-[var(--color-text-secondary)]">{horizon}</td>
-                  <td className="text-right py-1.5 px-2 text-[var(--color-text-primary)]">
-                    {fmt(h.temp_mae_c, '\u00b0')}
-                  </td>
-                  <td className="text-right py-1.5 px-2 text-[var(--color-text-primary)]">
-                    {fmt(h.wind_mae_kt, ' kt')}
-                  </td>
-                  <td className="text-right py-1.5 px-2 text-[var(--color-text-primary)]">
-                    {fmt(h.mslp_mae_hpa, '')}
-                  </td>
+                  <td className="text-right py-1.5 px-2 text-[var(--color-text-primary)]">{fmt(h.temp_mae_c, '°')}</td>
+                  <td className="text-right py-1.5 px-2 text-[var(--color-text-primary)]">{fmt(h.wind_mae_kt, ' kt')}</td>
+                  <td className="text-right py-1.5 px-2 text-[var(--color-text-primary)]">{fmt(h.mslp_mae_hpa, '')}</td>
                 </tr>
               )
             })}
@@ -250,121 +253,91 @@ function HorizonBreakdown({ horizons }: { horizons: Record<string, Record<string
   )
 }
 
-function EmptyState({ message }: { message: string }) {
-  return (
-    <div className="border border-[var(--color-border)] rounded-xl p-8 text-center">
-      <p className="text-[var(--color-text-muted)] text-sm">{message}</p>
-    </div>
-  )
-}
-
 /* ── Main page ───────────────────────────────────────────────────────────────── */
 
 export function ModelsPage() {
   const { t } = useTranslation()
   const data = useForecastData()
 
-  if (data.loading) {
-    return <LoadingSpinner />
-  }
+  if (data.loading) return <LoadingSpinner />
 
   const ensemble = data.ensemble
   const accuracy = data.accuracy
   const latestAccuracy = accuracy && accuracy.length > 0 ? accuracy[accuracy.length - 1] : null
 
-  // Gather all available models from ensemble + primary sources
-  const modelEntries: Array<{
-    key: string
-    recordCount: number
-    initUtc?: string
-  }> = []
-
-  // WRF (from keelung data)
-  if (data.keelung) {
-    modelEntries.push({
-      key: 'WRF',
-      recordCount: data.keelung.records?.length ?? 0,
-      initUtc: data.keelung.meta?.init_utc,
-    })
-  }
-
-  // ECMWF (from ecmwf data)
-  if (data.ecmwf) {
-    modelEntries.push({
-      key: 'ECMWF',
-      recordCount: data.ecmwf.records?.length ?? 0,
-      initUtc: data.ecmwf.meta?.init_utc,
-    })
-  }
-
-  // Ensemble models
+  const modelEntries: Array<{ key: string; recordCount: number; initUtc?: string }> = []
+  if (data.keelung) modelEntries.push({ key: 'WRF', recordCount: data.keelung.records?.length ?? 0, initUtc: data.keelung.meta?.init_utc })
+  if (data.ecmwf) modelEntries.push({ key: 'ECMWF', recordCount: data.ecmwf.records?.length ?? 0, initUtc: data.ecmwf.meta?.init_utc })
   if (ensemble?.models) {
     for (const key of Object.keys(ensemble.models)) {
-      // Skip if already added from primary sources
       if (key === 'WRF' || key === 'ECMWF') continue
       const model = ensemble.models[key]
-      modelEntries.push({
-        key,
-        recordCount: model.record_count ?? model.records?.length ?? 0,
-        initUtc: model.meta?.init_utc,
-      })
+      modelEntries.push({ key, recordCount: model.record_count ?? model.records?.length ?? 0, initUtc: model.meta?.init_utc })
     }
   }
 
   return (
-    <div className="px-4 py-6 max-w-screen-xl mx-auto space-y-8">
-      {/* Page header */}
-      <div>
-        <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">
-          {t('models_page.title', 'Models')}
-        </h1>
-        <p className="text-xs text-[var(--color-text-muted)] mt-1">
-          {t('models_page.subtitle', 'Multi-model comparison and verification')}
-        </p>
+    <div className="px-4 py-6 pb-24 max-w-screen-xl mx-auto space-y-6">
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">{t('models_page.title', 'Models')}</h1>
+          <p className="text-xs text-[var(--color-text-muted)] mt-1">{t('models_page.subtitle')}</p>
+        </div>
+        <DataFreshness />
       </div>
 
-      {/* Ensemble spread indicator */}
-      {ensemble?.spread && (
-        <SpreadIndicator
-          windSpread={ensemble.spread.wind_spread_kt}
-          tempSpread={ensemble.spread.temp_spread_c}
-        />
-      )}
+      {/* Ensemble spread */}
+      {ensemble?.spread && <SpreadIndicator windSpread={ensemble.spread.wind_spread_kt} tempSpread={ensemble.spread.temp_spread_c} />}
 
       {/* Model cards */}
       <section className="space-y-3">
-        <h2 className="text-xs font-medium tracking-wide uppercase text-[var(--color-text-muted)]">
-          {t('models_page.available_models', 'Available Models')}
-        </h2>
-
+        <h2 className="text-xs font-medium tracking-wide uppercase text-[var(--color-text-muted)]">{t('models_page.available_models')}</h2>
         {modelEntries.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {modelEntries.map((m) => (
-              <ModelCard
-                key={m.key}
-                modelKey={m.key}
-                recordCount={m.recordCount}
-                initUtc={m.initUtc}
-              />
-            ))}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {modelEntries.map(m => <ModelCard key={m.key} modelKey={m.key} recordCount={m.recordCount} initUtc={m.initUtc} />)}
           </div>
         ) : (
-          <EmptyState message={t('models_page.no_models', 'No model data available')} />
+          <EmptyState message={t('models_page.no_models')} />
         )}
       </section>
+
+      {/* Wind comparison chart */}
+      {data.keelung?.records && data.ecmwf?.records && (
+        <section className="space-y-3">
+          <h2 className="text-xs font-medium tracking-wide uppercase text-[var(--color-text-muted)]">
+            {t('models_page.wind_comparison')}
+          </h2>
+          <div className="border border-[var(--color-border)] rounded-xl p-4">
+            <WindComparisonChart wrfRecords={data.keelung.records} ecmwfRecords={data.ecmwf.records} />
+          </div>
+        </section>
+      )}
 
       {/* Accuracy section */}
       <section className="space-y-3">
-        <h2 className="text-xs font-medium tracking-wide uppercase text-[var(--color-text-muted)]">
-          {t('models_page.verification', 'Verification')}
-        </h2>
-
-        {latestAccuracy ? (
-          <AccuracyCard entry={latestAccuracy} />
-        ) : (
-          <EmptyState message={t('models_page.no_accuracy', 'No accuracy data available')} />
-        )}
+        <h2 className="text-xs font-medium tracking-wide uppercase text-[var(--color-text-muted)]">{t('models_page.verification')}</h2>
+        {latestAccuracy ? <AccuracyCard entry={latestAccuracy} /> : <EmptyState message={t('models_page.no_accuracy')} />}
       </section>
+
+      {/* Accuracy trend chart */}
+      {accuracy && accuracy.length >= 2 && (
+        <section className="space-y-3">
+          <h2 className="text-xs font-medium tracking-wide uppercase text-[var(--color-text-muted)]">
+            {t('models_page.accuracy_trend')}
+          </h2>
+          <div className="border border-[var(--color-border)] rounded-xl p-4">
+            <AccuracyTrendChart entries={accuracy} />
+          </div>
+        </section>
+      )}
+    </div>
+  )
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="border border-[var(--color-border)] rounded-xl p-8 text-center">
+      <p className="text-[var(--color-text-muted)] text-sm">{message}</p>
     </div>
   )
 }

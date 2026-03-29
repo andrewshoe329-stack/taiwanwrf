@@ -93,7 +93,16 @@
     "tide": "Tide",
     "rating_label": "Rating",
     "no_data": "No forecast data available yet",
-    "coming_soon": "Coming soon"
+    "coming_soon": "Coming soon",
+    "current_conditions": "Current Conditions",
+    "offshore": "Offshore",
+    "cross": "Cross",
+    "onshore": "Onshore",
+    "nearby": "Nearby Spots",
+    "live_obs": "Live",
+    "forecast_charts": "Forecast Charts",
+    "prev_spot": "Previous spot",
+    "next_spot": "Next spot"
   },
   "rating": {
     "firing": "Firing!",
@@ -130,7 +139,10 @@
     "no_models": "No model data available",
     "by_horizon": "By forecast horizon",
     "verification": "Verification",
-    "no_accuracy": "No accuracy data available"
+    "no_accuracy": "No accuracy data available",
+    "wind_comparison": "Wind Comparison",
+    "temp_comparison": "Temperature Comparison",
+    "accuracy_trend": "Accuracy Trend (30 days)"
   },
   "harbour": {
     "keelung": "Keelung"
@@ -145,7 +157,11 @@
     "show_forecast": "Show forecast",
     "hide_forecast": "Hide forecast",
     "time": "Time",
-    "forecast_timeline": "Forecast Timeline"
+    "forecast_timeline": "Forecast Timeline",
+    "sail_decision": "Sail",
+    "tide": "Tide",
+    "high": "High",
+    "low": "Low"
   },
   "common": {
     "loading": "Loading forecast data...",
@@ -155,6 +171,8 @@
     "refresh": "Refresh",
     "last_updated": "Last updated",
     "data_source": "Data: CWA WRF 3km + ECMWF IFS + WAM",
+    "updated_ago": "Updated {{time}} ago",
+    "just_now": "Just updated",
     "wind": "Wind",
     "temp": "Temp",
     "pressure": "Pressure",

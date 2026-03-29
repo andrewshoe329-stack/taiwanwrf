@@ -88,6 +88,7 @@ export function PrecipChart({ records, timeRange }: PrecipChartProps) {
           stroke="var(--color-text-primary)"
           strokeWidth={1}
           isAnimationActive={false}
+          barSize={Math.max(4, Math.round(300 / Math.max(chartData.length, 1)))}
         />
         {nowMs != null && (
           <ReferenceLine

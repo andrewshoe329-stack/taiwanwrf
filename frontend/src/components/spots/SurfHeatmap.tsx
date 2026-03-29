@@ -8,12 +8,12 @@ interface SurfHeatmapProps {
 }
 
 const RATING_STYLES: Record<string, { bg: string; color: string }> = {
-  firing:    { bg: '#ffffff',            color: '#000000' },
-  good:      { bg: '#888888',            color: '#ffffff' },
-  marginal:  { bg: '#444444',            color: '#ffffff' },
-  poor:      { bg: '#222222',            color: '#888888' },
-  flat:      { bg: '#111111',            color: '#444444' },
-  dangerous: { bg: 'var(--color-danger)', color: '#ffffff' },
+  firing:    { bg: '#f5f5f5',             color: '#000000' },
+  good:      { bg: 'rgba(94,234,212,0.2)', color: '#5eead4' },
+  marginal:  { bg: 'rgba(251,191,36,0.15)', color: '#fbbf24' },
+  poor:      { bg: '#1a1a1a',             color: '#78716c' },
+  flat:      { bg: '#111111',             color: '#3f3f46' },
+  dangerous: { bg: 'rgba(248,113,113,0.2)', color: '#f87171' },
 }
 
 function formatDayHeader(dateStr: string): string {
