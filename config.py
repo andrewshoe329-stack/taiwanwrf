@@ -131,12 +131,14 @@ KEELUNG_LON = 121.78782946186699
 
 SPOT_COORDS = [
     {"id": "keelung",     "lat": KEELUNG_LAT, "lon": KEELUNG_LON},
-    {"id": "fulong",      "lat": 25.019, "lon": 121.940},
-    {"id": "greenbay",    "lat": 25.189, "lon": 121.686},
+    # North coast (W→E): Jinshan → Green Bay → Fulong
     {"id": "jinshan",     "lat": 25.241, "lon": 121.633},
+    {"id": "greenbay",    "lat": 25.189, "lon": 121.686},
+    {"id": "fulong",      "lat": 25.019, "lon": 121.940},
+    # NE coast (N→S): Daxi → Double Lions → Wushih → Chousui
     {"id": "daxi",        "lat": 24.933, "lon": 121.886},
-    {"id": "wushih",      "lat": 24.871, "lon": 121.837},
     {"id": "doublelions", "lat": 24.881, "lon": 121.837},
+    {"id": "wushih",      "lat": 24.871, "lon": 121.837},
     {"id": "chousui",     "lat": 24.855, "lon": 121.838},
 ]
 

@@ -900,22 +900,55 @@ def fetch_warnings(api_key: str) -> list[dict]:
         return []
 
 
+_WARNING_TYPE_MAP = {
+    '大雨特報': 'Heavy Rain Advisory',
+    '豪雨特報': 'Torrential Rain Warning',
+    '超大豪雨特報': 'Extreme Rain Warning',
+    '陸上強風特報': 'Land Strong Wind Advisory',
+    '海上強風特報': 'Marine Strong Wind Advisory',
+    '陸上颱風警報': 'Land Typhoon Warning',
+    '海上颱風警報': 'Marine Typhoon Warning',
+    '低溫特報': 'Cold Advisory',
+    '濃霧特報': 'Dense Fog Advisory',
+    '高溫特報': 'Extreme Heat Advisory',
+    '雷雨特報': 'Thunderstorm Advisory',
+    '長浪即時訊息': 'Long Swell Alert',
+}
+_AREA_MAP = {
+    '基隆市': 'Keelung', '新北市': 'New Taipei', '臺北市': 'Taipei',
+    '桃園市': 'Taoyuan', '宜蘭縣': 'Yilan', '花蓮縣': 'Hualien',
+}
+
+
+def _apply_fallback_translations(warnings: list[dict]) -> list[dict]:
+    """Apply hardcoded translations as fallback for common warning types."""
+    for w in warnings:
+        if 'type_en' not in w:
+            w['type_en'] = _WARNING_TYPE_MAP.get(w.get('type', ''), w.get('type', ''))
+        if 'area_en' not in w:
+            area = w.get('area', '')
+            parts = [_AREA_MAP.get(a.strip(), a.strip()) for a in area.split('、') if a.strip()]
+            w['area_en'] = ', '.join(parts) if parts else area
+        # description_en fallback: just leave as Chinese if API didn't translate
+    return warnings
+
+
 def _translate_warnings(warnings: list[dict]) -> list[dict]:
     """Translate Chinese warning fields to English using Claude API.
 
     Adds 'type_en', 'area_en', 'description_en' to each warning dict.
-    Falls back gracefully if API is unavailable — original Chinese kept as-is.
+    Falls back to hardcoded map if API is unavailable.
     """
     api_key = os.environ.get('ANTHROPIC_API_KEY', '')
     if not api_key:
-        log.debug("ANTHROPIC_API_KEY not set — skipping warning translation")
-        return warnings
+        log.debug("ANTHROPIC_API_KEY not set — using fallback translations")
+        return _apply_fallback_translations(warnings)
 
     try:
         import anthropic
     except ImportError:
-        log.debug("anthropic package not installed — skipping warning translation")
-        return warnings
+        log.debug("anthropic package not installed — using fallback translations")
+        return _apply_fallback_translations(warnings)
 
     # Build a single prompt with all warnings to translate in one API call
     lines = []
@@ -947,7 +980,7 @@ def _translate_warnings(warnings: list[dict]) -> list[dict]:
         response = msg.content[0].text.strip()
     except Exception as e:
         log.warning("Warning translation API call failed: %s", e)
-        return warnings
+        return _apply_fallback_translations(warnings)
 
     # Parse response lines back into warning dicts
     for line in response.splitlines():
@@ -968,8 +1001,9 @@ def _translate_warnings(warnings: list[dict]) -> list[dict]:
             continue
 
     translated = sum(1 for w in warnings if 'type_en' in w)
-    log.info("Translated %d/%d warnings to English", translated, len(warnings))
-    return warnings
+    log.info("Translated %d/%d warnings to English via API", translated, len(warnings))
+    # Fill in any gaps with hardcoded translations
+    return _apply_fallback_translations(warnings)
 
 
 # ── Station mapping (from cwa_discover.py output) ────────────────────────────
