@@ -9,13 +9,16 @@ export function cstDate(utc: string): Date {
   return d
 }
 
-/** Unique key for each data point: MM/DD HH:00 */
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+/** Unique key for each data point: DDD MM/DD HH:00 */
 export function toCST(utc: string): string {
   const d = cstDate(utc)
+  const day = DAY_NAMES[d.getUTCDay()]
   const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
   const dd = String(d.getUTCDate()).padStart(2, '0')
   const hh = String(d.getUTCHours()).padStart(2, '0')
-  return `${mm}/${dd} ${hh}:00`
+  return `${day} ${mm}/${dd} ${hh}:00`
 }
 
 /** Full label for tooltips */
@@ -37,27 +40,33 @@ export function tickInterval(dataLen: number): number {
 
 /**
  * Custom tick component for Recharts XAxis.
- * Shows compact date + hour: "3/29" on first line, "08:00" on second line.
- * Date only shown on first tick and when day changes.
+ * Shows hour on every tick, "Mon 3/29" above on first tick and day changes.
  */
-let prevTickDate = ''
+let prevTickDay = ''
 
 export function MultiLineTick(props: any) {
   const { x, y, payload, index } = props
   if (!payload?.value) return null
 
   const value: string = payload.value
+  // Format: "Mon 03/29 08:00"
   const parts = value.split(' ')
-  if (parts.length < 2) return null
-  const date = parts[0]   // "03/29"
-  const hour = parts[1]   // "08:00"
+  if (parts.length < 3) return null
+  const dayName = parts[0]  // "Mon"
+  const date = parts[1]     // "03/29"
+  const hour = parts[2]     // "08:00"
 
-  // Show date on first tick or when day changes
-  const showDate = index === 0 || date !== prevTickDate
-  prevTickDate = date
+  // Show day label on first tick or when day changes
+  const dayKey = `${dayName} ${date}`
+  const showDate = index === 0 || dayKey !== prevTickDay
+  prevTickDay = dayKey
 
-  // Compact date: "3/29" instead of "03/29"
+  // Compact: "Mon 3/29"
   const shortDate = date.replace(/^0/, '').replace('/0', '/')
+  const dayLabel = `${dayName} ${shortDate}`
+
+  // Compact hour: "08h"
+  const shortHour = hour.replace(':00', 'h')
 
   return (
     <g transform={`translate(${x},${y})`}>
@@ -69,16 +78,16 @@ export function MultiLineTick(props: any) {
           fontSize={9}
           fontWeight={500}
         >
-          {shortDate}
+          {dayLabel}
         </text>
       )}
       <text
-        dy={showDate ? 24 : 14}
+        dy={showDate ? 23 : 12}
         textAnchor="middle"
         fill="var(--color-text-muted)"
-        fontSize={10}
+        fontSize={9}
       >
-        {hour}
+        {shortHour}
       </text>
     </g>
   )
