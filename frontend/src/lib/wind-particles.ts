@@ -43,6 +43,7 @@ export class WindParticleSystem {
   private animId: number | null = null
   private running = false
   private coastline: [number, number][][] = []  // array of rings, each ring is [lon, lat][]
+  private labels: { lon: number; lat: number; text: string; type: 'spot' | 'harbour' | 'city' }[] = []
 
   // Viewport mapping (set by the map component)
   private bounds = { west: 119.0, east: 122.5, south: 21.5, north: 25.5 }
@@ -60,6 +61,11 @@ export class WindParticleSystem {
   /** Set coastline polygons to draw on the canvas (array of [lon,lat][] rings) */
   setCoastline(rings: [number, number][][]) {
     this.coastline = rings
+  }
+
+  /** Set location labels to draw on the canvas */
+  setLabels(labels: { lon: number; lat: number; text: string; type: 'spot' | 'harbour' | 'city' }[]) {
+    this.labels = labels
   }
 
   /** Set the wind grid data (call when timeline changes) */
@@ -224,29 +230,76 @@ export class WindParticleSystem {
     this.animId = requestAnimationFrame(this.loop)
   }
 
-  private drawCoastline(ctx: CanvasRenderingContext2D, w: number, h: number) {
-    if (this.coastline.length === 0) return
-
+  /** Convert lon/lat to canvas pixel coordinates */
+  private project(lon: number, lat: number, w: number, h: number): [number, number] {
     const { west, east, south, north } = this.bounds
+    return [
+      ((lon - west) / (east - west)) * w,
+      ((north - lat) / (north - south)) * h,
+    ]
+  }
 
+  private drawCoastline(ctx: CanvasRenderingContext2D, w: number, h: number) {
     ctx.save()
     ctx.globalCompositeOperation = 'source-over'
-    ctx.strokeStyle = 'rgba(34, 211, 238, 0.7)'  // cyan-400
-    ctx.lineWidth = 1.5
-    ctx.lineJoin = 'round'
 
-    for (const ring of this.coastline) {
-      ctx.beginPath()
-      for (let i = 0; i < ring.length; i++) {
-        const [lon, lat] = ring[i]
-        const x = ((lon - west) / (east - west)) * w
-        const y = ((north - lat) / (north - south)) * h
-        if (i === 0) ctx.moveTo(x, y)
-        else ctx.lineTo(x, y)
+    // Draw coastline rings
+    if (this.coastline.length > 0) {
+      ctx.strokeStyle = 'rgba(34, 211, 238, 0.6)'
+      ctx.lineWidth = 1.5
+      ctx.lineJoin = 'round'
+
+      for (const ring of this.coastline) {
+        ctx.beginPath()
+        for (let i = 0; i < ring.length; i++) {
+          const [x, y] = this.project(ring[i][0], ring[i][1], w, h)
+          if (i === 0) ctx.moveTo(x, y)
+          else ctx.lineTo(x, y)
+        }
+        ctx.closePath()
+        ctx.stroke()
       }
-      ctx.closePath()
-      ctx.stroke()
     }
+
+    // Draw location labels
+    if (this.labels.length > 0) {
+      ctx.textBaseline = 'middle'
+
+      for (const label of this.labels) {
+        const [x, y] = this.project(label.lon, label.lat, w, h)
+
+        // Skip if off-screen
+        if (x < -50 || x > w + 50 || y < -50 || y > h + 50) continue
+
+        // Dot
+        ctx.beginPath()
+        const dotRadius = label.type === 'city' ? 3 : label.type === 'harbour' ? 4 : 3.5
+        ctx.arc(x, y, dotRadius, 0, Math.PI * 2)
+        ctx.fillStyle = label.type === 'harbour' ? '#5b9bd5'
+          : label.type === 'city' ? '#888'
+          : '#e0e0e0'
+        ctx.fill()
+        ctx.strokeStyle = 'rgba(255,255,255,0.8)'
+        ctx.lineWidth = 1
+        ctx.stroke()
+
+        // Label text
+        ctx.font = label.type === 'city'
+          ? '10px Inter, system-ui, sans-serif'
+          : '11px Inter, system-ui, sans-serif'
+        ctx.fillStyle = label.type === 'harbour' ? '#7cb9e8'
+          : label.type === 'city' ? '#999'
+          : '#f0f0f0'
+        ctx.textAlign = 'left'
+
+        // Text shadow for readability
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)'
+        ctx.lineWidth = 3
+        ctx.strokeText(label.text, x + dotRadius + 5, y)
+        ctx.fillText(label.text, x + dotRadius + 5, y)
+      }
+    }
+
     ctx.restore()
   }
 }

@@ -1,7 +1,7 @@
 import { useRef, useEffect, useCallback, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import { TAIWAN_CENTER, TAIWAN_ZOOM } from '@/lib/constants'
+import { TAIWAN_CENTER, TAIWAN_ZOOM, SPOTS, HARBOURS } from '@/lib/constants'
 import { WindParticleSystem } from '@/lib/wind-particles'
 import { interpolateWindGrid } from '@/lib/interpolate'
 import { useTimeline } from '@/hooks/useTimeline'
@@ -65,9 +65,24 @@ export function ForecastMap() {
           }
         }
 
-        // Pass coastline to particle system for canvas rendering
+        // Pass coastline and labels to particle system for canvas rendering
         particlesRef.current?.setCoastline(rings)
-        console.log('[ForecastMap] Coastline loaded:', rings.length, 'rings')
+
+        // Build location labels
+        const labels: { lon: number; lat: number; text: string; type: 'spot' | 'harbour' | 'city' }[] = []
+        for (const spot of SPOTS) {
+          labels.push({ lon: spot.lon, lat: spot.lat, text: spot.name.en, type: 'spot' })
+        }
+        for (const h of HARBOURS) {
+          labels.push({ lon: h.lon, lat: h.lat, text: h.name.en, type: 'harbour' })
+        }
+        // Major nearby cities for reference
+        labels.push({ lon: 121.565, lat: 25.033, text: 'Taipei', type: 'city' })
+        labels.push({ lon: 121.525, lat: 25.130, text: 'Beitou', type: 'city' })
+        labels.push({ lon: 121.817, lat: 24.760, text: 'Yilan', type: 'city' })
+
+        particlesRef.current?.setLabels(labels)
+        console.log('[ForecastMap] Coastline loaded:', rings.length, 'rings,', labels.length, 'labels')
         setOutlineStatus('ok')
       } catch (err) {
         console.warn('[ForecastMap] Coastline load FAILED:', err)
@@ -159,7 +174,7 @@ export function ForecastMap() {
 
   return (
     <div ref={wrapperRef} className="relative w-full h-full">
-      {/* MapLibre GL container — handles all touch/drag/zoom natively */}
+      {/* MapLibre GL container */}
       <div ref={mapContainerRef} className="absolute inset-0" />
 
       {/* Wind particle canvas overlay */}

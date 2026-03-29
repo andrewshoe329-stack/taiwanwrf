@@ -31,25 +31,24 @@ export function SpotMarkers({ map }: SpotMarkersProps) {
 
     const lang = i18n.language.startsWith('zh') ? 'zh' : 'en'
 
-    // Surf spot markers (circles)
+    // Surf spot markers (circles with hover popup)
     for (const spot of SPOTS) {
       const el = document.createElement('div')
       el.className = 'spot-marker'
       el.style.cssText = `
-        width: 10px; height: 10px; border-radius: 50%;
-        background: #a0a0a0; border: 1.5px solid #f5f5f5;
+        width: 14px; height: 14px; border-radius: 50%;
+        background: #e0e0e0; border: 2px solid #fff;
         cursor: pointer; transition: transform 0.15s;
+        box-shadow: 0 0 6px rgba(0,0,0,0.5);
       `
-      el.addEventListener('mouseenter', () => { el.style.transform = 'scale(1.5)' })
-      el.addEventListener('mouseleave', () => { el.style.transform = 'scale(1)' })
 
       const popup = new maplibregl.Popup({
-        offset: 12, closeButton: false, closeOnClick: true,
+        offset: 14, closeButton: false, closeOnClick: false,
         className: 'spot-popup',
       }).setHTML(`
-        <div style="font-family:Inter,sans-serif; font-size:12px; color:#f5f5f5; background:#111; padding:6px 10px; border-radius:8px; border:1px solid #222;">
+        <div style="font-family:Inter,sans-serif; font-size:12px; color:#f5f5f5; background:#111; padding:6px 10px; border-radius:8px; border:1px solid #333;">
           <div style="font-weight:600; margin-bottom:2px;">${escapeHtml(spot.name[lang])}</div>
-          <div style="color:#888; font-size:10px;">${escapeHtml(spot.facing)} facing</div>
+          <div style="color:#999; font-size:10px;">${escapeHtml(spot.facing)} facing</div>
         </div>
       `)
 
@@ -58,6 +57,16 @@ export function SpotMarkers({ map }: SpotMarkersProps) {
         .setPopup(popup)
         .addTo(map)
 
+      // Show popup on hover
+      el.addEventListener('mouseenter', () => {
+        el.style.transform = 'scale(1.4)'
+        marker.togglePopup()
+      })
+      el.addEventListener('mouseleave', () => {
+        el.style.transform = 'scale(1)'
+        if (marker.getPopup()?.isOpen()) marker.togglePopup()
+      })
+
       el.addEventListener('click', () => {
         navigate(`/spots/${spot.id}`)
       })
@@ -65,24 +74,23 @@ export function SpotMarkers({ map }: SpotMarkersProps) {
       markersRef.current.push(marker)
     }
 
-    // Harbour markers (diamonds)
+    // Harbour markers (diamonds with hover popup)
     for (const harbour of HARBOURS) {
       const el = document.createElement('div')
       el.style.cssText = `
-        width: 8px; height: 8px; border-radius: 2px; transform: rotate(45deg);
-        background: #5b9bd5; border: 1.5px solid #f5f5f5;
+        width: 12px; height: 12px; border-radius: 2px; transform: rotate(45deg);
+        background: #5b9bd5; border: 2px solid #fff;
         cursor: pointer; transition: transform 0.15s;
+        box-shadow: 0 0 6px rgba(0,0,0,0.5);
       `
-      el.addEventListener('mouseenter', () => { el.style.transform = 'rotate(45deg) scale(1.5)' })
-      el.addEventListener('mouseleave', () => { el.style.transform = 'rotate(45deg) scale(1)' })
 
       const popup = new maplibregl.Popup({
-        offset: 12, closeButton: false, closeOnClick: true,
+        offset: 14, closeButton: false, closeOnClick: false,
         className: 'spot-popup',
       }).setHTML(`
-        <div style="font-family:Inter,sans-serif; font-size:12px; color:#f5f5f5; background:#111; padding:6px 10px; border-radius:8px; border:1px solid #222;">
+        <div style="font-family:Inter,sans-serif; font-size:12px; color:#f5f5f5; background:#111; padding:6px 10px; border-radius:8px; border:1px solid #333;">
           <div style="font-weight:600;">${escapeHtml(harbour.name[lang])}</div>
-          <div style="color:#888; font-size:10px;">Harbour</div>
+          <div style="color:#999; font-size:10px;">Harbour</div>
         </div>
       `)
 
@@ -90,6 +98,15 @@ export function SpotMarkers({ map }: SpotMarkersProps) {
         .setLngLat([harbour.lon, harbour.lat])
         .setPopup(popup)
         .addTo(map)
+
+      el.addEventListener('mouseenter', () => {
+        el.style.transform = 'rotate(45deg) scale(1.4)'
+        marker.togglePopup()
+      })
+      el.addEventListener('mouseleave', () => {
+        el.style.transform = 'rotate(45deg) scale(1)'
+        if (marker.getPopup()?.isOpen()) marker.togglePopup()
+      })
 
       el.addEventListener('click', () => {
         navigate(`/harbours`)
