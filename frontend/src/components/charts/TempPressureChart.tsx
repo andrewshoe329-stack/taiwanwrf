@@ -3,10 +3,11 @@ import {
   CartesianGrid, Tooltip,
 } from 'recharts'
 import type { ForecastRecord } from '@/lib/types'
-import { toCST, toCSTLabel, tickInterval, MultiLineTick } from './chart-utils'
+import { toCST, toCSTLabel, tickInterval, MultiLineTick, filterByTimeRange, type TimeRange } from './chart-utils'
 
 interface TempPressureChartProps {
   records: ForecastRecord[]
+  timeRange?: TimeRange
 }
 
 interface ChartRow {
@@ -36,10 +37,11 @@ function CustomTooltip(props: any) {
   )
 }
 
-export function TempPressureChart({ records }: TempPressureChartProps) {
+export function TempPressureChart({ records, timeRange }: TempPressureChartProps) {
   if (!records?.length) return null
 
-  const chartData: ChartRow[] = records.map(r => ({
+  const filtered = filterByTimeRange(records, timeRange)
+  const chartData: ChartRow[] = filtered.map(r => ({
     time: toCST(r.valid_utc),
     timeLabel: toCSTLabel(r.valid_utc),
     temp: r.temp_c,

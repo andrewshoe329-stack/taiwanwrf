@@ -39,6 +39,45 @@ export function tickInterval(dataLen: number): number {
 }
 
 /**
+ * Shared time range: clips records to a start/end UTC window.
+ * Any record with a UTC time field outside the range is dropped.
+ */
+export interface TimeRange {
+  startUtc: string
+  endUtc: string
+}
+
+export function filterByTimeRange<T extends Record<string, any>>(
+  records: T[],
+  range: TimeRange | undefined,
+  timeKey: string = 'valid_utc',
+): T[] {
+  if (!range) return records
+  const start = new Date(range.startUtc).getTime()
+  const end = new Date(range.endUtc).getTime()
+  return records.filter(r => {
+    const t = new Date(r[timeKey]).getTime()
+    return t >= start && t <= end
+  })
+}
+
+/**
+ * Downsample tide predictions to ~hourly (keep every Nth point).
+ * Preserves first and last point for correct range.
+ */
+export function downsampleTide<T>(records: T[], targetCount: number = 120): T[] {
+  if (records.length <= targetCount) return records
+  const step = records.length / targetCount
+  const result: T[] = []
+  for (let i = 0; i < records.length; i++) {
+    if (i === 0 || i === records.length - 1 || Math.floor(i / step) !== Math.floor((i - 1) / step)) {
+      result.push(records[i])
+    }
+  }
+  return result
+}
+
+/**
  * Custom tick component for Recharts XAxis.
  * Shows hour on every tick, "Mon 3/29" above on first tick and day changes.
  */

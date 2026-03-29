@@ -1,13 +1,17 @@
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis,
-  CartesianGrid, Tooltip, ReferenceLine, ReferenceDot,
+  CartesianGrid, Tooltip, ReferenceLine,
 } from 'recharts'
 import type { TidePrediction, TideExtremum } from '@/lib/types'
-import { toCST, toCSTLabel, tickInterval, MultiLineTick } from './chart-utils'
+import {
+  toCST, toCSTLabel, tickInterval, MultiLineTick,
+  filterByTimeRange, downsampleTide, type TimeRange,
+} from './chart-utils'
 
 interface TideChartProps {
   predictions: TidePrediction[]
   extrema: TideExtremum[]
+  timeRange?: TimeRange
 }
 
 interface ChartRow {
@@ -34,23 +38,26 @@ function CustomTooltip(props: any) {
   )
 }
 
-export function TideChart({ predictions, extrema }: TideChartProps) {
+export function TideChart({ predictions, extrema, timeRange }: TideChartProps) {
   if (!predictions?.length) return null
 
-  const chartData: ChartRow[] = predictions.map(p => ({
+  // Filter to shared time range, then downsample for cleaner chart
+  const filtered = filterByTimeRange(predictions, timeRange, 'time_utc')
+  const sampled = downsampleTide(filtered, 100)
+
+  const chartData: ChartRow[] = sampled.map(p => ({
     time: toCST(p.time_utc),
     timeLabel: toCSTLabel(p.time_utc),
     timeMs: new Date(p.time_utc).getTime(),
     height: p.height_m,
   }))
 
-  // Determine if "now" falls within the data range
+  // "Now" marker
   const nowMs = Date.now()
   const hasNow = chartData.length >= 2 &&
     nowMs >= chartData[0].timeMs &&
     nowMs <= chartData[chartData.length - 1].timeMs
 
-  // Find the chart row closest to "now" for the reference line
   let nowTime: string | undefined
   if (hasNow) {
     let closest = chartData[0]
@@ -65,21 +72,8 @@ export function TideChart({ predictions, extrema }: TideChartProps) {
     nowTime = closest.time
   }
 
-  // Map extrema to chart coordinates
-  const extremaDots = extrema.map(e => {
-    const ms = new Date(e.time_utc).getTime()
-    let closest = chartData[0]
-    let minDiff = Infinity
-    for (const row of chartData) {
-      const diff = Math.abs(ms - row.timeMs)
-      if (diff < minDiff) {
-        minDiff = diff
-        closest = row
-      }
-    }
-    return { ...e, time: closest.time, height: closest.height }
-  }).filter(e => {
-    // Only show extrema that are within the data range
+  // Filter extrema to visible range and find nearest chart points
+  const visibleExtrema = extrema.filter(e => {
     const ms = new Date(e.time_utc).getTime()
     return chartData.length >= 2 &&
       ms >= chartData[0].timeMs &&
@@ -124,22 +118,29 @@ export function TideChart({ predictions, extrema }: TideChartProps) {
             label={{ value: 'Now', fill: 'var(--color-text-muted)', fontSize: 10, position: 'top' }}
           />
         )}
-        {extremaDots.map((e, i) => (
-          <ReferenceDot
-            key={i}
-            x={e.time}
-            y={e.height}
-            r={3}
-            fill={e.type === 'high' ? 'var(--color-text-primary)' : 'var(--color-text-muted)'}
-            stroke="none"
-            label={{
-              value: `${e.type === 'high' ? 'H' : 'L'} ${e.height.toFixed(1)}m`,
-              fill: 'var(--color-text-secondary)',
-              fontSize: 9,
-              position: e.type === 'high' ? 'top' : 'bottom',
-            }}
-          />
-        ))}
+        {/* H/L labels as reference lines — cleaner than dots */}
+        {visibleExtrema.map((e, i) => {
+          const ms = new Date(e.time_utc).getTime()
+          let closest = chartData[0]
+          let minDiff = Infinity
+          for (const row of chartData) {
+            const diff = Math.abs(ms - row.timeMs)
+            if (diff < minDiff) { minDiff = diff; closest = row }
+          }
+          return (
+            <ReferenceLine
+              key={i}
+              x={closest.time}
+              stroke="none"
+              label={{
+                value: `${e.type === 'high' ? 'H' : 'L'} ${e.height_m.toFixed(1)}m`,
+                fill: 'var(--color-text-secondary)',
+                fontSize: 9,
+                position: e.type === 'high' ? 'top' : 'bottom',
+              }}
+            />
+          )
+        })}
       </AreaChart>
     </ResponsiveContainer>
   )

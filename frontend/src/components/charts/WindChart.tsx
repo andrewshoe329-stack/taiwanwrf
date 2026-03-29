@@ -3,11 +3,12 @@ import {
   CartesianGrid, Tooltip,
 } from 'recharts'
 import type { ForecastRecord } from '@/lib/types'
-import { toCST, toCSTLabel, tickInterval, MultiLineTick } from './chart-utils'
+import { toCST, toCSTLabel, tickInterval, MultiLineTick, filterByTimeRange, type TimeRange } from './chart-utils'
 
 interface WindChartProps {
   records: ForecastRecord[]
   ecmwfRecords?: ForecastRecord[]
+  timeRange?: TimeRange
 }
 
 interface ChartRow {
@@ -35,13 +36,14 @@ function CustomTooltip(props: any) {
   )
 }
 
-export function WindChart({ records, ecmwfRecords }: WindChartProps) {
+export function WindChart({ records, ecmwfRecords, timeRange }: WindChartProps) {
   if (!records?.length) return null
 
+  const filtered = filterByTimeRange(records, timeRange)
   const ecmwfMap = new Map<string, ForecastRecord>()
   ecmwfRecords?.forEach(r => ecmwfMap.set(r.valid_utc, r))
 
-  const chartData: ChartRow[] = records.map(r => ({
+  const chartData: ChartRow[] = filtered.map(r => ({
     time: toCST(r.valid_utc),
     timeLabel: toCSTLabel(r.valid_utc),
     wrf_wind: r.wind_kt,

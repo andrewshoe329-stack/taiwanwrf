@@ -3,10 +3,11 @@ import {
   CartesianGrid, Tooltip,
 } from 'recharts'
 import type { WaveRecord } from '@/lib/types'
-import { toCST, toCSTLabel, tickInterval, MultiLineTick } from './chart-utils'
+import { toCST, toCSTLabel, tickInterval, MultiLineTick, filterByTimeRange, type TimeRange } from './chart-utils'
 
 interface WaveChartProps {
   records: WaveRecord[]
+  timeRange?: TimeRange
 }
 
 interface ChartRow {
@@ -38,10 +39,11 @@ function CustomTooltip(props: any) {
   )
 }
 
-export function WaveChart({ records }: WaveChartProps) {
+export function WaveChart({ records, timeRange }: WaveChartProps) {
   if (!records?.length) return null
 
-  const chartData: ChartRow[] = records.map(r => ({
+  const filtered = filterByTimeRange(records, timeRange)
+  const chartData: ChartRow[] = filtered.map(r => ({
     time: toCST(r.valid_utc),
     timeLabel: toCSTLabel(r.valid_utc),
     swell: r.swell_wave_height,
