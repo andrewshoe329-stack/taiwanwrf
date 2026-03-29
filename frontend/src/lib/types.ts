@@ -84,16 +84,19 @@ export interface CwaObs {
   }
   warnings?: Array<{
     type: string
+    type_en?: string
     severity: string
     area: string
+    area_en?: string
     description: string
+    description_en?: string
     issued_utc: string
     expires_utc: string
   }>
 }
 
 export interface EnsembleData {
-  models: Record<string, { meta: ForecastMeta; records: ForecastRecord[] }>
+  models: Record<string, { meta: ForecastMeta; records?: ForecastRecord[]; record_count?: number }>
   spread: {
     wind_spread_kt?: number
     temp_spread_c?: number

@@ -870,8 +870,8 @@ def fetch_warnings(api_key: str) -> list[dict]:
                 area = ", ".join(area)
 
             # Only include warnings relevant to our area (north coast, Keelung, marine)
-            northern_keywords = ("基隆", "北部", "北海岸", "宜蘭", "新北",
-                                 "Keelung", "northern", "marine", "海上",
+            northern_keywords = ("基隆", "北部", "東北部", "北海岸", "宜蘭", "新北",
+                                 "Keelung", "northern", "northeast", "marine", "海上",
                                  "全臺", "全台", "豪雨", "颱風", "typhoon")
             if area and not any(kw in area for kw in northern_keywords):
                 if not any(kw in desc for kw in northern_keywords):
@@ -891,11 +891,85 @@ def fetch_warnings(api_key: str) -> list[dict]:
             })
 
         log.info("CWA warnings: %d relevant to northern Taiwan", len(results))
+        if results:
+            results = _translate_warnings(results)
         return results
 
     except Exception as e:
         log.error("Failed to parse CWA warnings response: %s", e)
         return []
+
+
+def _translate_warnings(warnings: list[dict]) -> list[dict]:
+    """Translate Chinese warning fields to English using Claude API.
+
+    Adds 'type_en', 'area_en', 'description_en' to each warning dict.
+    Falls back gracefully if API is unavailable — original Chinese kept as-is.
+    """
+    api_key = os.environ.get('ANTHROPIC_API_KEY', '')
+    if not api_key:
+        log.debug("ANTHROPIC_API_KEY not set — skipping warning translation")
+        return warnings
+
+    try:
+        import anthropic
+    except ImportError:
+        log.debug("anthropic package not installed — skipping warning translation")
+        return warnings
+
+    # Build a single prompt with all warnings to translate in one API call
+    lines = []
+    for i, w in enumerate(warnings):
+        lines.append(f"[{i}] type: {w.get('type', '')}")
+        lines.append(f"[{i}] area: {w.get('area', '')}")
+        lines.append(f"[{i}] description: {w.get('description', '')}")
+
+    prompt = (
+        "Translate the following CWA (Taiwan Central Weather Administration) "
+        "weather warning fields from Chinese to English. "
+        "Return ONLY the translations in the exact same format: "
+        "[index] field: translated text\n"
+        "Keep place names in their standard English forms "
+        "(e.g. 基隆=Keelung, 新北=New Taipei, 宜蘭=Yilan). "
+        "Keep it concise and accurate.\n\n"
+        + "\n".join(lines)
+    )
+
+    try:
+        client = anthropic.Anthropic(api_key=api_key, max_retries=2)
+        msg = client.messages.create(
+            model='claude-sonnet-4-6',
+            max_tokens=1000,
+            messages=[{'role': 'user', 'content': prompt}],
+        )
+        if not msg.content:
+            return warnings
+        response = msg.content[0].text.strip()
+    except Exception as e:
+        log.warning("Warning translation API call failed: %s", e)
+        return warnings
+
+    # Parse response lines back into warning dicts
+    for line in response.splitlines():
+        line = line.strip()
+        if not line or not line.startswith('['):
+            continue
+        try:
+            bracket_end = line.index(']')
+            idx = int(line[1:bracket_end])
+            rest = line[bracket_end + 1:].strip()
+            if rest.startswith('type:'):
+                warnings[idx]['type_en'] = rest[5:].strip()
+            elif rest.startswith('area:'):
+                warnings[idx]['area_en'] = rest[5:].strip()
+            elif rest.startswith('description:'):
+                warnings[idx]['description_en'] = rest[12:].strip()
+        except (ValueError, IndexError):
+            continue
+
+    translated = sum(1 for w in warnings if 'type_en' in w)
+    log.info("Translated %d/%d warnings to English", translated, len(warnings))
+    return warnings
 
 
 # ── Station mapping (from cwa_discover.py output) ────────────────────────────

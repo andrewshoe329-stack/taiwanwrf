@@ -157,7 +157,8 @@
     "data_source": "Data: CWA WRF 3km + ECMWF IFS + WAM",
     "wind": "Wind",
     "temp": "Temp",
-    "pressure": "Pressure"
+    "pressure": "Pressure",
+    "precip": "Precipitation"
   },
   "units": {
     "kt": "kt",

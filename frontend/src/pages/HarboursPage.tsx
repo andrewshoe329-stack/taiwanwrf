@@ -2,88 +2,13 @@ import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { HARBOURS } from '@/lib/constants'
 import { useForecastData } from '@/hooks/useForecastData'
+import { LoadingSpinner } from '@/components/layout/LoadingSpinner'
+import {
+  degToCompass, formatTimeCst,
+  isCurrentTimestep, windColorClass, waveColorClass, sailDecision,
+  groupByDay,
+} from '@/lib/forecast-utils'
 import type { ForecastRecord, WaveRecord } from '@/lib/types'
-
-function toCST(utc: string): Date {
-  const d = new Date(utc)
-  d.setUTCHours(d.getUTCHours() + 8)
-  return d
-}
-
-function formatTime(utc: string): string {
-  const d = toCST(utc)
-  const hh = String(d.getUTCHours()).padStart(2, '0')
-  return `${hh}:00`
-}
-
-function formatDayHeader(utc: string, lang: 'en' | 'zh'): string {
-  const d = toCST(utc)
-  const weekdaysEn = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-  const weekdaysZh = ['日', '一', '二', '三', '四', '五', '六']
-  const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
-  const dd = String(d.getUTCDate()).padStart(2, '0')
-  const dayName = lang === 'zh' ? weekdaysZh[d.getUTCDay()] : weekdaysEn[d.getUTCDay()]
-  return lang === 'zh' ? `${mm}/${dd} (${dayName})` : `${dayName} ${mm}/${dd}`
-}
-
-function getDayKey(utc: string): string {
-  const d = toCST(utc)
-  return `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`
-}
-
-function degToCompass(deg: number): string {
-  const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW']
-  return dirs[Math.round(deg / 22.5) % 16]
-}
-
-/** Return a Tailwind text color class based on wind speed (Beaufort-ish scale). */
-function windColor(kt: number): string {
-  if (kt >= 34) return 'text-red-400'
-  if (kt >= 22) return 'text-orange-400'
-  if (kt >= 17) return 'text-yellow-400'
-  if (kt >= 11) return 'text-emerald-400'
-  if (kt >= 7)  return 'text-sky-400'
-  return 'text-[var(--color-text-muted)]'
-}
-
-/** Return a Tailwind text color class based on wave height. */
-function waveColor(m: number): string {
-  if (m >= 3.0) return 'text-red-400'
-  if (m >= 2.0) return 'text-orange-400'
-  if (m >= 1.0) return 'text-sky-400'
-  return 'text-[var(--color-text-muted)]'
-}
-
-/** Check if a timestamp is "now" (closest past record). */
-function isCurrentTimestep(utc: string, allUtcs: string[]): boolean {
-  const now = Date.now()
-  let closest = 0
-  let closestDiff = Infinity
-  for (let i = 0; i < allUtcs.length; i++) {
-    const t = new Date(allUtcs[i]).getTime()
-    const diff = now - t
-    if (diff >= 0 && diff < closestDiff) {
-      closestDiff = diff
-      closest = i
-    }
-  }
-  return allUtcs[closest] === utc
-}
-
-/** Group records by CST day. Returns array of [dayKey, dayLabel, indices]. */
-function groupByDay(records: ForecastRecord[], lang: 'en' | 'zh'): Array<{ dayKey: string; dayLabel: string; indices: number[] }> {
-  const groups: Array<{ dayKey: string; dayLabel: string; indices: number[] }> = []
-  let currentKey = ''
-  for (let i = 0; i < records.length; i++) {
-    const key = getDayKey(records[i].valid_utc)
-    if (key !== currentKey) {
-      currentKey = key
-      groups.push({ dayKey: key, dayLabel: formatDayHeader(records[i].valid_utc, lang), indices: [] })
-    }
-    groups[groups.length - 1].indices.push(i)
-  }
-  return groups
-}
 
 export function HarboursPage() {
   const { t, i18n } = useTranslation()
@@ -92,14 +17,7 @@ export function HarboursPage() {
   const [collapsedHarbour, setCollapsedHarbour] = useState<Record<string, boolean>>({})
 
   if (data.loading) {
-    return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <div className="text-center">
-          <div className="w-5 h-5 border-2 border-[var(--color-text-muted)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-[var(--color-text-muted)] text-xs">{t('common.loading')}</p>
-        </div>
-      </div>
-    )
+    return <LoadingSpinner />
   }
 
   return (
@@ -123,9 +41,7 @@ export function HarboursPage() {
 
           // Sail decision for this harbour
           const windKt = windRec?.wind_kt ?? 0
-          let sailDecision: 'go' | 'caution' | 'nogo' = 'caution'
-          if (windKt >= 8 && windKt <= 25) sailDecision = 'go'
-          else if (windKt > 35 || windKt < 4) sailDecision = 'nogo'
+          const sailDec = sailDecision(windKt)
 
           const decisionBorder = {
             go: 'border-[var(--color-rating-good)]',
@@ -145,7 +61,7 @@ export function HarboursPage() {
           return (
             <div
               key={harbour.id}
-              className={`border rounded-xl p-4 ${decisionBorder[sailDecision]}`}
+              className={`border rounded-xl p-4 ${decisionBorder[sailDec]}`}
             >
               {/* Header */}
               <div className="flex items-start justify-between mb-3">
@@ -158,7 +74,7 @@ export function HarboursPage() {
                   </p>
                 </div>
                 <span className="text-sm font-medium text-[var(--color-text-primary)]">
-                  {t(`decision.${sailDecision}`)}
+                  {t(`decision.${sailDec}`)}
                 </span>
               </div>
 
@@ -243,9 +159,8 @@ export function HarboursPage() {
                                   </span>
                                 </td>
                               </tr>
-                              {group.indices.map(i => {
-                                const rec = records[i]
-                                const wr = waveRecords.find(w => w.valid_utc === rec.valid_utc) ?? waveRecords[i]
+                              {group.items.map(rec => {
+                                const wr = waveRecords.find(w => w.valid_utc === rec.valid_utc)
                                 const isCurrent = isCurrentTimestep(rec.valid_utc, allUtcs)
                                 return (
                                   <tr
@@ -254,13 +169,13 @@ export function HarboursPage() {
                                   >
                                     <td className="py-1.5 pr-2">
                                       <span className="text-[var(--color-text-secondary)] tabular-nums">
-                                        {formatTime(rec.valid_utc)}
+                                        {formatTimeCst(rec.valid_utc)}
                                       </span>
                                       {isCurrent && (
                                         <span className="ml-1 text-[9px] font-medium text-[var(--color-rating-good)] uppercase">now</span>
                                       )}
                                     </td>
-                                    <td className={`text-right py-1.5 px-2 tabular-nums font-medium ${rec.wind_kt != null ? windColor(rec.wind_kt) : 'text-[var(--color-text-muted)]'}`}>
+                                    <td className={`text-right py-1.5 px-2 tabular-nums font-medium ${rec.wind_kt != null ? windColorClass(rec.wind_kt) : 'text-[var(--color-text-muted)]'}`}>
                                       {rec.wind_kt?.toFixed(0) ?? '--'}
                                       {rec.gust_kt != null && (
                                         <span className="text-[var(--color-text-dim)] font-normal"> G{rec.gust_kt.toFixed(0)}</span>
@@ -277,7 +192,7 @@ export function HarboursPage() {
                                         </>
                                       ) : '--'}
                                     </td>
-                                    <td className={`text-right py-1.5 px-2 tabular-nums ${wr?.wave_height != null ? waveColor(wr.wave_height) : 'text-[var(--color-text-muted)]'}`}>
+                                    <td className={`text-right py-1.5 px-2 tabular-nums ${wr?.wave_height != null ? waveColorClass(wr.wave_height) : 'text-[var(--color-text-muted)]'}`}>
                                       {wr?.wave_height != null ? wr.wave_height.toFixed(1) : '--'}
                                       <span className="text-[var(--color-text-dim)] ml-0.5">m</span>
                                       {wr?.wave_period != null && (

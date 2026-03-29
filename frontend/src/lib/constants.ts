@@ -9,9 +9,6 @@ export const TAIWAN_BBOX = {
   lon_max: 122.5,
 }
 
-export const TAIWAN_CENTER: [number, number] = [121.75, 25.0] // [lng, lat] for MapLibre
-export const TAIWAN_ZOOM = 9.5
-
 // ── Harbours ─────────────────────────────────────────────────────────────────
 
 export const HARBOURS: HarbourInfo[] = [
@@ -33,24 +30,6 @@ export const SPOTS: SpotInfo[] = [
 ]
 
 export const REGIONS: Region[] = ['north', 'northeast']
-
-// ── Beaufort scale ───────────────────────────────────────────────────────────
-
-export const BEAUFORT_SCALE = [
-  { force: 0, min: 0,  max: 1,   label: 'Calm' },
-  { force: 1, min: 1,  max: 3,   label: 'Light air' },
-  { force: 2, min: 4,  max: 6,   label: 'Light breeze' },
-  { force: 3, min: 7,  max: 10,  label: 'Gentle breeze' },
-  { force: 4, min: 11, max: 16,  label: 'Moderate breeze' },
-  { force: 5, min: 17, max: 21,  label: 'Fresh breeze' },
-  { force: 6, min: 22, max: 27,  label: 'Strong breeze' },
-  { force: 7, min: 28, max: 33,  label: 'Near gale' },
-  { force: 8, min: 34, max: 40,  label: 'Gale' },
-  { force: 9, min: 41, max: 47,  label: 'Strong gale' },
-  { force: 10, min: 48, max: 55, label: 'Storm' },
-  { force: 11, min: 56, max: 63, label: 'Violent storm' },
-  { force: 12, min: 64, max: 999, label: 'Hurricane' },
-]
 
 // ── Data file paths ──────────────────────────────────────────────────────────
 
