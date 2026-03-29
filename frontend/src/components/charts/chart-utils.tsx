@@ -28,73 +28,58 @@ export function toCSTLabel(utc: string): string {
  * Aims for ~6-10 visible ticks regardless of data length.
  */
 export function tickInterval(dataLen: number): number {
-  if (dataLen <= 12) return 1      // hourly data, ≤12h: every point
-  if (dataLen <= 24) return 3      // ≤24h: every 3h
-  if (dataLen <= 48) return 6      // ≤2 days: every 6h
-  if (dataLen <= 96) return 12     // ≤4 days: every 12h
-  return 24                        // >4 days: every 24h
+  if (dataLen <= 12) return 1
+  if (dataLen <= 24) return 3
+  if (dataLen <= 48) return 6
+  if (dataLen <= 96) return 12
+  return 24
 }
 
 /**
- * X-axis tick formatter: shows hour, adds date on midnight (00:00).
- * prevDate tracks state across ticks to show date on day boundaries.
+ * Custom tick component for Recharts XAxis.
+ * Shows compact date + hour: "3/29" on first line, "08:00" on second line.
+ * Date only shown on first tick and when day changes.
  */
-export function createTickFormatter() {
-  let prevDate = ''
-  return (value: string): string => {
-    // value is "MM/DD HH:00"
-    const parts = value.split(' ')
-    if (parts.length < 2) return value
-    const date = parts[0]  // MM/DD
-    const hour = parts[1].replace(':00', 'h')  // "08h"
+let prevTickDate = ''
 
-    if (date !== prevDate) {
-      prevDate = date
-      // Show date + hour on day change
-      return `${date}\n${hour}`
-    }
-    return hour
-  }
-}
-
-/**
- * Custom multi-line tick component for Recharts XAxis.
- * Renders hour on first line, date on second line when day changes.
- */
 export function MultiLineTick(props: any) {
-  const { x, y, payload } = props
+  const { x, y, payload, index } = props
   if (!payload?.value) return null
 
   const value: string = payload.value
   const parts = value.split(' ')
   if (parts.length < 2) return null
-  const date = parts[0]
-  const hour = parts[1].replace(':00', '')
+  const date = parts[0]   // "03/29"
+  const hour = parts[1]   // "08:00"
 
-  // Check if this is a midnight boundary (00h) or first tick
-  const isMidnight = hour === '00'
+  // Show date on first tick or when day changes
+  const showDate = index === 0 || date !== prevTickDate
+  prevTickDate = date
+
+  // Compact date: "3/29" instead of "03/29"
+  const shortDate = date.replace(/^0/, '').replace('/0', '/')
 
   return (
     <g transform={`translate(${x},${y})`}>
+      {showDate && (
+        <text
+          dy={12}
+          textAnchor="middle"
+          fill="var(--color-text-secondary)"
+          fontSize={9}
+          fontWeight={500}
+        >
+          {shortDate}
+        </text>
+      )}
       <text
-        dy={12}
+        dy={showDate ? 24 : 14}
         textAnchor="middle"
         fill="var(--color-text-muted)"
         fontSize={10}
       >
         {hour}
       </text>
-      {isMidnight && (
-        <text
-          dy={24}
-          textAnchor="middle"
-          fill="var(--color-text-secondary)"
-          fontSize={9}
-          fontWeight={500}
-        >
-          {date}
-        </text>
-      )}
     </g>
   )
 }
