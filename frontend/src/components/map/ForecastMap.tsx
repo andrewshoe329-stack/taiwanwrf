@@ -1,9 +1,11 @@
-import { useRef, useEffect, useCallback, useState } from 'react'
+import { useRef, useEffect, useCallback, useState, useMemo } from 'react'
 import { TAIWAN_BBOX, SPOTS, HARBOURS } from '@/lib/constants'
 import { WindParticleSystem } from '@/lib/wind-particles'
 import { interpolateWindGrid } from '@/lib/interpolate'
 import { useTimeline } from '@/hooks/useTimeline'
 import { useWindGrid, type WindModel } from '@/hooks/useWindGrid'
+import { useForecastData } from '@/hooks/useForecastData'
+import type { SpotRating } from '@/lib/types'
 
 const MODEL_LABELS: Record<WindModel, string> = {
   wrf: 'WRF 3km',
@@ -15,6 +17,16 @@ const MODEL_LABELS: Record<WindModel, string> = {
 const MIN_LON_SPAN = 0.3   // max zoom in
 const MAX_LON_SPAN = 4.0   // max zoom out
 
+const COMPASS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW']
+function degToCompass(deg: number): string {
+  return COMPASS[Math.round(((deg % 360) + 360) % 360 / 22.5) % 16]
+}
+
+const RATING_COLORS: Record<string, string> = {
+  firing: '#22c55e', good: '#3b82f6', marginal: '#eab308',
+  poor: '#9ca3af', flat: '#6b7280', dangerous: '#ef4444',
+}
+
 interface MapLabel {
   lon: number
   lat: number
@@ -22,10 +34,6 @@ interface MapLabel {
   textZh?: string
   type: 'spot' | 'harbour' | 'city'
   id?: string
-  facing?: string
-  region?: string
-  opt_wind?: string[]
-  opt_swell?: string[]
 }
 
 // Build label list once
@@ -33,8 +41,6 @@ const ALL_LABELS: MapLabel[] = [
   ...SPOTS.map(s => ({
     lon: s.lon, lat: s.lat, text: s.name.en, textZh: s.name.zh,
     type: 'spot' as const, id: s.id,
-    facing: s.facing, region: s.region,
-    opt_wind: s.opt_wind, opt_swell: s.opt_swell,
   })),
   ...HARBOURS.map(h => ({
     lon: h.lon, lat: h.lat, text: h.name.en, textZh: h.name.zh,
@@ -74,6 +80,30 @@ export function ForecastMap() {
 
   const { index } = useTimeline()
   const { grid, model, setModel } = useWindGrid()
+  const data = useForecastData()
+
+  // Current valid_utc from the keelung timeline
+  const currentUtc = data.keelung?.records?.[index]?.valid_utc
+
+  // Build a map of spot_id → closest SpotRating for the current timestep
+  const spotWeather = useMemo(() => {
+    const map = new Map<string, SpotRating>()
+    if (!currentUtc || !data.surf?.spots) return map
+    const targetMs = new Date(currentUtc).getTime()
+    for (const sf of data.surf.spots) {
+      let best: SpotRating | null = null
+      let bestDiff = Infinity
+      for (const r of sf.ratings) {
+        const diff = Math.abs(new Date(r.valid_utc).getTime() - targetMs)
+        if (diff < bestDiff) { bestDiff = diff; best = r }
+      }
+      if (best) map.set(sf.spot.id, best)
+    }
+    return map
+  }, [currentUtc, data.surf])
+
+  // Keelung harbour weather from the main forecast
+  const harbourWeather = data.keelung?.records?.[index]
 
   const updateBounds = useCallback((west: number, south: number, east: number, north: number) => {
     // Clamp zoom
@@ -344,37 +374,71 @@ export function ForecastMap() {
       <div ref={containerRef} className="absolute inset-0" />
 
       {/* Hover tooltip */}
-      {tooltip && (
-        <div
-          className="absolute z-30 pointer-events-none px-3 py-2 rounded-lg border text-xs whitespace-nowrap"
-          style={{
-            left: Math.min(tooltip.x + 12, (containerRef.current?.clientWidth ?? 300) - 200),
-            top: tooltip.y - 40,
-            background: 'rgba(10, 10, 10, 0.92)',
-            borderColor: 'var(--color-border)',
-            backdropFilter: 'blur(8px)',
-          }}
-        >
-          <p className="font-medium text-[var(--color-text-primary)]">
-            {tooltip.label.text}
-            {tooltip.label.textZh && <span className="ml-1.5 text-[var(--color-text-muted)]">{tooltip.label.textZh}</span>}
-          </p>
-          {tooltip.label.type === 'spot' && (
-            <div className="mt-1 space-y-0.5 text-[10px] text-[var(--color-text-muted)]">
-              <p>Facing <span className="text-[var(--color-text-secondary)]">{tooltip.label.facing}</span>
-                {tooltip.label.region && <> &middot; <span className="capitalize">{tooltip.label.region}</span></>}
-              </p>
-              {tooltip.label.opt_wind && <p>Best wind: <span className="text-[var(--color-text-secondary)]">{tooltip.label.opt_wind.join(', ')}</span></p>}
-              {tooltip.label.opt_swell && <p>Best swell: <span className="text-[var(--color-text-secondary)]">{tooltip.label.opt_swell.join(', ')}</span></p>}
-            </div>
-          )}
-          {tooltip.label.type === 'harbour' && (
-            <p className="mt-0.5 text-[10px] text-[var(--color-text-muted)]">
-              {tooltip.label.lat.toFixed(3)}°N, {tooltip.label.lon.toFixed(3)}°E
+      {tooltip && (() => {
+        const sw = tooltip.label.id ? spotWeather.get(tooltip.label.id) : undefined
+        const hw = tooltip.label.type === 'harbour' ? harbourWeather : undefined
+        return (
+          <div
+            className="absolute z-30 pointer-events-none px-3 py-2 rounded-lg border text-xs whitespace-nowrap"
+            style={{
+              left: Math.min(tooltip.x + 12, (containerRef.current?.clientWidth ?? 300) - 200),
+              top: tooltip.y - 40,
+              background: 'rgba(10, 10, 10, 0.92)',
+              borderColor: 'var(--color-border)',
+              backdropFilter: 'blur(8px)',
+            }}
+          >
+            <p className="font-medium text-[var(--color-text-primary)]">
+              {tooltip.label.text}
+              {tooltip.label.textZh && <span className="ml-1.5 text-[var(--color-text-muted)]">{tooltip.label.textZh}</span>}
             </p>
-          )}
-        </div>
-      )}
+            {tooltip.label.type === 'spot' && sw && (
+              <div className="mt-1 space-y-0.5 text-[10px]">
+                <p>
+                  <span className="font-medium capitalize" style={{ color: RATING_COLORS[sw.rating] ?? '#9ca3af' }}>
+                    {sw.rating}
+                  </span>
+                  <span className="text-[var(--color-text-muted)] ml-1">({sw.score}/14)</span>
+                </p>
+                <p className="text-[var(--color-text-muted)]">
+                  Wind <span className="text-[var(--color-text-secondary)]">{sw.wind_kt?.toFixed(0) ?? '--'}kt</span>
+                  {sw.wind_dir != null && <span className="ml-0.5">{degToCompass(sw.wind_dir)}</span>}
+                </p>
+                <p className="text-[var(--color-text-muted)]">
+                  Swell <span className="text-[var(--color-text-secondary)]">{sw.swell_height?.toFixed(1) ?? '--'}m</span>
+                  {sw.swell_period != null && <span className="ml-1">{sw.swell_period.toFixed(0)}s</span>}
+                  {sw.swell_dir != null && <span className="ml-0.5">{degToCompass(sw.swell_dir)}</span>}
+                </p>
+              </div>
+            )}
+            {tooltip.label.type === 'spot' && !sw && (
+              <p className="mt-0.5 text-[10px] text-[var(--color-text-muted)]">No forecast data</p>
+            )}
+            {tooltip.label.type === 'harbour' && hw && (
+              <div className="mt-1 space-y-0.5 text-[10px]">
+                <p className="text-[var(--color-text-muted)]">
+                  Wind <span className="text-[var(--color-text-secondary)]">{hw.wind_kt?.toFixed(0) ?? '--'}kt</span>
+                  {hw.wind_dir != null && <span className="ml-0.5">{degToCompass(hw.wind_dir)}</span>}
+                  {hw.gust_kt != null && <span className="ml-1">G{hw.gust_kt.toFixed(0)}</span>}
+                </p>
+                {hw.temp_c != null && (
+                  <p className="text-[var(--color-text-muted)]">
+                    Temp <span className="text-[var(--color-text-secondary)]">{hw.temp_c.toFixed(1)}°C</span>
+                  </p>
+                )}
+                {hw.mslp_hpa != null && (
+                  <p className="text-[var(--color-text-muted)]">
+                    Pressure <span className="text-[var(--color-text-secondary)]">{hw.mslp_hpa.toFixed(0)} hPa</span>
+                  </p>
+                )}
+              </div>
+            )}
+            {tooltip.label.type === 'harbour' && !hw && (
+              <p className="mt-0.5 text-[10px] text-[var(--color-text-muted)]">No forecast data</p>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Model switcher */}
       <div className="absolute top-3 right-3 z-20 flex gap-1">
