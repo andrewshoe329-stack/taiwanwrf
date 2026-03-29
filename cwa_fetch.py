@@ -972,18 +972,26 @@ def _translate_warnings(warnings: list[dict]) -> list[dict]:
         + "\n".join(lines)
     )
 
-    try:
-        client = anthropic.Anthropic(api_key=api_key, max_retries=2)
-        msg = client.messages.create(
-            model='claude-sonnet-4-6',
-            max_tokens=1000,
-            messages=[{'role': 'user', 'content': prompt}],
-        )
-        if not msg.content:
-            return warnings
-        response = msg.content[0].text.strip()
-    except Exception as e:
-        log.warning("Warning translation API call failed: %s", e)
+    response = None
+    client = anthropic.Anthropic(api_key=api_key, max_retries=2)
+    for attempt in range(3):
+        try:
+            msg = client.messages.create(
+                model='claude-sonnet-4-6',
+                max_tokens=1000,
+                messages=[{'role': 'user', 'content': prompt}],
+            )
+            if msg.content:
+                response = msg.content[0].text.strip()
+            break
+        except Exception as e:
+            log.warning("Warning translation attempt %d/3 failed: %s", attempt + 1, e)
+            if attempt < 2:
+                import time
+                time.sleep(2 ** attempt)  # 1s, 2s backoff
+
+    if not response:
+        log.warning("All translation attempts failed — using fallback")
         return _apply_fallback_translations(warnings)
 
     # Parse response lines back into warning dicts
