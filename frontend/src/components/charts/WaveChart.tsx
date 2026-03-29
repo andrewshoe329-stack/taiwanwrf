@@ -76,7 +76,7 @@ export function WaveChart({ records, timeRange }: WaveChartProps) {
           tick={{ fill: 'var(--color-text-muted)', fontSize: 10 }}
           stroke="var(--color-border)"
           unit=" s"
-          width={40}
+          width={44}
         />
         <Tooltip content={CustomTooltip} />
         <Area

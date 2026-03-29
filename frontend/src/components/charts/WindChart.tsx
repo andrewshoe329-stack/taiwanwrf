@@ -53,7 +53,7 @@ export function WindChart({ records, ecmwfRecords, timeRange }: WindChartProps) 
 
   return (
     <ResponsiveContainer width="100%" height={240}>
-      <LineChart data={chartData} margin={{ top: 8, right: 8, bottom: 16, left: -12 }}>
+      <LineChart data={chartData} margin={{ top: 8, right: 52, bottom: 16, left: -12 }}>
         <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
         <XAxis
           dataKey="time"
@@ -66,7 +66,7 @@ export function WindChart({ records, ecmwfRecords, timeRange }: WindChartProps) 
           tick={{ fill: 'var(--color-text-muted)', fontSize: 10 }}
           stroke="var(--color-border)"
           unit=" kt"
-          width={48}
+          width={44}
         />
         <Tooltip content={CustomTooltip} />
         <Area

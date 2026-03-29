@@ -73,7 +73,7 @@ export function TempPressureChart({ records, timeRange }: TempPressureChartProps
           tick={{ fill: 'var(--color-text-muted)', fontSize: 10 }}
           stroke="var(--color-border)"
           unit=" hPa"
-          width={52}
+          width={44}
           domain={['auto', 'auto']}
         />
         <Tooltip content={CustomTooltip} />
