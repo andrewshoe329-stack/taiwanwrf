@@ -5,7 +5,7 @@ import {
 import type { TidePrediction, TideExtremum } from '@/lib/types'
 import {
   toCST, toCSTLabel, tickInterval, MultiLineTick,
-  filterByTimeRange, downsampleTide, type TimeRange,
+  filterByTimeRange, downsampleTide, findNowTime, type TimeRange,
 } from './chart-utils'
 
 interface TideChartProps {
@@ -52,25 +52,7 @@ export function TideChart({ predictions, extrema, timeRange }: TideChartProps) {
     height: p.height_m,
   }))
 
-  // "Now" marker
-  const nowMs = Date.now()
-  const hasNow = chartData.length >= 2 &&
-    nowMs >= chartData[0].timeMs &&
-    nowMs <= chartData[chartData.length - 1].timeMs
-
-  let nowTime: string | undefined
-  if (hasNow) {
-    let closest = chartData[0]
-    let minDiff = Math.abs(nowMs - closest.timeMs)
-    for (const row of chartData) {
-      const diff = Math.abs(nowMs - row.timeMs)
-      if (diff < minDiff) {
-        minDiff = diff
-        closest = row
-      }
-    }
-    nowTime = closest.time
-  }
+  const nowTime = findNowTime(chartData)
 
   // Filter extrema to visible range and find nearest chart points
   const visibleExtrema = extrema.filter(e => {
