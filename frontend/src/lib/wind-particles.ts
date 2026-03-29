@@ -48,6 +48,7 @@ export class WindParticleSystem {
 
   // Viewport mapping (set by the map component)
   private bounds = { west: 119.0, east: 122.5, south: 21.5, north: 25.5 }
+  private boundsChanged = false
 
   constructor(opts: WindParticleOptions) {
     this.canvas = opts.canvas
@@ -78,6 +79,7 @@ export class WindParticleSystem {
   /** Update the map viewport bounds (call on map move/zoom) */
   setBounds(west: number, south: number, east: number, north: number) {
     this.bounds = { west, south, east, north }
+    this.boundsChanged = true
   }
 
   /** Get current viewport bounds */
@@ -188,25 +190,36 @@ export class WindParticleSystem {
     const w = this.canvas.width
     const h = this.canvas.height
 
-    // Fade trails using offscreen canvas to avoid destination-out compositing
-    // bugs that can make the canvas appear opaque/black in some browsers.
-    if (!this.offscreen) {
-      this.offscreen = document.createElement('canvas')
+    // On bounds change (drag/zoom), skip trail fade to prevent ghosting
+    if (this.boundsChanged) {
+      this.boundsChanged = false
+      ctx.clearRect(0, 0, w, h)
+      // Reset offscreen too
+      if (this.offscreen) {
+        const oc = this.offscreen.getContext('2d')
+        oc?.clearRect(0, 0, this.offscreen.width, this.offscreen.height)
+      }
+    } else {
+      // Fade trails using offscreen canvas to avoid destination-out compositing
+      // bugs that can make the canvas appear opaque/black in some browsers.
+      if (!this.offscreen) {
+        this.offscreen = document.createElement('canvas')
+      }
+      const off = this.offscreen
+      if (off.width !== w || off.height !== h) {
+        off.width = w
+        off.height = h
+      }
+      const offCtx = off.getContext('2d')
+      if (offCtx) {
+        offCtx.clearRect(0, 0, w, h)
+        offCtx.drawImage(this.canvas, 0, 0)
+      }
+      ctx.clearRect(0, 0, w, h)
+      ctx.globalAlpha = this.fadeFactor
+      ctx.drawImage(off, 0, 0)
+      ctx.globalAlpha = 1.0
     }
-    const off = this.offscreen
-    if (off.width !== w || off.height !== h) {
-      off.width = w
-      off.height = h
-    }
-    const offCtx = off.getContext('2d')
-    if (offCtx) {
-      offCtx.clearRect(0, 0, w, h)
-      offCtx.drawImage(this.canvas, 0, 0)
-    }
-    ctx.clearRect(0, 0, w, h)
-    ctx.globalAlpha = this.fadeFactor
-    ctx.drawImage(off, 0, 0)
-    ctx.globalAlpha = 1.0
 
     ctx.lineWidth = this.lineWidth
     ctx.lineCap = 'round'

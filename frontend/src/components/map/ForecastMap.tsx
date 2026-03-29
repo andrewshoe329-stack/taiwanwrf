@@ -15,10 +15,31 @@ const MODEL_LABELS: Record<WindModel, string> = {
 const MIN_LON_SPAN = 0.3   // max zoom in
 const MAX_LON_SPAN = 4.0   // max zoom out
 
+interface MapLabel {
+  lon: number
+  lat: number
+  text: string
+  textZh?: string
+  type: 'spot' | 'harbour' | 'city'
+  id?: string
+  facing?: string
+  region?: string
+  opt_wind?: string[]
+  opt_swell?: string[]
+}
+
 // Build label list once
-const ALL_LABELS: { lon: number; lat: number; text: string; type: 'spot' | 'harbour' | 'city'; id?: string }[] = [
-  ...SPOTS.map(s => ({ lon: s.lon, lat: s.lat, text: s.name.en, type: 'spot' as const, id: s.id })),
-  ...HARBOURS.map(h => ({ lon: h.lon, lat: h.lat, text: h.name.en, type: 'harbour' as const, id: h.id })),
+const ALL_LABELS: MapLabel[] = [
+  ...SPOTS.map(s => ({
+    lon: s.lon, lat: s.lat, text: s.name.en, textZh: s.name.zh,
+    type: 'spot' as const, id: s.id,
+    facing: s.facing, region: s.region,
+    opt_wind: s.opt_wind, opt_swell: s.opt_swell,
+  })),
+  ...HARBOURS.map(h => ({
+    lon: h.lon, lat: h.lat, text: h.name.en, textZh: h.name.zh,
+    type: 'harbour' as const, id: h.id,
+  })),
   { lon: 121.565, lat: 25.033, text: 'Taipei', type: 'city' },
   { lon: 121.817, lat: 24.760, text: 'Yilan', type: 'city' },
 ]
@@ -26,7 +47,7 @@ const ALL_LABELS: { lon: number; lat: number; text: string; type: 'spot' | 'harb
 interface TooltipData {
   x: number
   y: number
-  label: typeof ALL_LABELS[number]
+  label: MapLabel
 }
 
 /**
@@ -325,17 +346,33 @@ export function ForecastMap() {
       {/* Hover tooltip */}
       {tooltip && (
         <div
-          className="absolute z-30 pointer-events-none px-3 py-2 rounded-lg border text-xs"
+          className="absolute z-30 pointer-events-none px-3 py-2 rounded-lg border text-xs whitespace-nowrap"
           style={{
-            left: Math.min(tooltip.x + 12, (containerRef.current?.clientWidth ?? 300) - 160),
+            left: Math.min(tooltip.x + 12, (containerRef.current?.clientWidth ?? 300) - 200),
             top: tooltip.y - 40,
             background: 'rgba(10, 10, 10, 0.92)',
             borderColor: 'var(--color-border)',
             backdropFilter: 'blur(8px)',
           }}
         >
-          <p className="font-medium text-[var(--color-text-primary)]">{tooltip.label.text}</p>
-          <p className="text-[10px] text-[var(--color-text-muted)] capitalize">{tooltip.label.type}</p>
+          <p className="font-medium text-[var(--color-text-primary)]">
+            {tooltip.label.text}
+            {tooltip.label.textZh && <span className="ml-1.5 text-[var(--color-text-muted)]">{tooltip.label.textZh}</span>}
+          </p>
+          {tooltip.label.type === 'spot' && (
+            <div className="mt-1 space-y-0.5 text-[10px] text-[var(--color-text-muted)]">
+              <p>Facing <span className="text-[var(--color-text-secondary)]">{tooltip.label.facing}</span>
+                {tooltip.label.region && <> &middot; <span className="capitalize">{tooltip.label.region}</span></>}
+              </p>
+              {tooltip.label.opt_wind && <p>Best wind: <span className="text-[var(--color-text-secondary)]">{tooltip.label.opt_wind.join(', ')}</span></p>}
+              {tooltip.label.opt_swell && <p>Best swell: <span className="text-[var(--color-text-secondary)]">{tooltip.label.opt_swell.join(', ')}</span></p>}
+            </div>
+          )}
+          {tooltip.label.type === 'harbour' && (
+            <p className="mt-0.5 text-[10px] text-[var(--color-text-muted)]">
+              {tooltip.label.lat.toFixed(3)}°N, {tooltip.label.lon.toFixed(3)}°E
+            </p>
+          )}
         </div>
       )}
 
