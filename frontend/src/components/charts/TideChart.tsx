@@ -3,28 +3,11 @@ import {
   CartesianGrid, Tooltip, ReferenceLine, ReferenceDot,
 } from 'recharts'
 import type { TidePrediction, TideExtremum } from '@/lib/types'
+import { toCST, toCSTLabel, tickInterval, MultiLineTick } from './chart-utils'
 
 interface TideChartProps {
   predictions: TidePrediction[]
   extrema: TideExtremum[]
-}
-
-function toCST(utc: string): string {
-  const d = new Date(utc)
-  d.setUTCHours(d.getUTCHours() + 8)
-  const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
-  const dd = String(d.getUTCDate()).padStart(2, '0')
-  const hh = String(d.getUTCHours()).padStart(2, '0')
-  return `${mm}/${dd} ${hh}:00`
-}
-
-function toCSTLabel(utc: string): string {
-  const d = new Date(utc)
-  d.setUTCHours(d.getUTCHours() + 8)
-  const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
-  const dd = String(d.getUTCDate()).padStart(2, '0')
-  const hh = String(d.getUTCHours()).padStart(2, '0')
-  return `${mm}/${dd} ${hh}:00 CST`
 }
 
 interface ChartRow {
@@ -41,7 +24,7 @@ function CustomTooltip(props: any) {
       background: '#0a0a0a', border: '1px solid #1a1a1a',
       borderRadius: 8, padding: '8px 12px', fontSize: 12,
     }}>
-      <p style={{ color: '#666666', marginBottom: 4 }}>{props.label}</p>
+      <p style={{ color: '#666666', marginBottom: 4 }}>{props.payload[0]?.payload?.timeLabel}</p>
       {props.payload.map((p: any, i: number) => (
         <p key={i} style={{ color: p.color, margin: 0 }}>
           Height: {typeof p.value === 'number' ? p.value.toFixed(2) : '--'} m
@@ -105,13 +88,14 @@ export function TideChart({ predictions, extrema }: TideChartProps) {
 
   return (
     <ResponsiveContainer width="100%" height={200}>
-      <AreaChart data={chartData} margin={{ top: 16, right: 8, bottom: 0, left: -12 }}>
+      <AreaChart data={chartData} margin={{ top: 16, right: 8, bottom: 16, left: -12 }}>
         <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
         <XAxis
           dataKey="time"
-          tick={{ fill: 'var(--color-text-muted)', fontSize: 10 }}
+          tick={<MultiLineTick />}
           stroke="var(--color-border)"
-          interval="preserveStartEnd"
+          interval={tickInterval(chartData.length)}
+          height={40}
         />
         <YAxis
           tick={{ fill: 'var(--color-text-muted)', fontSize: 10 }}
