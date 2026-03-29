@@ -133,11 +133,11 @@ SPOT_COORDS = [
     {"id": "keelung",     "lat": KEELUNG_LAT, "lon": KEELUNG_LON},
     {"id": "fulong",      "lat": 25.019, "lon": 121.940},
     {"id": "greenbay",    "lat": 25.189, "lon": 121.686},
-    {"id": "jinshan",     "lat": 25.238, "lon": 121.638},
-    {"id": "daxi",        "lat": 24.870, "lon": 121.930},
-    {"id": "wushih",      "lat": 24.862, "lon": 121.921},
-    {"id": "doublelions", "lat": 24.847, "lon": 121.917},
-    {"id": "chousui",     "lat": 24.820, "lon": 121.899},
+    {"id": "jinshan",     "lat": 25.241, "lon": 121.633},
+    {"id": "daxi",        "lat": 24.933, "lon": 121.886},
+    {"id": "wushih",      "lat": 24.871, "lon": 121.837},
+    {"id": "doublelions", "lat": 24.881, "lon": 121.837},
+    {"id": "chousui",     "lat": 24.855, "lon": 121.838},
 ]
 
 # Spot → county mapping (for township forecast endpoint selection)

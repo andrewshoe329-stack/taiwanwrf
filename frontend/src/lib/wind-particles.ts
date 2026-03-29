@@ -286,7 +286,7 @@ export class WindParticleSystem {
 
     if (this.coastline.length > 0) {
       // Fill land polygons first (subtle dark fill, visible even if MapLibre fails)
-      ctx.fillStyle = 'rgba(30, 41, 59, 0.5)'
+      ctx.fillStyle = 'rgba(20, 20, 20, 0.5)'
       for (const ring of this.coastline) {
         ctx.beginPath()
         for (let i = 0; i < ring.length; i++) {

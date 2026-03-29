@@ -393,7 +393,7 @@ export function ForecastMap() {
   }, [grid, index])
 
   return (
-    <div className="relative w-full h-full" style={{ background: '#060918' }}>
+    <div className="relative w-full h-full" style={{ background: '#000000' }}>
       <div ref={containerRef} className="absolute inset-0" />
 
       {/* Hover tooltip */}
