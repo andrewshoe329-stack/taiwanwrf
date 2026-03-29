@@ -93,7 +93,16 @@
     "tide": "潮位",
     "rating_label": "評分",
     "no_data": "尚無預報資料",
-    "coming_soon": "即將推出"
+    "coming_soon": "即將推出",
+    "current_conditions": "目前條件",
+    "offshore": "離岸風",
+    "cross": "側風",
+    "onshore": "向岸風",
+    "nearby": "附近浪點",
+    "live_obs": "即時",
+    "forecast_charts": "預報圖表",
+    "prev_spot": "上一個浪點",
+    "next_spot": "下一個浪點"
   },
   "rating": {
     "firing": "超讚！",
@@ -130,7 +139,10 @@
     "no_models": "無模式資料",
     "by_horizon": "依預報時距",
     "verification": "驗證",
-    "no_accuracy": "無準確度資料"
+    "no_accuracy": "無準確度資料",
+    "wind_comparison": "風速比較",
+    "temp_comparison": "溫度比較",
+    "accuracy_trend": "準確度趨勢（30天）"
   },
   "harbour": {
     "keelung": "基隆"
@@ -145,7 +157,11 @@
     "show_forecast": "顯示預報",
     "hide_forecast": "收起預報",
     "time": "時間",
-    "forecast_timeline": "預報時間軸"
+    "forecast_timeline": "預報時間軸",
+    "sail_decision": "帆船",
+    "tide": "潮汐",
+    "high": "高潮",
+    "low": "低潮"
   },
   "common": {
     "loading": "載入預報資料中...",
@@ -155,6 +171,8 @@
     "refresh": "重新整理",
     "last_updated": "最後更新",
     "data_source": "資料：CWA WRF 3km + ECMWF IFS + WAM",
+    "updated_ago": "{{time}} 前更新",
+    "just_now": "剛剛更新",
     "wind": "風速",
     "temp": "溫度",
     "pressure": "氣壓",

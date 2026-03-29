@@ -39,14 +39,17 @@
   --color-wind-strong: #ffffff;
   --color-wind-gale: #f87171;
 
-  /* Surf ratings — subtle, desaturated */
+  /* Surf ratings — desaturated but distinguishable */
   --color-firing: #f5f5f5;
   --color-firing-bg: #222222;
-  --color-rating-good: #a0a0a0;
-  --color-rating-marginal: #666666;
-  --color-rating-poor: #333333;
-  --color-rating-flat: #1a1a1a;
+  --color-rating-good: #5eead4;
+  --color-rating-marginal: #fbbf24;
+  --color-rating-poor: #78716c;
+  --color-rating-flat: #3f3f46;
   --color-rating-dangerous: #f87171;
+  --color-offshore: #34d399;
+  --color-cross: #fbbf24;
+  --color-onshore: #f87171;
 
   /* Model badge colors — monochrome variants */
   --color-wrf: #f5f5f5;

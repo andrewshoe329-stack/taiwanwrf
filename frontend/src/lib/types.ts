@@ -82,6 +82,10 @@ export interface CwaObs {
     wave_dir?: number
     water_temp_c?: number
   }
+  spot_obs?: Record<string, {
+    station?: { station_id?: string; obs_time?: string; temp_c?: number; wind_kt?: number; wind_dir?: number; distance_km?: number }
+    buoy?: { buoy_id?: string; obs_time?: string; wave_height_m?: number; wave_period_s?: number; distance_km?: number }
+  }>
   warnings?: Array<{
     type: string
     type_en?: string

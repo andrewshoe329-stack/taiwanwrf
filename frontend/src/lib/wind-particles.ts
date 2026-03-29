@@ -299,7 +299,7 @@ export class WindParticleSystem {
       }
 
       // Stroke coastline outline on top
-      ctx.strokeStyle = 'rgba(34, 211, 238, 0.6)'
+      ctx.strokeStyle = 'rgba(200, 200, 200, 0.4)'
       ctx.lineWidth = 1.5
       ctx.lineJoin = 'round'
 
@@ -329,7 +329,7 @@ export class WindParticleSystem {
         ctx.beginPath()
         const dotRadius = label.type === 'city' ? 3 : label.type === 'harbour' ? 4 : 3.5
         ctx.arc(x, y, dotRadius, 0, Math.PI * 2)
-        ctx.fillStyle = label.type === 'harbour' ? '#5b9bd5'
+        ctx.fillStyle = label.type === 'harbour' ? '#cccccc'
           : label.type === 'city' ? '#888'
           : '#e0e0e0'
         ctx.fill()
@@ -341,7 +341,7 @@ export class WindParticleSystem {
         ctx.font = label.type === 'city'
           ? '10px Inter, system-ui, sans-serif'
           : '11px Inter, system-ui, sans-serif'
-        ctx.fillStyle = label.type === 'harbour' ? '#7cb9e8'
+        ctx.fillStyle = label.type === 'harbour' ? '#d0d0d0'
           : label.type === 'city' ? '#999'
           : '#f0f0f0'
         ctx.textAlign = 'left'

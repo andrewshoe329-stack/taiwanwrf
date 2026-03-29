@@ -23,10 +23,10 @@ export const SPOTS: SpotInfo[] = [
   { id: 'greenbay',    name: { en: 'Green Bay',    zh: '翡翠灣' }, lat: 25.189, lon: 121.686, facing: 'NE',    region: 'north',     opt_wind: ['W','SW'],        opt_swell: ['E','NE'] },
   { id: 'jinshan',     name: { en: 'Jinshan',      zh: '金山' },   lat: 25.238, lon: 121.638, facing: 'NE',    region: 'north',     opt_wind: ['S','SW'],        opt_swell: ['N','NNE','NE','E','ESE'] },
   // Northeast
-  { id: 'daxi',        name: { en: 'Daxi',         zh: '大溪' },   lat: 24.870, lon: 121.930, facing: 'SE',    region: 'northeast', opt_wind: ['NW','W'],        opt_swell: ['SE','SSE','S','E'] },
-  { id: 'wushih',      name: { en: 'Wushih',       zh: '烏石' },   lat: 24.862, lon: 121.921, facing: 'E',     region: 'northeast', opt_wind: ['NW','W'],        opt_swell: ['E','SE','SSE'] },
-  { id: 'doublelions', name: { en: 'Double Lions',  zh: '雙獅' },   lat: 24.847, lon: 121.917, facing: 'E',     region: 'northeast', opt_wind: ['W','SW'],        opt_swell: ['ENE','E','SE','SSE'] },
-  { id: 'chousui',     name: { en: 'Chousui',      zh: '臭水' },   lat: 24.820, lon: 121.899, facing: 'E',     region: 'northeast', opt_wind: ['WSW','W'],       opt_swell: ['ENE','E','ESE'] },
+  { id: 'daxi',        name: { en: 'Daxi',         zh: '大溪' },   lat: 24.938, lon: 121.843, facing: 'SE',    region: 'northeast', opt_wind: ['NW','W'],        opt_swell: ['SE','SSE','S','E'] },
+  { id: 'wushih',      name: { en: 'Wushih',       zh: '烏石' },   lat: 24.846, lon: 121.842, facing: 'E',     region: 'northeast', opt_wind: ['NW','W'],        opt_swell: ['E','SE','SSE'] },
+  { id: 'doublelions', name: { en: 'Double Lions',  zh: '雙獅' },   lat: 24.870, lon: 121.843, facing: 'E',     region: 'northeast', opt_wind: ['W','SW'],        opt_swell: ['ENE','E','SE','SSE'] },
+  { id: 'chousui',     name: { en: 'Chousui',      zh: '臭水' },   lat: 24.820, lon: 121.835, facing: 'E',     region: 'northeast', opt_wind: ['WSW','W'],       opt_swell: ['ENE','E','ESE'] },
 ]
 
 export const REGIONS: Region[] = ['north', 'northeast']
