@@ -157,7 +157,8 @@
     "data_source": "資料：CWA WRF 3km + ECMWF IFS + WAM",
     "wind": "風速",
     "temp": "溫度",
-    "pressure": "氣壓"
+    "pressure": "氣壓",
+    "precip": "降水"
   },
   "units": {
     "kt": "節",

@@ -184,7 +184,3 @@ export function PressureChart({ records, timeRange }: ChartProps) {
   )
 }
 
-/** @deprecated Use TempChart and PressureChart separately */
-export function TempPressureChart({ records, timeRange }: ChartProps) {
-  return <TempChart records={records} timeRange={timeRange} />
-}

@@ -93,7 +93,7 @@ export interface CwaObs {
 }
 
 export interface EnsembleData {
-  models: Record<string, { meta: ForecastMeta; records: ForecastRecord[] }>
+  models: Record<string, { meta: ForecastMeta; records?: ForecastRecord[]; record_count?: number }>
   spread: {
     wind_spread_kt?: number
     temp_spread_c?: number

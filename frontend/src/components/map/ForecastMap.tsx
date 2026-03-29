@@ -5,6 +5,7 @@ import { interpolateWindGrid } from '@/lib/interpolate'
 import { useTimeline } from '@/hooks/useTimeline'
 import { useWindGrid, type WindModel } from '@/hooks/useWindGrid'
 import { useForecastData } from '@/hooks/useForecastData'
+import { degToCompass } from '@/lib/forecast-utils'
 import type { SpotRating } from '@/lib/types'
 
 const MODEL_LABELS: Record<WindModel, string> = {
@@ -16,11 +17,6 @@ const MODEL_LABELS: Record<WindModel, string> = {
 // Zoom limits (degrees of longitude span)
 const MIN_LON_SPAN = 0.3   // max zoom in
 const MAX_LON_SPAN = 4.0   // max zoom out
-
-const COMPASS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW']
-function degToCompass(deg: number): string {
-  return COMPASS[Math.round(((deg % 360) + 360) % 360 / 22.5) % 16]
-}
 
 const RATING_COLORS: Record<string, string> = {
   firing: '#22c55e', good: '#3b82f6', marginal: '#eab308',

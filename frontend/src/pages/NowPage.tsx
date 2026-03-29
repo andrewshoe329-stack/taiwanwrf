@@ -3,6 +3,9 @@ import { useTranslation } from 'react-i18next'
 import { useForecastData } from '@/hooks/useForecastData'
 import { useTimeline } from '@/hooks/useTimeline'
 import { TimelineScrubber } from '@/components/timeline/TimelineScrubber'
+import { WeatherWarnings } from '@/components/layout/WeatherWarnings'
+import { LoadingSpinner } from '@/components/layout/LoadingSpinner'
+import { sailDecision, surfDecision } from '@/lib/forecast-utils'
 import type { TimeRange } from '@/components/charts/chart-utils'
 
 const ForecastMap = lazy(() => import('@/components/map/ForecastMap').then(m => ({ default: m.ForecastMap })))
@@ -12,6 +15,7 @@ const WavePeriodChart = lazy(() => import('@/components/charts/WaveChart').then(
 const TideChart = lazy(() => import('@/components/charts/TideChart').then(m => ({ default: m.TideChart })))
 const TempChart = lazy(() => import('@/components/charts/TempPressureChart').then(m => ({ default: m.TempChart })))
 const PressureChart = lazy(() => import('@/components/charts/TempPressureChart').then(m => ({ default: m.PressureChart })))
+const PrecipChart = lazy(() => import('@/components/charts/PrecipChart').then(m => ({ default: m.PrecipChart })))
 
 export function NowPage() {
   const { t, i18n } = useTranslation()
@@ -34,27 +38,15 @@ export function NowPage() {
   // Decision logic
   const windKt = record?.wind_kt ?? 0
   const waveHt = waveRecord?.wave_height ?? 0
+  const sailDec = sailDecision(windKt)
+  const surfDec = surfDecision(waveHt, windKt)
 
-  let sailDecision: 'go' | 'caution' | 'nogo' = 'caution'
-  if (windKt >= 8 && windKt <= 25) sailDecision = 'go'
-  else if (windKt > 35 || windKt < 4) sailDecision = 'nogo'
-
-  let surfDecision: 'go' | 'caution' | 'nogo' = 'caution'
-  if (waveHt >= 0.6 && waveHt <= 2.5 && windKt < 20) surfDecision = 'go'
-  else if (waveHt > 4 || windKt > 30) surfDecision = 'nogo'
-
-  // CWA observed badge
+  // CWA observed badges
   const cwa = data.cwa_obs?.station
+  const buoy = data.cwa_obs?.buoy
 
   if (data.loading) {
-    return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <div className="text-center">
-          <div className="w-5 h-5 border-2 border-[var(--color-text-muted)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-[var(--color-text-muted)] text-xs">{t('common.loading')}</p>
-        </div>
-      </div>
-    )
+    return <LoadingSpinner />
   }
 
   return (
@@ -75,8 +67,8 @@ export function NowPage() {
         <div className="max-w-screen-lg mx-auto px-4 py-3 space-y-2">
           {/* Decisions — fixed-width pills so stats don't jump */}
           <div className="flex items-center gap-2">
-            <DecisionPill label={t('activity.sail')} decision={sailDecision} t={t} />
-            <DecisionPill label={t('activity.surf')} decision={surfDecision} t={t} />
+            <DecisionPill label={t('activity.sail')} decision={sailDec} t={t} />
+            <DecisionPill label={t('activity.surf')} decision={surfDec} t={t} />
           </div>
           {/* Stats — scrollable row */}
           <div className="flex items-center gap-4 overflow-x-auto">
@@ -93,7 +85,8 @@ export function NowPage() {
             {waveRecord && (
               <>
                 <Stat label="Swell" value={`${waveRecord.swell_wave_height?.toFixed(1) ?? '--'}`} unit="m"
-                  detail={`@ ${waveRecord.swell_wave_period?.toFixed(0) ?? '--'}s`} />
+                  detail={`@ ${waveRecord.swell_wave_period?.toFixed(0) ?? '--'}s`}
+                  observed={buoy?.wave_height_m != null ? `${buoy.wave_height_m.toFixed(1)} obs` : undefined} />
                 <Stat label="Wind Sea" value={`${waveRecord.wind_wave_height?.toFixed(1) ?? '--'}`} unit="m" />
               </>
             )}
@@ -103,6 +96,9 @@ export function NowPage() {
 
       {/* Content */}
       <div className="md:px-4 py-4 max-w-screen-lg mx-auto space-y-4">
+        {/* Weather Warnings */}
+        <WeatherWarnings />
+
         {/* AI Summary — collapsible */}
         {data.summary && (() => {
           const lang = i18n.language.startsWith('zh') ? 'zh' : 'en'
@@ -178,6 +174,12 @@ export function NowPage() {
             {data.keelung?.records && (
               <ChartCard title={t('common.pressure')}>
                 <PressureChart records={data.keelung.records} timeRange={timeRange} />
+              </ChartCard>
+            )}
+
+            {data.keelung?.records && (
+              <ChartCard title="Precipitation">
+                <PrecipChart records={data.keelung.records} timeRange={timeRange} />
               </ChartCard>
             )}
           </div>

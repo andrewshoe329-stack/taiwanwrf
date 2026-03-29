@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { useForecastData } from '@/hooks/useForecastData'
+import { LoadingSpinner } from '@/components/layout/LoadingSpinner'
 import type { AccuracyEntry } from '@/lib/types'
 
 /* ── Helpers ─────────────────────────────────────────────────────────────────── */
@@ -29,17 +30,6 @@ function spreadConfidence(
 }
 
 /* ── Sub-components ──────────────────────────────────────────────────────────── */
-
-function LoadingSpinner({ message }: { message: string }) {
-  return (
-    <div className="flex items-center justify-center h-[60vh]">
-      <div className="text-center">
-        <div className="w-5 h-5 border-2 border-[var(--color-text-muted)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-        <p className="text-[var(--color-text-muted)] text-xs">{message}</p>
-      </div>
-    </div>
-  )
-}
 
 function ModelCard({
   modelKey,
@@ -275,7 +265,7 @@ export function ModelsPage() {
   const data = useForecastData()
 
   if (data.loading) {
-    return <LoadingSpinner message={t('common.loading', 'Loading...')} />
+    return <LoadingSpinner />
   }
 
   const ensemble = data.ensemble
@@ -315,7 +305,7 @@ export function ModelsPage() {
       const model = ensemble.models[key]
       modelEntries.push({
         key,
-        recordCount: model.records?.length ?? 0,
+        recordCount: model.record_count ?? model.records?.length ?? 0,
         initUtc: model.meta?.init_utc,
       })
     }

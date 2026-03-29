@@ -5,19 +5,13 @@
 
 import { useTranslation } from 'react-i18next'
 import type { SpotRating, SpotInfo } from '@/lib/types'
+import { degToCompass } from '@/lib/forecast-utils'
 
 const DIR_ANGLES: Record<string, number> = {
   N: 0, NNE: 22.5, NE: 45, ENE: 67.5,
   E: 90, ESE: 112.5, SE: 135, SSE: 157.5,
   S: 180, SSW: 202.5, SW: 225, WSW: 247.5,
   W: 270, WNW: 292.5, NW: 315, NNW: 337.5,
-}
-
-function degToCompass(deg: number): string {
-  const dirs = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
-    'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW']
-  const idx = Math.round(deg / 22.5) % 16
-  return dirs[idx]
 }
 
 /** Circular distance between two angles in degrees */

@@ -233,7 +233,11 @@ def _fetch_ensemble_for_point(lat: float, lon: float, label: str,
         if not records:
             continue
         human_key = API_TO_HUMAN.get(model_key, model_key)
-        models_data[human_key] = {"meta": meta, "records": records}
+        # Store meta + record count only (records used for stats then discarded)
+        models_data[human_key] = {
+            "meta": meta,
+            "record_count": len(records),
+        }
         all_model_records[human_key] = records
 
     if ecmwf_recs:
@@ -287,8 +291,8 @@ def main() -> None:
         sys.exit(1)
 
     for mk in output.get("models", {}):
-        recs = output["models"][mk].get("records", [])
-        log.info("  %s: %d records", mk, len(recs))
+        rc = output["models"][mk].get("record_count", 0)
+        log.info("  %s: %d records", mk, rc)
     log.info("Ensemble spread: %s", output.get("spread", {}))
 
     Path(args.output).write_text(json.dumps(output, indent=2))

@@ -4,79 +4,10 @@ import { SPOTS } from '@/lib/constants'
 import { useForecastData } from '@/hooks/useForecastData'
 import { SwellCompass } from '@/components/spots/SwellCompass'
 import { ScoreBreakdown } from '@/components/spots/ScoreBreakdown'
-import type { SpotRating } from '@/lib/types'
-
-function toCST(utc: string): Date {
-  const d = new Date(utc)
-  d.setUTCHours(d.getUTCHours() + 8)
-  return d
-}
-
-function formatTimeCst(utc: string): string {
-  const d = toCST(utc)
-  const hh = String(d.getUTCHours()).padStart(2, '0')
-  return `${hh}:00`
-}
-
-function formatDayHeader(utc: string): string {
-  const d = toCST(utc)
-  const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-  const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
-  const dd = String(d.getUTCDate()).padStart(2, '0')
-  return `${weekdays[d.getUTCDay()]} ${mm}/${dd}`
-}
-
-function getCstDayKey(utc: string): string {
-  const d = toCST(utc)
-  return `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`
-}
-
-function degToCompass(deg: number): string {
-  const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW']
-  return dirs[Math.round(deg / 22.5) % 16]
-}
-
-function ratingColor(rating: string): string {
-  const map: Record<string, string> = {
-    firing:    'text-[var(--color-firing)]',
-    good:      'text-[var(--color-rating-good)]',
-    marginal:  'text-[var(--color-rating-marginal)]',
-    poor:      'text-[var(--color-rating-poor)]',
-    flat:      'text-[var(--color-text-dim)]',
-    dangerous: 'text-[var(--color-rating-dangerous)]',
-  }
-  return map[rating] ?? 'text-[var(--color-text-dim)]'
-}
-
-function isCurrentTimestep(utc: string, allUtcs: string[]): boolean {
-  const now = Date.now()
-  let closest = 0
-  let closestDiff = Infinity
-  for (let i = 0; i < allUtcs.length; i++) {
-    const t = new Date(allUtcs[i]).getTime()
-    const diff = now - t
-    if (diff >= 0 && diff < closestDiff) {
-      closestDiff = diff
-      closest = i
-    }
-  }
-  return allUtcs[closest] === utc
-}
-
-/** Group ratings by CST day. */
-function groupRatingsByDay(ratings: SpotRating[]): Array<{ dayKey: string; dayLabel: string; ratings: SpotRating[] }> {
-  const groups: Array<{ dayKey: string; dayLabel: string; ratings: SpotRating[] }> = []
-  let currentKey = ''
-  for (const r of ratings) {
-    const key = getCstDayKey(r.valid_utc)
-    if (key !== currentKey) {
-      currentKey = key
-      groups.push({ dayKey: key, dayLabel: formatDayHeader(r.valid_utc), ratings: [] })
-    }
-    groups[groups.length - 1].ratings.push(r)
-  }
-  return groups
-}
+import {
+  degToCompass, formatTimeCst, isCurrentTimestep,
+  ratingColorClass, groupByDay,
+} from '@/lib/forecast-utils'
 
 export function SpotDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -108,7 +39,7 @@ export function SpotDetailPage() {
   const currentRating = spotForecast?.ratings?.[0] ?? undefined
 
   // Group ratings by day for hourly forecast table
-  const dayGroups = spotForecast?.ratings ? groupRatingsByDay(spotForecast.ratings) : []
+  const dayGroups = spotForecast?.ratings ? groupByDay(spotForecast.ratings) : []
   const allUtcs = spotForecast?.ratings?.map(r => r.valid_utc) ?? []
 
   return (
@@ -184,7 +115,7 @@ export function SpotDetailPage() {
                     <span className="text-xs text-[var(--color-text-primary)] font-medium tabular-nums">
                       {bt.start_cst} – {bt.end_cst} CST
                     </span>
-                    <span className={`text-[10px] font-medium ${ratingColor(bt.rating)}`}>
+                    <span className={`text-[10px] font-medium ${ratingColorClass(bt.rating)}`}>
                       {t(`rating.${bt.rating}`)}
                     </span>
                   </div>
@@ -223,7 +154,7 @@ export function SpotDetailPage() {
                       </span>
                     </td>
                   </tr>
-                  {group.ratings.map(r => {
+                  {group.items.map(r => {
                     const isCurrent = isCurrentTimestep(r.valid_utc, allUtcs)
                     return (
                       <tr
@@ -282,7 +213,7 @@ export function SpotDetailPage() {
                           ) : '--'}
                         </td>
                         <td className="text-right py-1.5 pl-2">
-                          <span className={`text-[10px] font-medium ${ratingColor(r.rating)}`}>
+                          <span className={`text-[10px] font-medium ${ratingColorClass(r.rating)}`}>
                             {t(`rating.${r.rating}`)}
                           </span>
                           <span className="text-[var(--color-text-dim)] ml-1 text-[10px]">{r.score}/14</span>
@@ -352,25 +283,15 @@ function InfoItem({ label, value }: { label: string; value: string }) {
 }
 
 function DayCard({ date, rating, score, t }: { date: string; rating: string; score: number; t: (key: string) => string }) {
-  // Format date to short weekday
   const d = new Date(date + 'T00:00:00Z')
   const weekday = d.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' })
   const dayNum = d.getUTCDate()
-
-  const ratingColor: Record<string, string> = {
-    firing:    'text-[var(--color-firing)]',
-    good:      'text-[var(--color-rating-good)]',
-    marginal:  'text-[var(--color-rating-marginal)]',
-    poor:      'text-[var(--color-rating-poor)]',
-    flat:      'text-[var(--color-text-dim)]',
-    dangerous: 'text-[var(--color-rating-dangerous)]',
-  }
 
   return (
     <div className="flex flex-col items-center gap-1 py-2">
       <span className="text-[10px] text-[var(--color-text-muted)]">{weekday}</span>
       <span className="text-xs text-[var(--color-text-secondary)]">{dayNum}</span>
-      <span className={`text-[10px] font-medium mt-1 ${ratingColor[rating] ?? 'text-[var(--color-text-dim)]'}`}>
+      <span className={`text-[10px] font-medium mt-1 ${ratingColorClass(rating)}`}>
         {t(`rating.${rating}`)}
       </span>
       <span className="text-[10px] text-[var(--color-text-dim)]">{score}/14</span>
