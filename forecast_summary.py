@@ -37,9 +37,11 @@ Rules:
 - Write your response in TWO halves, separated by a line containing only "---".
 - Half 1: English forecast. Half 2: Same in natural Traditional Chinese.
 - Each half has exactly 3 labelled sections:
-  [WIND] 1-3 sentences about wind & sailing conditions.
-  [WAVES] 1-3 sentences about swell, surf, and sea state.
-  [OUTLOOK] 1-3 sentences: overall outlook, best days/windows, hazards.
+  [WIND] 1-2 sentences about wind & sailing conditions.
+  [WAVES] 1-2 sentences about swell, surf, and sea state.
+  [OUTLOOK] 1-2 sentences: overall outlook, best days/windows, hazards.
+- Keep it SHORT and punchy. Each section should be 1-2 sentences max. \
+Avoid filler words. Lead with the key number or action item.
 - Example format (English half):
   [WIND] Moderate NE flow at 12-15kt through Wednesday...
   [WAVES] NE swell building to 1.5m with 10s period...
@@ -436,7 +438,7 @@ def call_api(user_prompt: str) -> str:
         try:
             msg = client.messages.create(
                 model='claude-sonnet-4-6',
-                max_tokens=1200,
+                max_tokens=800,
                 system=SYSTEM_PROMPT,
                 messages=[{'role': 'user', 'content': user_prompt}],
             )

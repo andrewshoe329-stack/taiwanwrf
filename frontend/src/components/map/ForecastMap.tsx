@@ -6,7 +6,7 @@ import { useTimeline } from '@/hooks/useTimeline'
 import { useWindGrid, type WindModel } from '@/hooks/useWindGrid'
 import { useForecastData } from '@/hooks/useForecastData'
 import { degToCompass } from '@/lib/forecast-utils'
-import type { SpotRating } from '@/lib/types'
+import type { SpotRating, WaveRecord } from '@/lib/types'
 
 const MODEL_LABELS: Record<WindModel, string> = {
   wrf: 'WRF 3km',
@@ -16,7 +16,7 @@ const MODEL_LABELS: Record<WindModel, string> = {
 
 // Zoom limits (degrees of longitude span)
 const MIN_LON_SPAN = 0.3   // max zoom in
-const MAX_LON_SPAN = 4.0   // max zoom out
+const MAX_LON_SPAN = TAIWAN_BBOX.lon_max - TAIWAN_BBOX.lon_min  // max zoom out = initial view
 
 const RATING_COLORS: Record<string, string> = {
   firing: '#22c55e', good: '#3b82f6', marginal: '#eab308',
@@ -101,8 +101,23 @@ export function ForecastMap() {
   // Keelung harbour weather from the main forecast
   const harbourWeather = data.keelung?.records?.[index]
 
+  // Closest wave record for harbour tooltip
+  const harbourWave = useMemo(() => {
+    if (!currentUtc) return undefined
+    const recs = data.wave?.ecmwf_wave?.records
+    if (!recs?.length) return undefined
+    const targetMs = new Date(currentUtc).getTime()
+    let best: WaveRecord | undefined
+    let bestDiff = Infinity
+    for (const r of recs) {
+      const diff = Math.abs(new Date(r.valid_utc).getTime() - targetMs)
+      if (diff < bestDiff) { bestDiff = diff; best = r }
+    }
+    return best
+  }, [currentUtc, data.wave])
+
   const updateBounds = useCallback((west: number, south: number, east: number, north: number) => {
-    // Clamp zoom
+    // Clamp zoom span
     let lonSpan = east - west
     let latSpan = north - south
     const aspect = latSpan / lonSpan
@@ -117,13 +132,25 @@ export function ForecastMap() {
       north = (south + north) / 2 + latSpan / 2
     }
     if (lonSpan > MAX_LON_SPAN) {
-      const center = (west + east) / 2
-      lonSpan = MAX_LON_SPAN
-      latSpan = lonSpan * aspect
-      west = center - lonSpan / 2
-      east = center + lonSpan / 2
-      south = (south + north) / 2 - latSpan / 2
-      north = (south + north) / 2 + latSpan / 2
+      // At max zoom out, snap to initial TAIWAN_BBOX
+      west = TAIWAN_BBOX.lon_min
+      east = TAIWAN_BBOX.lon_max
+      south = TAIWAN_BBOX.lat_min
+      north = TAIWAN_BBOX.lat_max
+    }
+
+    // Clamp pan to stay within TAIWAN_BBOX
+    const bboxLon = TAIWAN_BBOX.lon_max - TAIWAN_BBOX.lon_min
+    const bboxLat = TAIWAN_BBOX.lat_max - TAIWAN_BBOX.lat_min
+    lonSpan = east - west
+    latSpan = north - south
+    if (lonSpan <= bboxLon) {
+      if (west < TAIWAN_BBOX.lon_min) { west = TAIWAN_BBOX.lon_min; east = west + lonSpan }
+      if (east > TAIWAN_BBOX.lon_max) { east = TAIWAN_BBOX.lon_max; west = east - lonSpan }
+    }
+    if (latSpan <= bboxLat) {
+      if (south < TAIWAN_BBOX.lat_min) { south = TAIWAN_BBOX.lat_min; north = south + latSpan }
+      if (north > TAIWAN_BBOX.lat_max) { north = TAIWAN_BBOX.lat_max; south = north - latSpan }
     }
 
     boundsRef.current = { west, south, east, north }
@@ -141,11 +168,11 @@ export function ForecastMap() {
 
     const ps = new WindParticleSystem({
       canvas,
-      count: window.innerWidth < 768 ? 2000 : 4000,
+      count: window.innerWidth < 768 ? 1200 : 2500,
       maxAge: 80,
-      speedFactor: 0.3,
-      lineWidth: 1.2,
-      fadeFactor: 0.97,
+      speedFactor: 0.18,
+      lineWidth: 0.8,
+      fadeFactor: 0.95,
     })
     particlesRef.current = ps
 
@@ -405,6 +432,11 @@ export function ForecastMap() {
                   {sw.swell_period != null && <span className="ml-1">{sw.swell_period.toFixed(0)}s</span>}
                   {sw.swell_dir != null && <span className="ml-0.5">{degToCompass(sw.swell_dir)}</span>}
                 </p>
+                {sw.tide_height != null && (
+                  <p className="text-[var(--color-text-muted)]">
+                    Tide <span className="text-[var(--color-text-secondary)]">{sw.tide_height.toFixed(1)}m</span>
+                  </p>
+                )}
               </div>
             )}
             {tooltip.label.type === 'spot' && !sw && (
@@ -417,9 +449,21 @@ export function ForecastMap() {
                   {hw.wind_dir != null && <span className="ml-0.5">{degToCompass(hw.wind_dir)}</span>}
                   {hw.gust_kt != null && <span className="ml-1">G{hw.gust_kt.toFixed(0)}</span>}
                 </p>
+                {harbourWave && harbourWave.swell_wave_height != null && (
+                  <p className="text-[var(--color-text-muted)]">
+                    Swell <span className="text-[var(--color-text-secondary)]">{harbourWave.swell_wave_height.toFixed(1)}m</span>
+                    {harbourWave.swell_wave_period != null && <span className="ml-1">{harbourWave.swell_wave_period.toFixed(0)}s</span>}
+                    {harbourWave.swell_wave_direction != null && <span className="ml-0.5">{degToCompass(harbourWave.swell_wave_direction)}</span>}
+                  </p>
+                )}
                 {hw.temp_c != null && (
                   <p className="text-[var(--color-text-muted)]">
                     Temp <span className="text-[var(--color-text-secondary)]">{hw.temp_c.toFixed(1)}°C</span>
+                  </p>
+                )}
+                {hw.precip_mm_6h != null && hw.precip_mm_6h > 0 && (
+                  <p className="text-[var(--color-text-muted)]">
+                    Precip <span className="text-[var(--color-text-secondary)]">{hw.precip_mm_6h.toFixed(1)}mm</span> /6h
                   </p>
                 )}
                 {hw.mslp_hpa != null && (

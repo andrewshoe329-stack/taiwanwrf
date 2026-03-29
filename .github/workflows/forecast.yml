@@ -102,6 +102,7 @@ jobs:
         timeout-minutes: 3
         env:
           CWA_OPENDATA_KEY: ${{ secrets.CWA_OPENDATA_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           if [ -n "$CWA_OPENDATA_KEY" ]; then
             python cwa_fetch.py --output cwa_obs.json
