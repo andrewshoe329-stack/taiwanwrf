@@ -8,10 +8,12 @@ function formatTime(utc: string): string {
   return `${((h + 24) % 24).toString().padStart(2, '0')}:00`
 }
 
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
 function formatDate(utc: string): string {
   const d = new Date(utc)
   d.setUTCHours(d.getUTCHours() + 8)
-  return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`
+  return `${DAY_NAMES[d.getUTCDay()]} ${d.getUTCMonth() + 1}/${d.getUTCDate()}`
 }
 
 export function TimelineScrubber() {

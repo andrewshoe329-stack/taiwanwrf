@@ -42,6 +42,7 @@ export class WindParticleSystem {
   private grid: WindGrid | null = null
   private animId: number | null = null
   private running = false
+  private offscreen: HTMLCanvasElement | null = null
   private coastline: [number, number][][] = []  // array of rings, each ring is [lon, lat][]
   private labels: { lon: number; lat: number; text: string; type: 'spot' | 'harbour' | 'city' }[] = []
 
@@ -172,13 +173,25 @@ export class WindParticleSystem {
     const w = this.canvas.width
     const h = this.canvas.height
 
-    // Fade trails: remove a small fraction of alpha each frame.
-    // destination-out subtracts source alpha from existing pixels,
-    // so empty areas stay transparent and trails gradually disappear.
-    ctx.globalCompositeOperation = 'destination-out'
-    ctx.fillStyle = `rgba(0, 0, 0, ${1 - this.fadeFactor})`
-    ctx.fillRect(0, 0, w, h)
-    ctx.globalCompositeOperation = 'source-over'
+    // Fade trails using offscreen canvas to avoid destination-out compositing
+    // bugs that can make the canvas appear opaque/black in some browsers.
+    if (!this.offscreen) {
+      this.offscreen = document.createElement('canvas')
+    }
+    const off = this.offscreen
+    if (off.width !== w || off.height !== h) {
+      off.width = w
+      off.height = h
+    }
+    const offCtx = off.getContext('2d')
+    if (offCtx) {
+      offCtx.clearRect(0, 0, w, h)
+      offCtx.drawImage(this.canvas, 0, 0)
+    }
+    ctx.clearRect(0, 0, w, h)
+    ctx.globalAlpha = this.fadeFactor
+    ctx.drawImage(off, 0, 0)
+    ctx.globalAlpha = 1.0
 
     ctx.lineWidth = this.lineWidth
     ctx.lineCap = 'round'
