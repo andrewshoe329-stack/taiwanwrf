@@ -56,8 +56,20 @@ TOWNSHIP_FORECAST_ENDPOINTS = {
     "新北市": "F-D0047-069",   # New Taipei (Fulong, Green Bay, Jinshan)
     "宜蘭縣": "F-D0047-001",   # Yilan (Daxi, Wushih, Double Lions, Chousui)
 }
+# 1-week versions (12h periods, UV index, comfort index)
+TOWNSHIP_FORECAST_WEEK_ENDPOINTS = {
+    "基隆市": "F-D0047-051",
+    "新北市": "F-D0047-071",
+    "宜蘭縣": "F-D0047-003",
+}
 # Weather warnings & advisories
 WARNING_ENDPOINT = "W-C0033-002"
+# Specialized CAP-format warnings (township-level severity)
+RAIN_WARNING_ENDPOINT = "W-C0033-003"      # 豪大雨特報
+COLD_WARNING_ENDPOINT = "W-C0033-004"      # 低溫特報
+HEAT_WARNING_ENDPOINT = "W-C0033-005"      # 高溫資訊
+# Counties we care about for warnings
+WARNING_COUNTIES = "基隆市,新北市,宜蘭縣"
 
 # Keelung station ID (CWA conventional station)
 KEELUNG_STATION_ID = "466940"
@@ -980,6 +992,78 @@ def fetch_warnings(api_key: str) -> list[dict]:
         return []
 
 
+def fetch_specialized_warnings(api_key: str) -> list[dict]:
+    """Fetch CAP-format specialized warnings (rain, heat, cold) for our counties.
+
+    Returns list of dicts with severity_level, type, area, expires.
+    These are more granular than W-C0033-002 (township-level severity grading).
+    """
+    results = []
+    endpoints = [
+        (RAIN_WARNING_ENDPOINT, "rain"),
+        (HEAT_WARNING_ENDPOINT, "heat"),
+        (COLD_WARNING_ENDPOINT, "cold"),
+    ]
+
+    for endpoint, wtype in endpoints:
+        data = _cwa_get(
+            endpoint, api_key,
+            params={"CountyName": WARNING_COUNTIES, "expires": "true"},
+            label=f"CWA-{wtype}-warning",
+        )
+        if not data:
+            continue
+
+        try:
+            records = data.get("records") or data.get("Records") or {}
+            # CAP format: records may have "record" or direct alert structure
+            alerts = records.get("record", [])
+            if isinstance(alerts, dict):
+                alerts = [alerts]
+
+            for alert in alerts:
+                info = alert.get("info", {})
+                if isinstance(info, list):
+                    info = info[0] if info else {}
+                if not isinstance(info, dict):
+                    continue
+
+                event = info.get("event", "")
+                headline = info.get("headline", "")
+                desc = info.get("description", "")
+
+                # Extract severity level from parameter
+                params = info.get("parameter", [])
+                severity_level = ""
+                for p in (params if isinstance(params, list) else [params]):
+                    if isinstance(p, dict) and p.get("valueName") == "severity_level":
+                        severity_level = p.get("value", "")
+
+                # Extract affected areas
+                areas = info.get("area", [])
+                area_names = []
+                for a in (areas if isinstance(areas, list) else [areas]):
+                    if isinstance(a, dict):
+                        area_names.append(a.get("areaDesc", ""))
+
+                results.append({
+                    "type": wtype,
+                    "event": event,
+                    "headline": headline,
+                    "severity_level": severity_level,
+                    "area": ", ".join(area_names),
+                    "description": desc[:300] if desc else "",
+                    "expires_utc": norm_utc(info.get("expires", "")) if info.get("expires") else None,
+                })
+
+        except Exception as e:
+            log.warning("Failed to parse %s warnings: %s", wtype, e)
+
+    if results:
+        log.info("Specialized warnings: %d active (rain/heat/cold)", len(results))
+    return results
+
+
 _WARNING_TYPE_MAP = {
     '大雨特報': 'Heavy Rain Advisory',
     '豪雨特報': 'Torrential Rain Warning',
@@ -1250,6 +1334,29 @@ def _fetch_township_forecasts(api_key: str) -> dict:
     return results
 
 
+def _fetch_township_forecasts_week(api_key: str) -> dict:
+    """Fetch 1-week township forecasts (12h periods, UV, comfort).
+
+    Returns dict keyed by county name → forecast dict.
+    """
+    results = {}
+
+    def _fetch_one(county, endpoint):
+        return county, fetch_township_forecast(api_key, endpoint=endpoint)
+
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        futures = [pool.submit(_fetch_one, c, e)
+                   for c, e in TOWNSHIP_FORECAST_WEEK_ENDPOINTS.items()]
+        for fut in as_completed(futures):
+            try:
+                county, fc = fut.result()
+                if fc:
+                    results[county] = fc
+            except Exception as e:
+                log.warning("Failed to fetch 1-week township forecast: %s", e)
+    return results
+
+
 # ── Combined fetch (for pipeline use) ────────────────────────────────────────
 
 def fetch_all(api_key: str) -> dict:
@@ -1291,19 +1398,23 @@ def fetch_all(api_key: str) -> dict:
         return fetch_warnings(api_key)
     def _f_townships():
         return _fetch_township_forecasts(api_key)
+    def _f_townships_week():
+        return _fetch_township_forecasts_week(api_key)
 
-    with ThreadPoolExecutor(max_workers=5) as pool:
+    with ThreadPoolExecutor(max_workers=6) as pool:
         fut_station = pool.submit(_f_station)
         fut_marine = pool.submit(_f_marine)
         fut_tide_fc = pool.submit(_f_tide_fc)
         fut_warnings = pool.submit(_f_warnings)
         fut_townships = pool.submit(_f_townships)
+        fut_townships_week = pool.submit(_f_townships_week)
 
         station = fut_station.result()
         marine_stations = fut_marine.result() or []
         tide_forecast_multi = fut_tide_fc.result() or {}
         warnings_result = fut_warnings.result() or []
         township_forecasts = fut_townships.result() or {}
+        township_forecasts_week = fut_townships_week.result() or {}
 
     all_buoys = fetch_all_buoys(api_key, _stations=marine_stations)
     tide = fetch_tide_obs(api_key, _stations=marine_stations)
@@ -1354,8 +1465,10 @@ def fetch_all(api_key: str) -> dict:
         "tide_forecast_stations": tide_forecast_multi,
         "township_forecast": township,
         "township_forecasts": township_forecasts,
+        "township_forecasts_week": township_forecasts_week,
         "spot_obs": spot_obs,
         "warnings": warnings_result,
+        "specialized_warnings": fetch_specialized_warnings(api_key),
     }
 
 

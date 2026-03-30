@@ -334,11 +334,37 @@ export default async function handler(req, res) {
 
     const spots = buildSpotObs(marineObs, weatherObs)
 
+    // Fetch sunrise/sunset for today (A-B0062-001)
+    const today = new Date().toISOString().slice(0, 10)
+    const sunData = await fetchCwa('A-B0062-001', {
+      CountyName: '基隆市',
+      Date: today,
+      parameter: 'SunRiseTime,SunSetTime,BeginCivilTwilightTime,EndCivilTwilightTime',
+    }).catch(() => null)
+
+    let sun = null
+    if (sunData) {
+      try {
+        const records = sunData.records || sunData.Records || {}
+        const locations = records.locations?.location || records.Location || []
+        const loc = Array.isArray(locations) ? locations[0] : locations
+        const timeData = loc?.time?.[0] || {}
+        sun = {
+          civil_twilight_start: timeData.BeginCivilTwilightTime || timeData.parameter?.find?.(p => p.parameterName === 'BeginCivilTwilightTime')?.parameterValue,
+          sunrise: timeData.SunRiseTime || timeData.parameter?.find?.(p => p.parameterName === 'SunRiseTime')?.parameterValue,
+          sunset: timeData.SunSetTime || timeData.parameter?.find?.(p => p.parameterName === 'SunSetTime')?.parameterValue,
+          civil_twilight_end: timeData.EndCivilTwilightTime || timeData.parameter?.find?.(p => p.parameterName === 'EndCivilTwilightTime')?.parameterValue,
+          date: today,
+        }
+      } catch { /* ignore parse errors */ }
+    }
+
     const result = {
       fetched_utc: new Date().toISOString(),
       spots,
       marine_stations: marineObs,
       weather_stations: weatherObs,
+      sun,
     }
 
     // Cache at edge for 5 minutes, stale-while-revalidate for 15 min
