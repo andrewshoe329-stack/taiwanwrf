@@ -205,7 +205,19 @@ Records.SeaSurfaceObs.Location[] → [{
 
 ### O-B0075-002 — 海象監測 30天 (Marine obs, 30-day window)
 
-**Purpose:** Same as O-B0075-001 but 30-day history. Not currently used.
+**Purpose:** Same structure as O-B0075-001 but covers 30-day history. Useful for accuracy tracking.
+
+**Not currently used.** Could supplement `accuracy_track.py` with longer observation history.
+
+**Query Parameters:** Same as O-B0075-001 (`StationID`, `WeatherElement`, `sort`, `DataTime`, `timeFrom`, `timeTo`).
+
+**Key difference from O-B0075-001:** The `timeFrom`/`timeTo` window is limited to **24 hours per request** even though 30 days of data is available. To get the full 30-day history, you must make multiple requests with sliding 24h windows.
+
+- If neither `timeFrom` nor `timeTo` is set: returns the **earliest** 24h of data (not latest!)
+- `timeFrom` alone: returns 24h starting from `timeFrom`
+- `timeTo` alone: returns 24h ending at `timeTo`
+- Both: returns from `timeFrom` to `timeTo`, capped at 24h
+- `DataTime` overrides `timeFrom`/`timeTo`
 
 ---
 
