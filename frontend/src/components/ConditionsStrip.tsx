@@ -5,7 +5,6 @@ import { useTimeline } from '@/hooks/useTimeline'
 import { useModel } from '@/hooks/useModel'
 import { useLocation } from '@/hooks/useLocation'
 import { degToCompass, getModelRecords } from '@/lib/forecast-utils'
-import { DataFreshness } from '@/components/layout/DataFreshness'
 
 function Stat({ label, value, unit, detail }: {
   label: string; value: string; unit: string; detail?: string
@@ -57,48 +56,43 @@ export function ConditionsStrip() {
   const cols = 2 + (hasSwell ? 1 : 0) + (hasWave ? 1 : 0) + (hasPrecip ? 1 : 0)
 
   return (
-    <div className="space-y-1.5">
-      <div
-        className="grid gap-2 py-1.5"
-        style={{ gridTemplateColumns: `repeat(${Math.min(cols, 5)}, 1fr)` }}
-      >
+    <div
+      className="grid gap-2 py-1.5"
+      style={{ gridTemplateColumns: `repeat(${Math.min(cols, 5)}, 1fr)` }}
+    >
+      <Stat
+        label={t('common.wind')}
+        value={rec.wind_kt?.toFixed(0) ?? '--'}
+        unit="kt"
+        detail={rec.wind_dir != null ? degToCompass(rec.wind_dir) + (rec.gust_kt ? ` G${rec.gust_kt.toFixed(0)}` : '') : undefined}
+      />
+      {hasSwell && (
         <Stat
-          label={t('common.wind')}
-          value={rec.wind_kt?.toFixed(0) ?? '--'}
-          unit="kt"
-          detail={rec.wind_dir != null ? degToCompass(rec.wind_dir) + (rec.gust_kt ? ` G${rec.gust_kt.toFixed(0)}` : '') : undefined}
+          label={t('common.swell')}
+          value={swellH!.toFixed(1)}
+          unit="m"
+          detail={`${swellP?.toFixed(0) ?? '--'}s${swellDir != null ? ' ' + degToCompass(swellDir) : ''}`}
         />
-        {hasSwell && (
-          <Stat
-            label={t('common.swell')}
-            value={swellH!.toFixed(1)}
-            unit="m"
-            detail={`${swellP?.toFixed(0) ?? '--'}s${swellDir != null ? ' ' + degToCompass(swellDir) : ''}`}
-          />
-        )}
-        {hasWave && (
-          <Stat
-            label={t('common.wave_height')}
-            value={waveRec!.wave_height!.toFixed(1)}
-            unit="m"
-          />
-        )}
+      )}
+      {hasWave && (
         <Stat
-          label={t('common.temp')}
-          value={rec.temp_c?.toFixed(0) ?? '--'}
-          unit="\u00B0C"
+          label={t('common.wave_height')}
+          value={waveRec!.wave_height!.toFixed(1)}
+          unit="m"
         />
-        {hasPrecip && (
-          <Stat
-            label={t('common.precip')}
-            value={rec.precip_mm_6h!.toFixed(1)}
-            unit="mm"
-          />
-        )}
-      </div>
-      <div className="flex justify-end">
-        <DataFreshness />
-      </div>
+      )}
+      <Stat
+        label={t('common.temp')}
+        value={rec.temp_c?.toFixed(0) ?? '--'}
+        unit="\u00B0C"
+      />
+      {hasPrecip && (
+        <Stat
+          label={t('common.precip')}
+          value={rec.precip_mm_6h!.toFixed(1)}
+          unit="mm"
+        />
+      )}
     </div>
   )
 }

@@ -94,7 +94,7 @@ export function NowPage() {
     <>
       {/* Selected spot detail */}
       {isSpotSelected && spotInfo && (
-        <section className="space-y-3 px-3 py-3">
+        <section className="space-y-3 md:px-3 py-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
               {spotInfo.name[lang]}
@@ -167,7 +167,7 @@ export function NowPage() {
 
       {/* Harbour selected */}
       {locationId === 'keelung' && (
-        <section className="px-3 py-3">
+        <section className="md:px-3 py-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
               {t('harbour.keelung')}
@@ -187,7 +187,7 @@ export function NowPage() {
 
       {/* AI Summary */}
       {data.summary && (
-        <div className="mx-3 border border-[var(--color-border)] rounded-xl overflow-hidden">
+        <div className="md:mx-3 border border-[var(--color-border)] rounded-xl overflow-hidden">
           <button
             onClick={() => setAiExpanded(!aiExpanded)}
             className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-[var(--color-bg-elevated)]/50 transition-colors"
