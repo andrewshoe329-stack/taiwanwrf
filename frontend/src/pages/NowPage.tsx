@@ -1,5 +1,6 @@
-import { lazy, Suspense, useMemo, useState } from 'react'
+import { lazy, Suspense, useMemo, useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useSearchParams } from 'react-router-dom'
 import { SPOTS } from '@/lib/constants'
 import { useForecastData } from '@/hooks/useForecastData'
 import { useTimeline } from '@/hooks/useTimeline'
@@ -7,6 +8,7 @@ import { useModel, type WindModel } from '@/hooks/useModel'
 import { useLocation } from '@/hooks/useLocation'
 import { TimelineScrubber } from '@/components/timeline/TimelineScrubber'
 import { WeatherWarnings } from '@/components/layout/WeatherWarnings'
+import { DataFreshness } from '@/components/layout/DataFreshness'
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner'
 import { SurfHeatmap } from '@/components/spots/SurfHeatmap'
 import { SwellCompass } from '@/components/spots/SwellCompass'
@@ -45,6 +47,21 @@ export function NowPage() {
   const { locationId, setLocationId } = useLocation()
 
   const [aiExpanded, setAiExpanded] = useState(false)
+  const [searchParams] = useSearchParams()
+  const spotsViewActive = searchParams.get('view') === 'spots'
+  const spotsSectionRef = useRef<HTMLDivElement>(null)
+
+  // When Spots tab is active, clear focus mode and scroll to spots
+  useEffect(() => {
+    if (spotsViewActive) {
+      setLocationId(null)
+      // Small delay to let layout settle after clearing focus
+      const timer = setTimeout(() => {
+        spotsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [spotsViewActive, setLocationId])
 
   // Determine if we're in focus mode
   const isFocusMode = locationId != null
@@ -205,6 +222,7 @@ export function NowPage() {
           <div className="flex items-center gap-2">
             {(isHarbour || !isFocusMode) && <DecisionPill label={t('activity.sail')} decision={sailDec} t={t} />}
             {(!isHarbour || !isFocusMode) && <DecisionPill label={t('activity.surf')} decision={surfDec} t={t} />}
+            <span className="ml-auto"><DataFreshness /></span>
           </div>
           <div className="flex items-center gap-4 overflow-x-auto">
             {currentRecord && (
@@ -245,11 +263,12 @@ export function NowPage() {
       {/* ─── Content ─── */}
       <div className="md:px-4 py-4 max-w-screen-lg mx-auto space-y-4">
 
+        {/* Weather warnings — always visible */}
+        <WeatherWarnings />
+
         {/* Browse mode content */}
         {!isFocusMode && (
           <>
-            <WeatherWarnings />
-
             {/* Best spot banner */}
             {bestSpot && bestSpotName && (
               <button
@@ -276,7 +295,7 @@ export function NowPage() {
 
             {/* Surf Heatmap */}
             {data.surf && (
-              <div className="mx-4 md:mx-0">
+              <div ref={spotsSectionRef} className="mx-4 md:mx-0">
                 <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-2">
                   {t('spots.heatmap_title')}
                 </p>
@@ -322,62 +341,7 @@ export function NowPage() {
         {/* Focus mode content */}
         {isFocusMode && (
           <>
-            {/* Model switcher */}
-            <ModelPills />
-
-            {/* Charts */}
-            <Suspense fallback={null}>
-              <div className="grid grid-cols-1 md:grid-cols-2 md:gap-4 gap-0">
-                {chartRecords.length > 0 && (
-                  <ChartCard title={t('common.wind')}>
-                    <WindChart records={chartRecords} timeRange={timeRange} />
-                  </ChartCard>
-                )}
-
-                {/* Wave chart — from ratings (model-independent) */}
-                {data.wave?.ecmwf_wave?.records && (
-                  <ChartCard title={t('common.wave_height')}>
-                    <WaveChart records={data.wave.ecmwf_wave.records} timeRange={timeRange} />
-                  </ChartCard>
-                )}
-
-                {data.tide?.predictions && (
-                  <ChartCard title={t('common.tide')}>
-                    <TideChart
-                      predictions={data.tide.predictions}
-                      extrema={data.tide.extrema}
-                      timeRange={timeRange}
-                    />
-                  </ChartCard>
-                )}
-
-                {data.wave?.ecmwf_wave?.records && (
-                  <ChartCard title={t('common.swell_period')}>
-                    <WavePeriodChart records={data.wave.ecmwf_wave.records} timeRange={timeRange} />
-                  </ChartCard>
-                )}
-
-                {chartRecords.length > 0 && (
-                  <ChartCard title={t('common.temp')}>
-                    <TempChart records={chartRecords} timeRange={timeRange} />
-                  </ChartCard>
-                )}
-
-                {chartRecords.length > 0 && (
-                  <ChartCard title={t('common.pressure')}>
-                    <PressureChart records={chartRecords} timeRange={timeRange} />
-                  </ChartCard>
-                )}
-
-                {chartRecords.length > 0 && (
-                  <ChartCard title={t('common.precip')}>
-                    <PrecipChart records={chartRecords} timeRange={timeRange} />
-                  </ChartCard>
-                )}
-              </div>
-            </Suspense>
-
-            {/* ─── Spot Detail Sections (surf spots only) ─── */}
+            {/* ─── Spot Detail Context (surf spots only, BEFORE charts) ─── */}
             {!isHarbour && spotInfo && locationForecast && (
               <>
                 {/* Spot info pills */}
@@ -436,7 +400,66 @@ export function NowPage() {
                     </div>
                   </section>
                 )}
+              </>
+            )}
 
+            {/* Model switcher */}
+            <ModelPills />
+
+            {/* Charts — ordered: Wind → Waves → Swell Period → Tide → Precip → Temp → Pressure */}
+            <Suspense fallback={null}>
+              <div className="grid grid-cols-1 md:grid-cols-2 md:gap-4 gap-0">
+                {chartRecords.length > 0 && (
+                  <ChartCard title={t('common.wind')}>
+                    <WindChart records={chartRecords} timeRange={timeRange} />
+                  </ChartCard>
+                )}
+
+                {data.wave?.ecmwf_wave?.records && (
+                  <ChartCard title={t('common.wave_height')}>
+                    <WaveChart records={data.wave.ecmwf_wave.records} timeRange={timeRange} />
+                  </ChartCard>
+                )}
+
+                {data.wave?.ecmwf_wave?.records && (
+                  <ChartCard title={t('common.swell_period')}>
+                    <WavePeriodChart records={data.wave.ecmwf_wave.records} timeRange={timeRange} />
+                  </ChartCard>
+                )}
+
+                {data.tide?.predictions && (
+                  <ChartCard title={t('common.tide')}>
+                    <TideChart
+                      predictions={data.tide.predictions}
+                      extrema={data.tide.extrema}
+                      timeRange={timeRange}
+                    />
+                  </ChartCard>
+                )}
+
+                {chartRecords.length > 0 && (
+                  <ChartCard title={t('common.precip')}>
+                    <PrecipChart records={chartRecords} timeRange={timeRange} />
+                  </ChartCard>
+                )}
+
+                {chartRecords.length > 0 && (
+                  <ChartCard title={t('common.temp')}>
+                    <TempChart records={chartRecords} timeRange={timeRange} />
+                  </ChartCard>
+                )}
+
+                {chartRecords.length > 0 && (
+                  <ChartCard title={t('common.pressure')}>
+                    <PressureChart records={chartRecords} timeRange={timeRange} />
+                  </ChartCard>
+                )}
+              </div>
+            </Suspense>
+
+            {/* ─── Additional Spot Sections (surf spots only) ─── */}
+            {!isHarbour && spotInfo && locationForecast && (
+              <>
                 {/* 5-Day Forecast */}
                 {locationForecast.daily_best && locationForecast.daily_best.length > 0 && (
                   <CollapsibleSection title={t('spots.five_day_forecast')} defaultOpen={true}>

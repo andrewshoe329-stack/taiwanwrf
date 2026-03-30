@@ -175,13 +175,21 @@ All scripts import coordinates, compass functions, and `norm_utc()` from here. *
 
 ### React SPA Frontend (`frontend/`)
 The primary UI is a **React single-page application** built with Vite + TypeScript + MapLibre GL:
-- `/` — **Now**: current conditions, AI summary, wind map overlay
-- `/spots` — **Spots**: surf spot overview with rating matrix and filters
-- `/spots/:id` — **Spot Detail**: individual spot with 5-day forecast + hourly breakdown
-- `/harbours` — **Harbours**: harbour-focused wind/wave/tide forecast
+- `/` — **Forecast**: current conditions, AI summary, wind map overlay, surf heatmap, location cards
+- `/?view=spots` — **Spots**: scrolls to surf spot heatmap and rankings (via bottom nav Spots tab)
+- `/?loc=<id>` — **Focus Mode**: individual spot/harbour with hero card, charts, 5-day forecast
 - `/models` — **Models**: multi-model comparison (WRF vs ECMWF vs ensemble)
+- Bottom nav has 3 tabs: **Forecast**, **Spots**, **Models**
+
+**Focus mode chart order** (logical grouping for sailors/surfers):
+Wind → Wave Height → Swell Period → Tide → Precipitation → Temperature → Pressure
+
+**Focus mode layout**: Spot info pills + hero card appear **above** charts to give context before detail.
+Weather warnings and data freshness indicator are visible in **all** modes (browse + focus).
 
 Data is served as static JSON files from `frontend/public/data/` (gitignored except `taiwan.geojson`). The pipeline writes JSON outputs there; the React app fetches them at runtime.
+
+**PWA**: manifest includes app shortcuts (Spots, Models). Service worker uses cache-first with 3-day TTL for map tiles, network-first for data JSON, cache-first for Vite hashed assets.
 
 ### Legacy Multi-Page HTML
 The Python scripts (`wrf_analyze.py`, `surf_forecast.py`) still generate static HTML pages via `html_template.render_page()` when `--output-dir public` is passed. This is retained for backwards compatibility but the React frontend is the primary deployment target.
