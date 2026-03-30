@@ -124,7 +124,11 @@ Claude uses this to hedge language — e.g. "actual temps will likely be a degre
 | `cwa_fetch.py` | ~1167 | CWA Open Data API: per-spot weather stations + wave buoys + tide obs + tide forecast + township forecasts (Keelung/New Taipei/Yilan) + weather warnings |
 | `cwa_discover.py` | ~475 | Monthly CWA station/buoy discovery: queries all stations, maps nearest to each spot, writes `cwa_stations.json` |
 | `cwa_stations.json` | ~varies | Discovered station/buoy mapping (committed by cwa-discover workflow, read by cwa_fetch.py) |
-| `frontend/` | React SPA | Vite + React + TypeScript + MapLibre GL — interactive forecast UI |
+| `wave_grid_fetch.py` | ~160 | Fetch gridded wave data from Open-Meteo marine API for map heatmap overlay |
+| `api/live-obs.js` | ~400 | Vercel serverless function: proxies CWA real-time observations (4 parallel API calls) |
+| `CWA_API_REFERENCE.md` | ~300 | Complete CWA Open Data API reference with all endpoints, params, station lists |
+| `IMPROVEMENT_PLAN.md` | ~90 | Post-audit improvement plan with priorities |
+| `frontend/` | React SPA | Vite + React + TypeScript — interactive forecast UI with wind/wave map overlays |
 | `frontend/src/router.tsx` | ~77 | React Router config: `/`, `/spots`, `/spots/:id`, `/harbours`, `/models` |
 | `frontend/src/lib/constants.ts` | ~73 | Shared constants: spot coords, regions, Beaufort scale, data file paths |
 | `frontend/src/lib/types.ts` | ~184 | TypeScript interfaces for all JSON data contracts |

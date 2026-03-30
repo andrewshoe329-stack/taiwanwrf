@@ -514,6 +514,28 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
           −
         </button>
       </div>
+      {/* Wave height legend (only in wave mode) */}
+      {layer === 'waves' && (
+        <div className="absolute bottom-3 left-3 z-20 backdrop-blur-sm bg-[var(--color-bg-elevated)]/80 border border-[var(--color-border)] rounded-md px-2 py-1.5">
+          <p className="text-[8px] text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Wave Height</p>
+          <div className="flex items-center gap-0.5">
+            {[
+              { color: '#1e3a5f', label: '0' },
+              { color: '#1a6b8a', label: '' },
+              { color: '#2d9a4e', label: '1' },
+              { color: '#7ab648', label: '' },
+              { color: '#c9a832', label: '2' },
+              { color: '#d4682a', label: '' },
+              { color: '#c93030', label: '3m+' },
+            ].map((s, i) => (
+              <div key={i} className="flex flex-col items-center">
+                <div className="w-4 h-2 rounded-sm" style={{ backgroundColor: s.color }} />
+                {s.label && <span className="text-[7px] text-[var(--color-text-dim)] mt-0.5">{s.label}</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

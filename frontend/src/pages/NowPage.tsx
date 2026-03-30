@@ -188,13 +188,22 @@ export function NowPage() {
             </div>
           )}
 
-          {/* Info pills + wind type */}
+          {/* Info pills + wind type + warnings */}
           <div className="flex flex-wrap gap-1.5">
             <InfoPill label={t('spots.facing')} value={spotInfo.facing} />
             <InfoPill label={t('spots.optimal_wind')} value={spotInfo.opt_wind.join(', ')} />
             {currentRating?.wind_dir != null && spotInfo.facing && (
               <InfoPill label={t('common.wind')} value={windType(currentRating.wind_dir, spotInfo.facing)} />
             )}
+            {data.cwa_obs?.specialized_warnings?.map((w, i) => (
+              <span key={i} className={`text-[10px] px-1.5 py-0.5 rounded ${
+                w.type === 'rain' ? 'bg-blue-500/20 text-blue-400' :
+                w.type === 'heat' ? 'bg-red-500/20 text-red-400' :
+                'bg-cyan-500/20 text-cyan-400'
+              }`}>
+                {w.severity_level || w.event || w.type}
+              </span>
+            ))}
           </div>
 
           {/* CWA real-time observations (live from serverless, or fallback to deploy-time) */}
@@ -251,6 +260,17 @@ export function NowPage() {
               {data.accuracy?.[0] && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
                   ±{data.accuracy[0].wind_mae_kt?.toFixed(1) ?? '?'}kt wind · ±{data.accuracy[0].temp_mae_c?.toFixed(1) ?? '?'}°C temp
+                  {data.accuracy[0].wave?.hs_mae_m != null && ` · ±${data.accuracy[0].wave.hs_mae_m.toFixed(1)}m wave`}
+                </span>
+              )}
+              {data.accuracy?.[0]?.by_horizon?.['0-24h'] && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
+                  24h: ±{data.accuracy[0].by_horizon['0-24h'].wind_mae_kt?.toFixed(1) ?? '?'}kt
+                </span>
+              )}
+              {data.ensemble?.spread?.precip_spread_mm != null && data.ensemble.spread.precip_spread_mm > 1 && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
+                  Rain spread ±{data.ensemble.spread.precip_spread_mm.toFixed(1)}mm
                 </span>
               )}
             </div>
@@ -330,6 +350,17 @@ export function NowPage() {
               {data.accuracy?.[0] && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
                   ±{data.accuracy[0].wind_mae_kt?.toFixed(1) ?? '?'}kt wind · ±{data.accuracy[0].temp_mae_c?.toFixed(1) ?? '?'}°C temp
+                  {data.accuracy[0].wave?.hs_mae_m != null && ` · ±${data.accuracy[0].wave.hs_mae_m.toFixed(1)}m wave`}
+                </span>
+              )}
+              {data.accuracy?.[0]?.by_horizon?.['0-24h'] && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
+                  24h: ±{data.accuracy[0].by_horizon['0-24h'].wind_mae_kt?.toFixed(1) ?? '?'}kt
+                </span>
+              )}
+              {data.ensemble?.spread?.precip_spread_mm != null && data.ensemble.spread.precip_spread_mm > 1 && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
+                  Rain spread ±{data.ensemble.spread.precip_spread_mm.toFixed(1)}mm
                 </span>
               )}
             </div>
