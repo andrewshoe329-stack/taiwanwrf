@@ -66,9 +66,10 @@ interface SwellCompassProps {
   optSwell: string[]
   swellDir?: number
   swellHeight?: number
+  size?: number
 }
 
-export function SwellCompass({ facing, optSwell, swellDir, swellHeight }: SwellCompassProps) {
+export function SwellCompass({ facing, optSwell, swellDir, swellHeight, size }: SwellCompassProps) {
   const cx = 100
   const cy = 100
   const outerR = 88
@@ -85,7 +86,7 @@ export function SwellCompass({ facing, optSwell, swellDir, swellHeight }: SwellC
     : 0.6
 
   return (
-    <svg viewBox="0 0 200 200" className="w-full max-w-[200px] mx-auto block" role="img" aria-labelledby="compass-title compass-desc">
+    <svg viewBox="0 0 200 200" className="block" style={{ width: size ?? 200, height: size ?? 200 }} role="img" aria-labelledby="compass-title compass-desc">
       <title id="compass-title">Swell Compass</title>
       <desc id="compass-desc">Shows current swell direction relative to optimal directions for this spot (facing {facing})</desc>
       {/* Outer ring */}

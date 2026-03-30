@@ -2,6 +2,7 @@ import { useRef, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useTimeline } from '@/hooks/useTimeline'
 import { useForecastData } from '@/hooks/useForecastData'
+import { DataFreshness } from '@/components/layout/DataFreshness'
 
 function formatTime(utc: string): string {
   const d = new Date(utc)
@@ -58,8 +59,8 @@ export function TimelineScrubber() {
   const currentRecord = records[index]
   const progress = total > 1 ? index / (total - 1) : 0
 
-  // Compute day labels for the timeline
-  const dayLabels: { label: string; position: number }[] = []
+  // Day boundary ticks (show only day-change positions, not every record)
+  const dayTicks: number[] = []
   let lastDate = ''
   for (let i = 0; i < records.length; i++) {
     const r = records[i]
@@ -67,17 +68,17 @@ export function TimelineScrubber() {
     const d = formatDate(r.valid_utc)
     if (d !== lastDate) {
       lastDate = d
-      dayLabels.push({ label: d, position: (i / Math.max(records.length - 1, 1)) * 100 })
+      if (i > 0) dayTicks.push((i / Math.max(records.length - 1, 1)) * 100)
     }
   }
 
   return (
-    <div className="w-full px-4 py-2 select-none">
-      {/* Time display + play button */}
-      <div className="flex items-center gap-3 mb-2">
+    <div className="w-full py-1.5 select-none">
+      {/* Time display + play button + freshness */}
+      <div className="flex items-center gap-2 mb-1">
         <button
           onClick={toggle}
-          className="w-7 h-7 flex items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+          className="w-7 h-7 flex items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors shrink-0"
           aria-label={playing ? 'Pause' : 'Play'}
         >
           {playing ? (
@@ -92,7 +93,7 @@ export function TimelineScrubber() {
           )}
         </button>
 
-        <div className="flex-1 text-center">
+        <div className="flex-1 min-w-0 text-center">
           {currentRecord?.valid_utc ? (
             <span className="text-xs font-medium text-[var(--color-text-primary)]">
               {formatDate(currentRecord.valid_utc)}{' '}
@@ -105,56 +106,40 @@ export function TimelineScrubber() {
           )}
         </div>
 
-        <span className="text-[10px] text-[var(--color-text-muted)] tabular-nums w-12 text-right">
-          {index + 1}/{total}
+        <span className="shrink-0">
+          <DataFreshness />
         </span>
       </div>
 
-      {/* Track */}
-      <div className="relative">
-        {/* Day labels */}
-        <div className="relative h-3 mb-1">
-          {dayLabels.map((dl, i) => (
-            <span
-              key={i}
-              className="absolute text-[9px] text-[var(--color-text-muted)] -translate-x-1/2"
-              style={{ left: `${dl.position}%` }}
-            >
-              {dl.label}
-            </span>
-          ))}
-        </div>
+      {/* Slider track */}
+      <div
+        ref={trackRef}
+        className="relative h-6 flex items-center cursor-pointer touch-none"
+        onPointerDown={handlePointerDown}
+      >
+        {/* Background rail */}
+        <div className="absolute left-0 right-0 h-[3px] rounded-full bg-[var(--color-border)]" />
 
-        {/* Slider track */}
+        {/* Filled portion */}
         <div
-          ref={trackRef}
-          className="relative h-8 flex items-center cursor-pointer touch-none"
-          onPointerDown={handlePointerDown}
-        >
-          {/* Background rail */}
-          <div className="absolute left-0 right-0 h-[3px] rounded-full bg-[var(--color-border)]" />
+          className="absolute left-0 h-[3px] rounded-full bg-[var(--color-text-muted)] transition-[width] duration-75"
+          style={{ width: `${progress * 100}%` }}
+        />
 
-          {/* Filled portion */}
+        {/* Day boundary ticks only */}
+        {dayTicks.map((pos, i) => (
           <div
-            className="absolute left-0 h-[3px] rounded-full bg-[var(--color-text-muted)] transition-[width] duration-75"
-            style={{ width: `${progress * 100}%` }}
+            key={i}
+            className="absolute w-[1px] h-3 bg-[var(--color-text-dim)]"
+            style={{ left: `${pos}%`, top: '50%', transform: 'translateY(-50%)' }}
           />
+        ))}
 
-          {/* Tick marks */}
-          {records.map((_, i) => (
-            <div
-              key={i}
-              className="absolute w-[1px] h-2 bg-[var(--color-border)]"
-              style={{ left: `${(i / Math.max(records.length - 1, 1)) * 100}%`, top: '50%', transform: 'translateY(-50%)' }}
-            />
-          ))}
-
-          {/* Thumb */}
-          <div
-            className="absolute w-5 h-5 rounded-full bg-[var(--color-text-primary)] border-2 border-[var(--color-bg)] shadow-sm transition-[left] duration-75"
-            style={{ left: `${progress * 100}%`, transform: 'translateX(-50%)' }}
-          />
-        </div>
+        {/* Thumb */}
+        <div
+          className="absolute w-4 h-4 rounded-full bg-[var(--color-text-primary)] border-2 border-[var(--color-bg)] shadow-sm transition-[left] duration-75"
+          style={{ left: `${progress * 100}%`, transform: 'translateX(-50%)' }}
+        />
       </div>
     </div>
   )

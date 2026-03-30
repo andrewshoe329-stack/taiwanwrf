@@ -6,7 +6,7 @@ import type { ForecastRecord } from '@/lib/types'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import {
   toCSTLabel, MultiLineTick, timeTicks, timeDomain,
-  filterByTimeRange, findNowMs,
+  filterByTimeRange,
   chartMargin, chartHeight, xAxisHeight, YAXIS_WIDTH, NOW_LABEL,
   type TimeRange,
 } from './chart-utils'
@@ -15,6 +15,7 @@ interface WindChartProps {
   records: ForecastRecord[]
   ecmwfRecords?: ForecastRecord[]
   timeRange?: TimeRange
+  selectedMs?: number
 }
 
 interface ChartRow {
@@ -42,7 +43,7 @@ function CustomTooltip(props: any) {
   )
 }
 
-export function WindChart({ records, ecmwfRecords, timeRange }: WindChartProps) {
+export function WindChart({ records, ecmwfRecords, timeRange, selectedMs }: WindChartProps) {
   if (!records?.length) return null
   const mobile = useIsMobile()
 
@@ -58,7 +59,7 @@ export function WindChart({ records, ecmwfRecords, timeRange }: WindChartProps) 
     ecmwf_wind: ecmwfMap.get(r.valid_utc)?.wind_kt,
   }))
 
-  const nowMs = findNowMs(timeRange)
+  const nowMs = selectedMs
   const domain = timeDomain(timeRange) ?? ['dataMin', 'dataMax'] as any
   const ticks = timeTicks(timeRange, chartData)
 

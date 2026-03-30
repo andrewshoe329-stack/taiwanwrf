@@ -7,7 +7,7 @@ import type { TidePrediction, TideExtremum } from '@/lib/types'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import {
   toCSTLabel, MultiLineTick, timeTicks, timeDomain,
-  filterByTimeRange, downsampleTide, findNowMs,
+  filterByTimeRange, downsampleTide,
   chartMargin, chartHeight, xAxisHeight, YAXIS_WIDTH, NOW_LABEL,
   type TimeRange,
 } from './chart-utils'
@@ -16,6 +16,7 @@ interface TideChartProps {
   predictions: TidePrediction[]
   extrema: TideExtremum[]
   timeRange?: TimeRange
+  selectedMs?: number
 }
 
 interface ChartRow {
@@ -41,7 +42,7 @@ function CustomTooltip(props: any) {
   )
 }
 
-export function TideChart({ predictions, extrema, timeRange }: TideChartProps) {
+export function TideChart({ predictions, extrema, timeRange, selectedMs }: TideChartProps) {
   if (!predictions?.length) return null
   const mobile = useIsMobile()
 
@@ -54,7 +55,7 @@ export function TideChart({ predictions, extrema, timeRange }: TideChartProps) {
     height: p.height_m,
   }))
 
-  const nowMs = findNowMs(timeRange)
+  const nowMs = selectedMs
   const domain = timeDomain(timeRange) ?? ['dataMin', 'dataMax'] as any
   const ticks = timeTicks(timeRange, chartData)
 

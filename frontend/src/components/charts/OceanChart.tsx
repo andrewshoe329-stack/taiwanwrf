@@ -6,7 +6,7 @@ import type { WaveRecord } from '@/lib/types'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import {
   toCSTLabel, MultiLineTick, timeTicks, timeDomain,
-  filterByTimeRange, findNowMs,
+  filterByTimeRange,
   chartMargin, xAxisHeight, YAXIS_WIDTH, NOW_LABEL,
   type TimeRange,
 } from './chart-utils'
@@ -14,6 +14,7 @@ import {
 interface OceanChartProps {
   records: WaveRecord[]
   timeRange?: TimeRange
+  selectedMs?: number
 }
 
 interface ChartRow {
@@ -43,7 +44,7 @@ function OceanTooltip(props: any) {
   )
 }
 
-export function OceanChart({ records, timeRange }: OceanChartProps) {
+export function OceanChart({ records, timeRange, selectedMs }: OceanChartProps) {
   if (!records?.length) return null
   const mobile = useIsMobile()
 
@@ -57,7 +58,7 @@ export function OceanChart({ records, timeRange }: OceanChartProps) {
     period: r.swell_wave_period ?? r.wave_period,
   }))
 
-  const nowMs = findNowMs(timeRange)
+  const nowMs = selectedMs
   const domain = timeDomain(timeRange) ?? ['dataMin', 'dataMax'] as any
   const ticks = timeTicks(timeRange, chartData)
   const h = mobile ? 160 : 180

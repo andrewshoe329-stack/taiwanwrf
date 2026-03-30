@@ -209,7 +209,7 @@ export function xAxisHeight(mobile: boolean) {
 }
 
 export const NOW_LABEL = {
-  value: 'Now',
+  value: '',
   fill: 'var(--color-text-muted)',
   fontSize: 10,
   position: 'insideTopRight' as const,
