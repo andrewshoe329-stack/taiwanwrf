@@ -136,11 +136,39 @@ records.TideForecasts[] → list of { "Location": {
 
 ---
 
+### O-A0002-001 — 雨量觀測站 (Rain gauge data)
+
+**Purpose:** Dedicated rain gauge observations with multiple accumulation periods.
+
+**Not currently used.** Could supplement precipitation verification in accuracy_track.py.
+
+**Query Parameters:**
+| Param | Type | Description |
+|-------|------|-------------|
+| `StationId` | array\<string\> | Rain gauge station codes (case-sensitive). Same station list as O-A0001-001. |
+| `StationName` | array\<string\> | Station names. Ignored if `StationId` set. |
+| `RainfallElement` | array\<string\> | Accumulation periods (see below). Default: all. |
+| `GeoInfo` | array\<string\> | `Coordinates`, `StationAltitude`, `CountyName`, `TownName`, `CountyCode`, `TownCode` |
+
+**Available RainfallElement values:**
+`Now` (current), `Past10Min`, `Past1hr`, `Past3hr`, `Past6hr`, `Past12hr`, `Past24hr`, `Past2days`, `Past3days`
+
+**Potential use:** `Past6hr` directly comparable to our `precip_mm_6h` forecast field for accuracy tracking.
+
+---
+
 ### O-A0003-001 — 氣象觀測站 10分鐘綜觀氣象 (10-min conventional obs)
 
-**Purpose:** Higher-frequency conventional weather observations.
+**Purpose:** Higher-frequency (10-min) conventional weather observations. More elements than O-A0001-001 including visibility and UV.
 
-**Used in:** Referenced in CLAUDE.md but not currently used in pipeline.
+**Not currently used.** Could provide near-real-time conditions updates between hourly obs.
+
+**Query Parameters:** Same as O-A0001-001 (`StationId`, `StationName`, `GeoInfo`).
+
+**Available WeatherElement values:**
+`Weather`, `VisibilityDescription`, `SunshineDuration`, `Now`, `WindDirection`, `WindSpeed`, `AirTemperature`, `RelativeHumidity`, `AirPressure`, `UVIndex`, `Max10MinAverage`, `GustInfo`, `DailyHigh`, `DailyLow`
+
+**Extra vs O-A0001-001:** `VisibilityDescription`, `SunshineDuration`, `UVIndex`, `Max10MinAverage` — useful for sailing (visibility) and surfing (UV exposure).
 
 ---
 
@@ -375,10 +403,10 @@ This fetches 宜蘭縣 + 基隆市 + 新北市 in one request.
 | F-A0085-003 | 冷傷害指數72h逐3h | 3-hourly cold injury index (elements: `ColdInjuryIndex`, `ColdInjuryWarning`) |
 | F-A0085-004 | 溫差提醒5日預報 | Temperature swing warnings per township (elements: `MaxTemperature`, `MinTemperature`, `TemperatureDifferenceWarning`) |
 | F-A0085-005 | 溫差提醒72h逐3h | 3-hourly temp swing (elements: `TemperatureDifferenceIndex`, `TemperatureDifferenceWarning`) |
-| O-A0003-001 | 10分鐘綜觀氣象 | Higher-frequency weather obs |
+| O-A0003-001 | 10分鐘綜觀氣象 | Higher-frequency obs + visibility + UV (see above) |
+| O-A0005-001 | 紫外線指數每日最大值 | Daily max UV index per station. Query: `StationID`. Published ~2PM daily. |
 | A-B0062-001 | 日出日沒時刻 | Official sunrise/sunset (currently computed offline) |
 | W-C0034-001 | 颱風警報 | Typhoon warnings |
-| O-A0005-001 | 紫外線指數 | UV index for surf/sail planning |
 
 ---
 
