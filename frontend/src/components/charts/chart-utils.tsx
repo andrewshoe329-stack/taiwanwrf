@@ -185,18 +185,23 @@ export const YAXIS_WIDTH = 44
 
 export function chartMargin(mobile: boolean, dualAxis: boolean) {
   if (mobile) {
-    return { top: 8, right: 8, bottom: 4, left: -8 }
+    return { top: 4, right: 8, bottom: 2, left: -8 }
   }
   return {
-    top: 8,
-    right: dualAxis ? 8 : YAXIS_WIDTH + 8,
-    bottom: 8,
+    top: 4,
+    right: dualAxis ? 8 : 12,
+    bottom: 4,
     left: -8,
   }
 }
 
 export function chartHeight(mobile: boolean) {
-  return mobile ? 280 : 240
+  return mobile ? 160 : 180
+}
+
+/** Compact chart height for secondary charts (precip, temp) in 2-col desktop layout */
+export function chartHeightCompact(mobile: boolean) {
+  return mobile ? 140 : 120
 }
 
 export function xAxisHeight(mobile: boolean) {

@@ -9,7 +9,6 @@ import { useIsMobile } from '@/hooks/useIsMobile'
 import { TimelineScrubber } from '@/components/timeline/TimelineScrubber'
 import { WeatherWarnings } from '@/components/layout/WeatherWarnings'
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner'
-import { BottomSheet } from '@/components/BottomSheet'
 import { ConditionsStrip } from '@/components/ConditionsStrip'
 import { SwellCompass } from '@/components/spots/SwellCompass'
 import {
@@ -81,13 +80,15 @@ export function NowPage() {
 
   const isSpotSelected = locationId != null && locationId !== 'keelung'
 
-  // Sheet content (shared between mobile bottom sheet and desktop side panel)
-  const sheetContent = (
-    <>
-      {/* Timeline scrubber — always visible at top of sheet */}
-      <TimelineScrubber />
+  /* ── Data panel content (shared between mobile & desktop) ──────────── */
+  const dataPanel = (
+    <div className="space-y-3">
+      {/* Sticky timeline */}
+      <div className="sticky top-0 z-10 bg-[var(--color-bg)] border-b border-[var(--color-border)] -mx-4 px-4">
+        <TimelineScrubber />
+      </div>
 
-      {/* Conditions strip */}
+      {/* Conditions */}
       <ConditionsStrip />
 
       {/* Weather warnings */}
@@ -95,7 +96,7 @@ export function NowPage() {
 
       {/* Selected spot detail */}
       {isSpotSelected && spotInfo && (
-        <section className="mt-3 space-y-3">
+        <section className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
               {spotInfo.name[lang]}
@@ -106,6 +107,7 @@ export function NowPage() {
             <button
               onClick={() => setLocationId(null)}
               className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]"
+              aria-label="Deselect"
             >
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M1 1 L9 9 M9 1 L1 9" />
@@ -159,7 +161,7 @@ export function NowPage() {
 
       {/* Harbour selected */}
       {locationId === 'keelung' && (
-        <section className="mt-3">
+        <section>
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
               {t('harbour.keelung')}
@@ -167,6 +169,7 @@ export function NowPage() {
             <button
               onClick={() => setLocationId(null)}
               className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]"
+              aria-label="Deselect"
             >
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M1 1 L9 9 M9 1 L1 9" />
@@ -178,35 +181,35 @@ export function NowPage() {
 
       {/* Charts */}
       <Suspense fallback={null}>
-        <div className="mt-4 space-y-1">
-          {chartRecords.length > 0 && (
-            <ChartCard title={t('common.wind')}>
-              <WindChart records={chartRecords} timeRange={timeRange} />
-            </ChartCard>
-          )}
+        {chartRecords.length > 0 && (
+          <ChartCard title={t('common.wind')}>
+            <WindChart records={chartRecords} timeRange={timeRange} />
+          </ChartCard>
+        )}
 
-          {data.wave?.ecmwf_wave?.records && (
-            <ChartCard title={`${t('common.wave_height')} + ${t('common.swell_period')}`}>
-              <OceanChart records={data.wave.ecmwf_wave.records} timeRange={timeRange} />
-            </ChartCard>
-          )}
+        {data.wave?.ecmwf_wave?.records && (
+          <ChartCard title={`${t('common.wave_height')} + ${t('common.swell_period')}`}>
+            <OceanChart records={data.wave.ecmwf_wave.records} timeRange={timeRange} />
+          </ChartCard>
+        )}
 
-          {data.tide?.predictions && (
-            <ChartCard title={t('common.tide')}>
-              <TideChart
-                predictions={data.tide.predictions}
-                extrema={data.tide.extrema}
-                timeRange={timeRange}
-              />
-            </ChartCard>
-          )}
+        {data.tide?.predictions && (
+          <ChartCard title={t('common.tide')}>
+            <TideChart
+              predictions={data.tide.predictions}
+              extrema={data.tide.extrema}
+              timeRange={timeRange}
+            />
+          </ChartCard>
+        )}
 
+        {/* Precip + Temp: side by side on desktop, stacked on mobile */}
+        <div className={mobile ? 'space-y-0' : 'grid grid-cols-2 gap-3'}>
           {chartRecords.length > 0 && (
             <ChartCard title={t('common.precip')}>
               <PrecipChart records={chartRecords} timeRange={timeRange} />
             </ChartCard>
           )}
-
           {chartRecords.length > 0 && (
             <ChartCard title={t('common.temp')}>
               <TempChart records={chartRecords} timeRange={timeRange} />
@@ -217,7 +220,7 @@ export function NowPage() {
 
       {/* Swell Compass for selected spot */}
       {isSpotSelected && spotInfo && currentRating && (
-        <div className="mt-4">
+        <div className="py-3">
           <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-2">
             {t('spots.swell_compass')}
           </p>
@@ -239,7 +242,7 @@ export function NowPage() {
 
       {/* AI Summary */}
       {data.summary && (
-        <div className="mt-4 border border-[var(--color-border)] rounded-xl overflow-hidden">
+        <div className="border border-[var(--color-border)] rounded-xl overflow-hidden">
           <button
             onClick={() => setAiExpanded(!aiExpanded)}
             className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-[var(--color-bg-elevated)]/50 transition-colors"
@@ -265,38 +268,41 @@ export function NowPage() {
         </div>
       )}
 
-      <div className="h-8" />
-    </>
+      {/* Bottom safe-area spacer */}
+      <div className="h-4" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }} />
+    </div>
   )
 
-  // Desktop: side-by-side layout (map left, panel right)
+  /* ── Desktop: map left (35%), data right (65%) ─────────────────────── */
   if (!mobile) {
     return (
       <div className="flex h-full">
-        <div className="flex-1 relative min-w-0">
+        <div className="w-[35%] min-w-[280px] relative shrink-0 border-r border-[var(--color-border)]">
           <Suspense fallback={<div className="w-full h-full bg-black" />}>
             <ForecastMap selectedId={locationId} onSelectLocation={setLocationId} />
           </Suspense>
         </div>
-        <div className="w-[420px] shrink-0">
-          <BottomSheet snapTo="full">
-            {sheetContent}
-          </BottomSheet>
+        <div className="flex-1 overflow-y-auto px-6 py-2">
+          {dataPanel}
         </div>
       </div>
     )
   }
 
-  // Mobile: map + bottom sheet overlay
+  /* ── Mobile: map top (40vh), data below (scrolls) ──────────────────── */
   return (
-    <div className="relative h-full">
-      <Suspense fallback={<div className="w-full h-full bg-black" />}>
-        <ForecastMap selectedId={locationId} onSelectLocation={setLocationId} />
-      </Suspense>
+    <div className="h-full overflow-y-auto">
+      {/* Map section */}
+      <div className="h-[40vh] min-h-[200px] max-h-[360px] relative shrink-0">
+        <Suspense fallback={<div className="w-full h-full bg-black" />}>
+          <ForecastMap selectedId={locationId} onSelectLocation={setLocationId} />
+        </Suspense>
+      </div>
 
-      <BottomSheet snapTo={locationId ? 'half' : 'peek'}>
-        {sheetContent}
-      </BottomSheet>
+      {/* Data section */}
+      <div className="px-4 py-2">
+        {dataPanel}
+      </div>
     </div>
   )
 }

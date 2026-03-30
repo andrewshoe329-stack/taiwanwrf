@@ -23,7 +23,7 @@ export function WeatherWarnings() {
   if (!active.length) return null
 
   return (
-    <div className="space-y-2 mx-4 md:mx-0 mb-4">
+    <div className="space-y-2">
       {active.map(w => {
         const isSevere = w.severity === 'warning' || w.severity === 'severe'
         const wType = isZh ? w.type : (w.type_en ?? w.type)

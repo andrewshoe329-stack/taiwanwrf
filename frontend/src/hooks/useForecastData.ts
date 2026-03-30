@@ -19,12 +19,16 @@ export interface AllForecastData {
   wrf_spots: WrfSpotsData | null
   loading: boolean
   error: string | null
+  reload: () => void
 }
+
+const noop = () => {}
 
 const initial: AllForecastData = {
   keelung: null, ecmwf: null, wave: null, tide: null,
   ensemble: null, surf: null, cwa_obs: null, accuracy: null,
   summary: null, wrf_spots: null, loading: true, error: null,
+  reload: noop,
 }
 
 export const ForecastDataContext = createContext<AllForecastData>(initial)
@@ -45,11 +49,14 @@ async function fetchJson<T>(url: string): Promise<T | null> {
 
 export function useForecastDataLoader(): AllForecastData {
   const [data, setData] = useState<AllForecastData>(initial)
+  const [version, setVersion] = useState(0)
 
   useEffect(() => {
     let cancelled = false
 
     async function load() {
+      setData(prev => ({ ...prev, loading: true, error: null }))
+
       const [
         keelung, ecmwf, wave, tide, ensemble, surf, cwa_obs, accuracy, summary, wrf_spots,
       ] = await Promise.all([
@@ -72,12 +79,18 @@ export function useForecastDataLoader(): AllForecastData {
         keelung, ecmwf, wave, tide, ensemble, surf, cwa_obs, accuracy, summary, wrf_spots,
         loading: false,
         error: hasAnyData ? null : 'Failed to load forecast data',
+        reload: () => setVersion(v => v + 1),
       })
     }
 
     load()
     return () => { cancelled = true }
-  }, [])
+  }, [version])
+
+  // Ensure reload is always available even during loading
+  if (data.reload === noop) {
+    data.reload = () => setVersion(v => v + 1)
+  }
 
   return data
 }
