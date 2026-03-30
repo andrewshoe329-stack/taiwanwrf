@@ -18,10 +18,9 @@ const MODEL_LABELS: Record<WindModel, string> = {
 const MIN_LON_SPAN = 0.3   // max zoom in
 const MAX_LON_SPAN = TAIWAN_BBOX.lon_max - TAIWAN_BBOX.lon_min  // max zoom out = initial view
 
-const RATING_COLORS: Record<string, string> = {
-  firing: '#22c55e', great: '#4ade80', good: '#3b82f6', marginal: '#eab308',
-  poor: '#9ca3af', flat: '#6b7280', dangerous: '#ef4444',
-}
+// Pin label colors: muted by default, brighter when selected
+const PIN_COLOR_DEFAULT = '#9ca3af'
+const PIN_COLOR_SELECTED = '#f5f5f5'
 
 interface MapLabel {
   lon: number
@@ -123,14 +122,14 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
     return best
   }, [currentUtc, data.wave])
 
-  // Pass rating colors + selectedId to the particle system for rendering
+  // Pass pin colors to the particle system — highlight selected
   const spotRatingColors = useMemo(() => {
     const colors: Record<string, string> = {}
-    for (const [id, rating] of spotWeather) {
-      colors[id] = (rating.rating ? RATING_COLORS[rating.rating] : undefined) ?? RATING_COLORS.flat
+    for (const [id] of spotWeather) {
+      colors[id] = id === selectedId ? PIN_COLOR_SELECTED : PIN_COLOR_DEFAULT
     }
     return colors
-  }, [spotWeather])
+  }, [spotWeather, selectedId])
 
   useEffect(() => {
     particlesRef.current?.setLabelColors(spotRatingColors)
@@ -494,12 +493,6 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
             </p>
             {tooltip.label.type === 'spot' && sw && (
               <div className="mt-1 space-y-0.5 text-[10px]">
-                <p>
-                  <span className="font-medium capitalize" style={{ color: (sw.rating ? RATING_COLORS[sw.rating] : undefined) ?? '#9ca3af' }}>
-                    {sw.rating ?? '--'}
-                  </span>
-                  {sw.score != null && <span className="text-[var(--color-text-muted)] ml-1">({sw.score}/14)</span>}
-                </p>
                 <p className="text-[var(--color-text-muted)]">
                   Wind <span className="text-[var(--color-text-secondary)]">{sw.wind_kt?.toFixed(0) ?? '--'}kt</span>
                   {sw.wind_dir != null && <span className="ml-0.5">{degToCompass(sw.wind_dir)}</span>}

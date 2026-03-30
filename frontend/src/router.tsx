@@ -3,7 +3,6 @@ import { createBrowserRouter, Navigate, useParams } from 'react-router-dom'
 import { App } from './App'
 
 const NowPage = lazy(() => import('./pages/NowPage').then(m => ({ default: m.NowPage })))
-const ModelsPage = lazy(() => import('./pages/ModelsPage').then(m => ({ default: m.ModelsPage })))
 
 /** Redirect /spots/:id → /?loc=:id */
 function SpotRedirect() {
@@ -54,26 +53,25 @@ class LazyErrorBoundary extends React.Component<
   }
 }
 
-function withSuspense(Component: React.LazyExoticComponent<React.ComponentType>) {
-  return (
-    <LazyErrorBoundary>
-      <Suspense fallback={<LazyFallback />}>
-        <Component />
-      </Suspense>
-    </LazyErrorBoundary>
-  )
-}
-
 export const router = createBrowserRouter([
   {
     path: '/',
     element: <App />,
     children: [
-      { index: true, element: withSuspense(NowPage) },
+      {
+        index: true,
+        element: (
+          <LazyErrorBoundary>
+            <Suspense fallback={<LazyFallback />}>
+              <NowPage />
+            </Suspense>
+          </LazyErrorBoundary>
+        ),
+      },
       { path: 'spots', element: <Navigate to="/" replace /> },
       { path: 'spots/:id', element: <SpotRedirect /> },
       { path: 'harbours', element: <Navigate to="/?loc=keelung" replace /> },
-      { path: 'models', element: withSuspense(ModelsPage) },
+      { path: 'models', element: <Navigate to="/" replace /> },
     ],
   },
 ])

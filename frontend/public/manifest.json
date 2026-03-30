@@ -9,20 +9,6 @@
   "background_color": "#0f172a",
   "theme_color": "#0f172a",
   "categories": ["weather"],
-  "shortcuts": [
-    {
-      "name": "Surf Spots",
-      "short_name": "Spots",
-      "url": "/?view=spots",
-      "description": "View all surf spot ratings"
-    },
-    {
-      "name": "Models & Accuracy",
-      "short_name": "Models",
-      "url": "/models",
-      "description": "Compare forecast models"
-    }
-  ],
   "icons": [
     {
       "src": "/icon.svg",

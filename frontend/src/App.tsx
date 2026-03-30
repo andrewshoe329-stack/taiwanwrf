@@ -1,6 +1,5 @@
 import { Outlet } from 'react-router-dom'
 import { Header } from '@/components/layout/Header'
-import { BottomNav } from '@/components/layout/BottomNav'
 import { ForecastDataContext, useForecastDataLoader } from '@/hooks/useForecastData'
 import { TimelineContext, useTimelineProvider } from '@/hooks/useTimeline'
 import { ModelContext, useModelProvider } from '@/hooks/useModel'
@@ -17,12 +16,11 @@ export function App() {
       <TimelineContext.Provider value={timeline}>
         <ModelContext.Provider value={modelState}>
           <LocationContext.Provider value={locationState}>
-            <div className="min-h-screen bg-[var(--color-bg)]">
+            <div className="h-[100dvh] flex flex-col bg-[var(--color-bg)]">
               <Header />
-              <main className="pb-16 pwa-main">
+              <main className="flex-1 min-h-0">
                 <Outlet />
               </main>
-              <BottomNav />
             </div>
           </LocationContext.Provider>
         </ModelContext.Provider>
