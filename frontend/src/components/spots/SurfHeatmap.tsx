@@ -5,10 +5,12 @@ import type { SpotForecast, Region } from '@/lib/types'
 interface SurfHeatmapProps {
   spots: SpotForecast[]
   filter: Region | 'all'
+  onSelectSpot?: (id: string) => void
 }
 
 const RATING_STYLES: Record<string, { bg: string; color: string }> = {
   firing:    { bg: '#f5f5f5',             color: '#000000' },
+  great:     { bg: 'rgba(94,234,212,0.25)', color: '#6ee7b7' },
   good:      { bg: 'rgba(94,234,212,0.2)', color: '#5eead4' },
   marginal:  { bg: 'rgba(251,191,36,0.15)', color: '#fbbf24' },
   poor:      { bg: '#1a1a1a',             color: '#78716c' },
@@ -26,20 +28,21 @@ function formatDateSub(dateStr: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-export function SurfHeatmap({ spots, filter }: SurfHeatmapProps) {
+export function SurfHeatmap({ spots, filter, onSelectSpot }: SurfHeatmapProps) {
   const { t, i18n } = useTranslation()
   const lang = i18n.language as 'en' | 'zh'
 
-  const filtered = filter === 'all'
+  const filtered = (filter === 'all'
     ? spots
     : spots.filter(sf => sf.spot.region === filter)
+  ).filter(sf => sf.spot.type !== 'harbour' && sf.daily_best != null)
 
   if (filtered.length === 0) return null
 
   // Collect all unique dates across all spots, sorted
   const allDates = new Set<string>()
   for (const sf of filtered) {
-    for (const db of sf.daily_best) {
+    for (const db of sf.daily_best!) {
       allDates.add(db.date)
     }
   }
@@ -51,7 +54,7 @@ export function SurfHeatmap({ spots, filter }: SurfHeatmapProps) {
   const lookup: Record<string, Record<string, { rating: string; score: number }>> = {}
   for (const sf of filtered) {
     lookup[sf.spot.id] = {}
-    for (const db of sf.daily_best) {
+    for (const db of sf.daily_best!) {
       lookup[sf.spot.id][db.date] = { rating: db.rating, score: db.score }
     }
   }
@@ -76,12 +79,21 @@ export function SurfHeatmap({ spots, filter }: SurfHeatmapProps) {
           {filtered.map(sf => (
             <tr key={sf.spot.id}>
               <td className="py-1 pr-3 sticky left-0 bg-[var(--color-bg)] z-10">
-                <Link
-                  to={`/spots/${sf.spot.id}`}
-                  className="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors no-underline whitespace-nowrap"
-                >
-                  {sf.spot.name[lang]}
-                </Link>
+                {onSelectSpot ? (
+                  <button
+                    onClick={() => onSelectSpot(sf.spot.id)}
+                    className="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors whitespace-nowrap bg-transparent border-none cursor-pointer p-0 text-left text-xs"
+                  >
+                    {sf.spot.name[lang]}
+                  </button>
+                ) : (
+                  <Link
+                    to={`/spots/${sf.spot.id}`}
+                    className="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors no-underline whitespace-nowrap"
+                  >
+                    {sf.spot.name[lang]}
+                  </Link>
+                )}
               </td>
               {dates.map(date => {
                 const entry = lookup[sf.spot.id]?.[date]

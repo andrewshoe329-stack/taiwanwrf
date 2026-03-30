@@ -38,6 +38,7 @@ log = logging.getLogger(__name__)
 _COLLECTION = 'pipeline_state'
 _SUMMARY_DOC = 'keelung_summary'
 _ACCURACY_DOC = 'accuracy_log'
+_WRF_SPOTS_DOC = 'wrf_spots'
 _ACCURACY_ENTRIES = 'accuracy_log'  # per-entry collection for queryability
 _ARCHIVE_PREFIX = 'archives/'
 
@@ -119,6 +120,16 @@ def download_summary() -> dict | None:
 def upload_summary(data: dict) -> None:
     """Upload keelung_summary to Firestore."""
     write_document(_COLLECTION, _SUMMARY_DOC, data)
+
+
+def download_wrf_spots() -> dict | None:
+    """Download the WRF per-spot data from Firestore."""
+    return read_document(_COLLECTION, _WRF_SPOTS_DOC)
+
+
+def upload_wrf_spots(data: dict) -> None:
+    """Upload WRF per-spot data to Firestore."""
+    write_document(_COLLECTION, _WRF_SPOTS_DOC, data)
 
 
 def download_accuracy_log() -> list | None:
@@ -227,6 +238,14 @@ def main():
     p = sub.add_parser('upload-accuracy-log')
     p.add_argument('--input', required=True, help='Input JSON file path')
 
+    # download-wrf-spots
+    p = sub.add_parser('download-wrf-spots')
+    p.add_argument('--output', required=True, help='Output JSON file path')
+
+    # upload-wrf-spots
+    p = sub.add_parser('upload-wrf-spots')
+    p.add_argument('--input', required=True, help='Input JSON file path')
+
     # upload-archive
     p = sub.add_parser('upload-archive')
     p.add_argument('--input', required=True, help='Path to .tar.gz archive')
@@ -276,6 +295,22 @@ def main():
             log.error("Failed to read accuracy log file %s: %s", args.input, e)
             sys.exit(1)
         upload_accuracy_log(entries)
+
+    elif args.command == 'download-wrf-spots':
+        data = download_wrf_spots()
+        if data:
+            Path(args.output).write_text(json.dumps(data, indent=2))
+            log.info("WRF spots written to %s", args.output)
+        else:
+            log.info("No WRF spots data found in Firestore")
+
+    elif args.command == 'upload-wrf-spots':
+        try:
+            data = json.loads(Path(args.input).read_text())
+        except (json.JSONDecodeError, OSError) as e:
+            log.error("Failed to read WRF spots file %s: %s", args.input, e)
+            sys.exit(1)
+        upload_wrf_spots(data)
 
     elif args.command == 'upload-archive':
         url = upload_archive(args.input)

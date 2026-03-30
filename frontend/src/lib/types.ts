@@ -118,6 +118,7 @@ export interface AccuracyEntry {
   verified_utc: string
   model_id: string
   n_compared: number
+  location_id?: string
   temp_mae_c?: number
   temp_bias_c?: number
   wind_mae_kt?: number
@@ -145,8 +146,11 @@ export interface WindGrid {
 
 export type Region = 'north' | 'northeast'
 
+export type LocationType = 'spot' | 'harbour'
+
 export interface SpotInfo {
   id: string
+  type?: LocationType
   name: { en: string; zh: string }
   lat: number
   lon: number
@@ -159,25 +163,50 @@ export interface SpotInfo {
 export interface SpotRating {
   spot_id: string
   valid_utc: string
-  score: number
-  rating: 'firing' | 'good' | 'marginal' | 'poor' | 'flat' | 'dangerous'
+  score: number | null
+  rating: 'firing' | 'great' | 'good' | 'marginal' | 'poor' | 'flat' | 'dangerous' | null
   swell_height?: number
   swell_dir?: number
   swell_period?: number
+  wave_height?: number
   wind_kt?: number
   wind_dir?: number
+  gust_kt?: number
+  temp_c?: number
+  mslp_hpa?: number
+  precip_mm_6h?: number
+  cloud_pct?: number
+  cape?: number
   tide_height?: number
+}
+
+export interface GfsRecord {
+  valid_utc: string
+  wind_kt?: number
+  wind_dir?: number
+  gust_kt?: number
+  temp_c?: number
+  mslp_hpa?: number
+  vis_km?: number
 }
 
 export interface SpotForecast {
   spot: SpotInfo
   ratings: SpotRating[]
-  best_times: Array<{ date: string; start_cst: string; end_cst: string; rating: string }>
-  daily_best: Array<{ date: string; rating: string; score: number }>
+  gfs?: GfsRecord[] | null
+  best_times: Array<{ date: string; start_cst: string; end_cst: string; rating: string }> | null
+  daily_best: Array<{ date: string; rating: string; score: number }> | null
 }
 
 export interface SurfData {
   spots: SpotForecast[]
+}
+
+// ── WRF per-spot data ───────────────────────────────────────────────────────
+
+export interface WrfSpotsData {
+  meta: ForecastMeta
+  locations: Record<string, { records: ForecastRecord[] }>
 }
 
 // ── Harbour types ────────────────────────────────────────────────────────────
@@ -188,4 +217,3 @@ export interface HarbourInfo {
   lat: number
   lon: number
 }
-

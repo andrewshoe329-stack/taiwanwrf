@@ -29,6 +29,13 @@ export const SPOTS: SpotInfo[] = [
   { id: 'chousui',     name: { en: 'Chousui',      zh: '臭水' },   lat: 24.855, lon: 121.838, facing: 'E',     region: 'northeast', opt_wind: ['WSW','W'],       opt_swell: ['ENE','E','ESE'] },
 ]
 
+// ── All locations (spots + harbours) ────────────────────────────────────────
+
+export const ALL_LOCATIONS: SpotInfo[] = [
+  { id: 'keelung', type: 'harbour', name: { en: 'Keelung Harbour', zh: '基隆港' }, lat: 25.156, lon: 121.788, facing: '', region: 'north', opt_wind: [], opt_swell: [] },
+  ...SPOTS,
+]
+
 export const REGIONS: Region[] = ['north', 'northeast']
 
 // ── Data file paths ──────────────────────────────────────────────────────────
@@ -44,6 +51,7 @@ export const DATA_FILES = {
   cwa_obs:  `${DATA_BASE}/cwa_obs.json`,
   accuracy: `${DATA_BASE}/accuracy.json`,
   summary:  `${DATA_BASE}/summary.json`,
+  wrf_spots: `${DATA_BASE}/wrf_spots.json`,
   // Wind grids
   wind_grid_wrf:   `${DATA_BASE}/wind_grid_wrf.json`,
   wind_grid_ecmwf: `${DATA_BASE}/wind_grid_ecmwf.json`,

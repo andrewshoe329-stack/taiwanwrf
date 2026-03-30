@@ -5,6 +5,7 @@
   },
   "nav": {
     "now": "Now",
+    "forecast": "Forecast",
     "spots": "Spots",
     "harbours": "Harbours",
     "models": "Models"
@@ -64,6 +65,10 @@
   "spots": {
     "title": "Surf Spots",
     "best_now": "Best Right Now",
+    "all_locations": "All Locations",
+    "view_on_map": "View on Map",
+    "close": "Close",
+    "more_details": "More Details",
     "heatmap_title": "7-Day Outlook",
     "ranked_title": "Today's Rankings",
     "all": "All",
@@ -106,6 +111,7 @@
   },
   "rating": {
     "firing": "Firing!",
+    "great": "Great",
     "good": "Good",
     "marginal": "Marginal",
     "poor": "Poor",

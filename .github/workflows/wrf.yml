@@ -155,7 +155,8 @@ jobs:
             $PREV_ARG $ECMWF_ARG $WAVE_ARG $TIDE_ARG $ACCURACY_ARG \
             --output-json keelung_summary_new.json \
             --output-html forecast.html \
-            --output-wind-grid wind_grid_wrf.json
+            --output-wind-grid wind_grid_wrf.json \
+            --output-spots-json wrf_spots.json
 
       # Upload WRF summary + archive to Firebase for the forecast workflow to use
       - name: Upload to Firebase
@@ -170,3 +171,5 @@ jobs:
             --keep "$ARCHIVE_NAME" --max-age-days 1 2>/dev/null || true
           python firebase_storage.py upload-summary \
             --input keelung_summary_new.json
+          [ -f wrf_spots.json ] && python firebase_storage.py upload-wrf-spots \
+            --input wrf_spots.json || true

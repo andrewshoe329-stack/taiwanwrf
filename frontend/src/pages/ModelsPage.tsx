@@ -1,10 +1,13 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useSearchParams } from 'react-router-dom'
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis,
   CartesianGrid, Tooltip, Legend,
 } from 'recharts'
 import { useForecastData } from '@/hooks/useForecastData'
+import { ALL_LOCATIONS } from '@/lib/constants'
+import { getModelRecords } from '@/lib/forecast-utils'
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner'
 import { DataFreshness } from '@/components/layout/DataFreshness'
 import { useIsMobile } from '@/hooks/useIsMobile'
@@ -256,14 +259,25 @@ function HorizonBreakdown({ horizons }: { horizons: Record<string, Record<string
 /* ── Main page ───────────────────────────────────────────────────────────────── */
 
 export function ModelsPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const lang = (i18n.language.startsWith('zh') ? 'zh' : 'en') as 'en' | 'zh'
   const data = useForecastData()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const selectedLoc = searchParams.get('loc') || null
 
   if (data.loading) return <LoadingSpinner />
 
   const ensemble = data.ensemble
   const accuracy = data.accuracy
-  const latestAccuracy = accuracy && accuracy.length > 0 ? accuracy[accuracy.length - 1] : null
+
+  // Filter accuracy by selected location
+  const filteredAccuracy = useMemo(() => {
+    if (!accuracy?.length) return []
+    if (!selectedLoc) return accuracy // "All" = aggregate (existing entries without location_id)
+    return accuracy.filter(e => (e.location_id ?? 'keelung') === selectedLoc)
+  }, [accuracy, selectedLoc])
+
+  const latestAccuracy = filteredAccuracy.length > 0 ? filteredAccuracy[filteredAccuracy.length - 1] : null
 
   const modelEntries: Array<{ key: string; recordCount: number; initUtc?: string }> = []
   if (data.keelung) modelEntries.push({ key: 'WRF', recordCount: data.keelung.records?.length ?? 0, initUtc: data.keelung.meta?.init_utc })
@@ -276,6 +290,26 @@ export function ModelsPage() {
     }
   }
 
+  // Wind comparison: WRF vs ECMWF for selected location
+  const wrfRecords = useMemo(() => {
+    if (!selectedLoc) return data.keelung?.records ?? []
+    return getModelRecords(selectedLoc, 'wrf', data)
+  }, [selectedLoc, data])
+
+  const ecmwfRecords = useMemo(() => {
+    if (!selectedLoc) return data.ecmwf?.records ?? []
+    return getModelRecords(selectedLoc, 'ecmwf', data)
+  }, [selectedLoc, data])
+
+  const setLocation = (loc: string | null) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      if (loc) next.set('loc', loc)
+      else next.delete('loc')
+      return next
+    }, { replace: true })
+  }
+
   return (
     <div className="px-4 py-6 pb-24 max-w-screen-xl mx-auto space-y-6">
       <div className="flex items-start justify-between">
@@ -284,6 +318,23 @@ export function ModelsPage() {
           <p className="text-xs text-[var(--color-text-muted)] mt-1">{t('models_page.subtitle')}</p>
         </div>
         <DataFreshness />
+      </div>
+
+      {/* Location picker */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+        <LocationPill
+          label={t('region.all')}
+          active={selectedLoc === null}
+          onClick={() => setLocation(null)}
+        />
+        {ALL_LOCATIONS.map(loc => (
+          <LocationPill
+            key={loc.id}
+            label={loc.name[lang]}
+            active={selectedLoc === loc.id}
+            onClick={() => setLocation(loc.id)}
+          />
+        ))}
       </div>
 
       {/* Ensemble spread */}
@@ -302,13 +353,13 @@ export function ModelsPage() {
       </section>
 
       {/* Wind comparison chart */}
-      {data.keelung?.records && data.ecmwf?.records && (
+      {wrfRecords.length > 0 && ecmwfRecords.length > 0 && (
         <section className="space-y-3">
           <h2 className="text-xs font-medium tracking-wide uppercase text-[var(--color-text-muted)]">
             {t('models_page.wind_comparison')}
           </h2>
           <div className="border border-[var(--color-border)] rounded-xl p-4">
-            <WindComparisonChart wrfRecords={data.keelung.records} ecmwfRecords={data.ecmwf.records} />
+            <WindComparisonChart wrfRecords={wrfRecords} ecmwfRecords={ecmwfRecords} />
           </div>
         </section>
       )}
@@ -320,17 +371,32 @@ export function ModelsPage() {
       </section>
 
       {/* Accuracy trend chart */}
-      {accuracy && accuracy.length >= 2 && (
+      {filteredAccuracy.length >= 2 && (
         <section className="space-y-3">
           <h2 className="text-xs font-medium tracking-wide uppercase text-[var(--color-text-muted)]">
             {t('models_page.accuracy_trend')}
           </h2>
           <div className="border border-[var(--color-border)] rounded-xl p-4">
-            <AccuracyTrendChart entries={accuracy} />
+            <AccuracyTrendChart entries={filteredAccuracy} />
           </div>
         </section>
       )}
     </div>
+  )
+}
+
+function LocationPill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`shrink-0 px-3 py-1 rounded-full text-[11px] font-medium transition-all border ${
+        active
+          ? 'bg-[var(--color-text-primary)] text-[var(--color-bg)] border-[var(--color-text-primary)]'
+          : 'bg-transparent text-[var(--color-text-muted)] border-[var(--color-border)] hover:text-[var(--color-text-secondary)]'
+      }`}
+    >
+      {label}
+    </button>
   )
 }
 

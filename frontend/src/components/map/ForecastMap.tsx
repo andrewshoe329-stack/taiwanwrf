@@ -3,7 +3,7 @@ import { TAIWAN_BBOX, SPOTS, HARBOURS } from '@/lib/constants'
 import { WindParticleSystem } from '@/lib/wind-particles'
 import { interpolateWindGrid } from '@/lib/interpolate'
 import { useTimeline } from '@/hooks/useTimeline'
-import { useWindGrid, type WindModel } from '@/hooks/useWindGrid'
+import { useModel, type WindModel } from '@/hooks/useModel'
 import { useForecastData } from '@/hooks/useForecastData'
 import { degToCompass } from '@/lib/forecast-utils'
 import type { SpotRating, WaveRecord } from '@/lib/types'
@@ -19,7 +19,7 @@ const MIN_LON_SPAN = 0.3   // max zoom in
 const MAX_LON_SPAN = TAIWAN_BBOX.lon_max - TAIWAN_BBOX.lon_min  // max zoom out = initial view
 
 const RATING_COLORS: Record<string, string> = {
-  firing: '#22c55e', good: '#3b82f6', marginal: '#eab308',
+  firing: '#22c55e', great: '#4ade80', good: '#3b82f6', marginal: '#eab308',
   poor: '#9ca3af', flat: '#6b7280', dangerous: '#ef4444',
 }
 
@@ -52,11 +52,16 @@ interface TooltipData {
   label: MapLabel
 }
 
+interface ForecastMapProps {
+  selectedId?: string | null
+  onSelectLocation?: (id: string) => void
+}
+
 /**
- * Canvas-only forecast map with zoom/pan and hover tooltips.
+ * Canvas-only forecast map with zoom/pan, hover tooltips, and tap-to-select.
  * Renders: ocean background, land fill + coastline, wind particles, spot labels.
  */
-export function ForecastMap() {
+export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const particlesRef = useRef<WindParticleSystem | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -71,11 +76,13 @@ export function ForecastMap() {
   const dragRef = useRef<{ startX: number; startY: number; startBounds: typeof boundsRef.current } | null>(null)
   // Pinch state
   const pinchRef = useRef<{ startDist: number; startBounds: typeof boundsRef.current } | null>(null)
+  // Tap detection: track mousedown/touchstart position
+  const tapStartRef = useRef<{ x: number; y: number } | null>(null)
 
   const [tooltip, setTooltip] = useState<TooltipData | null>(null)
 
   const { index } = useTimeline()
-  const { grid, model, setModel } = useWindGrid()
+  const { grid, model, setModel } = useModel()
   const data = useForecastData()
 
   // Current valid_utc from the keelung timeline
@@ -115,6 +122,42 @@ export function ForecastMap() {
     }
     return best
   }, [currentUtc, data.wave])
+
+  // Pass rating colors + selectedId to the particle system for rendering
+  const spotRatingColors = useMemo(() => {
+    const colors: Record<string, string> = {}
+    for (const [id, rating] of spotWeather) {
+      colors[id] = (rating.rating ? RATING_COLORS[rating.rating] : undefined) ?? RATING_COLORS.flat
+    }
+    return colors
+  }, [spotWeather])
+
+  useEffect(() => {
+    particlesRef.current?.setLabelColors(spotRatingColors)
+  }, [spotRatingColors])
+
+  useEffect(() => {
+    particlesRef.current?.setSelectedId(selectedId ?? null)
+  }, [selectedId])
+
+  /** Hit-test labels at canvas position, return label if within radius */
+  const hitTestLabel = useCallback((canvasX: number, canvasY: number): MapLabel | null => {
+    if (!particlesRef.current) return null
+    const hitRadius = 24
+    let closest: MapLabel | null = null
+    let closestDist = hitRadius
+
+    for (const label of ALL_LABELS) {
+      if (label.type === 'city') continue // cities not selectable
+      const [lx, ly] = particlesRef.current.projectPoint(label.lon, label.lat)
+      const dist = Math.sqrt((canvasX - lx) ** 2 + (canvasY - ly) ** 2)
+      if (dist < closestDist) {
+        closestDist = dist
+        closest = label
+      }
+    }
+    return closest
+  }, [])
 
   const updateBounds = useCallback((west: number, south: number, east: number, north: number) => {
     // Clamp zoom span
@@ -237,7 +280,7 @@ export function ForecastMap() {
       updateBounds(newWest, newSouth, newEast, newNorth)
     }
 
-    // ── Mouse drag pan ──
+    // ── Mouse drag pan + tap detection ──
     const handleMouseDown = (e: MouseEvent) => {
       if (e.button !== 0) return
       dragRef.current = {
@@ -245,6 +288,7 @@ export function ForecastMap() {
         startY: e.clientY,
         startBounds: { ...boundsRef.current },
       }
+      tapStartRef.current = { x: e.clientX, y: e.clientY }
       canvas.style.cursor = 'grabbing'
     }
 
@@ -288,12 +332,27 @@ export function ForecastMap() {
       canvas.style.cursor = closest ? 'pointer' : 'grab'
     }
 
-    const handleMouseUp = () => {
+    const handleMouseUp = (e: MouseEvent) => {
+      // Tap detection: if movement < 6px, treat as click
+      if (tapStartRef.current && onSelectLocation) {
+        const dx = e.clientX - tapStartRef.current.x
+        const dy = e.clientY - tapStartRef.current.y
+        if (Math.sqrt(dx * dx + dy * dy) < 6) {
+          const rect = canvas.getBoundingClientRect()
+          const cx = e.clientX - rect.left
+          const cy = e.clientY - rect.top
+          const hit = hitTestLabel(cx, cy)
+          if (hit?.id) {
+            onSelectLocation(hit.id)
+          }
+        }
+      }
       dragRef.current = null
+      tapStartRef.current = null
       canvas.style.cursor = 'grab'
     }
 
-    // ── Touch zoom/pan ──
+    // ── Touch zoom/pan + tap detection ──
     const getTouchDist = (touches: TouchList) => {
       const dx = touches[0].clientX - touches[1].clientX
       const dy = touches[0].clientY - touches[1].clientY
@@ -307,9 +366,11 @@ export function ForecastMap() {
           startY: e.touches[0].clientY,
           startBounds: { ...boundsRef.current },
         }
+        tapStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
       } else if (e.touches.length === 2) {
         e.preventDefault()
         dragRef.current = null
+        tapStartRef.current = null
         pinchRef.current = {
           startDist: getTouchDist(e.touches),
           startBounds: { ...boundsRef.current },
@@ -346,8 +407,24 @@ export function ForecastMap() {
       }
     }
 
-    const handleTouchEnd = () => {
+    const handleTouchEnd = (e: TouchEvent) => {
+      // Tap detection for touch
+      if (tapStartRef.current && onSelectLocation && e.changedTouches.length > 0) {
+        const touch = e.changedTouches[0]
+        const dx = touch.clientX - tapStartRef.current.x
+        const dy = touch.clientY - tapStartRef.current.y
+        if (Math.sqrt(dx * dx + dy * dy) < 6) {
+          const rect = canvas.getBoundingClientRect()
+          const cx = touch.clientX - rect.left
+          const cy = touch.clientY - rect.top
+          const hit = hitTestLabel(cx, cy)
+          if (hit?.id) {
+            onSelectLocation(hit.id)
+          }
+        }
+      }
       dragRef.current = null
+      tapStartRef.current = null
       pinchRef.current = null
     }
 
@@ -379,7 +456,7 @@ export function ForecastMap() {
       particlesRef.current = null
       canvasRef.current = null
     }
-  }, [updateBounds])
+  }, [updateBounds, hitTestLabel])
 
   // Update wind grid on model/timestep change
   useEffect(() => {
@@ -418,10 +495,10 @@ export function ForecastMap() {
             {tooltip.label.type === 'spot' && sw && (
               <div className="mt-1 space-y-0.5 text-[10px]">
                 <p>
-                  <span className="font-medium capitalize" style={{ color: RATING_COLORS[sw.rating] ?? '#9ca3af' }}>
-                    {sw.rating}
+                  <span className="font-medium capitalize" style={{ color: (sw.rating ? RATING_COLORS[sw.rating] : undefined) ?? '#9ca3af' }}>
+                    {sw.rating ?? '--'}
                   </span>
-                  <span className="text-[var(--color-text-muted)] ml-1">({sw.score}/14)</span>
+                  {sw.score != null && <span className="text-[var(--color-text-muted)] ml-1">({sw.score}/14)</span>}
                 </p>
                 <p className="text-[var(--color-text-muted)]">
                   Wind <span className="text-[var(--color-text-secondary)]">{sw.wind_kt?.toFixed(0) ?? '--'}kt</span>

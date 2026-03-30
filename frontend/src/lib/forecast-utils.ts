@@ -3,6 +3,13 @@
  * across HarboursPage, SpotDetailPage, NowPage, and SpotsPage.
  */
 
+import type {
+  ForecastRecord, SpotForecast, SpotRating,
+  AccuracyEntry, GfsRecord,
+} from './types'
+import type { AllForecastData } from '@/hooks/useForecastData'
+import type { WindModel } from '@/hooks/useModel'
+
 // ── Compass & direction ─────────────────────────────────────────────────────
 
 const COMPASS_DIRS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW']
@@ -174,6 +181,7 @@ export function waveColorClass(m: number): string {
 export function ratingColorClass(rating: string): string {
   const map: Record<string, string> = {
     firing:    'text-[var(--color-firing)]',
+    great:     'text-[var(--color-rating-good)]',
     good:      'text-[var(--color-rating-good)]',
     marginal:  'text-[var(--color-rating-marginal)]',
     poor:      'text-[var(--color-rating-poor)]',
@@ -181,4 +189,116 @@ export function ratingColorClass(rating: string): string {
     dangerous: 'text-[var(--color-rating-dangerous)]',
   }
   return map[rating] ?? 'text-[var(--color-text-dim)]'
+}
+
+// ── Location-aware data access ─────────────────────────────────────────────
+
+/**
+ * Find a spot's forecast data from the surf JSON.
+ */
+export function getLocationForecast(
+  data: AllForecastData,
+  locationId: string,
+): SpotForecast | null {
+  if (!data.surf) return null
+  return data.surf.spots.find(s => s.spot.id === locationId) ?? null
+}
+
+/**
+ * Get the best-rated surf spot right now (highest score at first timestep).
+ */
+export function getBestSpot(
+  data: AllForecastData,
+): { spotId: string; score: number; rating: string } | null {
+  if (!data.surf) return null
+
+  let best: { spotId: string; score: number; rating: string } | null = null
+  for (const sf of data.surf.spots) {
+    if (sf.spot.type === 'harbour') continue
+    const first = sf.ratings[0]
+    if (!first || first.score == null) continue
+    if (!best || first.score > best.score) {
+      best = { spotId: sf.spot.id, score: first.score, rating: first.rating ?? 'poor' }
+    }
+  }
+  return best
+}
+
+/**
+ * Get forecast records for a location + model combination.
+ * Returns ForecastRecord[] suitable for weather charts.
+ */
+export function getModelRecords(
+  locationId: string,
+  model: WindModel,
+  data: AllForecastData,
+): ForecastRecord[] {
+  if (model === 'wrf') {
+    if (locationId === 'keelung' && data.keelung) {
+      return data.keelung.records
+    }
+    if (data.wrf_spots?.locations?.[locationId]) {
+      return data.wrf_spots.locations[locationId].records
+    }
+    return []
+  }
+
+  const sf = getLocationForecast(data, locationId)
+  if (!sf) {
+    if (locationId === 'keelung' && model === 'ecmwf' && data.ecmwf) {
+      return data.ecmwf.records
+    }
+    return []
+  }
+
+  if (model === 'gfs') {
+    return gfsToForecastRecords(sf.gfs ?? [])
+  }
+
+  return ratingsToForecastRecords(sf.ratings)
+}
+
+/** Map SpotRating[] to ForecastRecord[] for chart consumption. */
+export function ratingsToForecastRecords(ratings: SpotRating[]): ForecastRecord[] {
+  return ratings.map(r => ({
+    valid_utc: r.valid_utc,
+    wind_kt: r.wind_kt,
+    wind_dir: r.wind_dir,
+    gust_kt: r.gust_kt,
+    temp_c: r.temp_c,
+    mslp_hpa: r.mslp_hpa,
+    precip_mm_6h: r.precip_mm_6h,
+    cloud_pct: r.cloud_pct,
+    cape: r.cape,
+  }))
+}
+
+/** Map GfsRecord[] to ForecastRecord[] for chart consumption. */
+export function gfsToForecastRecords(gfs: GfsRecord[]): ForecastRecord[] {
+  return gfs.map(r => ({
+    valid_utc: r.valid_utc,
+    wind_kt: r.wind_kt,
+    wind_dir: r.wind_dir,
+    gust_kt: r.gust_kt,
+    temp_c: r.temp_c,
+    mslp_hpa: r.mslp_hpa,
+    vis_km: r.vis_km,
+  }))
+}
+
+/** Get most recent accuracy entry for a location and optional model. */
+export function getLocationAccuracy(
+  accuracyLog: AccuracyEntry[] | null,
+  locationId: string,
+  modelId?: string,
+): AccuracyEntry | null {
+  if (!accuracyLog?.length) return null
+  const forLocation = accuracyLog.filter(e =>
+    (e.location_id ?? 'keelung') === locationId
+  )
+  if (modelId) {
+    const forModel = forLocation.filter(e => e.model_id === modelId)
+    return forModel[forModel.length - 1] ?? null
+  }
+  return forLocation[forLocation.length - 1] ?? null
 }

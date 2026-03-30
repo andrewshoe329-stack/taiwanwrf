@@ -5,6 +5,7 @@
   },
   "nav": {
     "now": "即時",
+    "forecast": "預報",
     "spots": "浪點",
     "harbours": "港口",
     "models": "模式"
@@ -64,6 +65,10 @@
   "spots": {
     "title": "衝浪浪點",
     "best_now": "最佳浪點",
+    "all_locations": "全部地點",
+    "view_on_map": "在地圖上查看",
+    "close": "關閉",
+    "more_details": "詳細資訊",
     "heatmap_title": "七日展望",
     "ranked_title": "今日排名",
     "all": "全部",
@@ -106,6 +111,7 @@
   },
   "rating": {
     "firing": "超讚！",
+    "great": "很好",
     "good": "良好",
     "marginal": "勉強",
     "poor": "差",

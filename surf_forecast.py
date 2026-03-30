@@ -233,12 +233,14 @@ def fetch_spot(lat: float, lon: float) -> tuple[dict[str, object], dict[str, obj
     }
     ec_params = urllib.parse.urlencode({
         **common,
-        'hourly': 'windspeed_10m,winddirection_10m,windgusts_10m,precipitation',
+        'hourly': ('windspeed_10m,winddirection_10m,windgusts_10m,precipitation,'
+                   'temperature_2m,pressure_msl,cloud_cover,cape'),
         'wind_speed_unit': 'kn', 'models': 'ecmwf_ifs025',
     })
     gfs_params = urllib.parse.urlencode({
         **common,
-        'hourly': 'windgusts_10m',
+        'hourly': ('windspeed_10m,winddirection_10m,windgusts_10m,'
+                   'temperature_2m,pressure_msl,visibility'),
         'wind_speed_unit': 'kn', 'models': 'gfs_global',
     })
     mar_params = urllib.parse.urlencode({
@@ -305,6 +307,18 @@ def process_spot(ec: dict, gfs: dict, mar: dict) -> list[dict[str, object]]:
             dt_utc = dt_utc.replace(tzinfo=timezone.utc)
         dt_cst = dt_utc + timedelta(hours=8)
 
+        # GFS weather fields (alternative model)
+        gfs_rec = {}
+        if gi is not None:
+            gfs_rec = {
+                'gfs_wind':  _safe_get(gh.get('windspeed_10m'), gi),
+                'gfs_dir':   _safe_get(gh.get('winddirection_10m'), gi),
+                'gfs_gust':  _safe_get(gh.get('windgusts_10m'), gi),
+                'gfs_temp':  _safe_get(gh.get('temperature_2m'), gi),
+                'gfs_mslp':  _safe_get(gh.get('pressure_msl'), gi),
+                'gfs_vis':   _safe_get(gh.get('visibility'), gi),
+            }
+
         records.append({
             'dt_utc': dt_utc,
             'dt_cst': dt_cst,
@@ -313,7 +327,12 @@ def process_spot(ec: dict, gfs: dict, mar: dict) -> list[dict[str, object]]:
             'w_dir':  _safe_get(eh.get('winddirection_10m'), i),
             'gust':   gust,
             'rain6h': rain6h,
+            'temp_c': _safe_get(eh.get('temperature_2m'),    i),
+            'mslp_hpa': _safe_get(eh.get('pressure_msl'),   i),
+            'cloud_pct': _safe_get(eh.get('cloud_cover'),    i),
+            'cape':   _safe_get(eh.get('cape'),              i),
             **wv,
+            **gfs_rec,
         })
     return records
 
@@ -439,10 +458,17 @@ def day_rating(day_recs: list[dict], spot: dict,
     base = {'best_sw_hs': br.get('sw_hs'), 'best_sw_tp': br.get('sw_tp'),
              'best_wind': br.get('wind'), 'confidence': confidence}
 
-    if   best_score >= 9:  return {'label': T_str('firing', 'en'), 'label_key': 'firing',  'emoji': '🔥', 'bg': '#0d3320', 'col': '#48bb78', **base}
-    elif best_score >= 7:  return {'label': T_str('good', 'en'),    'label_key': 'good',     'emoji': '🟢', 'bg': '#0d2d1a', 'col': '#68d391', **base}
-    elif best_score >= 4:  return {'label': T_str('marginal', 'en'), 'label_key': 'marginal', 'emoji': '🟡', 'bg': '#3d2e00', 'col': '#fbd38d', **base}
-    else:                  return {'label': T_str('poor', 'en'),    'label_key': 'poor',     'emoji': '🔴', 'bg': '#3d1515', 'col': '#fc8181', **base}
+    best_sw_hs = base.get('best_sw_hs') or 0
+    if   best_score >= 11 and best_sw_hs >= 0.8:
+        return {'label': T_str('firing', 'en'), 'label_key': 'firing',  'emoji': '🔥', 'bg': '#0d3320', 'col': '#48bb78', **base}
+    elif best_score >= 8:
+        return {'label': T_str('great', 'en'),  'label_key': 'great',   'emoji': '🟢', 'bg': '#0d2d1a', 'col': '#68d391', **base}
+    elif best_score >= 6:
+        return {'label': T_str('good', 'en'),   'label_key': 'good',    'emoji': '🟢', 'bg': '#133d1a', 'col': '#86efac', **base}
+    elif best_score >= 4:
+        return {'label': T_str('marginal', 'en'), 'label_key': 'marginal', 'emoji': '🟡', 'bg': '#3d2e00', 'col': '#fbd38d', **base}
+    else:
+        return {'label': T_str('poor', 'en'),   'label_key': 'poor',    'emoji': '🔴', 'bg': '#3d1515', 'col': '#fc8181', **base}
 
 
 def best_time_for_day(day_recs: list[dict], spot: dict) -> dict[str, object] | None:
@@ -709,6 +735,7 @@ def generate_planner_json(all_spot_data: list[dict], keelung_records: list = Non
 
 # Spot-to-region mapping for the frontend
 _SPOT_REGION = {
+    'keelung': 'north',
     'fulong': 'north', 'greenbay': 'north', 'jinshan': 'north',
     'daxi': 'northeast', 'wushih': 'northeast', 'doublelions': 'northeast', 'chousui': 'northeast',
 }
@@ -724,31 +751,41 @@ def generate_frontend_json(all_spot_data: list[dict]) -> dict:
         spot_entry = sd['spot']
         records = sd['records']
         spot_id = spot_entry.get('id', '')
+        spot_type = spot_entry.get('type', 'spot')
         en_name, zh_name = _split_spot_name(spot_entry.get('name', ''))
 
         # Build per-timestep ratings
+        is_harbour = spot_type == 'harbour'
         ratings = []
         for r in records:
             dt_utc = r.get('dt_utc')
             tide_h = _tide_height(dt_utc) if dt_utc is not None else None
-            score = _score_timestep(r, spot_entry, tide_height_m=tide_h)
-            if score >= 9:
-                rating_label = 'firing'
-            elif score >= 7:
-                rating_label = 'good'
-            elif score >= 4:
-                rating_label = 'marginal'
-            else:
-                rating_label = 'poor'
-
-            sw_hs = r.get('sw_hs') or 0
-            wind_kt = r.get('wind') or 0
-            if sw_hs < MIN_SWELL_HEIGHT_M:
-                rating_label = 'flat'
-            elif sw_hs > MAX_SWELL_HEIGHT_M or wind_kt > MAX_WIND_KT:
-                rating_label = 'dangerous'
-
             valid_utc = dt_utc.isoformat() if dt_utc else ''
+
+            if is_harbour:
+                score = None
+                rating_label = None
+            else:
+                score = _score_timestep(r, spot_entry, tide_height_m=tide_h)
+                sw_hs = r.get('sw_hs') or 0
+                wind_kt = r.get('wind') or 0
+
+                # Rating labels: firing requires both high score AND solid swell
+                if score >= 11 and sw_hs >= 0.8:
+                    rating_label = 'firing'
+                elif score >= 8:
+                    rating_label = 'great'
+                elif score >= 6:
+                    rating_label = 'good'
+                elif score >= 4:
+                    rating_label = 'marginal'
+                else:
+                    rating_label = 'poor'
+
+                if sw_hs < MIN_SWELL_HEIGHT_M:
+                    rating_label = 'flat'
+                elif sw_hs > MAX_SWELL_HEIGHT_M or wind_kt > MAX_WIND_KT:
+                    rating_label = 'dangerous'
 
             rating_entry = {
                 'spot_id': spot_id,
@@ -758,48 +795,79 @@ def generate_frontend_json(all_spot_data: list[dict]) -> dict:
                 'swell_height': r.get('sw_hs'),
                 'swell_dir': r.get('sw_dir'),
                 'swell_period': r.get('sw_tp'),
+                'wave_height': r.get('hs'),
                 'wind_kt': r.get('wind'),
                 'wind_dir': r.get('w_dir'),
+                'gust_kt': r.get('gust'),
+                'temp_c': r.get('temp_c'),
+                'mslp_hpa': r.get('mslp_hpa'),
+                'precip_mm_6h': r.get('rain6h'),
+                'cloud_pct': r.get('cloud_pct'),
+                'cape': r.get('cape'),
             }
             if tide_h is not None:
                 rating_entry['tide_height'] = round(tide_h, 2)
             ratings.append(rating_entry)
 
-        # Build daily_best
-        by_day = {}
+        # Build daily_best and best_times (surf spots only)
+        daily_best = None
+        best_times = None
+        if not is_harbour:
+            by_day = {}
+            for r in records:
+                by_day.setdefault(r['dk'], []).append(r)
+
+            daily_best = []
+            for dk in sorted(by_day.keys()):
+                day_recs = by_day[dk]
+                dr = day_rating(day_recs, spot_entry)
+                label_key = dr.get('label_key', 'poor')
+                best_score = 0
+                for r in day_recs:
+                    s = _score_timestep(r, spot_entry, tide_height_m=_tide_height(r.get('dt_utc')))
+                    best_score = max(best_score, s)
+                daily_best.append({'date': dk, 'rating': label_key, 'score': best_score})
+
+            best_times = []
+            for dk in sorted(by_day.keys()):
+                bt = best_time_for_day(by_day[dk], spot_entry)
+                if bt and bt.get('dt_cst'):
+                    dt_cst = bt['dt_cst']
+                    start_cst = dt_cst.strftime('%H:%M') if hasattr(dt_cst, 'strftime') else str(dt_cst)
+                    end_h = (dt_cst.hour + 6) % 24
+                    end_cst = f'{end_h:02d}:{dt_cst.minute:02d}' if hasattr(dt_cst, 'minute') else ''
+                    best_times.append({
+                        'date': dk,
+                        'start_cst': start_cst,
+                        'end_cst': end_cst,
+                        'rating': 'good' if bt['score'] >= 7 else 'marginal',
+                    })
+
+        # Build GFS alternative model records
+        gfs_records = []
         for r in records:
-            by_day.setdefault(r['dk'], []).append(r)
-
-        daily_best = []
-        for dk in sorted(by_day.keys()):
-            day_recs = by_day[dk]
-            dr = day_rating(day_recs, spot_entry)
-            label_key = dr.get('label_key', 'poor')
-            best_score = 0
-            for r in day_recs:
-                s = _score_timestep(r, spot_entry, tide_height_m=_tide_height(r.get('dt_utc')))
-                best_score = max(best_score, s)
-            daily_best.append({'date': dk, 'rating': label_key, 'score': best_score})
-
-        # Build best_times
-        best_times = []
-        for dk in sorted(by_day.keys()):
-            bt = best_time_for_day(by_day[dk], spot_entry)
-            if bt and bt.get('dt_cst'):
-                dt_cst = bt['dt_cst']
-                start_cst = dt_cst.strftime('%H:%M') if hasattr(dt_cst, 'strftime') else str(dt_cst)
-                end_h = (dt_cst.hour + 6) % 24
-                end_cst = f'{end_h:02d}:{dt_cst.minute:02d}' if hasattr(dt_cst, 'minute') else ''
-                best_times.append({
-                    'date': dk,
-                    'start_cst': start_cst,
-                    'end_cst': end_cst,
-                    'rating': 'good' if bt['score'] >= 7 else 'marginal',
-                })
+            dt_utc = r.get('dt_utc')
+            valid_utc = dt_utc.isoformat() if dt_utc else ''
+            gfs_wind = r.get('gfs_wind')
+            # Only include if GFS data exists
+            if gfs_wind is not None:
+                gfs_entry = {
+                    'valid_utc': valid_utc,
+                    'wind_kt': gfs_wind,
+                    'wind_dir': r.get('gfs_dir'),
+                    'gust_kt': r.get('gfs_gust'),
+                    'temp_c': r.get('gfs_temp'),
+                    'mslp_hpa': r.get('gfs_mslp'),
+                }
+                gfs_vis = r.get('gfs_vis')
+                if gfs_vis is not None:
+                    gfs_entry['vis_km'] = round(gfs_vis / 1000, 1) if gfs_vis > 100 else gfs_vis
+                gfs_records.append(gfs_entry)
 
         spots.append({
             'spot': {
                 'id': spot_id,
+                'type': spot_type,
                 'name': {'en': en_name, 'zh': zh_name},
                 'lat': spot_entry.get('lat', 0),
                 'lon': spot_entry.get('lon', 0),
@@ -809,6 +877,7 @@ def generate_frontend_json(all_spot_data: list[dict]) -> dict:
                 'opt_swell': spot_entry.get('opt_swell', []),
             },
             'ratings': ratings,
+            'gfs': gfs_records if gfs_records else None,
             'daily_best': daily_best,
             'best_times': best_times,
         })
@@ -1723,7 +1792,14 @@ def main() -> None:
         log.info("  %s → %d timesteps", name, len(records))
         return spot_entry, records
 
-    all_entries = list(SPOTS)
+    # Include Keelung harbour as an additional location
+    keelung_entry = {
+        'id': 'keelung', 'type': 'harbour',
+        'name': 'Keelung Harbour 基隆港',
+        'lat': KEELUNG_LAT, 'lon': KEELUNG_LON,
+        'facing': '', 'opt_wind': [], 'opt_swell': [],
+    }
+    all_entries = list(SPOTS) + [keelung_entry]
 
     all_spot_data = []
     failed_count = 0
@@ -1747,8 +1823,8 @@ def main() -> None:
         log.error("No surf spot data fetched — aborting")
         sys.exit(1)
 
-    # Preserve original spot ordering
-    spot_order = {s['id']: i for i, s in enumerate(SPOTS)}
+    # Preserve original spot ordering (keelung last)
+    spot_order = {s['id']: i for i, s in enumerate(all_entries)}
     all_spot_data.sort(key=lambda d: spot_order.get(d['spot'].get('id'), 99))
 
     from datetime import datetime as _dt_cls, timezone as _tz_cls
