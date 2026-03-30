@@ -31,10 +31,9 @@ function tileLatFromY(y: number, n: number): number {
 }
 
 /** Choose an appropriate zoom level for a given viewport longitude span */
-export function zoomForSpan(lonSpan: number): number {
-  // At zoom z, the world is 2^z tiles of 360/2^z degrees each
+export function zoomForSpan(lonSpan: number, maxZoom = 12): number {
   const z = Math.round(Math.log2(360 / lonSpan))
-  return Math.max(3, Math.min(z, 12))
+  return Math.max(1, Math.min(z, maxZoom))
 }
 
 /** Get all tile coordinates that intersect a viewport */
