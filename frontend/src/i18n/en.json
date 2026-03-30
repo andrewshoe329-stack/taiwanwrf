@@ -51,7 +51,8 @@
     "now": "Now",
     "play": "Play",
     "pause": "Pause",
-    "next_update": "Next update in ~{{hours}}h"
+    "next_update": "Next update in ~{{hours}}h",
+    "cst": "CST"
   },
   "ai": {
     "title": "AI Forecast Summary",
@@ -148,7 +149,23 @@
     "no_accuracy": "No accuracy data available",
     "wind_comparison": "Wind Comparison",
     "temp_comparison": "Temperature Comparison",
-    "accuracy_trend": "Accuracy Trend (30 days)"
+    "accuracy_trend": "Accuracy Trend (30 days)",
+    "init": "Init",
+    "records": "Records",
+    "temp_mae": "Temp MAE",
+    "wind_mae": "Wind MAE",
+    "mslp_mae": "MSLP MAE",
+    "wind_dir_mae": "Wind Dir",
+    "temp_bias": "Temp bias",
+    "wind_bias": "Wind bias",
+    "wave_verification": "Wave verification",
+    "hs_mae": "Hs MAE",
+    "hs_bias": "Hs bias",
+    "tp_mae": "Tp MAE",
+    "horizon_label": "Horizon",
+    "confidence_high": "High",
+    "confidence_moderate": "Moderate",
+    "confidence_low": "Low"
   },
   "harbour": {
     "keelung": "Keelung"
@@ -172,6 +189,7 @@
   "common": {
     "loading": "Loading forecast data...",
     "error": "Failed to load data",
+    "error_detail": "Some forecast data could not be loaded",
     "retry": "Retry",
     "stale_warning": "Viewing cached data — may be outdated",
     "refresh": "Refresh",
@@ -180,9 +198,20 @@
     "updated_ago": "Updated {{time}} ago",
     "just_now": "Just updated",
     "wind": "Wind",
+    "gust": "Gust",
     "temp": "Temp",
     "pressure": "Pressure",
-    "precip": "Precipitation"
+    "precip": "Precipitation",
+    "swell": "Swell",
+    "wave_height": "Wave Height",
+    "swell_period": "Swell Period",
+    "tide": "Tide",
+    "total": "Total",
+    "wind_sea": "Wind Sea",
+    "height": "Height",
+    "no_data": "No data",
+    "spot_not_found": "Spot not found",
+    "scroll_for_more": "Scroll for more →"
   },
   "units": {
     "kt": "kt",

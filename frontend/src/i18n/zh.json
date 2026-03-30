@@ -51,7 +51,8 @@
     "now": "現在",
     "play": "播放",
     "pause": "暫停",
-    "next_update": "約 {{hours}} 小時後更新"
+    "next_update": "約 {{hours}} 小時後更新",
+    "cst": "台灣時間"
   },
   "ai": {
     "title": "AI 預報摘要",
@@ -148,7 +149,23 @@
     "no_accuracy": "無準確度資料",
     "wind_comparison": "風速比較",
     "temp_comparison": "溫度比較",
-    "accuracy_trend": "準確度趨勢（30天）"
+    "accuracy_trend": "準確度趨勢（30天）",
+    "init": "初始化",
+    "records": "筆數",
+    "temp_mae": "溫度 MAE",
+    "wind_mae": "風速 MAE",
+    "mslp_mae": "氣壓 MAE",
+    "wind_dir_mae": "風向",
+    "temp_bias": "溫度偏差",
+    "wind_bias": "風速偏差",
+    "wave_verification": "浪高驗證",
+    "hs_mae": "浪高 MAE",
+    "hs_bias": "浪高偏差",
+    "tp_mae": "週期 MAE",
+    "horizon_label": "預報時距",
+    "confidence_high": "高",
+    "confidence_moderate": "中等",
+    "confidence_low": "低"
   },
   "harbour": {
     "keelung": "基隆"
@@ -172,6 +189,7 @@
   "common": {
     "loading": "載入預報資料中...",
     "error": "載入資料失敗",
+    "error_detail": "部分預報資料載入失敗",
     "retry": "重試",
     "stale_warning": "顯示快取資料——可能已過時",
     "refresh": "重新整理",
@@ -180,9 +198,20 @@
     "updated_ago": "{{time}} 前更新",
     "just_now": "剛剛更新",
     "wind": "風速",
+    "gust": "陣風",
     "temp": "溫度",
     "pressure": "氣壓",
-    "precip": "降水"
+    "precip": "降水",
+    "swell": "湧浪",
+    "wave_height": "浪高",
+    "swell_period": "湧浪週期",
+    "tide": "潮汐",
+    "total": "總計",
+    "wind_sea": "風浪",
+    "height": "潮位",
+    "no_data": "無資料",
+    "spot_not_found": "找不到浪點",
+    "scroll_for_more": "左滑查看更多 →"
   },
   "units": {
     "kt": "節",

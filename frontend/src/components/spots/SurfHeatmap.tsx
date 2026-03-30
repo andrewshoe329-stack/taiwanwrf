@@ -63,7 +63,8 @@ export function SurfHeatmap({ spots, filter, onSelectSpot }: SurfHeatmapProps) {
   if (filtered.length === 0 || dates.length === 0) return null
 
   return (
-    <div className="mb-5 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+    <div className="mb-5 overflow-x-auto relative" style={{ scrollbarWidth: 'none' }}>
+      <p className="text-[9px] text-[var(--color-text-dim)] text-right mb-1 md:hidden">{t('common.scroll_for_more')}</p>
       <table className="w-full border-collapse text-xs" style={{ minWidth: dates.length * 64 + 100 }}>
         <thead>
           <tr>

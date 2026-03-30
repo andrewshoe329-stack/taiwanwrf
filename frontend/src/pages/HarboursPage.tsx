@@ -22,6 +22,19 @@ export function HarboursPage() {
 
   if (data.loading) return <LoadingSpinner />
 
+  if (data.error && !data.ecmwf && !data.wave) {
+    return (
+      <div className="px-4 py-6 pb-24 max-w-screen-xl mx-auto">
+        <h1 className="text-lg font-semibold text-[var(--color-text-primary)] mb-4">
+          {lang === 'zh' ? '基隆港' : 'Keelung Harbour'}
+        </h1>
+        <div className="border border-[var(--color-danger)]/30 rounded-xl p-6 text-center">
+          <p className="text-sm text-[var(--color-text-muted)]">{t('common.error')}</p>
+        </div>
+      </div>
+    )
+  }
+
   const records = data.ecmwf?.records ?? []
   const waveRecords = data.wave?.ecmwf_wave?.records ?? []
   const ensemble = data.ensemble

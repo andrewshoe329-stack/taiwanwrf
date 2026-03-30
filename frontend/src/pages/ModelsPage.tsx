@@ -30,12 +30,12 @@ function fmt(v: number | undefined | null, unit: string, decimals = 1): string {
 function spreadConfidence(
   windSpread?: number,
   tempSpread?: number,
-): { label: string; opacity: string; level: 'high' | 'moderate' | 'low' } {
+): { level: 'high' | 'moderate' | 'low'; opacity: string } {
   const w = windSpread ?? 0
   const t = tempSpread ?? 0
-  if (w <= 3 && t <= 1.5) return { label: 'High', opacity: 'opacity-100', level: 'high' }
-  if (w <= 6 && t <= 3)   return { label: 'Moderate', opacity: 'opacity-60', level: 'moderate' }
-  return { label: 'Low', opacity: 'opacity-35', level: 'low' }
+  if (w <= 3 && t <= 1.5) return { opacity: 'opacity-100', level: 'high' }
+  if (w <= 6 && t <= 3)   return { opacity: 'opacity-60', level: 'moderate' }
+  return { opacity: 'opacity-35', level: 'low' }
 }
 
 /* ── Sub-components ──────────────────────────────────────────────────────────── */
@@ -43,6 +43,7 @@ function spreadConfidence(
 function ModelCard({ modelKey, recordCount, initUtc }: {
   modelKey: string; recordCount: number; initUtc?: string
 }) {
+  const { t } = useTranslation()
   const meta = MODEL_META[modelKey] ?? { label: modelKey, color: '#a0a0a0', bgVar: '--color-bg-elevated' }
   return (
     <div className="border border-[var(--color-border)] rounded-xl p-4 space-y-3">
@@ -51,8 +52,8 @@ function ModelCard({ modelKey, recordCount, initUtc }: {
         <h3 className="text-sm font-medium text-[var(--color-text-primary)]">{meta.label}</h3>
       </div>
       <div className="space-y-1 text-xs text-[var(--color-text-secondary)]">
-        {initUtc && <p><span className="text-[var(--color-text-muted)]">Init: </span>{initUtc.replace('T', ' ').slice(0, 16)} UTC</p>}
-        <p><span className="text-[var(--color-text-muted)]">Records: </span>{recordCount}</p>
+        {initUtc && <p><span className="text-[var(--color-text-muted)]">{t('models_page.init')}: </span>{initUtc.replace('T', ' ').slice(0, 16)} UTC</p>}
+        <p><span className="text-[var(--color-text-muted)]">{t('models_page.records')}: </span>{recordCount}</p>
       </div>
     </div>
   )
@@ -68,7 +69,7 @@ function SpreadIndicator({ windSpread, tempSpread }: { windSpread?: number; temp
       <h3 className="text-xs font-medium tracking-wide uppercase text-[var(--color-text-muted)]">
         {t('models_page.ensemble_confidence', 'Ensemble Confidence')}
       </h3>
-      <p className={`text-2xl font-semibold ${conf.opacity}`}>{conf.label}</p>
+      <p className={`text-2xl font-semibold ${conf.opacity}`}>{t(`models_page.confidence_${conf.level}`, conf.level)}</p>
       <div className="flex gap-1">
         {[0, 1, 2, 3, 4].map(i => (
           <div key={i} className={`h-1 flex-1 rounded-full ${
@@ -77,8 +78,8 @@ function SpreadIndicator({ windSpread, tempSpread }: { windSpread?: number; temp
         ))}
       </div>
       <div className="flex gap-6 text-xs text-[var(--color-text-secondary)]">
-        <div><span className="text-[var(--color-text-muted)]">Wind: </span>{fmt(windSpread, ' kt')}</div>
-        <div><span className="text-[var(--color-text-muted)]">Temp: </span>{fmt(tempSpread, '°', 1)}</div>
+        <div><span className="text-[var(--color-text-muted)]">{t('common.wind')}: </span>{fmt(windSpread, ' kt')}</div>
+        <div><span className="text-[var(--color-text-muted)]">{t('common.temp')}: </span>{fmt(tempSpread, '°', 1)}</div>
       </div>
     </div>
   )
@@ -123,6 +124,7 @@ function WindComparisonChart({ wrfRecords, ecmwfRecords }: {
 
 /** Accuracy trend chart — MAE over last 30 days */
 function AccuracyTrendChart({ entries }: { entries: AccuracyEntry[] }) {
+  const { t } = useTranslation()
   const mobile = useIsMobile()
 
   const chartData = useMemo(() => {
@@ -147,9 +149,9 @@ function AccuracyTrendChart({ entries }: { entries: AccuracyEntry[] }) {
         <YAxis tick={{ fill: 'var(--color-text-muted)', fontSize: 10 }} stroke="var(--color-border)" width={35} />
         <Tooltip contentStyle={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 8, fontSize: 12 }} />
         <Legend wrapperStyle={{ fontSize: 11 }} />
-        <Line dataKey="temp" name="Temp °C" stroke="#fbbf24" strokeWidth={1.5} dot={false} type="monotone" isAnimationActive={false} />
-        <Line dataKey="wind" name="Wind kt" stroke="#5eead4" strokeWidth={1.5} dot={false} type="monotone" isAnimationActive={false} />
-        <Line dataKey="wave" name="Wave m" stroke="#f5f5f5" strokeWidth={1.5} dot={false} type="monotone" isAnimationActive={false} />
+        <Line dataKey="temp" name={`${t('common.temp')} °C`} stroke="#fbbf24" strokeWidth={1.5} dot={false} type="monotone" isAnimationActive={false} />
+        <Line dataKey="wind" name={`${t('common.wind')} kt`} stroke="#5eead4" strokeWidth={1.5} dot={false} type="monotone" isAnimationActive={false} />
+        <Line dataKey="wave" name={`${t('common.wave_height')} m`} stroke="#f5f5f5" strokeWidth={1.5} dot={false} type="monotone" isAnimationActive={false} />
       </LineChart>
     </ResponsiveContainer>
   )
@@ -168,16 +170,16 @@ function AccuracyCard({ entry }: { entry: AccuracyEntry }) {
         </span>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <MetricCell label="Temp MAE" value={fmt(entry.temp_mae_c, '°C')} good={entry.temp_mae_c != null && entry.temp_mae_c < 2} />
-        <MetricCell label="Wind MAE" value={fmt(entry.wind_mae_kt, ' kt')} good={entry.wind_mae_kt != null && entry.wind_mae_kt < 5} />
-        <MetricCell label="MSLP MAE" value={fmt(entry.mslp_mae_hpa, ' hPa')} good={entry.mslp_mae_hpa != null && entry.mslp_mae_hpa < 2} />
-        <MetricCell label="Wind Dir" value={fmt(entry.wdir_mae_deg, '°')} good={entry.wdir_mae_deg != null && entry.wdir_mae_deg < 30} />
+        <MetricCell label={t('models_page.temp_mae')} value={fmt(entry.temp_mae_c, '°C')} good={entry.temp_mae_c != null && entry.temp_mae_c < 2} />
+        <MetricCell label={t('models_page.wind_mae')} value={fmt(entry.wind_mae_kt, ' kt')} good={entry.wind_mae_kt != null && entry.wind_mae_kt < 5} />
+        <MetricCell label={t('models_page.mslp_mae')} value={fmt(entry.mslp_mae_hpa, ' hPa')} good={entry.mslp_mae_hpa != null && entry.mslp_mae_hpa < 2} />
+        <MetricCell label={t('models_page.wind_dir_mae')} value={fmt(entry.wdir_mae_deg, '°')} good={entry.wdir_mae_deg != null && entry.wdir_mae_deg < 30} />
       </div>
       {(entry.temp_bias_c != null || entry.wind_bias_kt != null) && (
         <div className="flex gap-6 text-xs text-[var(--color-text-secondary)]">
           {entry.temp_bias_c != null && (
             <div>
-              <span className="text-[var(--color-text-muted)]">Temp bias: </span>
+              <span className="text-[var(--color-text-muted)]">{t('models_page.temp_bias')}: </span>
               <span className={entry.temp_bias_c > 1 ? 'text-red-400' : entry.temp_bias_c < -1 ? 'text-sky-400' : ''}>
                 {entry.temp_bias_c > 0 ? '+' : ''}{entry.temp_bias_c.toFixed(1)}°C
               </span>
@@ -185,7 +187,7 @@ function AccuracyCard({ entry }: { entry: AccuracyEntry }) {
           )}
           {entry.wind_bias_kt != null && (
             <div>
-              <span className="text-[var(--color-text-muted)]">Wind bias: </span>
+              <span className="text-[var(--color-text-muted)]">{t('models_page.wind_bias')}: </span>
               <span className={Math.abs(entry.wind_bias_kt) > 3 ? 'text-amber-400' : ''}>
                 {entry.wind_bias_kt > 0 ? '+' : ''}{entry.wind_bias_kt.toFixed(1)} kt
               </span>
@@ -195,11 +197,11 @@ function AccuracyCard({ entry }: { entry: AccuracyEntry }) {
       )}
       {entry.wave && (
         <div>
-          <p className="text-xs text-[var(--color-text-muted)] mb-2">Wave verification</p>
+          <p className="text-xs text-[var(--color-text-muted)] mb-2">{t('models_page.wave_verification')}</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <MetricCell label="Hs MAE" value={fmt(entry.wave.hs_mae_m, ' m')} good={entry.wave.hs_mae_m != null && entry.wave.hs_mae_m < 0.5} />
-            <MetricCell label="Hs bias" value={fmt(entry.wave.hs_bias_m, ' m')} />
-            <MetricCell label="Tp MAE" value={fmt(entry.wave.tp_mae_s, ' s')} />
+            <MetricCell label={t('models_page.hs_mae')} value={fmt(entry.wave.hs_mae_m, ' m')} good={entry.wave.hs_mae_m != null && entry.wave.hs_mae_m < 0.5} />
+            <MetricCell label={t('models_page.hs_bias')} value={fmt(entry.wave.hs_bias_m, ' m')} />
+            <MetricCell label={t('models_page.tp_mae')} value={fmt(entry.wave.tp_mae_s, ' s')} />
           </div>
         </div>
       )}
@@ -231,10 +233,10 @@ function HorizonBreakdown({ horizons }: { horizons: Record<string, Record<string
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-[var(--color-border)]">
-              <th className="text-left py-1.5 pr-3 text-[var(--color-text-muted)] font-normal">Horizon</th>
-              <th className="text-right py-1.5 px-2 text-[var(--color-text-muted)] font-normal">Temp</th>
-              <th className="text-right py-1.5 px-2 text-[var(--color-text-muted)] font-normal">Wind</th>
-              <th className="text-right py-1.5 px-2 text-[var(--color-text-muted)] font-normal">MSLP</th>
+              <th className="text-left py-1.5 pr-3 text-[var(--color-text-muted)] font-normal">{t('models_page.horizon_label')}</th>
+              <th className="text-right py-1.5 px-2 text-[var(--color-text-muted)] font-normal">{t('common.temp')}</th>
+              <th className="text-right py-1.5 px-2 text-[var(--color-text-muted)] font-normal">{t('common.wind')}</th>
+              <th className="text-right py-1.5 px-2 text-[var(--color-text-muted)] font-normal">{t('common.pressure')}</th>
             </tr>
           </thead>
           <tbody>

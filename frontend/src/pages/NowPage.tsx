@@ -178,8 +178,8 @@ export function NowPage() {
       <div className="border-b border-[var(--color-border)] bg-[var(--color-bg)]">
         <div className="max-w-screen-lg mx-auto px-4 py-3 space-y-2">
           <div className="flex items-center gap-2">
-            <DecisionPill label={t('activity.sail')} decision={sailDec} t={t} />
-            {!isHarbour && <DecisionPill label={t('activity.surf')} decision={surfDec} t={t} />}
+            {(isHarbour || !isFocusMode) && <DecisionPill label={t('activity.sail')} decision={sailDec} t={t} />}
+            {(!isHarbour || !isFocusMode) && <DecisionPill label={t('activity.surf')} decision={surfDec} t={t} />}
           </div>
           <div className="flex items-center gap-4 overflow-x-auto">
             {currentRecord && (
@@ -196,7 +196,7 @@ export function NowPage() {
               const sh = 'swell_height' in waveRecord ? waveRecord.swell_height : ('swell_wave_height' in waveRecord ? waveRecord.swell_wave_height : undefined)
               const sp = 'swell_period' in waveRecord ? waveRecord.swell_period : ('swell_wave_period' in waveRecord ? waveRecord.swell_wave_period : undefined)
               return (
-                <Stat label="Swell"
+                <Stat label={t('common.swell')}
                   value={`${sh?.toFixed(1) ?? '--'}`}
                   unit="m"
                   detail={`@ ${sp?.toFixed(0) ?? '--'}s`}
@@ -308,13 +308,13 @@ export function NowPage() {
 
                 {/* Wave chart — from ratings (model-independent) */}
                 {data.wave?.ecmwf_wave?.records && (
-                  <ChartCard title="Wave Height">
+                  <ChartCard title={t('common.wave_height')}>
                     <WaveChart records={data.wave.ecmwf_wave.records} timeRange={timeRange} />
                   </ChartCard>
                 )}
 
                 {data.tide?.predictions && (
-                  <ChartCard title="Tide">
+                  <ChartCard title={t('common.tide')}>
                     <TideChart
                       predictions={data.tide.predictions}
                       extrema={data.tide.extrema}
@@ -324,7 +324,7 @@ export function NowPage() {
                 )}
 
                 {data.wave?.ecmwf_wave?.records && (
-                  <ChartCard title="Swell Period">
+                  <ChartCard title={t('common.swell_period')}>
                     <WavePeriodChart records={data.wave.ecmwf_wave.records} timeRange={timeRange} />
                   </ChartCard>
                 )}
@@ -492,7 +492,7 @@ function LocationCard({ forecast: sf, lang, index, keelungRecords, onSelect, t }
           {currentRating?.wind_dir != null && ` ${degToCompass(currentRating.wind_dir)}`}
         </p>
         {!isHarbour && currentRating?.swell_height != null && (
-          <p>Swell {currentRating.swell_height.toFixed(1)}m
+          <p>{t('common.swell')} {currentRating.swell_height.toFixed(1)}m
             {currentRating.swell_period != null && ` @ ${currentRating.swell_period.toFixed(0)}s`}
           </p>
         )}
