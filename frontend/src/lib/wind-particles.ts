@@ -332,6 +332,8 @@ export class WindParticleSystem {
     if (this.waveMode) {
       ctx.clearRect(0, 0, w, h)
       this.drawWaveHeatmap(ctx, w, h)
+      // Mask out land: fill coastline polygons with background color
+      this.fillLandMask(ctx, w, h)
       this.drawCoastline(ctx, w, h)
       this.animId = requestAnimationFrame(this.loop)
       return
@@ -430,6 +432,24 @@ export class WindParticleSystem {
     const yMax = mercY(north)
     const y = ((yMax - mercY(lat)) / (yMax - yMin)) * h
     return [x, y]
+  }
+
+  /** Fill land polygons with background color to mask wave heatmap over land */
+  private fillLandMask(ctx: CanvasRenderingContext2D, w: number, h: number) {
+    if (!this.coastline.length) return
+    ctx.fillStyle = '#000000'  // match ocean/map background
+    for (const ring of this.coastline) {
+      if (ring.length < 3) continue
+      ctx.beginPath()
+      const [sx, sy] = this.project(ring[0][0], ring[0][1], w, h)
+      ctx.moveTo(sx, sy)
+      for (let i = 1; i < ring.length; i++) {
+        const [px, py] = this.project(ring[i][0], ring[i][1], w, h)
+        ctx.lineTo(px, py)
+      }
+      ctx.closePath()
+      ctx.fill()
+    }
   }
 
   private drawCoastline(ctx: CanvasRenderingContext2D, w: number, h: number) {
