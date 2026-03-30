@@ -7,7 +7,7 @@ import type { ForecastRecord } from '@/lib/types'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import {
   toCSTLabel, MultiLineTick, timeTicks, timeDomain,
-  filterByTimeRange, findClosestIndex,
+  filterByTimeRange,
   chartMargin, chartHeightCompact, xAxisHeight, YAXIS_WIDTH, NOW_LABEL,
   type TimeRange,
 } from './chart-utils'
@@ -55,7 +55,7 @@ export function PrecipChart({ records, timeRange, selectedMs }: PrecipChartProps
   }))
 
   const nowMs = selectedMs
-  const domain = timeDomain(timeRange) ?? ['dataMin', 'dataMax'] as any
+  const domain = timeDomain(timeRange) ?? (['dataMin', 'dataMax'] as const)
   const ticks = timeTicks(timeRange, chartData, mobile)
 
   return (
@@ -78,7 +78,7 @@ export function PrecipChart({ records, timeRange, selectedMs }: PrecipChartProps
           unit=" mm"
           width={YAXIS_WIDTH}
         />
-        <Tooltip content={PrecipTooltip} defaultIndex={findClosestIndex(chartData, nowMs)} />
+        <Tooltip content={PrecipTooltip} />
         <Bar
           dataKey="precip"
           name="Precip 6h"

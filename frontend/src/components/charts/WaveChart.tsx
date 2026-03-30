@@ -57,7 +57,7 @@ export function WaveChart({ records, timeRange }: WaveChartProps) {
   }))
 
   const nowMs = findNowMs(timeRange)
-  const domain = timeDomain(timeRange) ?? ['dataMin', 'dataMax'] as any
+  const domain = timeDomain(timeRange) ?? (['dataMin', 'dataMax'] as const)
   const ticks = timeTicks(timeRange, chartData, mobile)
 
   return (
@@ -163,7 +163,7 @@ export function WavePeriodChart({ records, timeRange }: WaveChartProps) {
   }))
 
   const nowMs = findNowMs(timeRange)
-  const domain = timeDomain(timeRange) ?? ['dataMin', 'dataMax'] as any
+  const domain = timeDomain(timeRange) ?? (['dataMin', 'dataMax'] as const)
   const ticks = timeTicks(timeRange, chartData, mobile)
 
   return (

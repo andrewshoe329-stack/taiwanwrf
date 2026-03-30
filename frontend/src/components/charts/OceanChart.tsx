@@ -7,7 +7,7 @@ import type { WaveRecord } from '@/lib/types'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import {
   toCSTLabel, MultiLineTick, timeTicks, timeDomain,
-  filterByTimeRange, findClosestIndex,
+  filterByTimeRange,
   chartMargin, xAxisHeight, YAXIS_WIDTH, NOW_LABEL,
   type TimeRange,
 } from './chart-utils'
@@ -60,7 +60,7 @@ export function OceanChart({ records, timeRange, selectedMs }: OceanChartProps) 
   }))
 
   const nowMs = selectedMs
-  const domain = timeDomain(timeRange) ?? ['dataMin', 'dataMax'] as any
+  const domain = timeDomain(timeRange) ?? (['dataMin', 'dataMax'] as const)
   const ticks = timeTicks(timeRange, chartData, mobile)
   const h = mobile ? 160 : 180
 
@@ -96,7 +96,7 @@ export function OceanChart({ records, timeRange, selectedMs }: OceanChartProps) 
           width={36}
           domain={[0, 'auto']}
         />
-        <Tooltip content={OceanTooltip} defaultIndex={findClosestIndex(chartData, nowMs)} />
+        <Tooltip content={OceanTooltip} />
         <Area
           yAxisId="height"
           dataKey="swell"

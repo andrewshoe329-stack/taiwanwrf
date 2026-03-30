@@ -810,7 +810,7 @@ def generate_frontend_json(all_spot_data: list[dict]) -> dict:
                 'swell_height': r.get('sw_hs'),
                 'swell_dir': r.get('sw_dir'),
                 'swell_period': r.get('sw_tp'),
-                'wave_height': r.get('hs'),
+                'wave_height': r.get('hs') or r.get('sw_hs'),  # fallback to swell if total unavailable
                 'wind_kt': r.get('wind'),
                 'wind_dir': r.get('w_dir'),
                 'gust_kt': r.get('gust'),

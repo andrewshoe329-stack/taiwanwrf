@@ -294,9 +294,10 @@ export function NowPage() {
             if (waterTemp != null) items.push({ label: t('live.water_temp'), value: `${waterTemp.toFixed(1)}°C` })
             if (live?.station?.visibility_km != null && live.station.visibility_km < 10) items.push({ label: t('live.visibility'), value: `${live.station.visibility_km.toFixed(1)}km` })
             if (live?.station?.uv_index != null && live.station.uv_index > 0) items.push({ label: 'UV', value: `${live.station.uv_index.toFixed(0)}`, accent: live.station.uv_index >= 6 })
+            if (live?.buoy?.current_speed_ms != null && live.buoy.current_speed_ms > 0.1) items.push({ label: t('common.current'), value: `${(live.buoy.current_speed_ms * 1.94384).toFixed(1)}kt ${live.buoy.current_dir != null ? degToCompass(live.buoy.current_dir) : ''}` })
             if (!items.length) return null
             return (
-              <div className="rounded-lg bg-[var(--color-bg-elevated)]/50 border border-[var(--color-border)] p-2">
+              <div className="mt-2 rounded-lg bg-[var(--color-bg-elevated)]/50 border border-[var(--color-border)] p-2">
                 <div className="grid grid-cols-3 gap-x-2 gap-y-1.5">
                   {items.map((item, i) => (
                     <div key={i} className="text-center">

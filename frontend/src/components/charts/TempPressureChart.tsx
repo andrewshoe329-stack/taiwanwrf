@@ -7,7 +7,7 @@ import type { ForecastRecord } from '@/lib/types'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import {
   toCSTLabel, MultiLineTick, timeTicks, timeDomain,
-  filterByTimeRange, findClosestIndex,
+  filterByTimeRange,
   chartMargin, chartHeightCompact, xAxisHeight, YAXIS_WIDTH, NOW_LABEL,
   type TimeRange,
 } from './chart-utils'
@@ -77,7 +77,7 @@ export function TempChart({ records, timeRange, selectedMs }: ChartProps) {
   }))
 
   const nowMs = selectedMs
-  const domain = timeDomain(timeRange) ?? ['dataMin', 'dataMax'] as any
+  const domain = timeDomain(timeRange) ?? (['dataMin', 'dataMax'] as const)
   const ticks = timeTicks(timeRange, chartData, mobile)
 
   return (
@@ -101,7 +101,7 @@ export function TempChart({ records, timeRange, selectedMs }: ChartProps) {
           width={YAXIS_WIDTH}
           domain={['auto', 'auto']}
         />
-        <Tooltip content={TempTooltip} defaultIndex={findClosestIndex(chartData, nowMs)} />
+        <Tooltip content={TempTooltip} />
         <Line
           dataKey="temp"
           name="Temp"
@@ -138,7 +138,7 @@ export function PressureChart({ records, timeRange, selectedMs }: ChartProps) {
   }))
 
   const nowMs = selectedMs
-  const domain = timeDomain(timeRange) ?? ['dataMin', 'dataMax'] as any
+  const domain = timeDomain(timeRange) ?? (['dataMin', 'dataMax'] as const)
   const ticks = timeTicks(timeRange, chartData, mobile)
 
   return (
@@ -162,7 +162,7 @@ export function PressureChart({ records, timeRange, selectedMs }: ChartProps) {
           width={YAXIS_WIDTH}
           domain={['auto', 'auto']}
         />
-        <Tooltip content={PressureTooltip} defaultIndex={findClosestIndex(chartData, nowMs)} />
+        <Tooltip content={PressureTooltip} />
         <Line
           dataKey="pressure"
           name="Pressure"
