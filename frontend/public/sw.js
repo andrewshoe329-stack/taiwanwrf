@@ -1,5 +1,5 @@
 // Service Worker for Taiwan WRF Forecast PWA
-const CACHE_NAME = 'tw-forecast-v4'
+const CACHE_NAME = 'tw-forecast-v5'
 const PRECACHE_URLS = ['/', '/manifest.json', '/icon.svg']
 
 // ── Install: precache app shell ─────────────────────────────────────────────
