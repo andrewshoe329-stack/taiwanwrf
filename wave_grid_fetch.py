@@ -31,7 +31,7 @@ log = logging.getLogger(__name__)
 
 FORECAST_DAYS = 5
 MARINE_API_URL = "https://marine-api.open-meteo.com/v1/marine"
-RESOLUTION = 0.25  # degrees (~25km)
+RESOLUTION = 0.1  # degrees (~10km) — finer than wind grid for smooth heatmap
 
 
 def make_grid(lat_min, lat_max, lon_min, lon_max, resolution=RESOLUTION):
@@ -73,7 +73,7 @@ def fetch_wave_grid(lats: list[float], lons: list[float]) -> dict | None:
              len(points), len(lats), len(lons))
 
     results = {}
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    with ThreadPoolExecutor(max_workers=8) as pool:
         futures = {pool.submit(_fetch_point, lat, lon): (lat, lon)
                    for lat, lon in points}
         for fut in as_completed(futures):
