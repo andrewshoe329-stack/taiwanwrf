@@ -225,6 +225,14 @@ export function NowPage() {
                   {live?.buoy?.current_speed_ms != null && live.buoy.current_speed_ms > 0.1 && (
                     <span>{t('common.current') ?? 'Current'} {(live.buoy.current_speed_ms * 1.94384).toFixed(1)}kt {live.buoy.current_dir != null ? degToCompass(live.buoy.current_dir) : ''}</span>
                   )}
+                  {live?.station?.visibility_km != null && live.station.visibility_km < 10 && (
+                    <span>{t('live.visibility')} {live.station.visibility_km.toFixed(1)}km</span>
+                  )}
+                  {live?.station?.uv_index != null && live.station.uv_index > 0 && (
+                    <span className={live.station.uv_index >= 8 ? 'text-red-400' : live.station.uv_index >= 6 ? 'text-orange-400' : ''}>
+                      UV {live.station.uv_index.toFixed(0)}
+                    </span>
+                  )}
                 </div>
                 {liveObs.data && (
                   <p className="text-[9px] text-[var(--color-text-dim)] mt-0.5">
@@ -234,6 +242,28 @@ export function NowPage() {
               </div>
             )
           })()}
+
+          {/* Ensemble confidence + accuracy */}
+          {data.ensemble?.spread && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {(() => {
+                const ws = data.ensemble.spread.wind_spread_kt ?? 99
+                const level = ws < 5 ? 'high' : ws < 10 ? 'moderate' : 'low'
+                const stars = level === 'high' ? '★★★' : level === 'moderate' ? '★★☆' : '★☆☆'
+                const color = level === 'high' ? 'text-green-400' : level === 'moderate' ? 'text-yellow-400' : 'text-red-400'
+                return (
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] ${color}`}>
+                    {t('models_page.ensemble_confidence') ?? 'Confidence'} {stars}
+                  </span>
+                )
+              })()}
+              {data.accuracy?.[0] && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
+                  ±{data.accuracy[0].wind_mae_kt?.toFixed(1) ?? '?'}kt wind · ±{data.accuracy[0].temp_mae_c?.toFixed(1) ?? '?'}°C temp
+                </span>
+              )}
+            </div>
+          )}
         </section>
       )}
 

@@ -194,6 +194,29 @@ function parseWeatherObs(data) {
       entry.humidity_pct = parseFloat(rh.value ?? rh.Value ?? rh)
     }
 
+    // Visibility (from O-A0003-001 10-min obs)
+    const vis = obs.VisibilityDescription
+    if (vis != null && typeof vis === 'string' && vis !== '') {
+      // CWA returns visibility as text like "10.0" or ">10" in km
+      const visNum = parseFloat(vis.replace('>', '').replace('<', ''))
+      if (!isNaN(visNum)) entry.visibility_km = visNum
+    } else if (vis != null && typeof vis === 'object') {
+      const v = parseFloat(vis.value ?? vis.Value ?? '')
+      if (!isNaN(v)) entry.visibility_km = v
+    }
+
+    // UV Index (from O-A0003-001 10-min obs)
+    const uv = obs.UVIndex
+    if (uv != null && typeof uv === 'object') {
+      const v = parseFloat(uv.value ?? uv.Value ?? uv)
+      if (!isNaN(v)) entry.uv_index = v
+    } else if (uv != null && typeof uv === 'number') {
+      entry.uv_index = uv
+    } else if (uv != null && typeof uv === 'string' && uv !== '') {
+      const v = parseFloat(uv)
+      if (!isNaN(v)) entry.uv_index = v
+    }
+
     // Filter out NaN values
     for (const [k, v] of Object.entries(entry)) {
       if (typeof v === 'number' && isNaN(v)) delete entry[k]
@@ -223,7 +246,15 @@ function buildSpotObs(marineObs, weatherObs) {
         gust_kt: ws.gust_kt != null ? Math.round(ws.gust_kt * 10) / 10 : undefined,
         pressure_hpa: ws.pressure_hpa,
         humidity_pct: ws.humidity_pct,
+        visibility_km: ws.visibility_km,
+        uv_index: ws.uv_index,
       }
+    }
+    // Inherit visibility/UV from Keelung if local station doesn't have it
+    if (entry.station && entry.station.visibility_km == null) {
+      const kl = weatherObs['466940']
+      if (kl?.visibility_km != null) entry.station.visibility_km = kl.visibility_km
+      if (kl?.uv_index != null && entry.station.uv_index == null) entry.station.uv_index = kl.uv_index
     }
 
     // Tide station
@@ -268,8 +299,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Fetch marine obs + weather obs in parallel (2 API calls)
-    const [marineData, weatherData] = await Promise.all([
+    // Fetch marine obs + weather obs + 10-min obs in parallel (3 API calls)
+    const [marineData, weatherData, tenMinData] = await Promise.all([
       fetchCwa('O-B0075-001', {
         StationID: MARINE_STATIONS,
         WeatherElement: 'TideHeight,TideLevel,WaveHeight,WaveDirection,WavePeriod,SeaTemperature,PrimaryAnemometer,SeaCurrents',
@@ -279,10 +310,28 @@ export default async function handler(req, res) {
         StationId: WEATHER_STATIONS,
         WeatherElement: 'AirTemperature,WindSpeed,WindDirection,GustInfo,AirPressure,RelativeHumidity',
       }),
+      // 10-min obs: visibility + UV (only from staffed stations that have it)
+      fetchCwa('O-A0003-001', {
+        StationId: '466940',  // Keelung staffed station (has visibility + UV)
+        WeatherElement: 'VisibilityDescription,UVIndex',
+      }),
     ])
 
     const marineObs = parseMarineObs(marineData)
     const weatherObs = parseWeatherObs(weatherData)
+
+    // Parse 10-min obs for visibility/UV
+    const tenMinObs = parseWeatherObs(tenMinData)
+    // Merge visibility/UV into Keelung weather station
+    const keelungTenMin = tenMinObs['466940']
+    if (keelungTenMin) {
+      if (!weatherObs['466940']) weatherObs['466940'] = keelungTenMin
+      else {
+        if (keelungTenMin.visibility_km != null) weatherObs['466940'].visibility_km = keelungTenMin.visibility_km
+        if (keelungTenMin.uv_index != null) weatherObs['466940'].uv_index = keelungTenMin.uv_index
+      }
+    }
+
     const spots = buildSpotObs(marineObs, weatherObs)
 
     const result = {

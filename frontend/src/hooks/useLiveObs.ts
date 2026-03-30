@@ -11,6 +11,8 @@ export interface LiveSpotObs {
     gust_kt?: number
     pressure_hpa?: number
     humidity_pct?: number
+    visibility_km?: number
+    uv_index?: number
   }
   tide?: {
     station_id: string

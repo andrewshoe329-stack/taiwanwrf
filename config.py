@@ -190,6 +190,18 @@ SPOT_TIDE_STATION = {
 # All tide station names to fetch from CWA F-A0021-001
 TIDE_STATIONS = list(dict.fromkeys(SPOT_TIDE_STATION.values()))
 
+# Spot → nearest CWA tide observation station (O-B0075-001 StationID)
+SPOT_TIDE_OBS_STATION = {
+    "keelung":     "C4B01",   # 基隆潮位站
+    "jinshan":     "C4A03",   # 麟山鼻潮位站
+    "greenbay":    "C4B01",   # 基隆 (closest active)
+    "fulong":      "C4A05",   # 福隆潮位站 (0.2km!)
+    "daxi":        "C4U02",   # 烏石潮位站
+    "doublelions": "C4U02",   # 烏石潮位站
+    "wushih":      "C4U02",   # 烏石潮位站 (0.4km!)
+    "chousui":     "C4U02",   # 烏石潮位站
+}
+
 # ── Shared direction / compass utilities ─────────────────────────────────────
 
 COMPASS_NAMES = (

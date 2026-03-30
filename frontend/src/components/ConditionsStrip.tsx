@@ -4,6 +4,7 @@ import { useForecastData } from '@/hooks/useForecastData'
 import { useTimeline } from '@/hooks/useTimeline'
 import { useModel } from '@/hooks/useModel'
 import { useLocation } from '@/hooks/useLocation'
+import { useLiveObsContext } from '@/App'
 import { degToCompass, getModelRecords, getLocationForecast } from '@/lib/forecast-utils'
 
 function Stat({ label, value, unit, detail }: {
@@ -26,6 +27,7 @@ export function ConditionsStrip() {
   const { index } = useTimeline()
   const { model } = useModel()
   const { locationId } = useLocation()
+  const liveObs = useLiveObsContext()
 
   // Is a surf spot focused? (compass data is visible above, avoid duplication)
   const isSpotSelected = locationId != null && locationId !== 'keelung'
@@ -74,12 +76,20 @@ export function ConditionsStrip() {
   if (isSpotSelected) {
     const waveH = spotRating?.wave_height ?? waveRec?.wave_height
     const precip = rec.precip_mm_6h
+    // Water temp from live obs (tide station or buoy)
+    const liveSpot = locationId ? liveObs.data?.spots?.[locationId] : null
+    const waterTemp = liveSpot?.tide?.sea_temp_c ?? liveSpot?.buoy?.sea_temp_c
     return (
-      <div className="grid grid-cols-4 gap-1 py-1.5">
+      <div className="grid grid-cols-5 gap-1 py-1.5">
         <Stat
           label={t('common.wave_height')}
           value={waveH?.toFixed(1) ?? '--'}
           unit="m"
+        />
+        <Stat
+          label={t('live.water_temp')}
+          value={waterTemp?.toFixed(1) ?? '--'}
+          unit={'\u00B0C'}
         />
         <Stat
           label={t('common.temp')}

@@ -127,6 +127,48 @@ def _cwa_get(endpoint: str, api_key: str, params: dict | None = None,
 
 # ── Weather station observations ─────────────────────────────────────────────
 
+def _parse_station_obs(stn: dict) -> dict | None:
+    """Parse a single CWA weather station record into standardised dict."""
+    station_id = (stn.get("StationId") or stn.get("stationId")
+                  or stn.get("StationID") or "")
+    obs = (stn.get("WeatherElement") or stn.get("weatherElement")
+           or stn.get("GeoInfo", {}))
+    obs_time_raw = stn.get("ObsTime", {}).get("DateTime",
+                    stn.get("time", {}).get("obsTime", ""))
+
+    def _val(key, fallback_key=None):
+        v = obs.get(key) or (obs.get(fallback_key) if fallback_key else None)
+        if isinstance(v, dict):
+            v = v.get("value") or v.get("Value")
+        if v is None or v == "" or v == "-99" or v == -99:
+            return None
+        try:
+            return float(v)
+        except (ValueError, TypeError):
+            return None
+
+    wind_ms = _val("WindSpeed")
+    gust_ms = _val("WindGust", "GustSpeed")
+    wind_dir_deg = _val("WindDirection")
+
+    wind_kt = round(wind_ms * 1.94384, 1) if wind_ms is not None else None
+    gust_kt = round(gust_ms * 1.94384, 1) if gust_ms is not None else None
+
+    return {
+        "station_id": station_id,
+        "station_name": stn.get("StationName", stn.get("locationName", "")),
+        "obs_time": norm_utc(obs_time_raw) if obs_time_raw else None,
+        "temp_c": _val("AirTemperature", "Temperature"),
+        "wind_kt": wind_kt,
+        "wind_dir": wind_dir_deg,
+        "gust_kt": gust_kt,
+        "pressure_hpa": _val("AirPressure", "StationPressure"),
+        "humidity_pct": _val("RelativeHumidity"),
+        "precip_mm": _val("Now", "Precipitation"),
+        "weather_desc": (obs.get("Weather") or ""),
+    }
+
+
 def fetch_station_obs(api_key: str,
                       station_id: str = KEELUNG_STATION_ID) -> dict | None:
     """
@@ -152,53 +194,14 @@ def fetch_station_obs(api_key: str,
             return None
 
         stn = stations[0]
-
-        # CWA nests observation data under different keys depending on
-        # which endpoint/format version is used.
-        obs = (stn.get("WeatherElement") or stn.get("weatherElement")
-               or stn.get("GeoInfo", {}))
-        obs_time_raw = stn.get("ObsTime", {}).get("DateTime",
-                        stn.get("time", {}).get("obsTime", ""))
-
-        # Extract fields — CWA uses m/s for wind, convert to knots
-        def _val(key, fallback_key=None):
-            """Extract numeric value from nested CWA structure."""
-            v = obs.get(key) or (obs.get(fallback_key) if fallback_key else None)
-            if isinstance(v, dict):
-                v = v.get("value") or v.get("Value")
-            if v is None or v == "" or v == "-99" or v == -99:
-                return None
-            try:
-                return float(v)
-            except (ValueError, TypeError):
-                return None
-
-        wind_ms = _val("WindSpeed")
-        gust_ms = _val("WindGust", "GustSpeed")
-        wind_dir_deg = _val("WindDirection")
-
-        wind_kt = round(wind_ms * 1.94384, 1) if wind_ms is not None else None
-        gust_kt = round(gust_ms * 1.94384, 1) if gust_ms is not None else None
-
-        result = {
-            "station_id": station_id,
-            "station_name": stn.get("StationName", stn.get("locationName", "")),
-            "obs_time": norm_utc(obs_time_raw) if obs_time_raw else None,
-            "temp_c": _val("AirTemperature", "Temperature"),
-            "wind_kt": wind_kt,
-            "wind_dir": wind_dir_deg,
-            "gust_kt": gust_kt,
-            "pressure_hpa": _val("AirPressure", "StationPressure"),
-            "humidity_pct": _val("RelativeHumidity"),
-            "precip_mm": _val("Now", "Precipitation"),
-            "weather_desc": (obs.get("Weather") or ""),
-        }
-        log.info("CWA station %s obs: %.1f°C, %.0fkt %s, %.1fhPa",
-                 station_id,
-                 result["temp_c"] or 0,
-                 result["wind_kt"] or 0,
-                 result.get("weather_desc", ""),
-                 result["pressure_hpa"] or 0)
+        result = _parse_station_obs(stn)
+        if result:
+            log.info("CWA station %s obs: %.1f°C, %.0fkt %s, %.1fhPa",
+                     station_id,
+                     result.get("temp_c") or 0,
+                     result.get("wind_kt") or 0,
+                     result.get("weather_desc", ""),
+                     result.get("pressure_hpa") or 0)
         return result
 
     except Exception as e:
@@ -1145,7 +1148,7 @@ def load_station_mapping(path: str = CWA_STATIONS_FILE) -> dict:
 
 def _fetch_spot_stations(api_key: str, mapping: dict,
                          existing_obs: dict | None = None) -> dict:
-    """Fetch weather station obs for each unique station in the mapping.
+    """Fetch weather station obs for all unique stations in one batched call.
 
     Parameters
     ----------
@@ -1157,25 +1160,43 @@ def _fetch_spot_stations(api_key: str, mapping: dict,
     unique_ids = {v["station_id"] for v in mapping.values()
                   if "station_id" in v}
     results = dict(existing_obs or {})
-    # Only fetch stations we don't already have
     to_fetch = unique_ids - set(results.keys())
     if not to_fetch:
         return results
 
-    # Parallel fetch (max 4 concurrent) to reduce total latency
-    def _fetch_one(sid):
-        return sid, fetch_station_obs(api_key, station_id=sid)
+    # Batch all stations into one API call (O-A0001-001 supports comma-separated StationId)
+    batch_ids = ",".join(sorted(to_fetch))
+    log.info("Batch fetching %d spot weather stations: %s", len(to_fetch), batch_ids)
+    data = _cwa_get(
+        STATION_ENDPOINT, api_key,
+        params={
+            "StationId": batch_ids,
+            "WeatherElement": "AirTemperature,WindSpeed,WindDirection,GustInfo,AirPressure,RelativeHumidity",
+        },
+        label="CWA-SpotStations-Batch",
+    )
+    if data:
+        try:
+            records = (data.get("records") or data.get("Records")
+                       or data.get("Result") or {})
+            stations = records.get("Station", records.get("location", []))
+            if isinstance(stations, dict):
+                stations = [stations]
+            for stn in stations:
+                sid = (stn.get("StationId") or stn.get("stationId")
+                       or stn.get("StationID") or "")
+                if sid and sid in to_fetch:
+                    obs = _parse_station_obs(stn)
+                    if obs:
+                        results[sid] = obs
+        except Exception as e:
+            log.warning("Failed to parse batch station response: %s", e)
 
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        futures = {pool.submit(_fetch_one, sid): sid for sid in to_fetch}
-        for fut in as_completed(futures):
-            try:
-                sid, obs = fut.result()
-                if obs:
-                    results[sid] = obs
-            except Exception as e:
-                log.warning("Failed to fetch station %s: %s",
-                            futures[fut], e)
+    # Log any stations we couldn't get
+    missing = to_fetch - set(results.keys())
+    if missing:
+        log.warning("Could not fetch obs for stations: %s", missing)
+
     return results
 
 
@@ -1245,11 +1266,13 @@ def fetch_all(api_key: str) -> dict:
     # Load station mapping from cwa_stations.json (created by cwa_discover.py)
     mapping = load_station_mapping()
 
-    # Build marine station filter from mapping (only fetch buoys we need)
+    # Build marine station filter from mapping (buoys + tide obs stations)
+    from config import SPOT_TIDE_OBS_STATION
     mapped_buoy_ids = {v["buoy_id"] for v in mapping.values()
                        if "buoy_id" in v}
+    tide_obs_ids = set(SPOT_TIDE_OBS_STATION.values())
     marine_filter = (mapped_buoy_ids | set(KEELUNG_BUOY_IDS)
-                     | KEELUNG_TIDE_STATION_IDS)
+                     | KEELUNG_TIDE_STATION_IDS | tide_obs_ids)
 
     # Phase 1: parallel independent fetches (station, marine, tide fc, warnings)
     station = None
