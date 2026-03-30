@@ -95,6 +95,8 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
   const tileCacheRef = useRef(new TileCache(128))
   const [tileFrame, setTileFrame] = useState<RainViewerFrame | null>(null)
   const [tileTimestamp, setTileTimestamp] = useState<string>('')
+  const [tileStale, setTileStale] = useState(false)
+  const [tileError, setTileError] = useState(false)
   const rainviewerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [boundsVersion, setBoundsVersion] = useState(0)
 
@@ -491,6 +493,8 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
       particlesRef.current?.setTileOverlay(null, new Map())
       setTileFrame(null)
       setTileTimestamp('')
+      setTileStale(false)
+      setTileError(false)
       if (rainviewerIntervalRef.current) {
         clearInterval(rainviewerIntervalRef.current)
         rainviewerIntervalRef.current = null
@@ -504,9 +508,12 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
         const frame = layer === 'radar'
           ? latestRadarPath(maps)
           : latestSatellitePath(maps)
-        if (!frame) return
+        if (!frame) { setTileError(true); return }
 
         setTileFrame(frame)
+        setTileError(false)
+        const ageMin = (Date.now() - frame.time * 1000) / 60000
+        setTileStale(ageMin > 30)
         const d = new Date(frame.time * 1000)
         setTileTimestamp(d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
 
@@ -530,6 +537,7 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
         particlesRef.current?.setTileOverlay(layer, imageMap, zoom)
       } catch (err) {
         console.warn('[ForecastMap] RainViewer fetch failed:', err)
+        setTileError(true)
       }
     }
 
@@ -673,13 +681,21 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
           </div>
         </div>
       )}
-      {/* Radar/Satellite timestamp */}
-      {(layer === 'radar' || layer === 'satellite') && tileTimestamp && (
-        <div className="absolute bottom-3 left-3 z-20 backdrop-blur-sm bg-[var(--color-bg-elevated)]/80 border border-[var(--color-border)] rounded-md px-2 py-1.5">
+      {/* Radar/Satellite status badge */}
+      {(layer === 'radar' || layer === 'satellite') && (
+        <div className={`absolute bottom-3 left-3 z-20 backdrop-blur-sm bg-[var(--color-bg-elevated)]/80 border rounded-md px-2 py-1.5 ${tileStale ? 'border-amber-500/50' : tileError ? 'border-red-500/50' : 'border-[var(--color-border)]'}`}>
           <p className="text-[8px] text-[var(--color-text-muted)] uppercase tracking-wider mb-0.5">
             {layer === 'radar' ? 'Radar' : 'IR Satellite'}
           </p>
-          <p className="text-[10px] text-[var(--color-text-secondary)]">{tileTimestamp}</p>
+          {tileError ? (
+            <p className="text-[10px] text-red-400">Unavailable</p>
+          ) : tileTimestamp ? (
+            <p className={`text-[10px] ${tileStale ? 'text-amber-400' : 'text-[var(--color-text-secondary)]'}`}>
+              {tileTimestamp}{tileStale ? ' (stale)' : ''}
+            </p>
+          ) : (
+            <p className="text-[10px] text-[var(--color-text-dim)]">Loading...</p>
+          )}
         </div>
       )}
     </div>

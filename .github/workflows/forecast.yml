@@ -152,12 +152,14 @@ jobs:
           if [ -f cwa_obs.json ]; then
             CWA_TIDE_ARG="--cwa-obs cwa_obs.json"
           fi
+          ECMWF_ARG=""; [ -f ecmwf_keelung.json ] && ECMWF_ARG="--ecmwf-json ecmwf_keelung.json"
+          WAVE_ARG=""; [ -f wave_keelung.json ] && WAVE_ARG="--wave-json wave_keelung.json"
           python surf_forecast.py \
             --output surf_forecast.html \
             --output-json surf_planner.json \
             --output-frontend-json surf_frontend.json \
             --output-dir public \
-            $CWA_TIDE_ARG
+            $CWA_TIDE_ARG $ECMWF_ARG $WAVE_ARG
 
       # ── AI forecast summary ──────────────────────────────────────────────
 

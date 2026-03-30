@@ -329,6 +329,52 @@ def _parse_init_time(dirname: str) -> datetime | None:
     return datetime.strptime(m.group(1) + m.group(2), '%Y%m%d%H').replace(tzinfo=timezone.utc)
 
 
+def _apply_bias_correction(records: list[dict],
+                           accuracy_log: list | None) -> tuple[list[dict], dict]:
+    """MOS-lite bias correction: adjust temp and wind using recent accuracy log.
+
+    Returns (corrected_records, corrections_applied_dict).
+    corrections_applied_dict is empty if no correction was applied.
+    """
+    _log = logging.getLogger(__name__)
+    if not accuracy_log or not isinstance(accuracy_log, list):
+        return records, {}
+
+    # Collect last 7 entries that have both bias fields
+    recent = []
+    for entry in reversed(accuracy_log):
+        if not isinstance(entry, dict):
+            continue
+        if entry.get('temp_bias_c') is not None and entry.get('wind_bias_kt') is not None:
+            recent.append(entry)
+            if len(recent) >= 7:
+                break
+
+    if len(recent) < 3:
+        _log.info("MOS-lite: only %d valid bias entries (need ≥3), skipping correction",
+                  len(recent))
+        return records, {}
+
+    mean_temp_bias = sum(e['temp_bias_c'] for e in recent) / len(recent)
+    mean_wind_bias = sum(e['wind_bias_kt'] for e in recent) / len(recent)
+
+    _log.info("MOS-lite bias correction from %d entries: temp %.2f°C, wind %.2fkt",
+              len(recent), mean_temp_bias, mean_wind_bias)
+
+    for rec in records:
+        if rec.get('temp_c') is not None:
+            rec['temp_c'] = round(rec['temp_c'] - mean_temp_bias, 2)
+        if rec.get('wind_kt') is not None:
+            rec['wind_kt'] = round(rec['wind_kt'] - mean_wind_bias, 2)
+
+    corrections = {
+        'temp_c': round(-mean_temp_bias, 2),
+        'wind_kt': round(-mean_wind_bias, 2),
+        'n_entries': len(recent),
+    }
+    return records, corrections
+
+
 def extract_forecast(rundir: Path) -> tuple[dict, list[dict]]:
     """Return (meta dict, list of record dicts sorted by forecast hour)."""
     grb_files = sorted(rundir.glob('*_keelung*.grb2'))
@@ -2355,6 +2401,14 @@ def main() -> None:
         Path(args.output_json).write_text(json.dumps({'meta': meta, 'records': []}, indent=2), encoding='utf-8')
         sys.exit(0)
 
+    # ── MOS-lite bias correction (optional) ─────────────────────────────────────
+    bias_log = None
+    if args.accuracy_log and Path(args.accuracy_log).exists():
+        bias_log = load_json_file(args.accuracy_log, "accuracy log (bias)")
+    records, bias_corrections = _apply_bias_correction(records, bias_log)
+    if bias_corrections:
+        meta['bias_correction'] = bias_corrections
+
     # ── Load previous summary ─────────────────────────────────────────────────
     prev_records = []
     if args.prev_json and Path(args.prev_json).exists():
@@ -2443,11 +2497,10 @@ def main() -> None:
             log.info("Ensemble data: %d models, %d timesteps", n_models, n_ens)
 
     # ── Load accuracy log (optional) ──────────────────────────────────────────
-    accuracy_log = None
-    if args.accuracy_log and Path(args.accuracy_log).exists():
-        accuracy_log = load_json_file(args.accuracy_log, "accuracy log")
-        if accuracy_log:
-            log.info("Accuracy log: %d entries", len(accuracy_log))
+    # Reuse bias_log loaded earlier for MOS-lite correction (avoid double read)
+    accuracy_log = bias_log
+    if accuracy_log:
+        log.info("Accuracy log: %d entries", len(accuracy_log))
 
     # ── Load CWA observations (optional) ──────────────────────────────────────
     cwa_obs = None

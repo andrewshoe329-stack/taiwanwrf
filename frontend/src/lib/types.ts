@@ -190,6 +190,7 @@ export interface SpotInfo {
   region: Region
   opt_wind: string[]
   opt_swell: string[]
+  webcam?: string
 }
 
 export interface SpotRating {

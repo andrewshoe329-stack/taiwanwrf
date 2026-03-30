@@ -11,6 +11,8 @@ import { WeatherWarnings } from '@/components/layout/WeatherWarnings'
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner'
 import { ConditionsStrip } from '@/components/ConditionsStrip'
 import { SwellCompass } from '@/components/spots/SwellCompass'
+import { SpotCompare } from '@/components/spots/SpotCompare'
+import { TideSparkline } from '@/components/charts/TideSparkline'
 import {
   degToCompass, getModelRecords, windType,
   ratingsToWaveRecords, ratingsToTidePredictions, getSpotTideExtrema,
@@ -184,6 +186,15 @@ export function NowPage() {
                     unit="m"
                   />
                 </div>
+                {tidePredictions.length > 0 && (
+                  <TideSparkline
+                    predictions={tidePredictions}
+                    extrema={tideExtrema}
+                    nowMs={data.keelung?.records?.[index]?.valid_utc
+                      ? new Date(data.keelung.records[index].valid_utc).getTime()
+                      : undefined}
+                  />
+                )}
               </div>
             </div>
           )}
@@ -204,6 +215,16 @@ export function NowPage() {
                 {w.severity_level || w.event || w.type}
               </span>
             ))}
+            {spotInfo.webcam && (
+              <a
+                href={spotInfo.webcam}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
+              >
+                Webcam
+              </a>
+            )}
           </div>
 
           {/* CWA real-time observations (live from serverless, or fallback to deploy-time) */}
@@ -365,6 +386,17 @@ export function NowPage() {
               )}
             </div>
           )}
+        </section>
+      )}
+
+      {/* Spot comparison (browse mode — no spot selected) */}
+      {!isSpotSelected && locationId !== 'keelung' && data.surf?.spots && (
+        <section className="md:px-3 py-2">
+          <SpotCompare
+            spots={data.surf.spots}
+            targetUtc={data.keelung?.records?.[index]?.valid_utc}
+            onSelectSpot={setLocationId}
+          />
         </section>
       )}
 
