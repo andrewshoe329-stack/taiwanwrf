@@ -15,6 +15,7 @@ import {
   degToCompass, getModelRecords, windType,
   ratingsToWaveRecords, ratingsToTidePredictions, getSpotTideExtrema,
 } from '@/lib/forecast-utils'
+import { useLiveObsContext } from '@/App'
 import type { TimeRange } from '@/components/charts/chart-utils'
 import type { SpotForecast } from '@/lib/types'
 
@@ -33,6 +34,7 @@ export function NowPage() {
   const { model } = useModel()
   const { locationId, setLocationId } = useLocation()
   const mobile = useIsMobile()
+  const liveObs = useLiveObsContext()
 
   const [aiExpanded, setAiExpanded] = useState(false)
 
@@ -188,13 +190,14 @@ export function NowPage() {
             )}
           </div>
 
-          {/* CWA real-time observations */}
+          {/* CWA real-time observations (live from serverless, or fallback to deploy-time) */}
           {(() => {
-            const spotObs = data.cwa_obs?.spot_obs?.[spotInfo.id]
-            if (!spotObs) return null
-            const stn = spotObs.station
-            const buoy = spotObs.buoy
-            if (!stn && !buoy) return null
+            const live = liveObs.data?.spots?.[spotInfo.id]
+            const stale = data.cwa_obs?.spot_obs?.[spotInfo.id]
+            const stn = live?.station ?? stale?.station
+            const buoy = live?.buoy ?? stale?.buoy
+            const tide = live?.tide
+            if (!stn && !buoy && !tide) return null
             return (
               <div className="mt-2 px-2 py-1.5 rounded-lg bg-[var(--color-bg-elevated)]/50 border border-[var(--color-border)]">
                 <p className="text-[9px] uppercase tracking-widest text-[var(--color-text-muted)] mb-1">
@@ -203,19 +206,31 @@ export function NowPage() {
                 <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-[var(--color-text-secondary)]">
                   {stn?.temp_c != null && <span>{stn.temp_c.toFixed(1)}°C</span>}
                   {stn?.wind_kt != null && (
-                    <span>{stn.wind_kt.toFixed(0)}kt {stn.wind_dir != null ? degToCompass(stn.wind_dir) : ''}</span>
+                    <span>{stn.wind_kt.toFixed(0)}kt{stn.gust_kt ? ` G${stn.gust_kt.toFixed(0)}` : ''} {stn.wind_dir != null ? degToCompass(stn.wind_dir) : ''}</span>
                   )}
                   {stn?.pressure_hpa != null && <span>{stn.pressure_hpa.toFixed(0)}hPa</span>}
+                  {tide?.tide_height_m != null && (
+                    <span>{t('common.tide')} {tide.tide_height_m.toFixed(2)}m{tide.tide_level ? ` (${tide.tide_level})` : ''}</span>
+                  )}
                   {buoy?.wave_height_m != null && (
                     <span>Hs {buoy.wave_height_m.toFixed(1)}m</span>
                   )}
                   {buoy?.wave_period_s != null && (
                     <span>{buoy.wave_period_s.toFixed(0)}s</span>
                   )}
-                  {buoy?.water_temp_c != null && (
-                    <span>🌊 {buoy.water_temp_c.toFixed(1)}°C</span>
+                  {(() => {
+                    const wt = tide?.sea_temp_c ?? live?.buoy?.sea_temp_c ?? stale?.buoy?.water_temp_c
+                    return wt != null ? <span>{t('live.water_temp')} {wt.toFixed(1)}°C</span> : null
+                  })()}
+                  {live?.buoy?.current_speed_ms != null && live.buoy.current_speed_ms > 0.1 && (
+                    <span>{t('common.current') ?? 'Current'} {(live.buoy.current_speed_ms * 1.94384).toFixed(1)}kt {live.buoy.current_dir != null ? degToCompass(live.buoy.current_dir) : ''}</span>
                   )}
                 </div>
+                {liveObs.data && (
+                  <p className="text-[9px] text-[var(--color-text-dim)] mt-0.5">
+                    {t('live.title')}
+                  </p>
+                )}
               </div>
             )
           })()}
