@@ -1,26 +1,27 @@
 import { useRef, useCallback, useState, useEffect, type ReactNode } from 'react'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
-const PEEK = 120
-const HALF_RATIO = 0.5
+const PEEK = 160   // enough for timeline + conditions strip
+const HALF_RATIO = 0.55
 const FULL_RATIO = 0.92
 
 type SnapPoint = 'peek' | 'half' | 'full'
 
 interface BottomSheetProps {
   children: ReactNode
-  /** Force snap to a specific point (e.g. when selecting a spot) */
   snapTo?: SnapPoint
 }
 
-function getSnapHeight(snap: SnapPoint, vh: number): number {
+function getSnapHeight(snap: SnapPoint, vh: number, mobile: boolean): number {
   switch (snap) {
-    case 'peek': return PEEK
-    case 'half': return vh * HALF_RATIO
-    case 'full': return vh * FULL_RATIO
+    case 'peek': return mobile ? PEEK : vh  // desktop: always full panel
+    case 'half': return mobile ? vh * HALF_RATIO : vh
+    case 'full': return mobile ? vh * FULL_RATIO : vh
   }
 }
 
 export function BottomSheet({ children, snapTo }: BottomSheetProps) {
+  const mobile = useIsMobile()
   const sheetRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef({ startY: 0, startHeight: 0, dragging: false })
   const [height, setHeight] = useState(PEEK)
@@ -28,16 +29,26 @@ export function BottomSheet({ children, snapTo }: BottomSheetProps) {
   const [transitioning, setTransitioning] = useState(false)
   const vh = typeof window !== 'undefined' ? window.innerHeight : 800
 
-  // External snap control
+  // Desktop: always show as full-height side panel (no dragging)
   useEffect(() => {
+    if (!mobile) {
+      setHeight(vh)
+      setSnap('full')
+    }
+  }, [mobile, vh])
+
+  // External snap control (mobile only)
+  useEffect(() => {
+    if (!mobile) return
     if (snapTo && snapTo !== snap) {
       setSnap(snapTo)
-      setHeight(getSnapHeight(snapTo, vh))
+      setHeight(getSnapHeight(snapTo, vh, mobile))
       setTransitioning(true)
     }
-  }, [snapTo, snap, vh])
+  }, [snapTo, snap, vh, mobile])
 
   const snapToNearest = useCallback((h: number) => {
+    if (!mobile) return
     const peekH = PEEK
     const halfH = vh * HALF_RATIO
     const fullH = vh * FULL_RATIO
@@ -50,11 +61,12 @@ export function BottomSheet({ children, snapTo }: BottomSheetProps) {
     dists.sort((a, b) => a.dist - b.dist)
     const target = dists[0]
     setSnap(target.snap)
-    setHeight(getSnapHeight(target.snap, vh))
+    setHeight(getSnapHeight(target.snap, vh, true))
     setTransitioning(true)
-  }, [vh])
+  }, [vh, mobile])
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
+    if (!mobile) return // no dragging on desktop
     e.preventDefault()
     dragRef.current = { startY: e.clientY, startHeight: height, dragging: true }
     setTransitioning(false)
@@ -75,19 +87,30 @@ export function BottomSheet({ children, snapTo }: BottomSheetProps) {
 
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
-  }, [height, vh, snapToNearest])
+  }, [height, vh, snapToNearest, mobile])
 
-  // Snap on up using the latest height via ref
   const heightRef = useRef(height)
   heightRef.current = height
 
+  // Desktop: side panel (right column)
+  if (!mobile) {
+    return (
+      <div className="h-full overflow-y-auto bg-[var(--color-bg)] border-l border-[var(--color-border)]">
+        <div className="px-4 py-3">
+          {children}
+        </div>
+      </div>
+    )
+  }
+
+  // Mobile: bottom sheet overlay
   return (
     <div
       ref={sheetRef}
       className={`absolute bottom-0 left-0 right-0 z-40 bg-[var(--color-bg)] border-t border-[var(--color-border)] rounded-t-2xl overflow-hidden ${
         transitioning ? 'transition-[height] duration-300 ease-out' : ''
       }`}
-      style={{ height }}
+      style={{ height, paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       onTransitionEnd={() => setTransitioning(false)}
     >
       {/* Drag handle */}
@@ -101,7 +124,7 @@ export function BottomSheet({ children, snapTo }: BottomSheetProps) {
       {/* Scrollable content */}
       <div
         className="overflow-y-auto overscroll-contain px-4"
-        style={{ height: height - 28, paddingBottom: 'env(safe-area-inset-bottom, 16px)' }}
+        style={{ height: height - 28 }}
       >
         {children}
       </div>
