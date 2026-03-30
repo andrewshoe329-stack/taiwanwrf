@@ -108,8 +108,31 @@ records.TideForecasts[] → list of { "Location": {
 
 **Notes:**
 - `StationId` is case-sensitive (e.g. `C0A520` not `c0a520`)
+- Full station list: https://hdps.cwa.gov.tw/static/state.html
 - Stations near our spots are mapped in `cwa_stations.json` (produced by `cwa_discover.py`)
 - For pipeline efficiency, we could use `WeatherElement=AirTemperature,WindSpeed,WindDirection,GustInfo,AirPressure,RelativeHumidity` to skip unused fields
+
+**Weather stations near our spots (from CWA station list):**
+
+| StationId | Name | Type | Lat | Lon | City | Nearest Spot |
+|-----------|------|------|-----|-----|------|-------------|
+| 466940 | 基隆 | 署屬有人站 | 25.133 | 121.740 | 基隆市 | Keelung (1.8km) |
+| C0B050 | 八斗子 | 署屬自動站 | 25.145 | 121.792 | 基隆市 | Keelung (0.5km) |
+| C0B040 | 大武崙 | 署屬自動站 | 25.167 | 121.707 | 基隆市 | — |
+| C0A940 | 金山 | 署屬自動站 | 25.224 | 121.644 | 新北市 | Jinshan (1.9km) |
+| C0AJ20 | 野柳 | 署屬自動站 | 25.207 | 121.690 | 新北市 | Green Bay (2.1km) |
+| C0A860 | 大坪 | 署屬自動站 | 25.166 | 121.633 | 新北市 | — |
+| C0AJ40 | 石門 | 署屬自動站 | 25.274 | 121.601 | 新北市 | — |
+| C0A950 | 鼻頭角 | 署屬自動站 | 25.129 | 121.923 | 新北市 | Fulong area |
+| C0A890 | 雙溪 | 署屬自動站 | 25.036 | 121.864 | 新北市 | Fulong (4km) |
+| C2A880 | 福隆 | 農業站 | 25.018 | 121.942 | 新北市 | Fulong (0.7km) |
+| C0UA80 | 大溪漁港 | 署屬自動站 | 24.942 | 121.903 | 宜蘭縣 | Daxi (1.9km) |
+| C0U860 | 頭城 | 署屬自動站 | 24.853 | 121.831 | 宜蘭縣 | Wushih/Chousui (2km) |
+| C0U600 | 礁溪 | 署屬自動站 | 24.818 | 121.766 | 宜蘭縣 | — |
+| C0UA90 | 石城 | 署屬自動站 | 24.980 | 121.951 | 宜蘭縣 | Fulong area |
+| C0U880 | 北關 | 署屬自動站 | 24.907 | 121.873 | 宜蘭縣 | Daxi (5km) |
+| C0UB10 | 蘇澳 | 署屬自動站 | 24.597 | 121.857 | 宜蘭縣 | — |
+| C0U750 | 龜山島 | 署屬自動站 | 24.842 | 121.953 | 宜蘭縣 | Offshore reference |
 
 ---
 
