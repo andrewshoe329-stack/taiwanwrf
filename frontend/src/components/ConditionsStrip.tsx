@@ -48,51 +48,37 @@ export function ConditionsStrip() {
   const swellH = waveRec?.swell_wave_height
   const swellP = waveRec?.swell_wave_period ?? waveRec?.wave_period
   const swellDir = waveRec?.swell_wave_direction
-
-  // Count visible stats for grid columns
-  const hasSwell = swellH != null
-  const hasWave = waveRec?.wave_height != null
-  const hasPrecip = rec.precip_mm_6h != null && rec.precip_mm_6h > 0
-  const cols = 2 + (hasSwell ? 1 : 0) + (hasWave ? 1 : 0) + (hasPrecip ? 1 : 0)
+  const precip = rec.precip_mm_6h
 
   return (
-    <div
-      className="grid gap-2 py-1.5"
-      style={{ gridTemplateColumns: `repeat(${Math.min(cols, 5)}, 1fr)` }}
-    >
+    <div className="grid grid-cols-5 gap-1 py-1.5">
       <Stat
         label={t('common.wind')}
         value={rec.wind_kt?.toFixed(0) ?? '--'}
         unit="kt"
         detail={rec.wind_dir != null ? degToCompass(rec.wind_dir) + (rec.gust_kt ? ` G${rec.gust_kt.toFixed(0)}` : '') : undefined}
       />
-      {hasSwell && (
-        <Stat
-          label={t('common.swell')}
-          value={swellH!.toFixed(1)}
-          unit="m"
-          detail={`${swellP?.toFixed(0) ?? '--'}s${swellDir != null ? ' ' + degToCompass(swellDir) : ''}`}
-        />
-      )}
-      {hasWave && (
-        <Stat
-          label={t('common.wave_height')}
-          value={waveRec!.wave_height!.toFixed(1)}
-          unit="m"
-        />
-      )}
+      <Stat
+        label={t('common.swell')}
+        value={swellH?.toFixed(1) ?? '--'}
+        unit="m"
+        detail={swellH != null ? `${swellP?.toFixed(0) ?? '--'}s${swellDir != null ? ' ' + degToCompass(swellDir) : ''}` : undefined}
+      />
+      <Stat
+        label={t('common.wave_height')}
+        value={waveRec?.wave_height?.toFixed(1) ?? '--'}
+        unit="m"
+      />
       <Stat
         label={t('common.temp')}
         value={rec.temp_c?.toFixed(0) ?? '--'}
-        unit="\u00B0C"
+        unit={'\u00B0C'}
       />
-      {hasPrecip && (
-        <Stat
-          label={t('common.precip')}
-          value={rec.precip_mm_6h!.toFixed(1)}
-          unit="mm"
-        />
-      )}
+      <Stat
+        label={t('common.precip')}
+        value={precip != null && precip > 0 ? precip.toFixed(1) : '--'}
+        unit="mm"
+      />
     </div>
   )
 }
