@@ -1798,6 +1798,8 @@ def main() -> None:
         'name': 'Keelung Harbour 基隆港',
         'lat': KEELUNG_LAT, 'lon': KEELUNG_LON,
         'facing': '', 'opt_wind': [], 'opt_swell': [],
+        'desc': 'Harbour · Sailing & fishing',
+        'desc_zh': '港口 · 帆船與漁業',
     }
     all_entries = list(SPOTS) + [keelung_entry]
 
