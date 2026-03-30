@@ -351,8 +351,30 @@ This fetches 宜蘭縣 + 基隆市 + 新北市 in one request.
 
 ## Endpoints Not Used But Potentially Useful
 
+### F-D0047-089 / F-D0047-091 — 全臺灣 3-day / 1-week forecasts
+
+**Purpose:** All-Taiwan township forecasts in a single call (no per-county endpoint needed).
+
+**Not currently used.** Simpler alternative to F-D0047-001/049/069 — fetches all counties at once.
+
+**Query Parameters:** Same as per-county versions but `LocationName` filters by **county** (not township): `基隆市`, `新北市`, `宜蘭縣`, etc.
+
+**ElementName:** Same as F-D0047-001 (3-day) / F-D0047-003 (1-week) respectively.
+
+**Trade-off vs F-D0047-093:** F-D0047-089 returns ALL townships for selected counties (larger payload). F-D0047-093 allows filtering to specific townships but requires `locationId` param and max 5 counties per call.
+
+---
+
+## Endpoints Not Used But Potentially Useful
+
 | Endpoint | Name | Potential Use |
 |----------|------|---------------|
+| F-D0047-089 | 全臺灣3天天氣預報 | All-Taiwan 3-day in one call (simpler than 3 per-county calls) |
+| F-D0047-091 | 全臺灣1週天氣預報 | 1-week version — UV index, comfort for extended planning |
+| F-A0085-002 | 冷傷害指數5日預報 | Cold injury index per township, 5-day (winter sailing safety) |
+| F-A0085-003 | 冷傷害指數72h逐3h | 3-hourly cold injury index (elements: `ColdInjuryIndex`, `ColdInjuryWarning`) |
+| F-A0085-004 | 溫差提醒5日預報 | Temperature swing warnings per township (elements: `MaxTemperature`, `MinTemperature`, `TemperatureDifferenceWarning`) |
+| F-A0085-005 | 溫差提醒72h逐3h | 3-hourly temp swing (elements: `TemperatureDifferenceIndex`, `TemperatureDifferenceWarning`) |
 | O-A0003-001 | 10分鐘綜觀氣象 | Higher-frequency weather obs |
 | A-B0062-001 | 日出日沒時刻 | Official sunrise/sunset (currently computed offline) |
 | W-C0034-001 | 颱風警報 | Typhoon warnings |
