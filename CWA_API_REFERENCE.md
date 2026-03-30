@@ -90,13 +90,26 @@ records.TideForecasts[] → list of { "Location": {
 
 **Purpose:** Real-time hourly weather observations from all CWA stations.
 
-**Used in:** `cwa_fetch.py` → `fetch_station_obs()`
+**Used in:** `cwa_fetch.py` → `fetch_station_obs()`, `cwa_discover.py` → `fetch_all_weather_stations()`
 
-**Key fields:** StationId, StationName, ObsTime, GeoInfo (lat/lon), WeatherElement (temp, wind, humidity, pressure, precip)
+**Query Parameters:**
+| Param | Type | Description |
+|-------|------|-------------|
+| `StationId` | array\<string\> | Station codes (case-sensitive). See [station list](https://hdps.cwa.gov.tw/static/state.html). Overrides `StationName`. |
+| `StationName` | array\<string\> | Station names. Ignored if `StationId` is set. |
+| `WeatherElement` | array\<string\> | Filter elements (see below). Default: all. |
+| `GeoInfo` | array\<string\> | Filter geo fields (see below). Default: all. |
+
+**Available WeatherElement values:**
+`Weather`, `Now`, `WindDirection`, `WindSpeed`, `AirTemperature`, `RelativeHumidity`, `AirPressure`, `GustInfo`, `DailyHigh`, `DailyLow`
+
+**Available GeoInfo values:**
+`Coordinates`, `StationAltitude`, `CountyName`, `TownName`, `CountyCode`, `TownCode`
 
 **Notes:**
-- Use `StationId` param to filter specific stations
+- `StationId` is case-sensitive (e.g. `C0A520` not `c0a520`)
 - Stations near our spots are mapped in `cwa_stations.json` (produced by `cwa_discover.py`)
+- For pipeline efficiency, we could use `WeatherElement=AirTemperature,WindSpeed,WindDirection,GustInfo,AirPressure,RelativeHumidity` to skip unused fields
 
 ---
 
