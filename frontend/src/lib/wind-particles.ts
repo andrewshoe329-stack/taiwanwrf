@@ -52,6 +52,11 @@ export class WindParticleSystem {
   private bounds = { west: 119.0, east: 122.5, south: 21.5, north: 25.5 }
   private boundsChanged = false
 
+  // HiDPI scaling
+  private dpr = 1
+  private logicalW = 0
+  private logicalH = 0
+
   constructor(opts: WindParticleOptions) {
     this.canvas = opts.canvas
     this.ctx = opts.canvas.getContext('2d')
@@ -104,15 +109,18 @@ export class WindParticleSystem {
     return this.labels
   }
 
-  /** Project lon/lat to canvas pixel (public for hit-testing) */
+  /** Project lon/lat to logical pixel (public for hit-testing) */
   projectPoint(lon: number, lat: number): [number, number] {
-    return this.project(lon, lat, this.canvas.width, this.canvas.height)
+    return this.project(lon, lat, this.logicalW, this.logicalH)
   }
 
-  /** Resize canvas to match container */
+  /** Resize canvas to match container (accounts for devicePixelRatio) */
   resize(width: number, height: number) {
-    this.canvas.width = width
-    this.canvas.height = height
+    this.dpr = window.devicePixelRatio || 1
+    this.logicalW = width
+    this.logicalH = height
+    this.canvas.width = Math.round(width * this.dpr)
+    this.canvas.height = Math.round(height * this.dpr)
   }
 
   /** Start animation loop */
@@ -150,12 +158,12 @@ export class WindParticleSystem {
     }
   }
 
-  /** Bilinear interpolation of wind (u, v) at a given canvas pixel */
+  /** Bilinear interpolation of wind (u, v) at a given physical canvas pixel */
   private sampleWind(px: number, py: number): [number, number] {
     if (!this.grid) return [0, 0]
 
     const { west, east, south, north } = this.bounds
-    const w = this.canvas.width
+    const w = this.canvas.width  // physical pixels
     const h = this.canvas.height
 
     // Canvas pixel → geographic coords
@@ -233,7 +241,7 @@ export class WindParticleSystem {
       ctx.globalAlpha = 1.0
     }
 
-    ctx.lineWidth = this.lineWidth
+    ctx.lineWidth = this.lineWidth * this.dpr
     ctx.lineCap = 'round'
 
     for (const p of this.particles) {
@@ -253,8 +261,8 @@ export class WindParticleSystem {
         ctx.strokeStyle = `rgba(${g}, ${g}, ${g}, ${alpha})`
       }
 
-      const dx = u * this.speedFactor
-      const dy = -v * this.speedFactor  // v is northward, canvas y is downward
+      const dx = u * this.speedFactor * this.dpr
+      const dy = -v * this.speedFactor * this.dpr  // v is northward, canvas y is downward
 
       const nx = p.x + dx
       const ny = p.y + dy
@@ -277,7 +285,7 @@ export class WindParticleSystem {
       }
     }
 
-    // Draw coastline overlay (redrawn each frame so it stays crisp)
+    // Draw coastline + labels (using physical pixel coords for crispness)
     this.drawCoastline(ctx, w, h)
 
     this.animId = requestAnimationFrame(this.loop)
@@ -293,6 +301,7 @@ export class WindParticleSystem {
   }
 
   private drawCoastline(ctx: CanvasRenderingContext2D, w: number, h: number) {
+    const dpr = this.dpr
     ctx.save()
     ctx.globalCompositeOperation = 'source-over'
 
@@ -312,7 +321,7 @@ export class WindParticleSystem {
 
       // Stroke coastline outline on top
       ctx.strokeStyle = 'rgba(200, 200, 200, 0.4)'
-      ctx.lineWidth = 1.5
+      ctx.lineWidth = 1.5 * dpr
       ctx.lineJoin = 'round'
 
       for (const ring of this.coastline) {
@@ -335,7 +344,8 @@ export class WindParticleSystem {
         const [x, y] = this.project(label.lon, label.lat, w, h)
 
         // Skip if off-screen
-        if (x < -50 || x > w + 50 || y < -50 || y > h + 50) continue
+        const margin = 50 * dpr
+        if (x < -margin || x > w + margin || y < -margin || y > h + margin) continue
 
         const isSelected = label.id != null && label.id === this.selectedId
         const ratingColor = label.id ? this.labelColors[label.id] : undefined
@@ -343,22 +353,22 @@ export class WindParticleSystem {
         // Selected highlight ring
         if (isSelected) {
           ctx.beginPath()
-          ctx.arc(x, y, 10, 0, Math.PI * 2)
+          ctx.arc(x, y, 10 * dpr, 0, Math.PI * 2)
           ctx.strokeStyle = ratingColor ?? '#ffffff'
-          ctx.lineWidth = 2
+          ctx.lineWidth = 2 * dpr
           ctx.stroke()
           // Glow effect
           ctx.beginPath()
-          ctx.arc(x, y, 12, 0, Math.PI * 2)
+          ctx.arc(x, y, 12 * dpr, 0, Math.PI * 2)
           ctx.strokeStyle = `${ratingColor ?? '#ffffff'}40`
-          ctx.lineWidth = 3
+          ctx.lineWidth = 3 * dpr
           ctx.stroke()
         }
 
         // Dot — rating-colored for spots, diamond shape for harbour
         if (label.type === 'harbour') {
           // Diamond pin for harbour
-          const s = isSelected ? 6 : 4.5
+          const s = (isSelected ? 6 : 4.5) * dpr
           ctx.beginPath()
           ctx.moveTo(x, y - s)
           ctx.lineTo(x + s, y)
@@ -368,28 +378,27 @@ export class WindParticleSystem {
           ctx.fillStyle = ratingColor ?? '#cccccc'
           ctx.fill()
           ctx.strokeStyle = 'rgba(255,255,255,0.8)'
-          ctx.lineWidth = 1
+          ctx.lineWidth = 1 * dpr
           ctx.stroke()
         } else {
           // Circular dot for spots + cities
-          const dotRadius = label.type === 'city' ? 3 : isSelected ? 5 : 4
+          const dotRadius = (label.type === 'city' ? 3 : isSelected ? 5 : 4) * dpr
           ctx.beginPath()
           ctx.arc(x, y, dotRadius, 0, Math.PI * 2)
           ctx.fillStyle = label.type === 'city' ? '#888'
             : ratingColor ?? '#e0e0e0'
           ctx.fill()
           ctx.strokeStyle = 'rgba(255,255,255,0.8)'
-          ctx.lineWidth = 1
+          ctx.lineWidth = 1 * dpr
           ctx.stroke()
         }
 
         // Label text
-        const offsetX = label.type === 'harbour' ? 10 : label.type === 'city' ? 8 : (isSelected ? 10 : 9)
-        ctx.font = label.type === 'city'
-          ? '10px Inter, system-ui, sans-serif'
-          : isSelected
-            ? 'bold 12px Inter, system-ui, sans-serif'
-            : '11px Inter, system-ui, sans-serif'
+        const offsetX = (label.type === 'harbour' ? 10 : label.type === 'city' ? 8 : (isSelected ? 10 : 9)) * dpr
+        const fontSize = label.type === 'city' ? 10 * dpr
+          : isSelected ? 12 * dpr
+          : 11 * dpr
+        ctx.font = `${isSelected && label.type !== 'city' ? 'bold ' : ''}${fontSize}px Inter, system-ui, sans-serif`
         ctx.fillStyle = label.type === 'harbour' ? '#d0d0d0'
           : label.type === 'city' ? '#999'
           : isSelected ? '#ffffff'
@@ -398,7 +407,7 @@ export class WindParticleSystem {
 
         // Text shadow for readability
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)'
-        ctx.lineWidth = 3
+        ctx.lineWidth = 3 * dpr
         ctx.strokeText(label.text, x + offsetX, y)
         ctx.fillText(label.text, x + offsetX, y)
       }
