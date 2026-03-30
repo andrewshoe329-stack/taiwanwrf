@@ -6,7 +6,7 @@
  * Monochrome color ramp: dim for calm, bright white for strong, red for storm.
  */
 
-import type { WindGrid } from './types'
+import type { WindGrid, WaveGrid } from './types'
 
 interface Particle {
   x: number
@@ -40,6 +40,9 @@ export class WindParticleSystem {
   private lineWidth: number
   private fadeFactor: number
   private grid: WindGrid | null = null
+  private waveGrid: WaveGrid | null = null
+  private waveMode = false
+  private waveTimestepIndex = 0
   private animId: number | null = null
   private running = false
   private offscreen: HTMLCanvasElement | null = null
@@ -91,6 +94,21 @@ export class WindParticleSystem {
   setGrid(grid: WindGrid) {
     this.grid = grid
     if (this.particles.length === 0) this.initParticles()
+  }
+
+  /** Set wave grid data for heatmap mode */
+  setWaveGrid(waveGrid: WaveGrid | null) {
+    this.waveGrid = waveGrid
+  }
+
+  /** Enable/disable wave heatmap mode (disables wind particles) */
+  setWaveMode(enabled: boolean) {
+    this.waveMode = enabled
+  }
+
+  /** Set the timestep index for wave heatmap */
+  setWaveTimestep(index: number) {
+    this.waveTimestepIndex = index
   }
 
   /** Update the map viewport bounds (call on map move/zoom) */
@@ -203,12 +221,117 @@ export class WindParticleSystem {
     return [u, v]
   }
 
+  /** Draw wave height heatmap on the canvas */
+  private drawWaveHeatmap(ctx: CanvasRenderingContext2D, w: number, h: number) {
+    const wg = this.waveGrid
+    if (!wg || !wg.timesteps.length) return
+
+    const ti = Math.min(this.waveTimestepIndex, wg.timesteps.length - 1)
+    const step = wg.timesteps[ti]
+    if (!step?.wave_height) return
+
+    const { lat_min, lat_max, lon_min, lon_max } = wg.bounds
+    const ny = wg.grid.ny
+    const nx = wg.grid.nx
+    const dLat = (lat_max - lat_min) / Math.max(ny - 1, 1)
+    const dLon = (lon_max - lon_min) / Math.max(nx - 1, 1)
+
+    for (let yi = 0; yi < ny; yi++) {
+      for (let xi = 0; xi < nx; xi++) {
+        const hs = step.wave_height[yi]?.[xi]
+        if (hs == null) continue
+
+        // Grid cell corners in geo coords
+        const cellLonW = lon_min + (xi - 0.5) * dLon
+        const cellLonE = lon_min + (xi + 0.5) * dLon
+        const cellLatS = lat_min + (yi - 0.5) * dLat
+        const cellLatN = lat_min + (yi + 0.5) * dLat
+
+        // Project to canvas
+        const [x1, y1] = this.project(cellLonW, cellLatN, w, h)
+        const [x2, y2] = this.project(cellLonE, cellLatS, w, h)
+
+        // Skip cells outside viewport
+        if (x2 < 0 || x1 > w || y2 < 0 || y1 > h) continue
+
+        // Color ramp: blue (calm) → cyan → green → yellow → red (big)
+        const color = this.waveColor(hs)
+        ctx.fillStyle = color
+        ctx.globalAlpha = 0.45
+        ctx.fillRect(x1, y1, x2 - x1, y2 - y1)
+      }
+    }
+    ctx.globalAlpha = 1.0
+
+    // Draw swell direction arrows
+    const swellDir = step.swell_direction
+    const swellH = step.swell_height
+    if (swellDir && swellH) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)'
+      ctx.lineWidth = 1 * this.dpr
+      for (let yi = 0; yi < ny; yi++) {
+        for (let xi = 0; xi < nx; xi++) {
+          const dir = swellDir[yi]?.[xi]
+          const sh = swellH[yi]?.[xi]
+          if (dir == null || sh == null || sh < 0.2) continue
+
+          const lon = lon_min + xi * dLon
+          const lat = lat_min + yi * dLat
+          const [cx, cy] = this.project(lon, lat, w, h)
+          if (cx < 0 || cx > w || cy < 0 || cy > h) continue
+
+          // Arrow length proportional to swell height (capped)
+          const len = Math.min(sh * 8, 20) * this.dpr
+          const rad = (dir * Math.PI) / 180
+          const dx = Math.sin(rad) * len
+          const dy = -Math.cos(rad) * len
+
+          ctx.beginPath()
+          ctx.moveTo(cx - dx * 0.5, cy - dy * 0.5)
+          ctx.lineTo(cx + dx * 0.5, cy + dy * 0.5)
+          ctx.stroke()
+
+          // Arrowhead
+          const ax = cx + dx * 0.5
+          const ay = cy + dy * 0.5
+          const headLen = 4 * this.dpr
+          ctx.beginPath()
+          ctx.moveTo(ax, ay)
+          ctx.lineTo(ax - headLen * Math.sin(rad - 0.5), ay + headLen * Math.cos(rad - 0.5))
+          ctx.moveTo(ax, ay)
+          ctx.lineTo(ax - headLen * Math.sin(rad + 0.5), ay + headLen * Math.cos(rad + 0.5))
+          ctx.stroke()
+        }
+      }
+    }
+  }
+
+  /** Wave height → color (blue calm → red big) */
+  private waveColor(hs: number): string {
+    if (hs < 0.3) return '#1e3a5f'  // very calm — dark blue
+    if (hs < 0.5) return '#1a6b8a'  // calm — teal
+    if (hs < 1.0) return '#2d9a4e'  // moderate — green
+    if (hs < 1.5) return '#7ab648'  // moderate-high — lime
+    if (hs < 2.0) return '#c9a832'  // high — yellow
+    if (hs < 3.0) return '#d4682a'  // very high — orange
+    return '#c93030'                // extreme — red
+  }
+
   private loop = () => {
     if (!this.running || !this.ctx) return
 
     const ctx = this.ctx
     const w = this.canvas.width
     const h = this.canvas.height
+
+    // Wave heatmap mode: static render (no particle animation)
+    if (this.waveMode) {
+      ctx.clearRect(0, 0, w, h)
+      this.drawWaveHeatmap(ctx, w, h)
+      this.drawCoastline(ctx, w, h)
+      this.animId = requestAnimationFrame(this.loop)
+      return
+    }
 
     // On bounds change (drag/zoom), skip trail fade to prevent ghosting
     if (this.boundsChanged) {
