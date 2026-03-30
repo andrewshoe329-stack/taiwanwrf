@@ -860,19 +860,65 @@ def fetch_warnings(api_key: str) -> list[dict]:
         results = []
         now = datetime.now(timezone.utc)
         for w in warnings_raw:
-            # Extract warning content
+            # Extract warning content — handles both flat and nested CWA formats
             content = w.get("contents", w.get("content", {}))
             if isinstance(content, str):
                 desc = content
+            elif isinstance(content, dict):
+                inner = content.get("content", content)
+                # content.content may be a list of {contentText, contentLanguage}
+                if isinstance(inner, list):
+                    # Prefer zh_TW content; fall back to first entry
+                    desc = ""
+                    for item in inner:
+                        if isinstance(item, dict):
+                            desc = item.get("contentText", "")
+                            break
+                elif isinstance(inner, dict):
+                    desc = inner.get("contentText", inner.get("text", str(inner)[:200]))
+                else:
+                    desc = str(inner)[:200]
             else:
-                desc = content.get("content", {}).get("contentText",
-                       content.get("text", str(content)[:200]))
+                desc = str(content)[:200]
+
+            # Extract area — handles both string and nested {location: [{locationName: ...}]}
+            area_raw = w.get("affectedAreas", w.get("area", ""))
+            if isinstance(area_raw, dict):
+                locations = area_raw.get("location", [])
+                if isinstance(locations, list):
+                    area = "、".join(
+                        loc.get("locationName", "") if isinstance(loc, dict) else str(loc)
+                        for loc in locations
+                    )
+                else:
+                    area = str(locations)
+            elif isinstance(area_raw, list):
+                area = ", ".join(str(a) for a in area_raw)
+            else:
+                area = str(area_raw) if area_raw else ""
+
+            # Extract phenomena/significance — handles nested hazardConditions
+            phenomena = w.get("phenomena", "")
+            significance = w.get("significance", w.get("severity", "advisory"))
+            hazard_cond = w.get("hazardConditions", {})
+            if not phenomena and isinstance(hazard_cond, dict):
+                hazards = hazard_cond.get("hazards", {})
+                hazard_list = hazards.get("hazard", []) if isinstance(hazards, dict) else []
+                if isinstance(hazard_list, list) and hazard_list:
+                    info = hazard_list[0].get("info", {}) if isinstance(hazard_list[0], dict) else {}
+                    phenomena = info.get("phenomena", "")
+                    significance = info.get("significance", significance)
+
+            # Extract times — handles nested validTime
+            issued = w.get("startTime", w.get("issued_time", ""))
+            expires = w.get("endTime", w.get("valid_time", ""))
+            if not issued and isinstance(hazard_cond, dict):
+                vt = hazard_cond.get("validTime", {})
+                if isinstance(vt, dict):
+                    issued = vt.get("startTime", issued)
+                    expires = expires or vt.get("endTime", "")
 
             # Check if this warning is relevant to northern Taiwan / Keelung
-            area = w.get("affectedAreas", w.get("area", ""))
-            if isinstance(area, list):
-                area = ", ".join(area)
-
             # Only include warnings relevant to our area (north coast, Keelung, marine)
             northern_keywords = ("基隆", "北部", "東北部", "北海岸", "宜蘭", "新北",
                                  "Keelung", "northern", "northeast", "marine", "海上",
@@ -881,13 +927,12 @@ def fetch_warnings(api_key: str) -> list[dict]:
                 if not any(kw in desc for kw in northern_keywords):
                     continue
 
-            issued = w.get("startTime", w.get("issued_time", ""))
-            expires = w.get("endTime", w.get("valid_time", ""))
+            warning_type = phenomena or w.get("type",
+                          w.get("datasetDescription", "Weather Warning"))
 
             results.append({
-                "type": w.get("phenomena", w.get("type",
-                        w.get("datasetDescription", "Weather Warning"))),
-                "severity": w.get("significance", w.get("severity", "advisory")),
+                "type": warning_type,
+                "severity": significance,
                 "area": area,
                 "description": desc[:500] if isinstance(desc, str) else "",
                 "issued_utc": norm_utc(issued) if issued else None,
@@ -917,10 +962,26 @@ _WARNING_TYPE_MAP = {
     '高溫特報': 'Extreme Heat Advisory',
     '雷雨特報': 'Thunderstorm Advisory',
     '長浪即時訊息': 'Long Swell Alert',
+    # Single-character phenomena from hazardConditions
+    '豪雨': 'Torrential Rain',
+    '大雨': 'Heavy Rain',
+    '強風': 'Strong Wind',
+    '颱風': 'Typhoon',
+    '低溫': 'Cold',
+    '濃霧': 'Dense Fog',
+    '高溫': 'Extreme Heat',
+    '雷雨': 'Thunderstorm',
+    '長浪': 'Long Swell',
 }
 _AREA_MAP = {
     '基隆市': 'Keelung', '新北市': 'New Taipei', '臺北市': 'Taipei',
     '桃園市': 'Taoyuan', '宜蘭縣': 'Yilan', '花蓮縣': 'Hualien',
+    '臺東縣': 'Taitung', '屏東縣': 'Pingtung', '南投縣': 'Nantou',
+    '臺中市': 'Taichung', '臺南市': 'Tainan', '高雄市': 'Kaohsiung',
+    '新竹縣': 'Hsinchu County', '新竹市': 'Hsinchu City',
+    '苗栗縣': 'Miaoli', '彰化縣': 'Changhua', '雲林縣': 'Yunlin',
+    '嘉義縣': 'Chiayi County', '嘉義市': 'Chiayi City',
+    '澎湖縣': 'Penghu', '金門縣': 'Kinmen', '連江縣': 'Lienchiang',
 }
 
 
@@ -931,7 +992,10 @@ def _apply_fallback_translations(warnings: list[dict]) -> list[dict]:
             w['type_en'] = _WARNING_TYPE_MAP.get(w.get('type', ''), w.get('type', ''))
         if 'area_en' not in w:
             area = w.get('area', '')
-            parts = [_AREA_MAP.get(a.strip(), a.strip()) for a in area.split('、') if a.strip()]
+            # Split on both 、 (Chinese) and , (legacy flat format)
+            import re as _re
+            raw_parts = _re.split(r'[、,]', area) if area else []
+            parts = [_AREA_MAP.get(a.strip(), a.strip()) for a in raw_parts if a.strip()]
             w['area_en'] = ', '.join(parts) if parts else area
         if 'description_en' not in w:
             # Generate a basic English description from type + area
