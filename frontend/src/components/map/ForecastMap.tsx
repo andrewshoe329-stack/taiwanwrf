@@ -265,8 +265,8 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
       const rect = canvas.getBoundingClientRect()
       const mx = e.clientX - rect.left
       const my = e.clientY - rect.top
-      const w = canvas.width
-      const h = canvas.height
+      const w = rect.width   // CSS pixels, not physical
+      const h = rect.height
 
       const { west, east, south, north } = boundsRef.current
       // Mouse position in geo coords (Mercator-aware for latitude)
@@ -310,10 +310,12 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
         const dx = e.clientX - dragRef.current.startX
         const dy = e.clientY - dragRef.current.startY
         const { west, east, south, north } = dragRef.current.startBounds
-        const lonPerPx = (east - west) / canvas.width
+        const cssW = canvas.getBoundingClientRect().width
+        const cssH = canvas.getBoundingClientRect().height
+        const lonPerPx = (east - west) / cssW
         const southMerc = mercY(south)
         const northMerc = mercY(north)
-        const mercPerPx = (northMerc - southMerc) / canvas.height
+        const mercPerPx = (northMerc - southMerc) / cssH
 
         const newSouthMerc = southMerc + dy * mercPerPx
         const newNorthMerc = northMerc + dy * mercPerPx
@@ -381,10 +383,12 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
         const dx = e.touches[0].clientX - dragRef.current.startX
         const dy = e.touches[0].clientY - dragRef.current.startY
         const { west, east, south, north } = dragRef.current.startBounds
-        const lonPerPx = (east - west) / canvas.width
+        const cssW = canvas.getBoundingClientRect().width
+        const cssH = canvas.getBoundingClientRect().height
+        const lonPerPx = (east - west) / cssW
         const southMerc = mercY(south)
         const northMerc = mercY(north)
-        const mercPerPx = (northMerc - southMerc) / canvas.height
+        const mercPerPx = (northMerc - southMerc) / cssH
 
         const newSouthMerc = southMerc + dy * mercPerPx
         const newNorthMerc = northMerc + dy * mercPerPx
@@ -681,16 +685,46 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
           </div>
         </div>
       )}
-      {/* Radar/Satellite status badge */}
-      {(layer === 'radar' || layer === 'satellite') && (
+      {/* Radar status badge + legend */}
+      {layer === 'radar' && (
         <div className={`absolute bottom-3 left-3 z-20 backdrop-blur-sm bg-[var(--color-bg-elevated)]/80 border rounded-md px-2 py-1.5 ${tileStale ? 'border-amber-500/50' : tileError ? 'border-red-500/50' : 'border-[var(--color-border)]'}`}>
-          <p className="text-[8px] text-[var(--color-text-muted)] uppercase tracking-wider mb-0.5">
-            {layer === 'radar' ? 'Radar' : 'IR Satellite'}
-          </p>
+          <p className="text-[8px] text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Radar</p>
+          {tileError ? (
+            <p className="text-[10px] text-red-400">Unavailable</p>
+          ) : (
+            <>
+              <div className="flex items-center gap-0.5 mb-1">
+                {[
+                  { color: '#0a0f1e', label: '' },
+                  { color: '#00c85a', label: 'Light' },
+                  { color: '#ffff00', label: '' },
+                  { color: '#ff8c00', label: 'Mod' },
+                  { color: '#ff0000', label: '' },
+                  { color: '#c800c8', label: 'Heavy' },
+                ].map((s, i) => (
+                  <div key={i} className="flex flex-col items-center">
+                    <div className="w-3 h-1.5 rounded-sm" style={{ backgroundColor: s.color }} />
+                    {s.label && <span className="text-[6px] text-[var(--color-text-dim)] mt-0.5">{s.label}</span>}
+                  </div>
+                ))}
+              </div>
+              {tileTimestamp && (
+                <p className={`text-[9px] ${tileStale ? 'text-amber-400' : 'text-[var(--color-text-dim)]'}`}>
+                  {tileTimestamp}{tileStale ? ' (stale)' : ''}
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      )}
+      {/* Satellite status badge */}
+      {layer === 'satellite' && (
+        <div className={`absolute bottom-3 left-3 z-20 backdrop-blur-sm bg-[var(--color-bg-elevated)]/80 border rounded-md px-2 py-1.5 ${tileStale ? 'border-amber-500/50' : tileError ? 'border-red-500/50' : 'border-[var(--color-border)]'}`}>
+          <p className="text-[8px] text-[var(--color-text-muted)] uppercase tracking-wider mb-0.5">IR Satellite</p>
           {tileError ? (
             <p className="text-[10px] text-red-400">Unavailable</p>
           ) : tileTimestamp ? (
-            <p className={`text-[10px] ${tileStale ? 'text-amber-400' : 'text-[var(--color-text-secondary)]'}`}>
+            <p className={`text-[9px] ${tileStale ? 'text-amber-400' : 'text-[var(--color-text-dim)]'}`}>
               {tileTimestamp}{tileStale ? ' (stale)' : ''}
             </p>
           ) : (

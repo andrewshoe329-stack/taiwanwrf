@@ -1,6 +1,5 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { SPOTS } from '@/lib/constants'
 import { degToCompass } from '@/lib/forecast-utils'
 import type { SpotForecast, SpotRating } from '@/lib/types'
 
@@ -35,7 +34,6 @@ export function SpotCompare({ spots, targetUtc, onSelectSpot }: SpotCompareProps
     return spots
       .filter(sf => sf.spot.type !== 'harbour')
       .map(sf => {
-        const spotMeta = SPOTS.find(s => s.id === sf.spot.id)
         // Find closest rating to target time
         let best: SpotRating | null = null
         let bestDiff = Infinity
@@ -43,7 +41,7 @@ export function SpotCompare({ spots, targetUtc, onSelectSpot }: SpotCompareProps
           const diff = Math.abs(new Date(r.valid_utc).getTime() - targetMs)
           if (diff < bestDiff) { bestDiff = diff; best = r }
         }
-        return { spot: sf.spot, meta: spotMeta, rating: best }
+        return { spot: sf.spot, rating: best }
       })
       .filter(r => r.rating)
   }, [spots, targetUtc])

@@ -366,11 +366,10 @@ export class WindParticleSystem {
     const w = this.canvas.width
     const h = this.canvas.height
 
-    // Tile overlay mode (radar/satellite): static render
+    // Tile overlay mode (radar/satellite): static render (no land mask — radar covers land)
     if (this.tileOverlayMode) {
       ctx.clearRect(0, 0, w, h)
       this.drawTileOverlay(ctx, w, h)
-      this.fillLandMask(ctx, w, h)
       this.drawCoastline(ctx, w, h)
       this.animId = requestAnimationFrame(this.loop)
       return

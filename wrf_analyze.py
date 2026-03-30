@@ -345,7 +345,9 @@ def _apply_bias_correction(records: list[dict],
     for entry in reversed(accuracy_log):
         if not isinstance(entry, dict):
             continue
-        if entry.get('temp_bias_c') is not None and entry.get('wind_bias_kt') is not None:
+        tb = entry.get('temp_bias_c')
+        wb = entry.get('wind_bias_kt')
+        if isinstance(tb, (int, float)) and isinstance(wb, (int, float)):
             recent.append(entry)
             if len(recent) >= 7:
                 break
@@ -365,7 +367,7 @@ def _apply_bias_correction(records: list[dict],
         if rec.get('temp_c') is not None:
             rec['temp_c'] = round(rec['temp_c'] - mean_temp_bias, 2)
         if rec.get('wind_kt') is not None:
-            rec['wind_kt'] = round(rec['wind_kt'] - mean_wind_bias, 2)
+            rec['wind_kt'] = round(max(0, rec['wind_kt'] - mean_wind_bias), 2)
 
     corrections = {
         'temp_c': round(-mean_temp_bias, 2),
