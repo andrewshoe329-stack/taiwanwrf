@@ -1140,20 +1140,26 @@ def _apply_fallback_translations(warnings: list[dict]) -> list[dict]:
 
 
 def _translate_warnings(warnings: list[dict]) -> list[dict]:
+    """Translate Chinese warning fields to English.
+
+    Uses hardcoded translation maps for reliability and speed.
+    Previous API-based translation was fragile and slow.
+    """
+    return _apply_fallback_translations(warnings)
+
+
+def _translate_warnings_api(warnings: list[dict]) -> list[dict]:
     """Translate Chinese warning fields to English using Claude API.
 
-    Adds 'type_en', 'area_en', 'description_en' to each warning dict.
-    Falls back to hardcoded map if API is unavailable.
+    Deprecated in favor of hardcoded translations. Kept for reference.
     """
     api_key = os.environ.get('ANTHROPIC_API_KEY', '')
     if not api_key:
-        log.debug("ANTHROPIC_API_KEY not set — using fallback translations")
         return _apply_fallback_translations(warnings)
 
     try:
         import anthropic
     except ImportError:
-        log.debug("anthropic package not installed — using fallback translations")
         return _apply_fallback_translations(warnings)
 
     # Build a single prompt with all warnings to translate in one API call

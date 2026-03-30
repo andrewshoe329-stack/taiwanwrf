@@ -58,7 +58,7 @@ export function TideChart({ predictions, extrema, timeRange, selectedMs }: TideC
 
   const nowMs = selectedMs
   const domain = timeDomain(timeRange) ?? ['dataMin', 'dataMax'] as any
-  const ticks = timeTicks(timeRange, chartData)
+  const ticks = timeTicks(timeRange, chartData, mobile)
 
   const visibleExtrema = useMemo(() => {
     const visible = extrema.filter(e => {
@@ -124,14 +124,9 @@ export function TideChart({ predictions, extrema, timeRange, selectedMs }: TideC
           <ReferenceLine
             key={i}
             x={new Date(e.time_utc).getTime()}
-            stroke="none"
-            label={{
-              value: `${e.type === 'high' ? 'H' : 'L'} ${e.height_m.toFixed(1)}`,
-              fill: 'var(--color-text-secondary)',
-              fontSize: mobile ? 7 : 9,
-              position: e.type === 'high' ? 'insideTop' : 'insideBottom',
-              offset: mobile ? 2 : 4,
-            }}
+            stroke="var(--color-text-dim)"
+            strokeWidth={0.5}
+            strokeDasharray="2 4"
           />
         ))}
       </AreaChart>
