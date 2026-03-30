@@ -42,12 +42,14 @@ GitHub Actions (cron 4x/day)
   ├─ 6. surf_forecast.py         → 7-spot surf ratings + daily planner (parallel API calls)
   │     Outputs: surf_forecast.html, surf_planner.json
   │     Multi-page: --output-dir public → surf.html + spots/<id>.html (7 spot pages)
-  │     Note: independently fetches ECMWF+GFS+marine for each of 8 spots
+  │     Accepts --ecmwf-json/--wave-json to reuse pre-fetched Keelung data (saves 3 API calls)
+  │     Note: fetches ECMWF+GFS+marine for 7 surf spots; Keelung reused from steps 3a/3b
   │
   ├─ 7. wrf_analyze.py           → Extract Keelung point from GRIB2, compare WRF vs ECMWF
   │     Inputs: GRIB2 + ecmwf + wave + tide + surf_planner + ensemble + accuracy_log JSONs
   │     Outputs: keelung_summary_new.json, forecast.html (legacy single-page)
   │     Multi-page: --output-dir public → index.html (dashboard), hourly.html, accuracy.html
+  │     MOS-lite bias correction: uses 7-day rolling avg from accuracy_log to shift temp/wind
   │     Also: downloads accuracy_log.json from Drive for HTML badge display
   │
   ├─ 8. forecast_summary.py      → AI narrative via Anthropic Claude API (3-attempt retry)
@@ -90,8 +92,8 @@ GitHub Actions (cron 4x/day)
 ```
 accuracy_track.py → accuracy_log.json (rolling 30-day metrics in Firestore)
        ↓               + buoy_verification (CWA buoy vs wave forecast)
-wrf_analyze.py    → reads log for HTML accuracy badge
-       ↓
+wrf_analyze.py    → reads log for MOS-lite bias correction (temp, wind)
+       ↓               + HTML accuracy badge display
 forecast_summary.py → feeds bias summary + CWA obs + ensemble spread to Claude
        ↓
 AI narrative adjusts confidence based on known model errors,
@@ -164,7 +166,11 @@ Each spot uses its nearest CWA township tide station (F-A0021-001) for predictio
 | `frontend/src/lib/constants.ts` | ~100 | Shared constants: spot coords, regions, `SPOT_TIDE_STATION`/`SPOT_TIDE_OBS_STATION`, data file paths |
 | `frontend/src/lib/types.ts` | ~240 | TypeScript interfaces: `ForecastRecord`, `WaveRecord`, `SpotRating`, `CwaObs`, `WaveGrid`, `LiveSpotObs`, etc. |
 | `frontend/src/hooks/useLiveObs.ts` | ~80 | Hook polling `/api/live-obs` every 5 min for real-time CWA data |
-| `frontend/src/lib/wind-particles.ts` | ~450 | Canvas wind particle animation + wave heatmap renderer with Mercator projection |
+| `frontend/src/lib/wind-particles.ts` | ~580 | Canvas wind particle animation + wave heatmap + tile overlay renderer with Mercator projection |
+| `frontend/src/lib/tile-loader.ts` | ~95 | XYZ tile math (Web Mercator), tile bounds, zoom calculation, image cache |
+| `frontend/src/lib/rainviewer.ts` | ~90 | RainViewer API: metadata fetch, tile URL builders, 5-min auto-refresh cache |
+| `frontend/src/components/charts/TideSparkline.tsx` | ~95 | Compact 24h tide curve sparkline (Recharts) with extrema dots + now marker |
+| `frontend/src/components/spots/SpotCompare.tsx` | ~110 | At-a-glance spot comparison table: rating, wind, swell for all spots at current time |
 | `.github/workflows/wrf.yml` | ~170 | WRF download, subset, analysis — 4x daily |
 | `.github/workflows/forecast.yml` | ~220 | Forecast pipeline: ECMWF/wave/ensemble fetch, surf, AI summary — 4x daily |
 | `.github/workflows/deploy.yml` | ~70 | Vercel deploy triggered by forecast completion |
@@ -215,11 +221,19 @@ The primary UI is a **React single-page application** built with Vite + TypeScri
 - `/` — **Forecast**: current conditions, AI summary, map overlay, surf heatmap, location cards
 - `/?loc=<id>` — **Focus Mode**: individual spot/harbour with swell compass, charts, live obs, accuracy badges
 
-**Map overlay**: Canvas-based with Wind/Waves toggle:
-- **Wind mode**: Animated streamline particles driven by u/v grid (ECMWF/GFS selectable). Uses Mercator projection.
+**Map overlay**: Canvas-based with 4-layer toggle (Wind / Waves / Radar / Satellite):
+- **Wind mode**: Animated streamline particles driven by u/v grid (WRF/ECMWF/GFS selectable). Uses Mercator projection.
 - **Wave mode**: Colored heatmap (blue→red, 0-3m+) with swell direction arrows. Legend in bottom-left.
+- **Radar mode**: Live precipitation tiles from RainViewer API (free, no key). Auto-refreshes every 5 min. Color legend (light→moderate→heavy). Timestamp + stale warning badge.
+- **Satellite mode**: Infrared cloud imagery from RainViewer (Himawari satellite). Auto-refreshes every 5 min.
+- Tile loading: `tile-loader.ts` handles XYZ tile math + LRU cache; `rainviewer.ts` fetches metadata. Tiles debounce-reload on zoom/pan (150ms).
+- Map labels support bilingual display (English/Chinese) via `setLang()`.
 
-**Focus mode layout**: Swell compass + data cells → info pills + CWA warning badges → live observations grid (temp, wind, tide, waves, water temp, UV, visibility, currents) → ensemble confidence + accuracy badges → charts.
+**Focus mode layout (desktop)**: Swell compass + data cells + tide sparkline → info pills + webcam links + CWA warning badges → live observations grid → ensemble confidence + accuracy badges → charts.
+
+**Focus mode layout (mobile)**: Info pills + webcam links + warnings → live observations → accuracy badges → [sticky timeline + conditions strip] → swell compass + data cells + tide sparkline → charts. (Compass placed below timeline on mobile to make the time-dependency obvious.)
+
+**Spot comparison**: When no spot is selected, the left panel shows a compact comparison table of all spots' current rating, wind, and swell at the timeline timestep.
 
 **Charts** (Recharts): Wind, Wave Height + Swell Period, Tide, Precipitation, Temperature. All use shared numeric X-axis with mobile-adaptive tick count. Reference line tracks timeline scrubber.
 
@@ -301,6 +315,7 @@ Scoring system (0–14 max) evaluates each 6h timestep:
 | CWA Open Data (`opendata.cwa.gov.tw`) | Station + marine obs + tide forecast + township forecast + warnings | `CWA_OPENDATA_KEY` secret (optional) |
 | Open-Meteo (`api.open-meteo.com`) | ECMWF IFS, GFS forecasts | Free, no key, 10k req/day |
 | Open-Meteo Marine (`marine-api.open-meteo.com`) | ECMWF WAM wave data | Free, no key |
+| RainViewer (`api.rainviewer.com`, `tilecache.rainviewer.com`) | Live radar + IR satellite tiles | Free, no key |
 | Anthropic API | AI forecast summary | `ANTHROPIC_API_KEY` secret |
 | LINE Notify (`notify-api.line.me`) | Push alerts | `LINE_NOTIFY_TOKEN` secret (optional) |
 | Telegram Bot API (`api.telegram.org`) | Push alerts | `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` (optional) |
@@ -528,9 +543,9 @@ python cwa_fetch.py --output cwa_obs.json
 - No known open bugs
 
 ### Known Redundancies
-- `surf_forecast.py` independently fetches ECMWF+GFS+marine for all 8 spots (24 API calls) even though `ecmwf_keelung.json` and `wave_keelung.json` already cover Keelung. The 7 surf spots need their own coordinates for wave data, but the Keelung fetch is redundant.
+- `surf_forecast.py` Keelung redundancy **partially fixed**: accepts `--ecmwf-json`/`--wave-json` to reuse pre-fetched data (saves 3 API calls). The 7 surf spots still fetch independently (different coordinates).
 - GFS data is fetched 3 times: once in `ecmwf_fetch.py` (gust backfill), once in `ensemble_fetch.py`, once per spot in `surf_forecast.py`.
-- These are acceptable because Open-Meteo is free and the calls are fast, but consolidating would save ~15-20s per run.
+- These are acceptable because Open-Meteo is free and the calls are fast.
 
 ### Code Quality Debt
 - `wrf_analyze.py` `render_unified_html()` is ~440 lines — partially refactored with colorblind + ensemble helpers extracted; `ForecastContext` dataclass introduced to reduce parameter count
@@ -545,11 +560,12 @@ python cwa_fetch.py --output cwa_obs.json
 
 ### Potential Future Features
 1. **Route weather** — interpolate WRF grid along sailing waypoints
-2. **Spot webcam links** — embed or link to surf spot cameras
-3. **Consolidate surf_forecast.py fetches** — pass pre-fetched ecmwf/wave/ensemble JSONs to avoid redundant API calls
+2. ~~**Spot webcam links**~~ — Done: YouTube search links for Jinshan, Fulong, Double Lions, Wushih
+3. ~~**Consolidate surf_forecast.py fetches**~~ — Done: `--ecmwf-json`/`--wave-json` for Keelung reuse
 4. **CWA tide API validation** — compare harmonic predictions against official CWA tide tables
-5. **Station bias correction** — use CWA station obs at T0 to apply real-time drift correction to WRF forecast
+5. ~~**Station bias correction**~~ — Done: MOS-lite 7-day rolling avg in `wrf_analyze.py`
 6. **Directional wave scoring** — weight surf spot energy by `cos²(swell_angle - beach_angle)` for realistic quality estimates
+7. **Ocean currents layer** — animated particles for surface currents (needs Open-Meteo marine current data confirmation)
 
 ---
 

@@ -1,4 +1,5 @@
 import { useRef, useEffect, useCallback, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { TAIWAN_BBOX, SPOTS, HARBOURS, DATA_FILES } from '@/lib/constants'
 import { WindParticleSystem } from '@/lib/wind-particles'
 import { interpolateWindGrid } from '@/lib/interpolate'
@@ -70,6 +71,7 @@ interface ForecastMapProps {
  * Renders: ocean background, land fill + coastline, wind particles, spot labels.
  */
 export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) {
+  const { t, i18n } = useTranslation()
   const containerRef = useRef<HTMLDivElement>(null)
   const particlesRef = useRef<WindParticleSystem | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -144,6 +146,10 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
   useEffect(() => {
     particlesRef.current?.setSelectedId(selectedId ?? null)
   }, [selectedId])
+
+  useEffect(() => {
+    particlesRef.current?.setLang(i18n.language.startsWith('zh') ? 'zh' : 'en')
+  }, [i18n.language])
 
   /** Hit-test labels at canvas position, return label if within radius */
   const hitTestLabel = useCallback((canvasX: number, canvasY: number): MapLabel | null => {
@@ -608,7 +614,7 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
               }
             `}
           >
-            {{ wind: 'Wind', waves: 'Waves', radar: 'Radar', satellite: 'Satellite' }[l]}
+            {t(`map.${l}`)}
           </button>
         ))}
       </div>
@@ -689,19 +695,19 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
       {/* Radar status badge + legend */}
       {layer === 'radar' && (
         <div className={`absolute bottom-3 left-3 z-20 backdrop-blur-sm bg-[var(--color-bg-elevated)]/80 border rounded-md px-2 py-1.5 ${tileStale ? 'border-amber-500/50' : tileError ? 'border-red-500/50' : 'border-[var(--color-border)]'}`}>
-          <p className="text-[8px] text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Radar</p>
+          <p className="text-[8px] text-[var(--color-text-muted)] uppercase tracking-wider mb-1">{t('map.radar')}</p>
           {tileError ? (
-            <p className="text-[10px] text-red-400">Unavailable</p>
+            <p className="text-[10px] text-red-400">{t('common.unavailable')}</p>
           ) : (
             <>
               <div className="flex items-center gap-0.5 mb-1">
                 {[
                   { color: '#0a0f1e', label: '' },
-                  { color: '#00c85a', label: 'Light' },
+                  { color: '#00c85a', label: t('map.radar_light') },
                   { color: '#ffff00', label: '' },
-                  { color: '#ff8c00', label: 'Mod' },
+                  { color: '#ff8c00', label: t('map.radar_mod') },
                   { color: '#ff0000', label: '' },
-                  { color: '#c800c8', label: 'Heavy' },
+                  { color: '#c800c8', label: t('map.radar_heavy') },
                 ].map((s, i) => (
                   <div key={i} className="flex flex-col items-center">
                     <div className="w-3 h-1.5 rounded-sm" style={{ backgroundColor: s.color }} />
@@ -711,7 +717,7 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
               </div>
               {tileTimestamp && (
                 <p className={`text-[9px] ${tileStale ? 'text-amber-400' : 'text-[var(--color-text-dim)]'}`}>
-                  {tileTimestamp}{tileStale ? ' (stale)' : ''}
+                  {tileTimestamp}{tileStale ? ` (${t('common.stale')})` : ''}
                 </p>
               )}
             </>
@@ -721,15 +727,15 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
       {/* Satellite status badge */}
       {layer === 'satellite' && (
         <div className={`absolute bottom-3 left-3 z-20 backdrop-blur-sm bg-[var(--color-bg-elevated)]/80 border rounded-md px-2 py-1.5 ${tileStale ? 'border-amber-500/50' : tileError ? 'border-red-500/50' : 'border-[var(--color-border)]'}`}>
-          <p className="text-[8px] text-[var(--color-text-muted)] uppercase tracking-wider mb-0.5">IR Satellite</p>
+          <p className="text-[8px] text-[var(--color-text-muted)] uppercase tracking-wider mb-0.5">{t('map.ir_satellite')}</p>
           {tileError ? (
-            <p className="text-[10px] text-red-400">Unavailable</p>
+            <p className="text-[10px] text-red-400">{t('common.unavailable')}</p>
           ) : tileTimestamp ? (
             <p className={`text-[9px] ${tileStale ? 'text-amber-400' : 'text-[var(--color-text-dim)]'}`}>
-              {tileTimestamp}{tileStale ? ' (stale)' : ''}
+              {tileTimestamp}{tileStale ? ` (${t('common.stale')})` : ''}
             </p>
           ) : (
-            <p className="text-[10px] text-[var(--color-text-dim)]">Loading...</p>
+            <p className="text-[10px] text-[var(--color-text-dim)]">{t('common.loading_short')}</p>
           )}
         </div>
       )}

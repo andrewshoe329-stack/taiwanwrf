@@ -222,7 +222,7 @@ export function NowPage() {
                 rel="noopener noreferrer"
                 className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
               >
-                Webcam
+                {t('common.webcam')}
               </a>
             )}
           </div>

@@ -52,9 +52,10 @@ export class WindParticleSystem {
   private running = false
   private offscreen: HTMLCanvasElement | null = null
   private coastline: [number, number][][] = []  // array of rings, each ring is [lon, lat][]
-  private labels: { lon: number; lat: number; text: string; type: 'spot' | 'harbour' | 'city'; id?: string }[] = []
+  private labels: { lon: number; lat: number; text: string; textZh?: string; type: 'spot' | 'harbour' | 'city'; id?: string }[] = []
   private labelColors: Record<string, string> = {}  // label id → rating color
   private selectedId: string | null = null
+  private lang: 'en' | 'zh' = 'en'
 
   // Viewport mapping (set by the map component)
   private bounds = { west: 119.0, east: 122.5, south: 21.5, north: 25.5 }
@@ -81,8 +82,13 @@ export class WindParticleSystem {
   }
 
   /** Set location labels to draw on the canvas */
-  setLabels(labels: { lon: number; lat: number; text: string; type: 'spot' | 'harbour' | 'city'; id?: string }[]) {
+  setLabels(labels: { lon: number; lat: number; text: string; textZh?: string; type: 'spot' | 'harbour' | 'city'; id?: string }[]) {
     this.labels = labels
+  }
+
+  /** Set display language for labels */
+  setLang(lang: 'en' | 'zh') {
+    this.lang = lang
   }
 
   /** Set per-label rating colors (keyed by label id) */
@@ -604,10 +610,11 @@ export class WindParticleSystem {
         ctx.textAlign = 'left'
 
         // Text shadow for readability
+        const displayText = (this.lang === 'zh' && label.textZh) ? label.textZh : label.text
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)'
         ctx.lineWidth = 3 * dpr
-        ctx.strokeText(label.text, x + offsetX, y)
-        ctx.fillText(label.text, x + offsetX, y)
+        ctx.strokeText(displayText, x + offsetX, y)
+        ctx.fillText(displayText, x + offsetX, y)
       }
     }
 

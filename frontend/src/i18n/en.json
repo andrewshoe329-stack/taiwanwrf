@@ -212,7 +212,23 @@
     "height": "Height",
     "no_data": "No data",
     "spot_not_found": "Spot not found",
-    "scroll_for_more": "Scroll for more →"
+    "scroll_for_more": "Scroll for more →",
+    "current": "Current",
+    "webcam": "Webcam",
+    "unavailable": "Unavailable",
+    "loading_short": "Loading...",
+    "stale": "stale",
+    "spot_comparison": "Spot Comparison"
+  },
+  "map": {
+    "wind": "Wind",
+    "waves": "Waves",
+    "radar": "Radar",
+    "satellite": "Satellite",
+    "radar_light": "Light",
+    "radar_mod": "Mod",
+    "radar_heavy": "Heavy",
+    "ir_satellite": "IR Satellite"
   },
   "units": {
     "kt": "kt",

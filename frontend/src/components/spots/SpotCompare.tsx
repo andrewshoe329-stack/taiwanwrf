@@ -24,7 +24,7 @@ const RATING_COLORS: Record<string, string> = {
  * Displayed in the left panel when no specific spot is selected.
  */
 export function SpotCompare({ spots, targetUtc, onSelectSpot }: SpotCompareProps) {
-  const { i18n } = useTranslation()
+  const { t, i18n } = useTranslation()
   const lang = (i18n.language.startsWith('zh') ? 'zh' : 'en') as 'en' | 'zh'
 
   const rows = useMemo(() => {
@@ -51,7 +51,7 @@ export function SpotCompare({ spots, targetUtc, onSelectSpot }: SpotCompareProps
   return (
     <div className="space-y-0.5">
       <p className="text-[9px] uppercase tracking-widest text-[var(--color-text-dim)] mb-1">
-        Spot Comparison
+        {t('common.spot_comparison')}
       </p>
       <table className="w-full text-[10px]">
         <thead>
