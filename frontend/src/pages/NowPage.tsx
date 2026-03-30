@@ -19,6 +19,13 @@ import { useLiveObsContext } from '@/App'
 import type { TimeRange } from '@/components/charts/chart-utils'
 import type { SpotForecast } from '@/lib/types'
 
+const TIDE_LEVEL_MAP: Record<string, { en: string; zh: string }> = {
+  '漲潮': { en: 'Rising', zh: '漲潮' },
+  '退潮': { en: 'Falling', zh: '退潮' },
+  '滿潮': { en: 'High', zh: '滿潮' },
+  '乾潮': { en: 'Low', zh: '乾潮' },
+}
+
 const ForecastMap = lazy(() => import('@/components/map/ForecastMap').then(m => ({ default: m.ForecastMap })))
 const WindChart = lazy(() => import('@/components/charts/WindChart').then(m => ({ default: m.WindChart })))
 const OceanChart = lazy(() => import('@/components/charts/OceanChart').then(m => ({ default: m.OceanChart })))
@@ -203,7 +210,7 @@ export function NowPage() {
             if (stn?.temp_c != null) items.push({ label: t('live.temp'), value: `${stn.temp_c.toFixed(1)}°C` })
             if (stn?.wind_kt != null) items.push({ label: t('live.wind'), value: `${stn.wind_kt.toFixed(0)}${stn.gust_kt ? `G${stn.gust_kt.toFixed(0)}` : ''}kt ${stn.wind_dir != null ? degToCompass(stn.wind_dir) : ''}` })
             if (stn?.pressure_hpa != null) items.push({ label: t('live.pressure'), value: `${stn.pressure_hpa.toFixed(0)} hPa` })
-            if (tide?.tide_height_m != null) items.push({ label: t('live.tide'), value: `${tide.tide_height_m.toFixed(2)}m${tide.tide_level ? ` ${tide.tide_level}` : ''}` })
+            if (tide?.tide_height_m != null) { const tl = tide.tide_level ? (TIDE_LEVEL_MAP[tide.tide_level]?.[lang] ?? tide.tide_level) : ''; items.push({ label: t('live.tide'), value: `${tide.tide_height_m.toFixed(2)}m${tl ? ` ${tl}` : ''}` }) }
             if (buoy?.wave_height_m != null) items.push({ label: t('live.waves'), value: `${buoy.wave_height_m.toFixed(1)}m${buoy.wave_period_s ? ` ${buoy.wave_period_s.toFixed(0)}s` : ''}` })
             if (waterTemp != null) items.push({ label: t('live.water_temp'), value: `${waterTemp.toFixed(1)}°C` })
             if (live?.station?.visibility_km != null && live.station.visibility_km < 10) items.push({ label: t('live.visibility'), value: `${live.station.visibility_km.toFixed(1)}km` })
@@ -282,7 +289,7 @@ export function NowPage() {
             if (stn?.temp_c != null) items.push({ label: t('live.temp'), value: `${stn.temp_c.toFixed(1)}°C` })
             if (stn?.wind_kt != null) items.push({ label: t('live.wind'), value: `${stn.wind_kt.toFixed(0)}${stn.gust_kt ? `G${stn.gust_kt.toFixed(0)}` : ''}kt ${stn.wind_dir != null ? degToCompass(stn.wind_dir) : ''}` })
             if (stn?.pressure_hpa != null) items.push({ label: t('live.pressure'), value: `${stn.pressure_hpa.toFixed(0)} hPa` })
-            if (tide?.tide_height_m != null) items.push({ label: t('live.tide'), value: `${tide.tide_height_m.toFixed(2)}m${tide.tide_level ? ` ${tide.tide_level}` : ''}` })
+            if (tide?.tide_height_m != null) { const tl = tide.tide_level ? (TIDE_LEVEL_MAP[tide.tide_level]?.[lang] ?? tide.tide_level) : ''; items.push({ label: t('live.tide'), value: `${tide.tide_height_m.toFixed(2)}m${tl ? ` ${tl}` : ''}` }) }
             if (buoy?.wave_height_m != null) items.push({ label: t('live.waves'), value: `${buoy.wave_height_m.toFixed(1)}m${buoy.wave_period_s ? ` ${buoy.wave_period_s.toFixed(0)}s` : ''}` })
             if (waterTemp != null) items.push({ label: t('live.water_temp'), value: `${waterTemp.toFixed(1)}°C` })
             if (live?.station?.visibility_km != null && live.station.visibility_km < 10) items.push({ label: t('live.visibility'), value: `${live.station.visibility_km.toFixed(1)}km` })
