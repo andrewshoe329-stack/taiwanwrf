@@ -215,16 +215,17 @@ export function NowPage() {
                 {w.severity_level || w.event || w.type}
               </span>
             ))}
-            {spotInfo.webcam && (
+            {spotInfo.webcams?.map((cam, i) => (
               <a
-                href={spotInfo.webcam}
+                key={i}
+                href={cam.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
               >
-                {t('common.webcam')}
+                {cam.label}
               </a>
-            )}
+            ))}
           </div>
 
           {/* CWA real-time observations (live from serverless, or fallback to deploy-time) */}
