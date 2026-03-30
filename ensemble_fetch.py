@@ -120,11 +120,9 @@ def process_model(raw: dict, model_key: str) -> tuple[dict, list]:
         if dt.hour % 6 != 0:
             continue
 
-        # Precipitation: sum 6h window with proportional scaling for early hours
+        # Precipitation: sum 6h window (no scaling for early partial windows)
         window_start = max(0, i - 5)
-        window_len = i + 1 - window_start
-        raw_precip = sum((safe(precip, j) or 0.0) for j in range(window_start, i + 1))
-        precip_6h = raw_precip * (6 / window_len) if window_len < 6 else raw_precip
+        precip_6h = sum((safe(precip, j) or 0.0) for j in range(window_start, i + 1))
 
         # Visibility: metres → km
         vis_val = safe(vis, i)
@@ -144,7 +142,8 @@ def process_model(raw: dict, model_key: str) -> tuple[dict, list]:
             "cape":         safe(cape, i),
         })
 
-    init_raw = raw.get("hourly", {}).get("time", [""])[0]
+    _times = raw.get("hourly", {}).get("time", [])
+    init_raw = _times[0] if _times else ""
     meta = {
         "model_id":  cfg["id"],
         "init_utc":  norm_utc(init_raw) if init_raw else None,

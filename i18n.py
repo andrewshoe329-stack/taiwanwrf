@@ -8,7 +8,10 @@ Usage in HTML generators:
     html += bilingual('dry', '乾')                  # inline one-off
 """
 
+import logging as _logging
 from html import escape as _esc
+
+_log = _logging.getLogger(__name__)
 
 
 # ── Translation dictionary ───────────────────────────────────────────────────
@@ -309,6 +312,7 @@ def T(key: str) -> str:
     """
     s = STRINGS.get(key)
     if s is None:
+        _log.warning("Missing i18n key: %s", key)
         return f'<span lang="en">[{_esc(key)}]</span><span lang="zh">[{_esc(key)}]</span>'
     return f'<span lang="en">{s["en"]}</span><span lang="zh">{s["zh"]}</span>'
 

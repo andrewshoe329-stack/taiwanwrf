@@ -102,7 +102,9 @@ export function SwellCompass({ facing, optSwell, swellDir, swellHeight }: SwellC
     : 0.6
 
   return (
-    <svg viewBox="0 0 200 200" className="w-full max-w-[200px] mx-auto block">
+    <svg viewBox="0 0 200 200" className="w-full max-w-[200px] mx-auto block" role="img" aria-labelledby="compass-title compass-desc">
+      <title id="compass-title">Swell Compass</title>
+      <desc id="compass-desc">Shows current swell direction relative to optimal directions for this spot (facing {facing})</desc>
       {/* Outer ring */}
       <circle cx={cx} cy={cy} r={outerR} fill="none" stroke="var(--color-border)" strokeWidth="1" />
       <circle cx={cx} cy={cy} r={innerR} fill="none" stroke="var(--color-border-subtle)" strokeWidth="0.5" />
@@ -132,7 +134,7 @@ export function SwellCompass({ facing, optSwell, swellDir, swellHeight }: SwellC
           key={i}
           d={describeArc(cx, cy, outerR, arc.startAngle, arc.endAngle)}
           fill="white"
-          opacity={0.08}
+          opacity={0.15}
         />
       ))}
 

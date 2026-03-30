@@ -83,11 +83,15 @@ export function WindChart({ records, ecmwfRecords, timeRange }: WindChartProps) 
           width={YAXIS_WIDTH}
         />
         <Tooltip content={CustomTooltip} />
+        {/* Beaufort reference lines */}
+        <ReferenceLine y={12} stroke="var(--color-text-dim)" strokeDasharray="2 4" />
+        <ReferenceLine y={25} stroke="var(--color-text-dim)" strokeDasharray="2 4" />
+        <ReferenceLine y={35} stroke="var(--color-rating-dangerous)" strokeDasharray="2 4" strokeOpacity={0.4} />
         <Area
           dataKey="wrf_gust"
           name="Gust"
           fill="var(--color-text-primary)"
-          fillOpacity={0.06}
+          fillOpacity={0.15}
           stroke="none"
           type="monotone"
           isAnimationActive={false}

@@ -337,6 +337,7 @@ def extract_cwa_wave_forecast(model_id: str, run_info: dict,
     grib_paths = download_cwa_wave_grib(model_id, all_hours, outdir)
 
     records = []
+    missing_hours = []
     for grb in sorted(grib_paths):
         m = re.search(r'-(\d{3})\.grb2$', grb.name)
         if not m:
@@ -347,6 +348,7 @@ def extract_cwa_wave_forecast(model_id: str, run_info: dict,
         log.info("  CWA wave F%03d …", fh)
         raw = read_wave_point(grb, KEELUNG_LAT, KEELUNG_LON)
         if not raw:
+            missing_hours.append(fh)
             continue
 
         rec = {"valid_utc": valid_time.isoformat(), "fh": fh}
@@ -360,6 +362,8 @@ def extract_cwa_wave_forecast(model_id: str, run_info: dict,
 
         records.append(rec)
 
+    if missing_hours:
+        log.warning("CWA wave forecast missing %d hours: %s", len(missing_hours), missing_hours)
     records.sort(key=lambda r: r['fh'])
     meta = {
         "model_id": model_id,

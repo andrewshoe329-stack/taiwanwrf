@@ -53,6 +53,17 @@ export function SpotsPage() {
   const bestSpotInfo = bestSpot ? SPOTS.find(s => s.id === bestSpot.spotId) : undefined
   const bestSpotCurrent = bestSpot ? spotData[bestSpot.spotId]?.current : undefined
 
+  if (data.error) {
+    return (
+      <div className="px-4 py-6 pb-24 max-w-screen-xl mx-auto">
+        <h1 className="text-lg font-semibold text-[var(--color-text-primary)] mb-4">{t('spots.title')}</h1>
+        <div className="border border-[var(--color-danger)]/30 rounded-xl p-6 text-center">
+          <p className="text-sm text-[var(--color-text-muted)]">{t('common.error')}</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="px-4 pt-4 pb-24 max-w-screen-xl mx-auto">
       <div className="flex items-start justify-between mb-4">

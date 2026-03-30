@@ -147,11 +147,18 @@ def upload_accuracy_log(entries: list) -> None:
     and also writes the latest entry to the per-entry collection.
     """
     # Full array in a single document for easy download
-    doc_data = {'entries': entries}
+    # Trim to last 90 entries to stay within Firestore 1MB doc limit
+    trimmed = entries[-90:] if len(entries) > 90 else entries
+    doc_data = {'entries': trimmed}
     doc_size = len(json.dumps(doc_data).encode('utf-8'))
     if doc_size > 900_000:
-        log.warning("Accuracy log document is %d bytes — approaching Firestore "
-                     "1MB limit. Consider trimming older entries.", doc_size)
+        # Further trim until under limit
+        while doc_size > 900_000 and len(trimmed) > 10:
+            trimmed = trimmed[-len(trimmed)//2:]
+            doc_data = {'entries': trimmed}
+            doc_size = len(json.dumps(doc_data).encode('utf-8'))
+        log.warning("Accuracy log trimmed to %d entries (%d bytes) "
+                     "to stay within Firestore 1MB limit.", len(trimmed), doc_size)
     write_document(_COLLECTION, _ACCURACY_DOC, doc_data)
 
     # Also write the latest entry individually (for querying)
@@ -175,6 +182,9 @@ def _get_bucket():
 
 def upload_archive(local_path: str) -> str | None:
     """Upload a .tar.gz archive to Cloud Storage. Returns the public URL."""
+    if not Path(local_path).is_file():
+        log.error("Archive file not found: %s", local_path)
+        return None
     bucket = _get_bucket()
     name = _ARCHIVE_PREFIX + Path(local_path).name
     blob = bucket.blob(name)
@@ -183,7 +193,7 @@ def upload_archive(local_path: str) -> str | None:
     try:
         blob.make_public()
     except Exception as e:
-        log.warning("Failed to make blob public (%s): %s", name, e)
+        log.warning("Failed to make blob public (%s): %s — URL may not be accessible", name, e)
     log.info("Archive uploaded → gs://%s/%s", bucket.name, name)
     return blob.public_url
 

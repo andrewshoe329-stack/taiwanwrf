@@ -32,9 +32,13 @@ export const ForecastDataContext = createContext<AllForecastData>(initial)
 async function fetchJson<T>(url: string): Promise<T | null> {
   try {
     const res = await fetch(url)
-    if (!res.ok) return null
+    if (!res.ok) {
+      console.warn(`[useForecastData] ${url}: HTTP ${res.status}`)
+      return null
+    }
     return await res.json()
-  } catch {
+  } catch (err) {
+    console.warn(`[useForecastData] ${url}:`, err)
     return null
   }
 }

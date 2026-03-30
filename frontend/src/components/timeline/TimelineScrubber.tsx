@@ -1,4 +1,5 @@
 import { useRef, useCallback, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useTimeline } from '@/hooks/useTimeline'
 import { useForecastData } from '@/hooks/useForecastData'
 
@@ -17,6 +18,7 @@ function formatDate(utc: string): string {
 }
 
 export function TimelineScrubber() {
+  const { t } = useTranslation()
   const { index, total, setIndex, playing, toggle, setTotal } = useTimeline()
   const { keelung } = useForecastData()
   const trackRef = useRef<HTMLDivElement>(null)
@@ -95,11 +97,11 @@ export function TimelineScrubber() {
             <span className="text-xs font-medium text-[var(--color-text-primary)]">
               {formatDate(currentRecord.valid_utc)}{' '}
               <span className="text-[var(--color-text-secondary)]">
-                {formatTime(currentRecord.valid_utc)} CST
+                {formatTime(currentRecord.valid_utc)} {t('timeline.cst')}
               </span>
             </span>
           ) : (
-            <span className="text-xs text-[var(--color-text-muted)]">No data</span>
+            <span className="text-xs text-[var(--color-text-muted)]">{t('common.no_data')}</span>
           )}
         </div>
 
@@ -126,7 +128,7 @@ export function TimelineScrubber() {
         {/* Slider track */}
         <div
           ref={trackRef}
-          className="relative h-6 flex items-center cursor-pointer touch-none"
+          className="relative h-8 flex items-center cursor-pointer touch-none"
           onPointerDown={handlePointerDown}
         >
           {/* Background rail */}
@@ -149,7 +151,7 @@ export function TimelineScrubber() {
 
           {/* Thumb */}
           <div
-            className="absolute w-3 h-3 rounded-full bg-[var(--color-text-primary)] border-2 border-[var(--color-bg)] shadow-sm transition-[left] duration-75"
+            className="absolute w-5 h-5 rounded-full bg-[var(--color-text-primary)] border-2 border-[var(--color-bg)] shadow-sm transition-[left] duration-75"
             style={{ left: `${progress * 100}%`, transform: 'translateX(-50%)' }}
           />
         </div>

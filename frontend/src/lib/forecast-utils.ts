@@ -99,11 +99,13 @@ export function getDayKey(utc: string): string {
 
 /** Check if a timestamp is the closest past record (i.e. "current"). */
 export function isCurrentTimestep(utc: string, allUtcs: string[]): boolean {
+  if (!allUtcs.length) return false
   const now = Date.now()
   let closest = 0
   let closestDiff = Infinity
   for (let i = 0; i < allUtcs.length; i++) {
     const t = new Date(allUtcs[i]).getTime()
+    if (isNaN(t)) continue
     const diff = now - t
     if (diff >= 0 && diff < closestDiff) {
       closestDiff = diff
@@ -200,7 +202,7 @@ export function getLocationForecast(
   data: AllForecastData,
   locationId: string,
 ): SpotForecast | null {
-  if (!data.surf) return null
+  if (!data.surf?.spots) return null
   return data.surf.spots.find(s => s.spot.id === locationId) ?? null
 }
 

@@ -33,6 +33,20 @@ export function SpotDetailPage() {
   const spotIndex = SPOTS.findIndex(s => s.id === id)
   const spot = spotIndex >= 0 ? SPOTS[spotIndex] : undefined
 
+  if (data.error && !data.surf) {
+    return (
+      <div className="px-4 py-6 pb-24 max-w-screen-xl mx-auto">
+        <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors mb-6">
+          <span className="text-base">&larr;</span>
+          <span>{t('spots.back')}</span>
+        </button>
+        <div className="border border-[var(--color-danger)]/30 rounded-xl p-6 text-center">
+          <p className="text-sm text-[var(--color-text-muted)]">{t('common.error')}</p>
+        </div>
+      </div>
+    )
+  }
+
   if (!spot) {
     return (
       <div className="px-4 py-6 pb-24 max-w-screen-xl mx-auto">
@@ -40,7 +54,7 @@ export function SpotDetailPage() {
           <span className="text-base">&larr;</span>
           <span>{t('spots.back')}</span>
         </button>
-        <p className="text-[var(--color-text-muted)]">Spot not found</p>
+        <p className="text-[var(--color-text-muted)]">{t('common.spot_not_found')}</p>
       </div>
     )
   }

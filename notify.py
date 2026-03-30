@@ -81,13 +81,15 @@ def check_alerts(wrf_data: dict, wave_data: dict | None = None) -> list[dict]:
                 'valid_utc': vt,
                 'value': gust,
             })
-        elif wind is not None and wind >= THRESHOLDS['strong_wind_kt']:
+        elif (wind is not None and wind >= THRESHOLDS['strong_wind_kt']) or \
+             (gust is not None and gust >= THRESHOLDS['strong_wind_kt']):
+            peak = max(wind or 0, gust or 0)
             alerts.append({
                 'type': 'strong_wind',
                 'severity': 'warning',
-                'message': f'Strong wind: {wind:.0f}kt at {time_str}',
+                'message': f'Strong wind: {peak:.0f}kt at {time_str}',
                 'valid_utc': vt,
-                'value': wind,
+                'value': peak,
             })
 
         if rain is not None and rain >= THRESHOLDS['heavy_rain_mm_6h']:
@@ -136,7 +138,12 @@ def check_alerts(wrf_data: dict, wave_data: dict | None = None) -> list[dict]:
     by_day_type: dict[tuple, dict] = {}
     severity_rank = {'danger': 2, 'warning': 1, 'info': 0}
     for alert in alerts:
-        day_key = alert['valid_utc'][:10] if alert['valid_utc'] else 'unknown'
+        # Use CST date for dedup (UTC+8) so alerts don't cross day boundaries
+        try:
+            _dt = datetime.fromisoformat(alert['valid_utc'])
+            day_key = (_dt + timedelta(hours=8)).strftime('%Y-%m-%d')
+        except (ValueError, TypeError):
+            day_key = alert.get('valid_utc', 'unknown')[:10]
         key = (day_key, alert['type'])
         existing = by_day_type.get(key)
         if existing is None or severity_rank.get(alert['severity'], 0) > severity_rank.get(existing['severity'], 0):
@@ -309,7 +316,7 @@ def send_telegram(token: str, chat_id: str, message: str) -> bool:
             log.info("Telegram message sent (status %d)", r.status)
             return True
     except (urllib.error.HTTPError, urllib.error.URLError, OSError) as e:
-        log.error("Telegram send failed (HTTP error)")
+        log.error("Telegram send failed: %s", e)
         return False
 
 

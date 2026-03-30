@@ -280,15 +280,13 @@ def process_spot(ec: dict, gfs: dict, mar: dict) -> list[dict[str, object]]:
 
         _precip = eh.get('precipitation', [])
         # Sum the preceding 6 hourly precipitation values.  When fewer than 6
-        # values are available (early forecast hours), scale up proportionally
-        # so the result always represents a 6-hour equivalent accumulation.
+        # values are available (early forecast hours), use the actual sum
+        # rather than scaling up — avoids inflating rain for partial windows.
         window_start = max(0, i - 5)
-        window_len = i + 1 - window_start          # actual number of values
-        raw_sum = sum(
+        rain6h = sum(
             (_precip[k] or 0) if k < len(_precip) else 0
             for k in range(window_start, i + 1)
         )
-        rain6h = raw_sum * (6 / window_len) if window_len < 6 else raw_sum
 
         wi = wave_by_t.get(t)
         wv = {}
@@ -345,18 +343,23 @@ MONTH = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'
 
 def _score_timestep(r: dict, spot: dict, tide_height_m: float | None = None) -> int:
     """Score a single 6-hourly timestep for a given surf spot. Returns integer score."""
-    sw_hs   = r.get('sw_hs') or 0
+    sw_hs   = r.get('sw_hs')
     sw_dir  = r.get('sw_dir')
     wind_kt = r.get('wind')  or 0
     w_dir   = r.get('w_dir')
-    sw_tp   = r.get('sw_tp') or 0
+    sw_tp   = r.get('sw_tp')
+
+    # Treat missing swell data as 0 for scoring, but preserve None semantics
+    # upstream so callers can distinguish "no data" from "calm".
+    _sw_hs = sw_hs if sw_hs is not None else 0
+    _sw_tp = sw_tp if sw_tp is not None else 0
 
     score = 0
 
     # Swell direction — weighted by swell height (full credit at ≥0.6m)
     sq = dir_quality(sw_dir, spot['opt_swell'])
     swell_dir_base = {'good': 4, 'ok': 2, 'poor': 0, 'unknown': 1}[sq]
-    swell_factor = min(sw_hs / 0.6, 1.0) if sw_hs > 0 else 0
+    swell_factor = min(_sw_hs / 0.6, 1.0) if _sw_hs > 0 else 0
     score += round(swell_dir_base * swell_factor)
 
     # Wind direction (offshore) — weighted by wind speed (full credit at ≥LIGHT_WIND_KT)
@@ -371,7 +374,7 @@ def _score_timestep(r: dict, spot: dict, tide_height_m: float | None = None) -> 
     elif wind_kt > ONSHORE_WIND_KT: score -= 2
 
     # Wave energy — height² × period (replaces independent height + period)
-    energy = sw_hs ** 2 * sw_tp
+    energy = _sw_hs ** 2 * _sw_tp
     if energy >= 12:    score += 5   # e.g. 1.0m @ 12s, 1.5m @ 5.3s
     elif energy >= 5:   score += 3   # e.g. 0.7m @ 10s
     elif energy >= 1.5: score += 2   # e.g. 0.5m @ 6s
