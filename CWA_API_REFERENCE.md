@@ -192,14 +192,34 @@ Records.SeaSurfaceObs.Location[] → [{
 }]
 ```
 
-**Key station IDs (northern Taiwan):**
-| ID | Name | Type | Notes |
-|----|------|------|-------|
-| 46694A | 龍洞 | Buoy | Primary wave buoy for Keelung area |
-| 46708A | 富貴角 | Buoy | North coast |
-| 46714C | 蘇澳 | Buoy | NE coast (near Chousui) |
-| C4B01 | 基隆 | Tide station | Keelung harbour tide gauge |
-| C6AH2 | 基隆 | Buoy | Keelung area |
+**Marine stations near our spots (from O-B0076-001 metadata):**
+
+*Tide stations (潮位站):*
+| ID | Name | Lat | Lon | Active Obs | Nearest Spot |
+|----|------|-----|-----|-----------|-------------|
+| C4A03 | 麟山鼻 | 25.284 | 121.510 | Tide, SeaTemp, Pressure | Jinshan area |
+| C4A06 | 淡海 | 25.184 | 121.408 | Tide, SeaTemp | — |
+| C4A01 | 淡水 | 25.176 | 121.425 | Tide, SeaTemp | — |
+| C4B01 | 基隆 | 25.155 | 121.752 | Tide, Wind, SeaTemp, Pressure | Keelung (primary) |
+| C4B03 | 長潭里 | 25.141 | 121.800 | Tide, Wind, SeaTemp, Temp, Pressure | Keelung (0.5km from harbour) |
+| C4A02 | 龍洞 | 25.098 | 121.918 | Tide, Wind, SeaTemp, Temp, Pressure | Fulong area |
+| C4A05 | 福隆 | 25.022 | 121.950 | Tide, SeaTemp, Pressure | Fulong (0.2km!) |
+| C4U02 | 烏石 | 24.869 | 121.840 | Tide, SeaTemp, Pressure | Wushih (0.4km!) |
+| C4U01 | 蘇澳 | 24.593 | 121.866 | Tide, Wind, SeaTemp, Pressure | — |
+
+*Buoy stations (浮標站) — wave data:*
+| ID | Name | Lat | Lon | Active Obs | Nearest Spot |
+|----|------|-----|-----|-----------|-------------|
+| C6AH2 | 富貴角 | 25.304 | 121.531 | Wave, Wind, SeaTemp, Temp, Pressure, Current | Jinshan (7km offshore) |
+| 46694A | 龍洞 | 25.099 | 121.923 | Wave, Wind, SeaTemp, Temp, Pressure | Fulong area |
+| OAC004 | 潮境 | 25.144 | 121.808 | Wave(Hs only), Wind, SeaTemp, Pressure | Keelung (1km) |
+| OAC003 | 鼻頭角 | 25.125 | 121.907 | **Offline** | — |
+| OAC005 | 蜜月灣 | 24.949 | 121.929 | **Offline** | Daxi (2km!) |
+| 46708A | 龜山島 | 24.847 | 121.927 | Wave, Wind, SeaTemp, Temp, Pressure, Current | NE coast offshore |
+| 46706A | 蘇澳 | 24.625 | 121.876 | Wave, Wind, Pressure, Current | — |
+| C6B01 | 彭佳嶼 | 25.620 | 122.069 | Wave(partial), Wind, SeaTemp, Temp, Pressure, Current | Far offshore reference |
+
+**Note:** `StationStatus`/`ObsStatus` = 1 means active, 0 means offline/no data. OAC005 (蜜月灣/Honeymoon Bay) is right at Daxi but currently offline.
 
 ---
 
