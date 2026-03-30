@@ -19,13 +19,13 @@ export const HARBOURS: HarbourInfo[] = [
 
 export const SPOTS: SpotInfo[] = [
   // North coast (W→E along coast: Jinshan → Green Bay → Fulong)
-  { id: 'jinshan',     name: { en: 'Jinshan',      zh: '金山' },   lat: 25.2402433645372, lon: 121.63355732190196, facing: 'NE',    region: 'north',     opt_wind: ['S','SW'],        opt_swell: ['N','NNE','NE','E','ESE'], webcam: 'https://www.youtube.com/results?search_query=%E4%B8%AD%E8%A7%92%E7%81%A3+live' },
+  { id: 'jinshan',     name: { en: 'Jinshan',      zh: '金山' },   lat: 25.2402433645372, lon: 121.63355732190196, facing: 'NE',    region: 'north',     opt_wind: ['S','SW'],        opt_swell: ['N','NNE','NE','E','ESE'] },
   { id: 'greenbay',    name: { en: 'Green Bay',    zh: '翡翠灣' }, lat: 25.18952488598986, lon: 121.68580407087968, facing: 'NE',    region: 'north',     opt_wind: ['W','SW'],        opt_swell: ['E','NE'] },
-  { id: 'fulong',      name: { en: 'Fulong',      zh: '福隆' },   lat: 25.02389886806093, lon: 121.94298998527262, facing: 'NE/E',  region: 'north',     opt_wind: ['S','SW'],        opt_swell: ['N','NE','E'], webcam: 'https://www.youtube.com/results?search_query=%E7%A6%8F%E9%9A%86%E6%B5%B7%E6%B0%B4%E6%B5%B4%E5%A0%B4+live' },
+  { id: 'fulong',      name: { en: 'Fulong',      zh: '福隆' },   lat: 25.02389886806093, lon: 121.94298998527262, facing: 'NE/E',  region: 'north',     opt_wind: ['S','SW'],        opt_swell: ['N','NE','E'] },
   // NE coast (N→S along coast: Daxi → Double Lions → Wushih → Chousui)
   { id: 'daxi',        name: { en: 'Daxi',         zh: '大溪' },   lat: 24.93284050868701, lon: 121.88580048320033, facing: 'SE',    region: 'northeast', opt_wind: ['NW','W'],        opt_swell: ['SE','SSE','S','E'] },
-  { id: 'doublelions', name: { en: 'Double Lions',  zh: '雙獅' },   lat: 24.888936271482883, lon: 121.85002306336393, facing: 'E',     region: 'northeast', opt_wind: ['W','SW'],        opt_swell: ['ENE','E','SE','SSE'], webcam: 'https://www.youtube.com/results?search_query=%E5%A4%96%E6%BE%B3+live+cam' },
-  { id: 'wushih',      name: { en: 'Wushih',       zh: '烏石' },   lat: 24.8722775159955, lon: 121.84152686026746, facing: 'E',     region: 'northeast', opt_wind: ['NW','W'],        opt_swell: ['E','SE','SSE'], webcam: 'https://www.youtube.com/results?search_query=%E7%83%8F%E7%9F%B3%E6%B8%AF+live' },
+  { id: 'doublelions', name: { en: 'Double Lions',  zh: '雙獅' },   lat: 24.888936271482883, lon: 121.85002306336393, facing: 'E',     region: 'northeast', opt_wind: ['W','SW'],        opt_swell: ['ENE','E','SE','SSE'] },
+  { id: 'wushih',      name: { en: 'Wushih',       zh: '烏石' },   lat: 24.8722775159955, lon: 121.84152686026746, facing: 'E',     region: 'northeast', opt_wind: ['NW','W'],        opt_swell: ['E','SE','SSE'] },
   { id: 'chousui',     name: { en: 'Chousui',      zh: '臭水' },   lat: 24.857077333437765, lon: 121.83333064075161, facing: 'E',     region: 'northeast', opt_wind: ['WSW','W'],       opt_swell: ['ENE','E','ESE'] },
 ]
 
