@@ -6,7 +6,7 @@ import type { ForecastRecord } from '@/lib/types'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import {
   toCSTLabel, MultiLineTick, timeTicks, timeDomain,
-  filterByTimeRange, findNowMs,
+  filterByTimeRange,
   chartMargin, chartHeight, chartHeightCompact, xAxisHeight, YAXIS_WIDTH, NOW_LABEL,
   type TimeRange,
 } from './chart-utils'
@@ -14,6 +14,7 @@ import {
 interface ChartProps {
   records: ForecastRecord[]
   timeRange?: TimeRange
+  selectedMs?: number
 }
 
 interface TempRow {
@@ -63,7 +64,7 @@ function PressureTooltip(props: any) {
 }
 
 /** Temperature chart */
-export function TempChart({ records, timeRange }: ChartProps) {
+export function TempChart({ records, timeRange, selectedMs }: ChartProps) {
   if (!records?.length) return null
   const mobile = useIsMobile()
 
@@ -74,7 +75,7 @@ export function TempChart({ records, timeRange }: ChartProps) {
     temp: r.temp_c,
   }))
 
-  const nowMs = findNowMs(timeRange)
+  const nowMs = selectedMs
   const domain = timeDomain(timeRange) ?? ['dataMin', 'dataMax'] as any
   const ticks = timeTicks(timeRange, chartData)
 
@@ -124,7 +125,7 @@ export function TempChart({ records, timeRange }: ChartProps) {
 }
 
 /** Pressure chart */
-export function PressureChart({ records, timeRange }: ChartProps) {
+export function PressureChart({ records, timeRange, selectedMs }: ChartProps) {
   if (!records?.length) return null
   const mobile = useIsMobile()
 
@@ -135,7 +136,7 @@ export function PressureChart({ records, timeRange }: ChartProps) {
     pressure: r.mslp_hpa,
   }))
 
-  const nowMs = findNowMs(timeRange)
+  const nowMs = selectedMs
   const domain = timeDomain(timeRange) ?? ['dataMin', 'dataMax'] as any
   const ticks = timeTicks(timeRange, chartData)
 

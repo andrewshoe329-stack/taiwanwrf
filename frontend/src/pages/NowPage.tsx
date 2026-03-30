@@ -53,6 +53,15 @@ export function NowPage() {
     return { startUtc: chartRecords[0].valid_utc, endUtc: chartRecords[chartRecords.length - 1].valid_utc }
   }, [chartRecords])
 
+  // Selected timestep as ms — drives chart reference line
+  const selectedMs = useMemo(() => {
+    const records = data.keelung?.records
+    if (!records?.length) return undefined
+    const rec = records[Math.min(index, records.length - 1)]
+    if (!rec?.valid_utc) return undefined
+    return new Date(rec.valid_utc).getTime()
+  }, [data.keelung, index])
+
   // Spot metadata
   const spotInfo = useMemo(() => {
     if (!locationId) return undefined
@@ -83,13 +92,11 @@ export function NowPage() {
   /* ── Data panel content (shared between mobile & desktop) ──────────── */
   const dataPanel = (
     <div className="space-y-3">
-      {/* Sticky timeline */}
-      <div className="sticky top-0 z-10 bg-[var(--color-bg)] border-b border-[var(--color-border)] -mx-4 px-4">
+      {/* Sticky header: timeline + conditions */}
+      <div className="sticky top-0 z-10 bg-[var(--color-bg)] border-b border-[var(--color-border)] -mx-4 px-4 md:-mx-6 md:px-6">
         <TimelineScrubber />
+        <ConditionsStrip />
       </div>
-
-      {/* Conditions */}
-      <ConditionsStrip />
 
       {/* Weather warnings */}
       <WeatherWarnings />
@@ -97,32 +104,56 @@ export function NowPage() {
       {/* Selected spot detail */}
       {isSpotSelected && spotInfo && (
         <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
-              {spotInfo.name[lang]}
-              <span className="text-[var(--color-text-muted)] ml-1.5 text-xs font-normal">
-                {spotInfo.name[lang === 'en' ? 'zh' : 'en']}
-              </span>
-            </h2>
-            <button
-              onClick={() => setLocationId(null)}
-              className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]"
-              aria-label="Deselect"
-            >
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M1 1 L9 9 M9 1 L1 9" />
-              </svg>
-            </button>
+          <div className="flex items-start gap-3">
+            {/* Swell compass — compact, beside spot name */}
+            {currentRating && (
+              <div className="shrink-0">
+                <SwellCompass
+                  facing={spotInfo.facing}
+                  optSwell={spotInfo.opt_swell}
+                  swellDir={currentRating.swell_dir}
+                  swellHeight={currentRating.swell_height}
+                  size={64}
+                />
+              </div>
+            )}
+
+            {/* Spot name + info */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
+                  {spotInfo.name[lang]}
+                  <span className="text-[var(--color-text-muted)] ml-1.5 text-xs font-normal">
+                    {spotInfo.name[lang === 'en' ? 'zh' : 'en']}
+                  </span>
+                </h2>
+                <button
+                  onClick={() => setLocationId(null)}
+                  className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]"
+                  aria-label="Deselect"
+                >
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M1 1 L9 9 M9 1 L1 9" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Info pills */}
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                <InfoPill label={t('spots.facing')} value={spotInfo.facing} />
+                <InfoPill label={t('spots.optimal_wind')} value={spotInfo.opt_wind.join(', ')} />
+              </div>
+
+              {/* Wind type */}
+              {currentRating?.wind_dir != null && spotInfo.facing && (
+                <p className="text-[10px] text-[var(--color-text-muted)] mt-1">
+                  {t('common.wind')}: <span className="text-[var(--color-text-secondary)] capitalize">{windType(currentRating.wind_dir, spotInfo.facing)}</span>
+                </p>
+              )}
+            </div>
           </div>
 
-          {/* Spot info pills */}
-          <div className="flex flex-wrap gap-1.5">
-            <InfoPill label={t('spots.facing')} value={spotInfo.facing} />
-            <InfoPill label={t('spots.optimal_wind')} value={spotInfo.opt_wind.join(', ')} />
-            <InfoPill label={t('spots.optimal_swell')} value={spotInfo.opt_swell.join(', ')} />
-          </div>
-
-          {/* Current data for this spot */}
+          {/* Current data cells */}
           {currentRating && (
             <div className="grid grid-cols-4 gap-2">
               <DataCell
@@ -148,13 +179,6 @@ export function NowPage() {
                 unit="m"
               />
             </div>
-          )}
-
-          {/* Wind type */}
-          {currentRating?.wind_dir != null && spotInfo.facing && (
-            <p className="text-[10px] text-[var(--color-text-muted)]">
-              {t('common.wind')}: <span className="text-[var(--color-text-secondary)] capitalize">{windType(currentRating.wind_dir, spotInfo.facing)}</span>
-            </p>
           )}
         </section>
       )}
@@ -183,13 +207,13 @@ export function NowPage() {
       <Suspense fallback={null}>
         {chartRecords.length > 0 && (
           <ChartCard title={t('common.wind')}>
-            <WindChart records={chartRecords} timeRange={timeRange} />
+            <WindChart records={chartRecords} timeRange={timeRange} selectedMs={selectedMs} />
           </ChartCard>
         )}
 
         {data.wave?.ecmwf_wave?.records && (
           <ChartCard title={`${t('common.wave_height')} + ${t('common.swell_period')}`}>
-            <OceanChart records={data.wave.ecmwf_wave.records} timeRange={timeRange} />
+            <OceanChart records={data.wave.ecmwf_wave.records} timeRange={timeRange} selectedMs={selectedMs} />
           </ChartCard>
         )}
 
@@ -199,6 +223,7 @@ export function NowPage() {
               predictions={data.tide.predictions}
               extrema={data.tide.extrema}
               timeRange={timeRange}
+              selectedMs={selectedMs}
             />
           </ChartCard>
         )}
@@ -207,38 +232,16 @@ export function NowPage() {
         <div className={mobile ? 'space-y-0' : 'grid grid-cols-2 gap-3'}>
           {chartRecords.length > 0 && (
             <ChartCard title={t('common.precip')}>
-              <PrecipChart records={chartRecords} timeRange={timeRange} />
+              <PrecipChart records={chartRecords} timeRange={timeRange} selectedMs={selectedMs} />
             </ChartCard>
           )}
           {chartRecords.length > 0 && (
             <ChartCard title={t('common.temp')}>
-              <TempChart records={chartRecords} timeRange={timeRange} />
+              <TempChart records={chartRecords} timeRange={timeRange} selectedMs={selectedMs} />
             </ChartCard>
           )}
         </div>
       </Suspense>
-
-      {/* Swell Compass for selected spot */}
-      {isSpotSelected && spotInfo && currentRating && (
-        <div className="py-3">
-          <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-2">
-            {t('spots.swell_compass')}
-          </p>
-          <div className="flex justify-center">
-            <SwellCompass
-              facing={spotInfo.facing}
-              optSwell={spotInfo.opt_swell}
-              swellDir={currentRating.swell_dir}
-              swellHeight={currentRating.swell_height}
-            />
-          </div>
-          {currentRating.swell_height != null && (
-            <p className="text-center text-[10px] text-[var(--color-text-muted)] mt-1">
-              {currentRating.swell_height.toFixed(1)} m @ {currentRating.swell_period?.toFixed(0) ?? '--'} s
-            </p>
-          )}
-        </div>
-      )}
 
       {/* AI Summary */}
       {data.summary && (
@@ -273,11 +276,11 @@ export function NowPage() {
     </div>
   )
 
-  /* ── Desktop: map left (35%), data right (65%) ─────────────────────── */
+  /* ── Desktop: map left (~25%), data right (~75%) ───────────────────── */
   if (!mobile) {
     return (
       <div className="flex h-full">
-        <div className="w-[35%] min-w-[280px] relative shrink-0 border-r border-[var(--color-border)]">
+        <div className="w-[280px] min-w-[240px] relative shrink-0 border-r border-[var(--color-border)]">
           <Suspense fallback={<div className="w-full h-full bg-black" />}>
             <ForecastMap selectedId={locationId} onSelectLocation={setLocationId} />
           </Suspense>

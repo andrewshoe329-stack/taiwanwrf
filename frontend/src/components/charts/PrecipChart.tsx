@@ -6,7 +6,7 @@ import type { ForecastRecord } from '@/lib/types'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import {
   toCSTLabel, MultiLineTick, timeTicks, timeDomain,
-  filterByTimeRange, findNowMs,
+  filterByTimeRange,
   chartMargin, chartHeightCompact, xAxisHeight, YAXIS_WIDTH, NOW_LABEL,
   type TimeRange,
 } from './chart-utils'
@@ -14,6 +14,7 @@ import {
 interface PrecipChartProps {
   records: ForecastRecord[]
   timeRange?: TimeRange
+  selectedMs?: number
 }
 
 interface ChartRow {
@@ -40,7 +41,7 @@ function PrecipTooltip(props: any) {
 }
 
 /** 6-hourly precipitation bar chart. */
-export function PrecipChart({ records, timeRange }: PrecipChartProps) {
+export function PrecipChart({ records, timeRange, selectedMs }: PrecipChartProps) {
   if (!records?.length) return null
   const mobile = useIsMobile()
 
@@ -52,7 +53,7 @@ export function PrecipChart({ records, timeRange }: PrecipChartProps) {
     precip: r.precip_mm_6h ?? 0,
   }))
 
-  const nowMs = findNowMs(timeRange)
+  const nowMs = selectedMs
   const domain = timeDomain(timeRange) ?? ['dataMin', 'dataMax'] as any
   const ticks = timeTicks(timeRange, chartData)
 
