@@ -8,7 +8,7 @@ import { useIsMobile } from '@/hooks/useIsMobile'
 import {
   toCSTLabel, MultiLineTick, timeTicks, timeDomain,
   filterByTimeRange,
-  chartMargin, chartHeight, chartHeightCompact, xAxisHeight, YAXIS_WIDTH, NOW_LABEL,
+  chartMargin, chartHeightCompact, xAxisHeight, YAXIS_WIDTH, NOW_LABEL,
   type TimeRange,
 } from './chart-utils'
 
@@ -142,7 +142,7 @@ export function PressureChart({ records, timeRange, selectedMs }: ChartProps) {
   const ticks = timeTicks(timeRange, chartData)
 
   return (
-    <ResponsiveContainer width="100%" height={chartHeight(mobile)}>
+    <ResponsiveContainer width="100%" height={chartHeightCompact(mobile)}>
       <LineChart data={chartData} margin={chartMargin(mobile, false)}>
         <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
         <XAxis

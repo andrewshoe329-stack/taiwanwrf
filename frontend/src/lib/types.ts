@@ -60,9 +60,17 @@ export interface TideData {
   extrema: TideExtremum[]
 }
 
+export interface CwaTideExtremum {
+  time_utc: string
+  height_m: number | null
+  type: 'high' | 'low'
+  station_name?: string
+}
+
 export interface CwaObs {
   source: string
   fetched_utc: string
+  tide_forecast_stations?: Record<string, CwaTideExtremum[]>
   station?: {
     station_id: string
     obs_time: string
@@ -83,8 +91,8 @@ export interface CwaObs {
     water_temp_c?: number
   }
   spot_obs?: Record<string, {
-    station?: { station_id?: string; obs_time?: string; temp_c?: number; wind_kt?: number; wind_dir?: number; distance_km?: number }
-    buoy?: { buoy_id?: string; obs_time?: string; wave_height_m?: number; wave_period_s?: number; distance_km?: number }
+    station?: { station_id?: string; obs_time?: string; temp_c?: number; wind_kt?: number; wind_dir?: number; gust_kt?: number; pressure_hpa?: number; humidity_pct?: number; distance_km?: number }
+    buoy?: { buoy_id?: string; obs_time?: string; wave_height_m?: number; wave_period_s?: number; wave_dir?: number; water_temp_c?: number; distance_km?: number }
   }>
   warnings?: Array<{
     type: string
@@ -139,6 +147,19 @@ export interface WindGrid {
     valid_utc: string
     u: number[][]
     v: number[][]
+  }>
+}
+
+export interface WaveGrid {
+  model: string
+  bounds: { lat_min: number; lat_max: number; lon_min: number; lon_max: number }
+  grid: { nx: number; ny: number }
+  timesteps: Array<{
+    valid_utc: string
+    wave_height: (number | null)[][]
+    swell_height: (number | null)[][]
+    swell_direction: (number | null)[][]
+    swell_period: (number | null)[][]
   }>
 }
 

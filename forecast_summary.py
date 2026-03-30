@@ -172,6 +172,24 @@ def _summarise_accuracy(log_entries: list) -> str | None:
     return '\n'.join(lines)
 
 
+# Keelung monthly climate normals (30-year averages from CWA C-B0027-001)
+# Used to give the AI seasonal context for smarter narrative
+KEELUNG_MONTHLY_NORMALS = {
+    1:  {"temp_c": 15.3, "wind_kt": 12, "precip_mm": 337, "desc": "cool, wet, NE monsoon"},
+    2:  {"temp_c": 15.5, "wind_kt": 11, "precip_mm": 340, "desc": "cool, wet, NE monsoon"},
+    3:  {"temp_c": 17.0, "wind_kt": 10, "precip_mm": 298, "desc": "warming, wet"},
+    4:  {"temp_c": 20.3, "wind_kt": 8,  "precip_mm": 229, "desc": "mild, spring rains"},
+    5:  {"temp_c": 23.5, "wind_kt": 7,  "precip_mm": 274, "desc": "warm, plum rains"},
+    6:  {"temp_c": 26.3, "wind_kt": 7,  "precip_mm": 236, "desc": "hot, early typhoon season"},
+    7:  {"temp_c": 28.8, "wind_kt": 7,  "precip_mm": 140, "desc": "hot, typhoon season"},
+    8:  {"temp_c": 28.6, "wind_kt": 7,  "precip_mm": 220, "desc": "hot, typhoon season, afternoon storms"},
+    9:  {"temp_c": 26.6, "wind_kt": 9,  "precip_mm": 360, "desc": "warm, typhoon + NE monsoon transition"},
+    10: {"temp_c": 23.2, "wind_kt": 12, "precip_mm": 380, "desc": "cooling, NE monsoon onset, wet"},
+    11: {"temp_c": 20.0, "wind_kt": 12, "precip_mm": 348, "desc": "cool, NE monsoon, wet"},
+    12: {"temp_c": 16.8, "wind_kt": 12, "precip_mm": 310, "desc": "cold, NE monsoon"},
+}
+
+
 def build_user_prompt(wrf: dict, ecmwf: dict | None, wave: dict | None,
                       accuracy_log: list | None = None,
                       cwa_obs: dict | None = None,
@@ -182,6 +200,21 @@ def build_user_prompt(wrf: dict, ecmwf: dict | None, wave: dict | None,
     meta = wrf.get('meta', {})
     init = meta.get('init_utc', 'unknown')
     parts.append(f"Model init: {init}")
+
+    # Seasonal climate context
+    try:
+        from datetime import datetime
+        month = datetime.fromisoformat(init.replace('Z', '+00:00')).month
+        normals = KEELUNG_MONTHLY_NORMALS.get(month)
+        if normals:
+            parts.append(
+                f"Seasonal context (Keelung {month:02d} normals): "
+                f"avg temp {normals['temp_c']}°C, avg wind {normals['wind_kt']}kt, "
+                f"precip {normals['precip_mm']}mm/month — {normals['desc']}. "
+                f"Note if forecast is notably above/below normal."
+            )
+    except (ValueError, AttributeError):
+        pass
 
     # CWA real-time observations — ground truth for the AI to reference
     if cwa_obs:

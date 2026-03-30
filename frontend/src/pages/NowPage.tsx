@@ -13,7 +13,9 @@ import { ConditionsStrip } from '@/components/ConditionsStrip'
 import { SwellCompass } from '@/components/spots/SwellCompass'
 import {
   degToCompass, getModelRecords, windType,
+  ratingsToWaveRecords, ratingsToTidePredictions, getSpotTideExtrema,
 } from '@/lib/forecast-utils'
+import { useLiveObsContext } from '@/App'
 import type { TimeRange } from '@/components/charts/chart-utils'
 import type { SpotForecast } from '@/lib/types'
 
@@ -32,6 +34,7 @@ export function NowPage() {
   const { model } = useModel()
   const { locationId, setLocationId } = useLocation()
   const mobile = useIsMobile()
+  const liveObs = useLiveObsContext()
 
   const [aiExpanded, setAiExpanded] = useState(false)
 
@@ -81,6 +84,31 @@ export function NowPage() {
     }
     return best
   }, [locationForecast, chartRecords, index])
+
+  // Spot-specific wave records for OceanChart (fall back to Keelung)
+  const waveRecords = useMemo(() => {
+    if (locationForecast && locationId !== 'keelung') {
+      return ratingsToWaveRecords(locationForecast.ratings)
+    }
+    return data.wave?.ecmwf_wave?.records ?? []
+  }, [locationForecast, locationId, data.wave])
+
+  // Spot-specific tide predictions for TideChart (fall back to Keelung)
+  const tidePredictions = useMemo(() => {
+    if (locationForecast && locationId !== 'keelung') {
+      return ratingsToTidePredictions(locationForecast.ratings)
+    }
+    return data.tide?.predictions ?? []
+  }, [locationForecast, locationId, data.tide])
+
+  // Tide extrema — per-spot from CWA tide forecast stations, or Keelung default
+  const tideExtrema = useMemo(() => {
+    if (locationId && locationId !== 'keelung') {
+      const spotExtrema = getSpotTideExtrema(locationId, data.cwa_obs?.tide_forecast_stations)
+      if (spotExtrema.length > 0) return spotExtrema
+    }
+    return data.tide?.extrema ?? []
+  }, [locationId, data.cwa_obs, data.tide])
 
   if (data.loading) {
     return <LoadingSpinner />
@@ -161,6 +189,81 @@ export function NowPage() {
               <InfoPill label={t('common.wind')} value={windType(currentRating.wind_dir, spotInfo.facing)} />
             )}
           </div>
+
+          {/* CWA real-time observations (live from serverless, or fallback to deploy-time) */}
+          {(() => {
+            const live = liveObs.data?.spots?.[spotInfo.id]
+            const stale = data.cwa_obs?.spot_obs?.[spotInfo.id]
+            const stn = live?.station ?? stale?.station
+            const buoy = live?.buoy ?? stale?.buoy
+            const tide = live?.tide
+            if (!stn && !buoy && !tide) return null
+            return (
+              <div className="mt-2 px-2 py-1.5 rounded-lg bg-[var(--color-bg-elevated)]/50 border border-[var(--color-border)]">
+                <p className="text-[9px] uppercase tracking-widest text-[var(--color-text-muted)] mb-1">
+                  {t('common.live_obs') ?? 'Live Observations'}
+                </p>
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-[var(--color-text-secondary)]">
+                  {stn?.temp_c != null && <span>{stn.temp_c.toFixed(1)}°C</span>}
+                  {stn?.wind_kt != null && (
+                    <span>{stn.wind_kt.toFixed(0)}kt{stn.gust_kt ? ` G${stn.gust_kt.toFixed(0)}` : ''} {stn.wind_dir != null ? degToCompass(stn.wind_dir) : ''}</span>
+                  )}
+                  {stn?.pressure_hpa != null && <span>{stn.pressure_hpa.toFixed(0)}hPa</span>}
+                  {tide?.tide_height_m != null && (
+                    <span>{t('common.tide')} {tide.tide_height_m.toFixed(2)}m{tide.tide_level ? ` (${tide.tide_level})` : ''}</span>
+                  )}
+                  {buoy?.wave_height_m != null && (
+                    <span>Hs {buoy.wave_height_m.toFixed(1)}m</span>
+                  )}
+                  {buoy?.wave_period_s != null && (
+                    <span>{buoy.wave_period_s.toFixed(0)}s</span>
+                  )}
+                  {(() => {
+                    const wt = tide?.sea_temp_c ?? live?.buoy?.sea_temp_c ?? stale?.buoy?.water_temp_c
+                    return wt != null ? <span>{t('live.water_temp')} {wt.toFixed(1)}°C</span> : null
+                  })()}
+                  {live?.buoy?.current_speed_ms != null && live.buoy.current_speed_ms > 0.1 && (
+                    <span>{t('common.current') ?? 'Current'} {(live.buoy.current_speed_ms * 1.94384).toFixed(1)}kt {live.buoy.current_dir != null ? degToCompass(live.buoy.current_dir) : ''}</span>
+                  )}
+                  {live?.station?.visibility_km != null && live.station.visibility_km < 10 && (
+                    <span>{t('live.visibility')} {live.station.visibility_km.toFixed(1)}km</span>
+                  )}
+                  {live?.station?.uv_index != null && live.station.uv_index > 0 && (
+                    <span className={live.station.uv_index >= 8 ? 'text-red-400' : live.station.uv_index >= 6 ? 'text-orange-400' : ''}>
+                      UV {live.station.uv_index.toFixed(0)}
+                    </span>
+                  )}
+                </div>
+                {liveObs.data && (
+                  <p className="text-[9px] text-[var(--color-text-dim)] mt-0.5">
+                    {t('live.title')}
+                  </p>
+                )}
+              </div>
+            )
+          })()}
+
+          {/* Ensemble confidence + accuracy */}
+          {data.ensemble?.spread && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {(() => {
+                const ws = data.ensemble.spread.wind_spread_kt ?? 99
+                const level = ws < 5 ? 'high' : ws < 10 ? 'moderate' : 'low'
+                const stars = level === 'high' ? '★★★' : level === 'moderate' ? '★★☆' : '★☆☆'
+                const color = level === 'high' ? 'text-green-400' : level === 'moderate' ? 'text-yellow-400' : 'text-red-400'
+                return (
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] ${color}`}>
+                    {t('models_page.ensemble_confidence') ?? 'Confidence'} {stars}
+                  </span>
+                )
+              })()}
+              {data.accuracy?.[0] && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
+                  ±{data.accuracy[0].wind_mae_kt?.toFixed(1) ?? '?'}kt wind · ±{data.accuracy[0].temp_mae_c?.toFixed(1) ?? '?'}°C temp
+                </span>
+              )}
+            </div>
+          )}
         </section>
       )}
 
@@ -234,17 +337,17 @@ export function NowPage() {
           </ChartCard>
         )}
 
-        {data.wave?.ecmwf_wave?.records && (
+        {waveRecords.length > 0 && (
           <ChartCard title={`${t('common.wave_height')} + ${t('common.swell_period')}`}>
-            <OceanChart records={data.wave.ecmwf_wave.records} timeRange={timeRange} selectedMs={selectedMs} />
+            <OceanChart records={waveRecords} timeRange={timeRange} selectedMs={selectedMs} />
           </ChartCard>
         )}
 
-        {data.tide?.predictions && (
+        {tidePredictions.length > 0 && (
           <ChartCard title={t('common.tide')}>
             <TideChart
-              predictions={data.tide.predictions}
-              extrema={data.tide.extrema}
+              predictions={tidePredictions}
+              extrema={tideExtrema}
               timeRange={timeRange}
               selectedMs={selectedMs}
             />

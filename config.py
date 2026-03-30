@@ -174,6 +174,34 @@ SPOT_REGION = {
     "chousui":     "northeast",
 }
 
+# Spot → nearest CWA tide forecast location (F-A0021-001 LocationName)
+# Each spot mapped to its closest township tide prediction point.
+SPOT_TIDE_STATION = {
+    "keelung":     "基隆市中正區",
+    "jinshan":     "新北市金山區",
+    "greenbay":    "新北市萬里區",
+    "fulong":      "新北市貢寮區",
+    "daxi":        "宜蘭縣頭城鎮",
+    "doublelions": "宜蘭縣頭城鎮",
+    "wushih":      "宜蘭縣頭城鎮",
+    "chousui":     "宜蘭縣頭城鎮",
+}
+
+# All tide station names to fetch from CWA F-A0021-001
+TIDE_STATIONS = list(dict.fromkeys(SPOT_TIDE_STATION.values()))
+
+# Spot → nearest CWA tide observation station (O-B0075-001 StationID)
+SPOT_TIDE_OBS_STATION = {
+    "keelung":     "C4B01",   # 基隆潮位站
+    "jinshan":     "C4A03",   # 麟山鼻潮位站
+    "greenbay":    "C4B01",   # 基隆 (closest active)
+    "fulong":      "C4A05",   # 福隆潮位站 (0.2km!)
+    "daxi":        "C4U02",   # 烏石潮位站
+    "doublelions": "C4U02",   # 烏石潮位站
+    "wushih":      "C4U02",   # 烏石潮位站 (0.4km!)
+    "chousui":     "C4U02",   # 烏石潮位站
+}
+
 # ── Shared direction / compass utilities ─────────────────────────────────────
 
 COMPASS_NAMES = (

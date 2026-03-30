@@ -131,6 +131,12 @@ jobs:
           mkdir -p frontend/public/data
           python wind_grid_fetch.py --output-dir frontend/public/data
 
+      - name: Fetch wave grid
+        continue-on-error: true
+        timeout-minutes: 10
+        run: |
+          python wave_grid_fetch.py --output-dir frontend/public/data
+
       - name: Check critical data availability
         run: |
           if [ ! -f ecmwf_keelung.json ] && [ ! -f wave_keelung.json ]; then

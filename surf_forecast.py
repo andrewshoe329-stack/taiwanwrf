@@ -31,16 +31,28 @@ from tide_predict import (predict_height, predict_height_anchored,
 # when available.  Used by _tide_height() for anchored interpolation.
 _CWA_TIDE_EXTREMA: list[dict] | None = None
 
+# Per-station tide forecast extrema — keyed by station name (e.g. "基隆", "蘇澳")
+_CWA_TIDE_STATIONS: dict[str, list[dict]] = {}
+
 # CWA per-spot real-time observations — loaded at startup from cwa_obs.json
 # when available.  Keyed by spot ID (e.g. 'fulong'), used by _render_spot_detail().
 _CWA_SPOT_OBS: dict | None = None
 
 
-def _tide_height(dt_utc) -> float | None:
-    """Predict tide height using CWA-anchored interpolation when available."""
+def _tide_height(dt_utc, spot_id: str | None = None) -> float | None:
+    """Predict tide height using CWA-anchored interpolation when available.
+
+    Uses the nearest tide station for the spot (via SPOT_TIDE_STATION mapping).
+    Falls back to default Keelung extrema if per-station data not available.
+    """
     if dt_utc is None:
         return None
-    return predict_height_anchored(dt_utc, _CWA_TIDE_EXTREMA)
+    from config import SPOT_TIDE_STATION
+    extrema = _CWA_TIDE_EXTREMA  # default (Keelung)
+    if spot_id and _CWA_TIDE_STATIONS:
+        station = SPOT_TIDE_STATION.get(spot_id, "基隆")
+        extrema = _CWA_TIDE_STATIONS.get(station, extrema)
+    return predict_height_anchored(dt_utc, extrema)
 
 log = logging.getLogger(__name__)
 
@@ -437,7 +449,7 @@ def day_rating(day_recs: list[dict], spot: dict,
         # Compute tide at this timestep if possible
         dt_utc = r.get('dt_utc')
         if dt_utc is not None:
-            th = _tide_height(dt_utc)
+            th = _tide_height(dt_utc, spot.get('id'))
         else:
             th = tide_height_m
 
@@ -529,7 +541,7 @@ def best_time_for_day(day_recs: list[dict], spot: dict) -> dict[str, object] | N
     scored = []
     for r in recs_to_score:
         dt_utc = r.get('dt_utc')
-        th = _tide_height(dt_utc) if dt_utc is not None else None
+        th = _tide_height(dt_utc, spot.get('id')) if dt_utc is not None else None
         score = _score_timestep(r, spot, tide_height_m=th)
         scored.append((score, r, th))
 
@@ -762,7 +774,7 @@ def generate_frontend_json(all_spot_data: list[dict]) -> dict:
         ratings = []
         for r in records:
             dt_utc = r.get('dt_utc')
-            tide_h = _tide_height(dt_utc) if dt_utc is not None else None
+            tide_h = _tide_height(dt_utc, spot_id) if dt_utc is not None else None
             valid_utc = dt_utc.isoformat() if dt_utc else ''
 
             if is_harbour:
@@ -827,7 +839,7 @@ def generate_frontend_json(all_spot_data: list[dict]) -> dict:
                 label_key = dr.get('label_key', 'poor')
                 best_score = 0
                 for r in day_recs:
-                    s = _score_timestep(r, spot_entry, tide_height_m=_tide_height(r.get('dt_utc')))
+                    s = _score_timestep(r, spot_entry, tide_height_m=_tide_height(r.get('dt_utc'), spot_id))
                     best_score = max(best_score, s)
                 daily_best.append({'date': dk, 'rating': label_key, 'score': best_score})
 
@@ -1228,7 +1240,7 @@ def _render_best_times(all_spot_data: list[dict], all_dks: list[str],
             html += f'  <div class="timeline-bar">\n'
             for r in day_recs_tl:
                 dt_utc = r.get('dt_utc')
-                th = _tide_height(dt_utc) if dt_utc is not None else None
+                th = _tide_height(dt_utc, spot.get('id')) if dt_utc is not None else None
                 sc = _score_timestep(r, spot, tide_height_m=th)
                 if sc >= 9:
                     css_cls = 'tl-firing'
@@ -1540,7 +1552,7 @@ def _render_spot_detail(sd: dict, best_rating: int = 0) -> str:
 
         # Tide at this timestep
         dt_utc = r.get('dt_utc')
-        tide_h = _tide_height(dt_utc) if dt_utc is not None else None
+        tide_h = _tide_height(dt_utc, spot.get('id')) if dt_utc is not None else None
         tide_cls_str = classify_tide(tide_h)
         opt_tide = spot.get('opt_tide', 'any')
         ts_val = tide_score(tide_cls_str, opt_tide)
@@ -1781,6 +1793,11 @@ def main() -> None:
             _CWA_TIDE_EXTREMA = cwa["tide_forecast"]
             log.info("Loaded %d CWA tide extrema for anchored predictions",
                      len(_CWA_TIDE_EXTREMA))
+        if cwa.get("tide_forecast_stations"):
+            _CWA_TIDE_STATIONS = cwa["tide_forecast_stations"]
+            total = sum(len(v) for v in _CWA_TIDE_STATIONS.values())
+            log.info("Loaded per-station tide extrema: %d stations, %d total",
+                     len(_CWA_TIDE_STATIONS), total)
         if cwa.get("spot_obs"):
             _CWA_SPOT_OBS = cwa["spot_obs"]
             log.info("Loaded CWA spot obs for %d spots", len(_CWA_SPOT_OBS))

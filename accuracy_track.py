@@ -95,19 +95,19 @@ def fetch_wave_observations(start_date: str, end_date: str) -> dict:
 
 
 def fetch_cwa_observations(api_key: str) -> dict | None:
-    """Fetch current CWA station + buoy observations for live verification.
+    """Fetch current CWA station + buoy + rain gauge observations.
 
     Returns a dict that can overlay/supplement Open-Meteo obs, keyed the same
     way as the Open-Meteo obs_by_time dict.  If the CWA API is unavailable,
     returns None (caller falls back to Open-Meteo).
     """
     try:
-        from cwa_fetch import fetch_station_obs, fetch_buoy_obs
+        from cwa_fetch import fetch_station_obs, fetch_buoy_obs, _cwa_get
     except ImportError:
         log.debug("cwa_fetch module not available")
         return None
 
-    result = {"station": None, "buoy": None}
+    result = {"station": None, "buoy": None, "rain_gauge": None}
 
     station = fetch_station_obs(api_key)
     if station and station.get("obs_time"):
@@ -120,6 +120,34 @@ def fetch_cwa_observations(api_key: str) -> dict | None:
         result["buoy"] = buoy
         log.info("CWA buoy obs: %s Hs=%.1fm",
                  buoy.get("buoy_name"), buoy.get("wave_height_m") or 0)
+
+    # Rain gauge data (O-A0002-001) for precipitation verification
+    try:
+        rain_data = _cwa_get(
+            "O-A0002-001", api_key,
+            params={"StationId": "466940", "RainfallElement": "Past6hr"},
+            label="CWA-RainGauge",
+        )
+        if rain_data:
+            records = (rain_data.get("records") or rain_data.get("Records") or {})
+            stations = records.get("Station", [])
+            if stations:
+                stn = stations[0] if isinstance(stations, list) else stations
+                rain_elem = stn.get("RainfallElement", {})
+                past6h = rain_elem.get("Past6hr", {})
+                val = past6h.get("Precipitation") if isinstance(past6h, dict) else past6h
+                if val is not None and val != "" and val != "-998.0":
+                    try:
+                        result["rain_gauge"] = {
+                            "station_id": "466940",
+                            "precip_6h_mm": float(val),
+                            "obs_time": stn.get("ObsTime", {}).get("DateTime", ""),
+                        }
+                        log.info("CWA rain gauge: %.1fmm/6h", float(val))
+                    except (ValueError, TypeError):
+                        pass
+    except Exception as e:
+        log.debug("Failed to fetch rain gauge: %s", e)
 
     return result
 
