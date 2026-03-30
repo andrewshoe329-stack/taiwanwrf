@@ -213,6 +213,20 @@ records.Locations[].Location[] → [{
 
 **Used in:** `cwa_fetch.py` → `fetch_warnings()`
 
+**Query Parameters:**
+| Param | Type | Description |
+|-------|------|-------------|
+| `locationName` | array\<string\> | Filter by affected area. See [warnings area list PDF](https://opendata.cwa.gov.tw/opendatadoc/Opendata_Warnings.pdf) Appendix B. |
+| `phenomena` | array\<string\> | Filter by warning type (see below). Default: all active. |
+
+**Available phenomena values:**
+`濃霧` (dense fog), `大雨` (heavy rain), `豪雨` (torrential rain), `大豪雨` (extreme rain), `超大豪雨` (super extreme rain), `陸上強風` (land gale), `颱風` (typhoon)
+
+**Notes:**
+- Returns only **currently active** warnings — empty result means no warnings in effect
+- For our pipeline, we could filter by `locationName` for northern Taiwan areas only, but currently fetch all and filter client-side
+- Sailors/surfers care most about: `陸上強風`, `颱風`, `濃霧`, `大雨`/`豪雨`
+
 ---
 
 ### F-D0047-093 — 全臺灣各鄉鎮市區預報 (All-Taiwan township forecast)
