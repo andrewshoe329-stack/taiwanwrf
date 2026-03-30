@@ -21,7 +21,7 @@ export function degToCompass(deg: number): string {
 
 // ── Direction analysis ─────────────────────────────────────────────────────
 
-const DIR_ANGLES: Record<string, number> = {
+export const DIR_ANGLES: Record<string, number> = {
   N: 0, NNE: 22.5, NE: 45, ENE: 67.5,
   E: 90, ESE: 112.5, SE: 135, SSE: 157.5,
   S: 180, SSW: 202.5, SW: 225, WSW: 247.5,

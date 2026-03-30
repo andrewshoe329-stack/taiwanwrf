@@ -2,26 +2,9 @@
  * SVG compass rose showing swell direction and quality for a surf spot.
  * Highlights optimal swell directions and shows current swell arrow.
  */
+import { DIR_ANGLES, facingAngle } from '@/lib/forecast-utils'
 
 const DIRECTIONS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'] as const
-const DIR_ANGLES: Record<string, number> = {
-  N: 0, NNE: 22.5, NE: 45, ENE: 67.5,
-  E: 90, ESE: 112.5, SE: 135, SSE: 157.5,
-  S: 180, SSW: 202.5, SW: 225, WSW: 247.5,
-  W: 270, WNW: 292.5, NW: 315, NNW: 337.5,
-}
-
-/** Convert a compass string to degrees. For multi-facing like "NE/E", return average. */
-function compassToDeg(dir: string): number {
-  const parts = dir.split('/')
-  const angles = parts.map(p => DIR_ANGLES[p.trim()] ?? 0)
-  if (angles.length === 0) return 0
-  // Handle wrap-around averaging
-  const sinSum = angles.reduce((s, a) => s + Math.sin((a * Math.PI) / 180), 0)
-  const cosSum = angles.reduce((s, a) => s + Math.cos((a * Math.PI) / 180), 0)
-  const avg = (Math.atan2(sinSum, cosSum) * 180) / Math.PI
-  return (avg + 360) % 360
-}
 
 /** Build arc segments for optimal swell directions */
 function optSwellArcs(optSwell: string[]): Array<{ startAngle: number; endAngle: number }> {
@@ -93,7 +76,7 @@ export function SwellCompass({ facing, optSwell, swellDir, swellHeight }: SwellC
   const labelR = 78
   const tickR = 92
 
-  const facingDeg = compassToDeg(facing)
+  const facingDeg = facingAngle(facing)
   const arcs = optSwellArcs(optSwell)
 
   // Arrow opacity based on swell height: 0m → 0.3, 3m+ → 1.0

@@ -5,13 +5,11 @@ export function Header() {
   const { t } = useTranslation()
 
   return (
-    <header
-      className="fixed top-0 left-0 right-0 z-50 glass border-b border-[var(--color-border)] pwa-header"
-    >
-      <div className="flex items-center justify-between h-12 px-4 max-w-screen-xl mx-auto">
-        <a href="/" className="text-[15px] font-semibold tracking-tight text-[var(--color-text-primary)] no-underline">
+    <header className="shrink-0 z-50 border-b border-[var(--color-border)] bg-[var(--color-bg)] pwa-header">
+      <div className="flex items-center justify-between h-9 px-3 max-w-screen-xl mx-auto">
+        <span className="text-xs font-semibold tracking-tight text-[var(--color-text-primary)]">
           {t('app.title')}
-        </a>
+        </span>
         <LanguageToggle />
       </div>
     </header>

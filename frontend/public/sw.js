@@ -99,20 +99,13 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // Map tiles and styles: network-first so basemap stays fresh
+  // Map tiles and styles: cache-first with 3-day TTL (tiles change rarely)
   if (
     url.hostname === 'basemaps.cartocdn.com' ||
     url.hostname.endsWith('.cartocdn.com')
   ) {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const clone = response.clone()
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
-          return response
-        })
-        .catch(() => caches.match(request))
-    )
+    const threeDays = 3 * 24 * 60 * 60 * 1000
+    event.respondWith(cacheFirstWithExpiry(request, threeDays))
     return
   }
 
