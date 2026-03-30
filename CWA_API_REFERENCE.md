@@ -251,10 +251,34 @@ Records.SeaSurfaceObs.Location[] → [{
 
 | Endpoint | County | Used? |
 |----------|--------|-------|
-| F-D0047-001 | 宜蘭縣 (Yilan) | Yes — Daxi, Wushih, Double Lions, Chousui |
-| F-D0047-049 | 基隆市 (Keelung) | Yes — Keelung harbour |
-| F-D0047-069 | 新北市 (New Taipei) | Yes — Fulong, Green Bay, Jinshan |
+| F-D0047-001 | 宜蘭縣 3-day (Yilan) | Yes — Daxi, Wushih, Double Lions, Chousui |
+| F-D0047-003 | 宜蘭縣 1-week (Yilan) | Not used — 1-week version of above |
+| F-D0047-049 | 基隆市 3-day (Keelung) | Yes — Keelung harbour |
+| F-D0047-069 | 新北市 3-day (New Taipei) | Yes — Fulong, Green Bay, Jinshan |
 | F-D0047-093 | 全臺灣 (All Taiwan) | Not used yet — could replace all 3 above |
+
+**3-day ElementName values (F-D0047-001/049/069):**
+`露點溫度`, `天氣預報綜合描述`, `舒適度指數`, `風向`, `3小時降雨機率`, `溫度`, `風速`, `天氣現象`, `相對濕度`, `體感溫度`
+
+**1-week ElementName values (F-D0047-003/051/071):**
+`最高溫度`, `天氣預報綜合描述`, `平均相對濕度`, `最高體感溫度`, `12小時降雨機率`, `風向`, `平均露點溫度`, `最低體感溫度`, `平均溫度`, `最大舒適度指數`, `最小舒適度指數`, `風速`, `紫外線指數`, `天氣現象`, `最低溫度`
+
+**LocationName filter:** Township names within each county (see [township list PDF](https://opendata.cwa.gov.tw/opendatadoc/Opendata_City.pdf))
+
+---
+
+### F-C0032-001 — 一般天氣預報 36小時 (County-level 36h forecast)
+
+**Purpose:** Simple county-level weather forecast for next 36 hours.
+
+**Not currently used.** Less granular than township forecasts (F-D0047) which we already use.
+
+**Query Parameters:**
+| Param | Type | Description |
+|-------|------|-------------|
+| `locationName` | array\<string\> | County names (e.g. `基隆市,新北市,宜蘭縣`). Default: all. |
+| `elementName` | array\<string\> | `Wx` (weather), `PoP` (rain prob), `CI` (comfort), `MinT`, `MaxT` |
+| `timeFrom` / `timeTo` | datetime | Time range filter |
 
 **Response Structure (F-D0047-049 example):**
 ```
