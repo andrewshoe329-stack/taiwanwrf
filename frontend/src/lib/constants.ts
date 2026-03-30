@@ -12,27 +12,27 @@ export const TAIWAN_BBOX = {
 // ── Harbours ─────────────────────────────────────────────────────────────────
 
 export const HARBOURS: HarbourInfo[] = [
-  { id: 'keelung',   name: { en: 'Keelung',   zh: '基隆' }, lat: 25.156, lon: 121.788 },
+  { id: 'keelung',   name: { en: 'Keelung',   zh: '基隆' }, lat: 25.14712477291389, lon: 121.78698610321932 },
 ]
 
 // ── Surf spots ───────────────────────────────────────────────────────────────
 
 export const SPOTS: SpotInfo[] = [
   // North coast (W→E along coast: Jinshan → Green Bay → Fulong)
-  { id: 'jinshan',     name: { en: 'Jinshan',      zh: '金山' },   lat: 25.241, lon: 121.633, facing: 'NE',    region: 'north',     opt_wind: ['S','SW'],        opt_swell: ['N','NNE','NE','E','ESE'] },
-  { id: 'greenbay',    name: { en: 'Green Bay',    zh: '翡翠灣' }, lat: 25.189, lon: 121.686, facing: 'NE',    region: 'north',     opt_wind: ['W','SW'],        opt_swell: ['E','NE'] },
-  { id: 'fulong',      name: { en: 'Fulong',      zh: '福隆' },   lat: 25.019, lon: 121.940, facing: 'NE/E',  region: 'north',     opt_wind: ['S','SW'],        opt_swell: ['N','NE','E'] },
+  { id: 'jinshan',     name: { en: 'Jinshan',      zh: '金山' },   lat: 25.2402433645372, lon: 121.63355732190196, facing: 'NE',    region: 'north',     opt_wind: ['S','SW'],        opt_swell: ['N','NNE','NE','E','ESE'] },
+  { id: 'greenbay',    name: { en: 'Green Bay',    zh: '翡翠灣' }, lat: 25.18952488598986, lon: 121.68580407087968, facing: 'NE',    region: 'north',     opt_wind: ['W','SW'],        opt_swell: ['E','NE'] },
+  { id: 'fulong',      name: { en: 'Fulong',      zh: '福隆' },   lat: 25.02389886806093, lon: 121.94298998527262, facing: 'NE/E',  region: 'north',     opt_wind: ['S','SW'],        opt_swell: ['N','NE','E'] },
   // NE coast (N→S along coast: Daxi → Double Lions → Wushih → Chousui)
-  { id: 'daxi',        name: { en: 'Daxi',         zh: '大溪' },   lat: 24.933, lon: 121.886, facing: 'SE',    region: 'northeast', opt_wind: ['NW','W'],        opt_swell: ['SE','SSE','S','E'] },
-  { id: 'doublelions', name: { en: 'Double Lions',  zh: '雙獅' },   lat: 24.881, lon: 121.837, facing: 'E',     region: 'northeast', opt_wind: ['W','SW'],        opt_swell: ['ENE','E','SE','SSE'] },
-  { id: 'wushih',      name: { en: 'Wushih',       zh: '烏石' },   lat: 24.871, lon: 121.837, facing: 'E',     region: 'northeast', opt_wind: ['NW','W'],        opt_swell: ['E','SE','SSE'] },
-  { id: 'chousui',     name: { en: 'Chousui',      zh: '臭水' },   lat: 24.855, lon: 121.838, facing: 'E',     region: 'northeast', opt_wind: ['WSW','W'],       opt_swell: ['ENE','E','ESE'] },
+  { id: 'daxi',        name: { en: 'Daxi',         zh: '大溪' },   lat: 24.93284050868701, lon: 121.88580048320033, facing: 'SE',    region: 'northeast', opt_wind: ['NW','W'],        opt_swell: ['SE','SSE','S','E'] },
+  { id: 'doublelions', name: { en: 'Double Lions',  zh: '雙獅' },   lat: 24.888936271482883, lon: 121.85002306336393, facing: 'E',     region: 'northeast', opt_wind: ['W','SW'],        opt_swell: ['ENE','E','SE','SSE'] },
+  { id: 'wushih',      name: { en: 'Wushih',       zh: '烏石' },   lat: 24.8722775159955, lon: 121.84152686026746, facing: 'E',     region: 'northeast', opt_wind: ['NW','W'],        opt_swell: ['E','SE','SSE'] },
+  { id: 'chousui',     name: { en: 'Chousui',      zh: '臭水' },   lat: 24.857077333437765, lon: 121.83333064075161, facing: 'E',     region: 'northeast', opt_wind: ['WSW','W'],       opt_swell: ['ENE','E','ESE'] },
 ]
 
 // ── All locations (spots + harbours) ────────────────────────────────────────
 
 export const ALL_LOCATIONS: SpotInfo[] = [
-  { id: 'keelung', type: 'harbour', name: { en: 'Keelung Harbour', zh: '基隆港' }, lat: 25.156, lon: 121.788, facing: '', region: 'north', opt_wind: [], opt_swell: [] },
+  { id: 'keelung', type: 'harbour', name: { en: 'Keelung Harbour', zh: '基隆港' }, lat: 25.14712477291389, lon: 121.78698610321932, facing: '', region: 'north', opt_wind: [], opt_swell: [] },
   ...SPOTS,
 ]
 
