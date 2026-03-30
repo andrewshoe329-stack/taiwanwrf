@@ -137,6 +137,12 @@ jobs:
         run: |
           python wave_grid_fetch.py --output-dir frontend/public/data
 
+      - name: Fetch current grid
+        continue-on-error: true
+        timeout-minutes: 10
+        run: |
+          python current_grid_fetch.py --output-dir frontend/public/data
+
       - name: Check critical data availability
         run: |
           if [ ! -f ecmwf_keelung.json ] && [ ! -f wave_keelung.json ]; then

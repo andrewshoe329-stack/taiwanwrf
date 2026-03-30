@@ -228,7 +228,8 @@
     "radar_light": "小雨",
     "radar_mod": "中雨",
     "radar_heavy": "大雨",
-    "ir_satellite": "紅外衛星"
+    "ir_satellite": "紅外衛星",
+    "currents": "海流"
   },
   "units": {
     "kt": "節",

@@ -82,4 +82,6 @@ export const DATA_FILES = {
   wind_grid_gfs:   `${DATA_BASE}/wind_grid_gfs.json`,
   // Wave grid (heatmap overlay)
   wave_grid:       `${DATA_BASE}/wave_grid.json`,
+  // Current grid (particle overlay)
+  current_grid:    `${DATA_BASE}/current_grid.json`,
 }

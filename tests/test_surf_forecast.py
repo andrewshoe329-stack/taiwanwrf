@@ -7,6 +7,7 @@ from surf_forecast import (
     deg_diff, compass, dir_quality, _safe_get, _score_timestep,
     day_rating, sail_day_rating, _recommend, generate_planner_json,
     best_time_for_day, classify_tide, tide_score,
+    _facing_deg, _swell_dir_score,
     SPOTS, MIN_SWELL_HEIGHT_M, MAX_SWELL_HEIGHT_M, MAX_WIND_KT,
     LIGHT_WIND_KT, ONSHORE_WIND_KT,
 )
@@ -92,6 +93,75 @@ class TestDirQuality:
 
     def test_multiple_optimal(self):
         assert dir_quality(45, ['N', 'NE', 'E']) == 'good'
+
+
+# ── _facing_deg ──────────────────────────────────────────────────────────────
+
+class TestFacingDeg:
+    def test_simple_direction(self):
+        assert _facing_deg('E') == 90.0
+
+    def test_compound_direction(self):
+        # NE/E should average to ~67.5°
+        result = _facing_deg('NE/E')
+        assert 65 < result < 70
+
+    def test_ne(self):
+        assert _facing_deg('NE') == 45.0
+
+    def test_se(self):
+        assert _facing_deg('SE') == 135.0
+
+
+# ── _swell_dir_score ─────────────────────────────────────────────────────────
+
+class TestSwellDirScore:
+    E_SPOT = next(s for s in SPOTS if s['id'] == 'wushih')  # facing E
+    NE_SPOT = next(s for s in SPOTS if s['id'] == 'jinshan')  # facing NE
+
+    def test_head_on_optimal_gives_max(self):
+        """Swell from facing direction and in opt_swell → 4.0."""
+        # Wushih faces E, opt_swell includes E
+        score = _swell_dir_score(90, self.E_SPOT)
+        assert score == 4.0
+
+    def test_45_off_gives_about_half(self):
+        """45° offset → cos²(45°) = 0.5 → ~2.0."""
+        # Wushih faces E (90°), swell from NE (45°) — 45° diff
+        score = _swell_dir_score(45, self.E_SPOT)
+        assert 1.5 <= score <= 2.5
+
+    def test_perpendicular_gives_zero(self):
+        """90° offset → cos²(90°) = 0 → 0.0."""
+        # Wushih faces E (90°), swell from N (0°) — 90° off
+        score = _swell_dir_score(0, self.E_SPOT)
+        assert score == 0.0
+
+    def test_behind_beach_gives_zero(self):
+        """Swell from behind (W for E-facing) → 0."""
+        score = _swell_dir_score(270, self.E_SPOT)
+        assert score == 0.0
+
+    def test_none_gives_unknown_default(self):
+        score = _swell_dir_score(None, self.E_SPOT)
+        assert score == 1.0
+
+    def test_non_optimal_reduced(self):
+        """Swell from a direction that faces the beach but is NOT in opt_swell
+        should score less than the same angle from an optimal direction."""
+        # Wushih faces E, opt_swell = ['E', 'SE', 'SSE']
+        # NNE (22°) faces the beach (diff=68°) but is NOT in opt_swell
+        score_non_opt = _swell_dir_score(22, self.E_SPOT)
+        # ENE (67°) is closer to E and more in line
+        score_opt = _swell_dir_score(90, self.E_SPOT)  # dead-on optimal
+        assert score_opt > score_non_opt
+
+    def test_continuous_scoring(self):
+        """Scores should decrease continuously as angle increases from facing."""
+        scores = [_swell_dir_score(90 + offset, self.E_SPOT) for offset in range(0, 91, 15)]
+        # Should be monotonically non-increasing
+        for i in range(len(scores) - 1):
+            assert scores[i] >= scores[i + 1], f"Score at offset {i*15}° should be >= offset {(i+1)*15}°"
 
 
 # ── day_rating ───────────────────────────────────────────────────────────────

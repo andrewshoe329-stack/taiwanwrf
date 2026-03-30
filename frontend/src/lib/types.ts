@@ -174,6 +174,17 @@ export interface WaveGrid {
   }>
 }
 
+export interface CurrentGrid {
+  model: string
+  bounds: { lat_min: number; lat_max: number; lon_min: number; lon_max: number }
+  grid: { nx: number; ny: number }
+  timesteps: Array<{
+    valid_utc: string
+    velocity: (number | null)[][]
+    direction: (number | null)[][]
+  }>
+}
+
 // ── Surf spot types ──────────────────────────────────────────────────────────
 
 export type Region = 'north' | 'northeast'

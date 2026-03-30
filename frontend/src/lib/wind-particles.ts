@@ -6,7 +6,7 @@
  * Monochrome color ramp: dim for calm, bright white for strong, red for storm.
  */
 
-import type { WindGrid, WaveGrid } from './types'
+import type { WindGrid, WaveGrid, CurrentGrid } from './types'
 import { tileBounds, tilesInView } from './tile-loader'
 
 interface Particle {
@@ -44,6 +44,9 @@ export class WindParticleSystem {
   private waveGrid: WaveGrid | null = null
   private waveMode = false
   private waveTimestepIndex = 0
+  private currentMode = false
+  private currentGrid: CurrentGrid | null = null
+  private currentTimestepIndex = 0
   private tileOverlayMode: 'radar' | 'satellite' | null = null
   private tileImages = new Map<string, HTMLImageElement>()
   private tileOverlayZoom = 0
@@ -120,6 +123,60 @@ export class WindParticleSystem {
   /** Set the timestep index for wave heatmap */
   setWaveTimestep(index: number) {
     this.waveTimestepIndex = index
+  }
+
+  /** Set ocean current grid data */
+  setCurrentGrid(grid: CurrentGrid | null) {
+    this.currentGrid = grid
+  }
+
+  /** Enable/disable ocean current particle mode */
+  setCurrentMode(enabled: boolean) {
+    this.currentMode = enabled
+  }
+
+  /** Set the timestep index for current animation */
+  setCurrentTimestep(index: number) {
+    this.currentTimestepIndex = index
+  }
+
+  /** Convert current grid timestep to synthetic WindGrid for particle animation */
+  private currentToWindGrid(): WindGrid | null {
+    const cg = this.currentGrid
+    if (!cg || !cg.timesteps.length) return null
+    const ti = Math.min(this.currentTimestepIndex, cg.timesteps.length - 1)
+    const step = cg.timesteps[ti]
+    if (!step) return null
+
+    const { ny, nx } = cg.grid
+    const u: number[][] = []
+    const v: number[][] = []
+
+    for (let yi = 0; yi < ny; yi++) {
+      const uRow: number[] = []
+      const vRow: number[] = []
+      for (let xi = 0; xi < nx; xi++) {
+        const vel = step.velocity[yi]?.[xi]
+        const dir = step.direction[yi]?.[xi]
+        if (vel != null && dir != null) {
+          const rad = (dir * Math.PI) / 180
+          uRow.push(vel * Math.sin(rad))   // eastward component
+          vRow.push(vel * Math.cos(rad))   // northward component
+        } else {
+          uRow.push(0)
+          vRow.push(0)
+        }
+      }
+      u.push(uRow)
+      v.push(vRow)
+    }
+
+    return {
+      model: cg.model,
+      bounds: cg.bounds,
+      grid: cg.grid,
+      timesteps: [{ valid_utc: step.valid_utc, u, v }],
+    }
   }
 
   /** Set tile overlay mode (radar/satellite) and tile images */
@@ -328,6 +385,97 @@ export class WindParticleSystem {
     }
   }
 
+  /** Render one frame of particle animation (shared by wind and current modes) */
+  private renderParticleFrame(ctx: CanvasRenderingContext2D, w: number, h: number, colorMode: 'wind' | 'current') {
+    // On bounds change (drag/zoom), skip trail fade to prevent ghosting
+    if (this.boundsChanged) {
+      this.boundsChanged = false
+      ctx.clearRect(0, 0, w, h)
+      if (this.offscreen) {
+        const oc = this.offscreen.getContext('2d')
+        oc?.clearRect(0, 0, this.offscreen.width, this.offscreen.height)
+      }
+    } else {
+      if (!this.offscreen) {
+        this.offscreen = document.createElement('canvas')
+      }
+      const off = this.offscreen
+      if (off.width !== w || off.height !== h) {
+        off.width = w
+        off.height = h
+      }
+      const offCtx = off.getContext('2d')
+      if (offCtx) {
+        offCtx.clearRect(0, 0, w, h)
+        offCtx.drawImage(this.canvas, 0, 0)
+      }
+      ctx.clearRect(0, 0, w, h)
+      ctx.globalAlpha = this.fadeFactor
+      ctx.drawImage(off, 0, 0)
+      ctx.globalAlpha = 1.0
+    }
+
+    ctx.lineWidth = this.lineWidth * this.dpr
+    ctx.lineCap = 'round'
+
+    // Current speed factor: currents are ~0.1-1.5 m/s vs wind 1-30 m/s
+    const sf = colorMode === 'current' ? this.speedFactor * 8 : this.speedFactor
+
+    for (const p of this.particles) {
+      const [u, v] = this.sampleWind(p.x, p.y)
+      const speed = Math.sqrt(u * u + v * v)
+
+      if (colorMode === 'current') {
+        // Ocean current color: cyan/teal ramp (0→1.5 m/s)
+        const brightness = Math.min(1, speed / 1.0)
+        const alpha = 0.3 + brightness * 0.6
+        if (speed > 1.5) {
+          ctx.strokeStyle = `rgba(248, 113, 113, ${alpha})`  // very strong current — red
+        } else {
+          const r = Math.floor(30 + brightness * 60)
+          const g = Math.floor(120 + brightness * 135)
+          const b = Math.floor(180 + brightness * 75)
+          ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`  // teal/cyan ramp
+        }
+      } else {
+        // Wind color: monochrome ramp
+        const kt = speed * 1.94384
+        const brightness = Math.min(1, speed / 15)
+        const alpha = 0.3 + brightness * 0.6
+        if (kt > 35) {
+          ctx.strokeStyle = `rgba(248, 113, 113, ${alpha})`
+        } else {
+          const g = Math.floor(50 + brightness * 205)
+          ctx.strokeStyle = `rgba(${g}, ${g}, ${g}, ${alpha})`
+        }
+      }
+
+      const dx = u * sf * this.dpr
+      const dy = -v * sf * this.dpr
+
+      const nx = p.x + dx
+      const ny = p.y + dy
+
+      ctx.beginPath()
+      ctx.moveTo(p.x, p.y)
+      ctx.lineTo(nx, ny)
+      ctx.stroke()
+
+      p.x = nx
+      p.y = ny
+      p.age++
+
+      if (p.age > p.maxAge || p.x < 0 || p.x > w || p.y < 0 || p.y > h) {
+        const fresh = this.randomParticle()
+        p.x = fresh.x
+        p.y = fresh.y
+        p.age = 0
+      }
+    }
+
+    this.drawCoastline(ctx, w, h)
+  }
+
   /** Draw tile overlay (radar or satellite) on the canvas */
   private drawTileOverlay(ctx: CanvasRenderingContext2D, w: number, h: number) {
     if (!this.tileImages.size || !this.tileOverlayZoom) return
@@ -372,6 +520,24 @@ export class WindParticleSystem {
     const w = this.canvas.width
     const h = this.canvas.height
 
+    // Current mode: reuse wind particle animation with converted grid + ocean color scheme
+    if (this.currentMode) {
+      const synthGrid = this.currentToWindGrid()
+      if (synthGrid) {
+        // Temporarily swap grid for particle rendering
+        const savedGrid = this.grid
+        this.grid = synthGrid
+        // Use same trail fade logic as wind mode but with different styling
+        this.renderParticleFrame(ctx, w, h, 'current')
+        this.grid = savedGrid
+      } else {
+        ctx.clearRect(0, 0, w, h)
+        this.drawCoastline(ctx, w, h)
+      }
+      this.animId = requestAnimationFrame(this.loop)
+      return
+    }
+
     // Tile overlay mode (radar/satellite): static render (no land mask — radar covers land)
     if (this.tileOverlayMode) {
       ctx.clearRect(0, 0, w, h)
@@ -392,84 +558,7 @@ export class WindParticleSystem {
       return
     }
 
-    // On bounds change (drag/zoom), skip trail fade to prevent ghosting
-    if (this.boundsChanged) {
-      this.boundsChanged = false
-      ctx.clearRect(0, 0, w, h)
-      // Reset offscreen too
-      if (this.offscreen) {
-        const oc = this.offscreen.getContext('2d')
-        oc?.clearRect(0, 0, this.offscreen.width, this.offscreen.height)
-      }
-    } else {
-      // Fade trails using offscreen canvas to avoid destination-out compositing
-      // bugs that can make the canvas appear opaque/black in some browsers.
-      if (!this.offscreen) {
-        this.offscreen = document.createElement('canvas')
-      }
-      const off = this.offscreen
-      if (off.width !== w || off.height !== h) {
-        off.width = w
-        off.height = h
-      }
-      const offCtx = off.getContext('2d')
-      if (offCtx) {
-        offCtx.clearRect(0, 0, w, h)
-        offCtx.drawImage(this.canvas, 0, 0)
-      }
-      ctx.clearRect(0, 0, w, h)
-      ctx.globalAlpha = this.fadeFactor
-      ctx.drawImage(off, 0, 0)
-      ctx.globalAlpha = 1.0
-    }
-
-    ctx.lineWidth = this.lineWidth * this.dpr
-    ctx.lineCap = 'round'
-
-    for (const p of this.particles) {
-      const [u, v] = this.sampleWind(p.x, p.y)
-
-      // Wind speed in m/s → pixel displacement
-      const speed = Math.sqrt(u * u + v * v)
-      const kt = speed * 1.94384
-
-      // Color based on speed (monochrome ramp)
-      const brightness = Math.min(1, speed / 15)
-      const alpha = 0.3 + brightness * 0.6
-      if (kt > 35) {
-        ctx.strokeStyle = `rgba(248, 113, 113, ${alpha})`  // storm red
-      } else {
-        const g = Math.floor(50 + brightness * 205)
-        ctx.strokeStyle = `rgba(${g}, ${g}, ${g}, ${alpha})`
-      }
-
-      const dx = u * this.speedFactor * this.dpr
-      const dy = -v * this.speedFactor * this.dpr  // v is northward, canvas y is downward
-
-      const nx = p.x + dx
-      const ny = p.y + dy
-
-      ctx.beginPath()
-      ctx.moveTo(p.x, p.y)
-      ctx.lineTo(nx, ny)
-      ctx.stroke()
-
-      p.x = nx
-      p.y = ny
-      p.age++
-
-      // Respawn if out of bounds or too old
-      if (p.age > p.maxAge || p.x < 0 || p.x > w || p.y < 0 || p.y > h) {
-        const fresh = this.randomParticle()
-        p.x = fresh.x
-        p.y = fresh.y
-        p.age = 0
-      }
-    }
-
-    // Draw coastline + labels (using physical pixel coords for crispness)
-    this.drawCoastline(ctx, w, h)
-
+    this.renderParticleFrame(ctx, w, h, 'wind')
     this.animId = requestAnimationFrame(this.loop)
   }
 

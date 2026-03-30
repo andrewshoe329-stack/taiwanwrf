@@ -228,7 +228,8 @@
     "radar_light": "Light",
     "radar_mod": "Mod",
     "radar_heavy": "Heavy",
-    "ir_satellite": "IR Satellite"
+    "ir_satellite": "IR Satellite",
+    "currents": "Currents"
   },
   "units": {
     "kt": "kt",

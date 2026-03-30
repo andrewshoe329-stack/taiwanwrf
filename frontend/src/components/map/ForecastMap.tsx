@@ -6,12 +6,12 @@ import { interpolateWindGrid } from '@/lib/interpolate'
 import { useTimeline } from '@/hooks/useTimeline'
 import { useModel, type WindModel } from '@/hooks/useModel'
 import { useForecastData } from '@/hooks/useForecastData'
-import type { SpotRating, WaveGrid } from '@/lib/types'
+import type { SpotRating, WaveGrid, CurrentGrid } from '@/lib/types'
 import { TileCache, tilesInView, zoomForSpan } from '@/lib/tile-loader'
 import { fetchRainViewerMaps, latestRadarPath, latestSatellitePath, tileUrl, satelliteTileUrl } from '@/lib/rainviewer'
 import type { RainViewerFrame } from '@/lib/rainviewer'
 
-type MapLayer = 'wind' | 'waves' | 'radar' | 'satellite'
+type MapLayer = 'wind' | 'waves' | 'currents' | 'radar' | 'satellite'
 
 /** Mercator forward: lat (degrees) → Mercator y */
 const mercY = (lat: number) =>
@@ -102,11 +102,17 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
   const rainviewerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [boundsVersion, setBoundsVersion] = useState(0)
 
-  // Load wave grid data once
+  const currentGridRef = useRef<CurrentGrid | null>(null)
+
+  // Load wave + current grid data once
   useEffect(() => {
     fetch(DATA_FILES.wave_grid)
       .then(r => r.ok ? r.json() : null)
       .then(d => { waveGridRef.current = d })
+      .catch(() => {})
+    fetch(DATA_FILES.current_grid)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { currentGridRef.current = d })
       .catch(() => {})
   }, [])
 
@@ -496,6 +502,20 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
     }
   }, [layer, index, data.keelung])
 
+  // Update current mode + current grid on layer/timestep change
+  useEffect(() => {
+    const ps = particlesRef.current
+    if (!ps) return
+    ps.setCurrentMode(layer === 'currents')
+    if (layer === 'currents' && currentGridRef.current) {
+      ps.setCurrentGrid(currentGridRef.current)
+      const currentSteps = currentGridRef.current.timesteps.length
+      const windSteps = data.keelung?.records?.length ?? currentSteps
+      const currentIdx = Math.min(Math.round(index * currentSteps / Math.max(windSteps, 1)), currentSteps - 1)
+      ps.setCurrentTimestep(currentIdx)
+    }
+  }, [layer, index, data.keelung])
+
   // Fetch RainViewer metadata when radar/satellite layer is active
   useEffect(() => {
     const isLive = layer === 'radar' || layer === 'satellite'
@@ -602,7 +622,7 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
 
       {/* Layer toggle */}
       <div className="absolute top-3 left-3 z-20 flex gap-0.5 rounded-md overflow-hidden border border-[var(--color-border)] backdrop-blur-sm">
-        {(['wind', 'waves', 'radar', 'satellite'] as MapLayer[]).map(l => (
+        {(['wind', 'waves', 'currents', 'radar', 'satellite'] as MapLayer[]).map(l => (
           <button
             key={l}
             onClick={() => setLayer(l)}

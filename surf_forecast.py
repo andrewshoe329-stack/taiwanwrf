@@ -9,7 +9,7 @@ Usage:
     python3 surf_forecast.py [--output surf_forecast.html]
 """
 
-import argparse, json, logging, os, sys, time, urllib.request, urllib.parse
+import argparse, json, logging, math, os, sys, time, urllib.request, urllib.parse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone, timedelta
 
@@ -177,6 +177,63 @@ def deg_diff(a: float, b: float) -> float:
     return min(d, 360 - d)
 
 compass = deg_to_compass  # local alias
+
+
+def _facing_deg(facing: str) -> float:
+    """Convert a spot facing string to degrees.
+
+    Handles compound directions like 'NE/E' by averaging the components.
+    """
+    parts = [p.strip() for p in facing.split('/')]
+    angles = [DIR_DEG[p] for p in parts if p in DIR_DEG]
+    if not angles:
+        return 0.0
+    if len(angles) == 1:
+        return float(angles[0])
+    # Average angles on a circle (handle wraparound via vector sum)
+    sx = sum(math.sin(math.radians(a)) for a in angles)
+    cx = sum(math.cos(math.radians(a)) for a in angles)
+    return math.degrees(math.atan2(sx, cx)) % 360
+
+
+def _swell_dir_score(sw_dir: float | None, spot: dict) -> float:
+    """Score swell direction using cos²(swell_angle - beach_facing) weighting.
+
+    Returns a continuous score in [0, 4]:
+      - Swell hitting the beach head-on (from the facing direction): 4.0
+      - 45° offset from facing: ~2.0
+      - Parallel or from behind: 0.0
+
+    The opt_swell list provides a bonus: swells from optimal directions get
+    the full cos² score, while other directions that still face the beach
+    are scaled to 75% max.
+    """
+    if sw_dir is None:
+        return 1.0  # unknown — same as old 'unknown' bucket
+
+    facing = _facing_deg(spot.get('facing', 'N'))
+    # Exposure angle: how directly the swell hits the beach face
+    diff = math.radians(sw_dir - facing)
+    cos_val = math.cos(diff)
+
+    if cos_val <= 0:
+        # Swell from behind the beach — cannot reach the shore
+        return 0.0
+
+    cos2 = cos_val ** 2  # 1.0 head-on, 0.5 at 45°, 0 at 90°
+
+    # Check if swell is from an optimal direction
+    opt_dirs = spot.get('opt_swell', [])
+    if opt_dirs:
+        min_diff_opt = min(deg_diff(sw_dir, DIR_DEG[d]) for d in opt_dirs)
+        is_optimal = min_diff_opt <= 45.0  # within 45° of any optimal dir
+    else:
+        is_optimal = True
+
+    # Optimal directions get full cos² score; non-optimal get 75% max
+    scale = 1.0 if is_optimal else 0.75
+    return round(4.0 * cos2 * scale, 1)
+
 
 def dir_quality(actual_deg: float | None, optimal_dirs: list[str]) -> str:
     """Returns 'good', 'ok', or 'poor' based on proximity to optimal directions."""
@@ -438,9 +495,8 @@ def _score_timestep(r: dict, spot: dict, tide_height_m: float | None = None) -> 
 
     score = 0
 
-    # Swell direction — weighted by swell height (full credit at ≥0.6m)
-    sq = dir_quality(sw_dir, spot['opt_swell'])
-    swell_dir_base = {'good': 4, 'ok': 2, 'poor': 0, 'unknown': 1}[sq]
+    # Swell direction — cos² weighting by beach facing, scaled by swell height
+    swell_dir_base = _swell_dir_score(sw_dir, spot)
     swell_factor = min(_sw_hs / 0.6, 1.0) if _sw_hs > 0 else 0
     score += round(swell_dir_base * swell_factor)
 
