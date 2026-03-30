@@ -1,379 +1,117 @@
-# Comprehensive Improvement Plan
+# Post-Audit Improvement Plan
 
-## Pipeline + Frontend — Full CWA API Integration
+## Real Bugs to Fix
 
----
+### P0 — Broken Features
 
-## Phase 1: Per-Spot Tide Observations + Storm Surge Detection
+**1. Recharts tooltip sync is a no-op**
+`defaultIndex` is not a real Recharts 3.x prop. The tooltips don't follow the timeline slider.
+- **Fix:** Remove `defaultIndex`, implement controlled tooltip via Recharts' `<Tooltip trigger="click" />` or use chart `activeIndex` state. Alternatively, accept that tooltips appear on hover only and remove the broken prop.
+- **Files:** All 6 chart components
+- **Effort:** 2h (research + implement alternative)
 
-**Goal:** Fetch real-time tide heights from stations at each spot. Detect storm surge by comparing predicted vs observed.
+**2. Missing `wave_height` in surf.json ratings**
+`r.get('hs')` may return `None` when the marine API doesn't provide total wave height separately from swell. Frontend's `ratingsToWaveRecords()` maps this field, resulting in `undefined` wave_height in OceanChart.
+- **Fix:** In `surf_forecast.py`, compute `wave_height = hs if hs else sw_hs` as fallback. Swell height IS total wave height when wind sea is negligible.
+- **Files:** surf_forecast.py (line ~813)
+- **Effort:** 30min
 
-### Pipeline Changes (cwa_fetch.py)
+### P1 — Inconsistencies
 
-**1a. Add tide obs stations to O-B0075-001 query**
-- Current: `StationID=C4B01,46694A,...` (Keelung only for tide)
-- New: `StationID=C4B01,C4A05,C4U02,C4A03,...` (add Fulong, Wushih, Jinshan)
-- One API call returns all stations
-- Parse latest `TideHeight` per station
-- Store in `cwa_obs.json` as:
-```json
-"tide_obs_stations": {
-  "C4B01": { "station_name": "基隆", "obs_time": "...", "tide_height_m": 0.45, "tide_level": "退潮", "sea_temp_c": 22.1 },
-  "C4A05": { "station_name": "福隆", "obs_time": "...", "tide_height_m": 0.38, "sea_temp_c": 21.8 },
-  "C4U02": { "station_name": "烏石", "obs_time": "...", "tide_height_m": 0.42, "sea_temp_c": 22.3 }
-}
-```
+**3. Keelung missing current display + margin inconsistency**
+Spot detail shows sea currents; Keelung doesn't. Margin `mt-2` in spot section missing from Keelung section.
+- **Fix:** Copy current display code to Keelung section, add mt-2.
+- **Files:** NowPage.tsx
+- **Effort:** 15min
 
-**1b. Storm surge detection (accuracy_track.py or new module)**
-- Compare `tide_obs_stations[X].tide_height_m` vs `predict_height_anchored()` at same time
-- If `abs(observed - predicted) > 0.3m` → storm surge flag
-- Store in `cwa_obs.json` as `"storm_surge": { "C4B01": { "predicted_m": 0.40, "observed_m": 0.75, "surge_m": 0.35 } }`
+**4. Sunrise fetch not in Promise.allSettled**
+If sunrise API call fails, it could crash the entire `/api/live-obs` response (`.catch(() => null)` should handle it but the await could still throw on network errors before the catch).
+- **Fix:** Move sunrise fetch into the `Promise.allSettled` array (4th item).
+- **Files:** api/live-obs.js
+- **Effort:** 15min
 
-### Frontend Changes
+**5. Specialized warnings + 1-week forecasts typed but never consumed**
+Pipeline produces `specialized_warnings` and `township_forecasts_week` but frontend has no types or UI for them.
+- **Fix:** Either add to CwaObs type and display, or remove from pipeline to reduce JSON size.
+- **Decision needed:** Display them or remove them?
+- **Effort:** 1h if displaying, 15min if removing
 
-**1c. Show live tide obs in spot detail**
-Already partially done (live obs box). Enhance:
-- Show observed tide height alongside predicted
-- If storm surge detected, show red warning badge: "⚠ Storm Surge +35cm"
+### P2 — Type Safety
 
-**1d. Tide obs dots on TideChart**
-- Plot observed tide heights as dots on the tide prediction curve
-- Visual comparison: predicted line vs actual observation dots
-- Shows if prediction is tracking reality
+**6. Missing TypeScript fields**
+- `CwaObs` missing `specialized_warnings` and `township_forecasts_week`
+- `EnsembleData.spread` missing `precip_spread_mm`
+- **Fix:** Add optional fields to interfaces
+- **Effort:** 15min
 
-### Config
-```python
-# config.py — already done
-SPOT_TIDE_OBS_STATION = {
-    "keelung": "C4B01", "jinshan": "C4A03", "greenbay": "C4B01",
-    "fulong": "C4A05", "daxi": "C4U02", "doublelions": "C4U02",
-    "wushih": "C4U02", "chousui": "C4U02",
-}
-```
+**7. `as any` casts in chart domain**
+All charts use `['dataMin', 'dataMax'] as any` for fallback domain.
+- **Fix:** Type as `const` assertion or widen the domain type
+- **Effort:** 15min
 
-**Effort:** 6-8h | **Impact:** High — ground truth tide data, safety feature
+### P3 — Documentation
 
----
-
-## Phase 2: Water Temperature Display
-
-**Goal:** Show sea water temperature prominently. Surfers decide wetsuit thickness based on this.
-
-### Pipeline Changes
-
-**2a. Already available** — `cwa_obs.json` spot_obs already includes buoy `water_temp_c` and tide station `SeaTemperature`. No pipeline changes needed.
-
-### Frontend Changes
-
-**2b. Add water temp to ConditionsStrip (spot mode)**
-- Current: Wave Height, Temp, Precip, Pressure (4 cols)
-- New: Wave Height, Water Temp, Air Temp, Precip, Pressure (5 cols)
-- Or replace Pressure with Water Temp (4 cols, more important for surfers)
-
-**2c. Add water temp to spot detail compass area**
-- Show in the live observations box (already added in latest commit)
-- Make it more prominent — could be its own DataCell in the 2x2 grid
-
-**2d. Water temp on OceanChart**
-- Add as a second Y-axis line (like period) on the ocean chart
-- Dashed line, right axis, different color
-- Only if buoy data provides a time series (currently just latest obs)
-
-**Effort:** 2-3h | **Impact:** High — surfers need this daily
+**8. CLAUDE.md stale**
+Missing: wave_grid_fetch.py, wave heatmap feature, per-spot tide stations, live-obs serverless, improvement plan references.
+- **Fix:** Update File Map, Architecture, Key Design Decisions
+- **Effort:** 30min
 
 ---
 
-## Phase 3: Visibility for Sailors
+## New Features to Add
 
-**Goal:** Show visibility data from CWA stations. Critical for Keelung harbour sailing.
+### High Value
 
-### Pipeline Changes
+**9. Better tooltip sync (if P0-1 fix is "remove defaultIndex")**
+Instead of Recharts tooltip sync, add a **floating data card** below the timeline scrubber that shows all values at the selected timestep. This would be more reliable than trying to force Recharts tooltips.
+- **Effort:** 3h
 
-**3a. Fetch visibility from O-A0003-001 (10-min obs)**
-- New function: `fetch_visibility(api_key, station_id)`
-- Query with `WeatherElement=VisibilityDescription`
-- O-A0003-001 has `VisibilityDescription` that O-A0001-001 doesn't
-- Store in `cwa_obs.json` per-spot: `"visibility_km": 8.5`
+**10. Wave map legend**
+The wave heatmap has no legend — users don't know what the colors mean.
+- **Fix:** Add a small color ramp legend (0-3m) in the bottom-left when wave mode is active.
+- **Effort:** 1h
 
-### Frontend Changes
+**11. Show specialized CWA warnings per spot**
+Pipeline already produces township-level rain/heat/cold warnings. Should display as colored badges on the map and in spot detail.
+- **Effort:** 3h
 
-**3b. Show visibility in ConditionsStrip (default/harbour mode)**
-- Add as a stat: "Vis 8km" or "Vis ∞"
-- Only show for Keelung harbour (sailing context) or when < 10km (fog warning)
+**12. Swell direction arrows on wind map**
+When in wave mode, swell arrows are small and hard to see. Consider making them larger or adding a swell direction indicator to the conditions strip.
+- **Effort:** 1h
 
-**3c. Fog warning integration**
-- If visibility < 2km, show amber warning card in WeatherWarnings
-- "⚠ Low visibility at Keelung: 800m — dense fog"
+### Medium Value
 
-**Effort:** 3-4h | **Impact:** Medium-High for sailors
+**13. Show accuracy by forecast horizon**
+`accuracy.json` has `by_horizon` (0-24h, 24-48h, etc.) that's never displayed. "Next 24h accuracy: ±2kt wind" is more useful than overall average.
+- **Effort:** 2h
 
----
+**14. Show wave accuracy metrics**
+`accuracy.json` has `wave.hs_mae_m` and `wave.hs_bias_m` that's never displayed.
+- **Effort:** 1h
 
-## Phase 4: UV Index
+**15. Precipitation spread from ensemble**
+`precip_spread_mm` is computed but never shown. Could indicate rain forecast confidence.
+- **Effort:** 1h
 
-**Goal:** Show UV exposure risk for outdoor water sports.
+### Low Value
 
-### Pipeline Changes
+**16. Remove unused wrf_spots.json loading**
+Frontend loads it but most spots never have WRF data (WRF runs infrequently). Wastes a fetch call.
+- **Effort:** 15min
 
-**4a. Fetch UV from O-A0003-001 or O-A0005-001**
-- O-A0003-001: real-time `UVIndex` from 10-min obs (during daytime only)
-- O-A0005-001: daily max UV per station (published ~2PM)
-- Also available from F-D0047-003 (1-week township forecast): `紫外線指數`
-
-**4b. Store in cwa_obs.json**
-```json
-"uv": { "current": 8, "daily_max": 11, "level": "extreme" }
-```
-
-### Frontend Changes
-
-**4c. UV badge on spot detail**
-- Color-coded pill: Green (0-2), Yellow (3-5), Orange (6-7), Red (8-10), Purple (11+)
-- Show next to info pills: "UV 8 🔴"
-
-**4d. UV in ConditionsStrip** (optional)
-- Compact: "UV 8" as one stat column
-
-**Effort:** 3-4h | **Impact:** Medium — summer safety
+**17. Hardcode station mappings, remove cwa_discover.py**
+Monthly discovery workflow is unnecessary — stations don't move.
+- **Effort:** 1h
 
 ---
 
-## Phase 5: Ensemble Confidence + Accuracy Display
-
-**Goal:** Show users how much to trust the forecast.
-
-### Pipeline Changes
-
-None needed — `ensemble.json` and `accuracy.json` are already produced and served.
-
-### Frontend Changes
-
-**5a. Confidence badge in spot detail**
-Below info pills, show:
-- "Forecast confidence: High ★★★" (wind spread < 5kt, temp spread < 2°C)
-- "Forecast confidence: Moderate ★★☆" (wind spread 5-10kt)
-- "Forecast confidence: Low ★☆☆" (wind spread > 10kt)
-Based on `ensemble.json` spread values.
-
-**5b. Accuracy info in expandable section**
-Below AI summary or in a new accordion:
-- "Model accuracy (last 10 runs): Temp ±1.2°C, Wind ±3.5kt"
-- "WRF tends to run warm by ~0.8°C"
-- From `accuracy.json` latest entries
-
-**5c. Confidence bands on charts** (stretch goal)
-- Shade WindChart with ±spread from ensemble
-- Light gray shading around the forecast line
-- Shows where models agree vs disagree
-
-**Effort:** 4-6h | **Impact:** Medium — unique feature, builds trust
-
----
-
-## Phase 6: Batch & Optimize API Calls
-
-**Goal:** Reduce ~15 CWA API calls to ~5. Faster pipeline, less load on CWA.
-
-### Pipeline Changes
-
-**6a. Batch weather station requests**
-- Current: `_fetch_spot_stations()` makes 1 call per station (~8 calls)
-- New: 1-2 calls with `StationId=C0A940,C0AJ20,C0U860,C0B050,...`
-- O-A0001-001 supports comma-separated StationId
-
-**6b. Consolidate township forecasts**
-- Current: 3 calls (F-D0047-001, 049, 069)
-- New: 1 call to F-D0047-093 with `locationId=F-D0047-001,F-D0047-049,F-D0047-069`
-
-**6c. Add WeatherElement filters**
-- O-A0001-001: `WeatherElement=AirTemperature,WindSpeed,WindDirection,GustInfo,AirPressure,RelativeHumidity`
-- O-B0075-001: `WeatherElement=TideHeight,TideLevel,WaveHeight,WaveDirection,WavePeriod,SeaTemperature`
-- Reduces payload ~30%
-
-**6d. Hardcode station mappings**
-- Replace `cwa_discover.py` monthly workflow with static dict in `config.py`
-- Move essential mappings from `cwa_stations.json` (5700 lines) to `config.py` (~50 lines)
-
-**Effort:** 3-4h | **Impact:** Medium — pipeline efficiency
-
----
-
-## Phase 7: 1-Week Extended Forecast
-
-**Goal:** Extend planning horizon from 3 days to 7 days with UV and comfort data.
-
-### Pipeline Changes
-
-**7a. Fetch 1-week township forecasts**
-- Add F-D0047-003 (宜蘭 1-week), F-D0047-051 (基隆 1-week), F-D0047-071 (新北 1-week)
-- Or use F-D0047-093 with `locationId=F-D0047-003,F-D0047-051,F-D0047-071`
-- Extra elements: `紫外線指數`, `最高體感溫度`, `最低體感溫度`, `平均溫度`
-
-**7b. Store as extended forecast in output**
-- `township_forecast_week` key in cwa_obs.json
-- Or separate `township_week.json` file
-
-### Frontend Changes
-
-**7c. Extended daily summary cards**
-- Days 4-7 show: weather icon, min/max temp, UV index, rain probability, wind
-- Less detailed than 3-day (12h periods instead of 3h)
-
-**7d. UV forecast in daily planner**
-- Show daily max UV for trip planning
-
-**Effort:** 4-6h | **Impact:** Medium — planning
-
----
-
-## Phase 8: Sea Currents Display
-
-**Goal:** Show ocean current data from buoys for sailing/swimming safety.
-
-### Pipeline Changes
-
-**8a. Parse SeaCurrents from O-B0075-001**
-- Buoys with `SeaCurrents` active: 46694A (龍洞), 46708A (龜山島), C6AH2 (富貴角)
-- Fields: `CurrentDirection`, `CurrentDirectionDescription`, `CurrentSpeed`, `CurrentSpeedInKnots`
-- Store per-buoy in cwa_obs.json
-
-### Frontend Changes
-
-**8b. Current arrow on spot detail**
-- Small directional arrow showing current direction + speed
-- "Current: 0.8kt NE →"
-- Only show if data available from nearest buoy
-
-**8c. Current info in live observations box**
-- Add to existing live obs section when spot focused
-
-**Effort:** 3-4h | **Impact:** Medium for sailors
-
----
-
-## Phase 9: Enhanced Warnings
-
-**Goal:** Township-level severity-graded warnings mapped to specific spots.
-
-### Pipeline Changes
-
-**9a. Fetch specialized warnings**
-- W-C0033-003 (heavy rain): filter `CountyName=基隆市,新北市,宜蘭縣`, `expires=true`
-- W-C0033-005 (high temp): same counties, `expires=true`
-- W-C0033-004 (low temp): same counties, `expires=true`
-
-**9b. Map warnings to spots**
-- Match `TownName` in warning to spot's township
-- Store per-spot: `"spot_warnings": { "fulong": ["Heavy Rain Warning 🟡"], ... }`
-
-### Frontend Changes
-
-**9c. Spot-specific warning badges**
-- Show colored badge on map labels when spot has active warning
-- In spot detail: specific warning card with severity level
-
-**9d. Warning overlay on map**
-- Highlight affected coastal areas with warning color
-
-**Effort:** 4-6h | **Impact:** Medium — safety
-
----
-
-## Phase 10: Official Sunrise/Sunset + Moon Phase
-
-**Goal:** Replace computed sunrise/sunset with official CWA data. Add moon for night surf.
-
-### Pipeline Changes
-
-**10a. Fetch A-B0062-001 (sunrise/sunset)**
-- Query: `CountyName=基隆市,新北市,宜蘭縣`, `Date=today+7d`
-- Get: `SunRiseTime`, `SunSetTime`, `BeginCivilTwilightTime`, `EndCivilTwilightTime`
-- More accurate than our simplified solar calculation in config.py
-
-**10b. Fetch A-B0063-001 (moonrise/moonset)**
-- Same query params
-- Get: `MoonRiseTime`, `MoonSetTime`
-
-### Frontend Changes
-
-**10c. Dawn patrol time in spot detail**
-- "First light: 05:23 CST" (civil twilight)
-- "Sunrise: 05:48 CST"
-- Show in best-time-to-surf section
-
-**10d. Moon phase indicator**
-- Small icon showing current moon phase
-- Correlates with tidal range (spring/neap)
-
-**Effort:** 3-4h | **Impact:** Low-Medium
-
----
-
-## Phase 11: 30-Day History for Accuracy
-
-**Goal:** Use CWA 30-day observation data for better forecast verification.
-
-### Pipeline Changes
-
-**11a. Use O-B0075-002 for wave accuracy**
-- Fetch 24h of buoy wave obs around verification time
-- Compare vs wave forecast for each spot's nearest buoy
-- More accurate than Open-Meteo for local wave verification
-
-**11b. Use C-B0024-001 for weather accuracy**
-- 30-day station obs with daily statistics (max/min/mean)
-- Better than hourly O-A0001-001 for multi-day bias analysis
-
-**11c. Use O-A0002-001 for precipitation accuracy**
-- `Past6hr` rainfall directly comparable to `precip_mm_6h` forecast
-- More reliable than model-reanalysis obs
-
-### Frontend Changes
-
-**11d. Accuracy trends chart** (stretch goal)
-- Show 30-day rolling accuracy for temp, wind, waves
-- "Model getting better/worse over time"
-
-**Effort:** 4-6h | **Impact:** Medium — improves AI summary calibration
-
----
-
-## Phase 12: Monthly Climate Context for AI Summary
-
-**Goal:** Give Claude seasonal context for smarter narrative.
-
-### Pipeline Changes
-
-**12a. Fetch C-B0027-001 monthly averages**
-- For Keelung station (466940): monthly mean temp, wind, precip
-- Pass to `forecast_summary.py` as context
-
-**12b. Enhance AI prompt**
-- "April average: temp 21°C, wind 8kt, precip 150mm"
-- "Today's forecast: temp 25°C (above normal), wind 18kt (above normal)"
-- Claude uses this to write: "Expect an unusually warm and windy day for early April"
-
-**Effort:** 2-3h | **Impact:** Medium — smarter AI narrative
-
----
-
-## Implementation Priority
-
-| Phase | Name | Effort | Impact | Dependencies |
-|-------|------|--------|--------|-------------|
-| 1 | Per-spot tide obs + storm surge | 6-8h | **High** | None |
-| 2 | Water temperature display | 2-3h | **High** | Phase 1 data |
-| 3 | Visibility for sailors | 3-4h | **High** (sailors) | None |
-| 4 | UV index | 3-4h | **Medium** | None |
-| 5 | Ensemble confidence + accuracy | 4-6h | **Medium** | None |
-| 6 | Batch/optimize API calls | 3-4h | **Medium** | None |
-| 7 | 1-week extended forecast | 4-6h | **Medium** | Phase 6 |
-| 8 | Sea currents | 3-4h | **Medium** | None |
-| 9 | Enhanced warnings | 4-6h | **Medium** | None |
-| 10 | Sunrise/sunset + moon | 3-4h | **Low-Med** | None |
-| 11 | 30-day history accuracy | 4-6h | **Medium** | None |
-| 12 | Monthly climate context | 2-3h | **Medium** | None |
-
-**Recommended order:** 1 → 2 → 3 → 6 → 4 → 5 → 9 → 7 → 8 → 12 → 11 → 10
-
-**Total estimated effort:** ~45-60 hours across all phases
+## Priority Order
+
+1. Fix P0 bugs (tooltip sync, wave_height)
+2. Fix P1 inconsistencies (Keelung current, sunrise fetch, specialized warnings)
+3. Fix P2 type safety
+4. Add wave map legend
+5. Add floating data card (better tooltip alternative)
+6. Show specialized warnings per spot
+7. Show accuracy by horizon
+8. Update CLAUDE.md
