@@ -67,8 +67,9 @@ export function TideChart({ predictions, extrema, timeRange, selectedMs }: TideC
         ms >= chartData[0].timeMs &&
         ms <= chartData[chartData.length - 1].timeMs
     })
-    // Thin out labels: skip if too close to previous (< 4h apart in pixel space)
-    const minGapMs = 4 * 3600 * 1000
+    // Thin out labels: skip if too close to previous
+    // Mobile needs wider gaps to avoid overlap (8h vs 4h)
+    const minGapMs = mobile ? 8 * 3600 * 1000 : 4 * 3600 * 1000
     const thinned: typeof visible = []
     for (const e of visible) {
       const ms = new Date(e.time_utc).getTime()
@@ -125,11 +126,11 @@ export function TideChart({ predictions, extrema, timeRange, selectedMs }: TideC
             x={new Date(e.time_utc).getTime()}
             stroke="none"
             label={{
-              value: `${e.type === 'high' ? 'H' : 'L'} ${e.height_m.toFixed(1)}m`,
+              value: `${e.type === 'high' ? 'H' : 'L'} ${e.height_m.toFixed(1)}`,
               fill: 'var(--color-text-secondary)',
-              fontSize: 9,
+              fontSize: mobile ? 7 : 9,
               position: e.type === 'high' ? 'insideTop' : 'insideBottom',
-              offset: 4,
+              offset: mobile ? 2 : 4,
             }}
           />
         ))}
