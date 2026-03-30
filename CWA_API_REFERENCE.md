@@ -416,8 +416,15 @@ This fetches 宜蘭縣 + 基隆市 + 新北市 in one request.
 | F-A0085-005 | 溫差提醒72h逐3h | 3-hourly temp swing (elements: `TemperatureDifferenceIndex`, `TemperatureDifferenceWarning`) |
 | C-B0024-001 | 30天地面觀測資料 | 30-day station obs history + daily statistics. `WeatherElement`: AirPressure, AirTemperature, RelativeHumidity, WindSpeed, WindDirection, Precipitation, SunshineDuration. `StatisticsElement`: Maximum, Minimum, Mean. `DataType`: `stationObsTimes` (raw obs) or `stationObsStatistics` (daily stats). Default returns latest 24h if no time params set. Useful for accuracy tracking with longer history than O-A0001-001. |
 | O-A0003-001 | 10分鐘綜觀氣象 | Higher-frequency obs + visibility + UV (see above) |
+| O-A0002-001 | 雨量觀測站 | Rain gauge: `Past6hr` directly comparable to `precip_mm_6h` (see above) |
 | O-A0005-001 | 紫外線指數每日最大值 | Daily max UV index per station. Query: `StationID`. Published ~2PM daily. |
-| A-B0062-001 | 日出日沒時刻 | Official sunrise/sunset (currently computed offline) |
+| C-B0024-001 | 30天地面觀測 | 30-day station obs + daily stats (max/min/mean). See above. |
+| C-B0025-001 | 每日雨量 | Daily rainfall totals. Filter by `Date`/`YearMonth`, `StationID` |
+| C-B0027-001 | 月平均 | Monthly climate averages (temp, wind, precip, etc.) by `Month` filter |
+| C-B0074-001/002 | 測站基本資料 | Station metadata (staffed/automated). Filter `status=現存測站` |
+| M-A0085-001 | 熱傷害指數5日逐3h | Heat injury index per township (`HeatInjuryIndex`, `HeatInjuryWarning`) |
+| A-B0062-001 | 日出日沒時刻 | Official sunrise/sunset + civil twilight + azimuth. `CountyName`+`Date`, max 180 days. Could replace offline `sunrise_sunset()` in config.py. |
+| A-B0063-001 | 月出月沒時刻 | Moon rise/set/transit. Same params as A-B0062-001. Nice-to-have for night conditions. |
 | W-C0034-001 | 颱風警報 | Typhoon warnings — CAP format. Filter by `areaDesc` (sea areas: `臺灣北部海面`, `臺灣東北部海面` + counties), `headline` (`海上颱風警報`/`海上陸上颱風警報`/`解除颱風警報`), `cwaTyNo`/`typhoonName`. `description` filter: `typhoon-info`, `命名與位置`, `強度與半徑`, `移速與預測`, `颱風動態`, `警戒區域及事項`, `強風特報`. `expires=true` for active only. |
 | W-C0034-005 | 熱帶氣旋路徑 | Tropical cyclone track data |
 
