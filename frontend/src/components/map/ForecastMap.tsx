@@ -269,7 +269,6 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
       const yMin = mercY(south)
       const yMax = mercY(north)
       const mouseMerc = yMax - (my / h) * (yMax - yMin)
-      const lat = invMercY(mouseMerc)
 
       // Zoom factor
       const factor = e.deltaY > 0 ? 1.15 : 1 / 1.15
