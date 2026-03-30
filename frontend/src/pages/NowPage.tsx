@@ -89,104 +89,86 @@ export function NowPage() {
 
   const isSpotSelected = locationId != null && locationId !== 'keelung'
 
-  /* ── Data panel content (shared between mobile & desktop) ──────────── */
-  const dataPanel = (
-    <div className="space-y-3">
-      {/* Sticky header: timeline + conditions */}
-      <div className="sticky top-0 z-10 bg-[var(--color-bg)] border-b border-[var(--color-border)] -mx-4 px-4 md:-mx-6 md:px-6">
-        <TimelineScrubber />
-        <ConditionsStrip />
-      </div>
-
-      {/* Weather warnings */}
-      <WeatherWarnings />
-
+  /* ── Spot / harbour detail panel ──────────────────────────────────── */
+  const locationDetail = (
+    <>
       {/* Selected spot detail */}
       {isSpotSelected && spotInfo && (
-        <section className="space-y-3">
-          <div className="flex items-start gap-3">
-            {/* Swell compass — compact, beside spot name */}
-            {currentRating && (
+        <section className="space-y-3 px-3 py-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
+              {spotInfo.name[lang]}
+              <span className="text-[var(--color-text-muted)] ml-1.5 text-xs font-normal">
+                {spotInfo.name[lang === 'en' ? 'zh' : 'en']}
+              </span>
+            </h2>
+            <button
+              onClick={() => setLocationId(null)}
+              className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]"
+              aria-label="Deselect"
+            >
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M1 1 L9 9 M9 1 L1 9" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Swell compass + data cells side by side */}
+          {currentRating && (
+            <div className="flex items-start gap-3">
               <div className="shrink-0">
                 <SwellCompass
                   facing={spotInfo.facing}
                   optSwell={spotInfo.opt_swell}
                   swellDir={currentRating.swell_dir}
                   swellHeight={currentRating.swell_height}
-                  size={64}
+                  size={80}
                 />
               </div>
-            )}
-
-            {/* Spot name + info */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
-                  {spotInfo.name[lang]}
-                  <span className="text-[var(--color-text-muted)] ml-1.5 text-xs font-normal">
-                    {spotInfo.name[lang === 'en' ? 'zh' : 'en']}
-                  </span>
-                </h2>
-                <button
-                  onClick={() => setLocationId(null)}
-                  className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]"
-                  aria-label="Deselect"
-                >
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M1 1 L9 9 M9 1 L1 9" />
-                  </svg>
-                </button>
+              <div className="flex-1 min-w-0 space-y-2">
+                <div className="grid grid-cols-2 gap-1.5">
+                  <DataCell
+                    label={t('common.wind')}
+                    value={`${currentRating.wind_kt?.toFixed(0) ?? '--'}`}
+                    unit="kt"
+                    sub={currentRating.wind_dir != null ? degToCompass(currentRating.wind_dir) : undefined}
+                  />
+                  <DataCell
+                    label={t('common.swell')}
+                    value={`${currentRating.swell_height?.toFixed(1) ?? '--'}`}
+                    unit="m"
+                    sub={currentRating.swell_dir != null ? degToCompass(currentRating.swell_dir) : undefined}
+                  />
+                  <DataCell
+                    label={t('spots.period')}
+                    value={`${currentRating.swell_period?.toFixed(0) ?? '--'}`}
+                    unit="s"
+                  />
+                  <DataCell
+                    label={t('common.tide')}
+                    value={`${currentRating.tide_height?.toFixed(2) ?? '--'}`}
+                    unit="m"
+                  />
+                </div>
               </div>
-
-              {/* Info pills */}
-              <div className="flex flex-wrap gap-1.5 mt-1">
-                <InfoPill label={t('spots.facing')} value={spotInfo.facing} />
-                <InfoPill label={t('spots.optimal_wind')} value={spotInfo.opt_wind.join(', ')} />
-              </div>
-
-              {/* Wind type */}
-              {currentRating?.wind_dir != null && spotInfo.facing && (
-                <p className="text-[10px] text-[var(--color-text-muted)] mt-1">
-                  {t('common.wind')}: <span className="text-[var(--color-text-secondary)] capitalize">{windType(currentRating.wind_dir, spotInfo.facing)}</span>
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Current data cells */}
-          {currentRating && (
-            <div className="grid grid-cols-4 gap-2">
-              <DataCell
-                label={t('common.wind')}
-                value={`${currentRating.wind_kt?.toFixed(0) ?? '--'}`}
-                unit="kt"
-                sub={currentRating.wind_dir != null ? degToCompass(currentRating.wind_dir) : undefined}
-              />
-              <DataCell
-                label={t('common.swell')}
-                value={`${currentRating.swell_height?.toFixed(1) ?? '--'}`}
-                unit="m"
-                sub={currentRating.swell_dir != null ? degToCompass(currentRating.swell_dir) : undefined}
-              />
-              <DataCell
-                label={t('spots.period')}
-                value={`${currentRating.swell_period?.toFixed(0) ?? '--'}`}
-                unit="s"
-              />
-              <DataCell
-                label={t('common.tide')}
-                value={`${currentRating.tide_height?.toFixed(2) ?? '--'}`}
-                unit="m"
-              />
             </div>
           )}
+
+          {/* Info pills + wind type */}
+          <div className="flex flex-wrap gap-1.5">
+            <InfoPill label={t('spots.facing')} value={spotInfo.facing} />
+            <InfoPill label={t('spots.optimal_wind')} value={spotInfo.opt_wind.join(', ')} />
+            {currentRating?.wind_dir != null && spotInfo.facing && (
+              <InfoPill label={t('common.wind')} value={windType(currentRating.wind_dir, spotInfo.facing)} />
+            )}
+          </div>
         </section>
       )}
 
       {/* Harbour selected */}
       {locationId === 'keelung' && (
-        <section>
-          <div className="flex items-center justify-between mb-2">
+        <section className="px-3 py-3">
+          <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
               {t('harbour.keelung')}
             </h2>
@@ -202,6 +184,48 @@ export function NowPage() {
           </div>
         </section>
       )}
+
+      {/* AI Summary */}
+      {data.summary && (
+        <div className="mx-3 border border-[var(--color-border)] rounded-xl overflow-hidden">
+          <button
+            onClick={() => setAiExpanded(!aiExpanded)}
+            className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-[var(--color-bg-elevated)]/50 transition-colors"
+          >
+            <span className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)]">
+              {t('ai.title')}
+            </span>
+            <svg
+              width="12" height="12" viewBox="0 0 12 12"
+              className={`text-[var(--color-text-muted)] transition-transform ${aiExpanded ? 'rotate-180' : ''}`}
+              fill="none" stroke="currentColor" strokeWidth="2"
+            >
+              <path d="M2 4 L6 8 L10 4" />
+            </svg>
+          </button>
+          {aiExpanded && (
+            <div className="px-4 pb-4 space-y-2 text-sm text-[var(--color-text-secondary)] leading-relaxed">
+              <p>{data.summary.wind[lang]}</p>
+              <p>{data.summary.waves[lang]}</p>
+              <p>{data.summary.outlook[lang]}</p>
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  )
+
+  /* ── Charts panel ──────────────────────────────────────────────────── */
+  const chartsPanel = (
+    <div className="space-y-3">
+      {/* Sticky header: timeline + conditions */}
+      <div className="sticky top-0 z-10 bg-[var(--color-bg)] border-b border-[var(--color-border)] -mx-4 px-4 md:-mx-6 md:px-6">
+        <TimelineScrubber />
+        <ConditionsStrip />
+      </div>
+
+      {/* Weather warnings */}
+      <WeatherWarnings />
 
       {/* Charts */}
       <Suspense fallback={null}>
@@ -243,56 +267,36 @@ export function NowPage() {
         </div>
       </Suspense>
 
-      {/* AI Summary */}
-      {data.summary && (
-        <div className="border border-[var(--color-border)] rounded-xl overflow-hidden">
-          <button
-            onClick={() => setAiExpanded(!aiExpanded)}
-            className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-[var(--color-bg-elevated)]/50 transition-colors"
-          >
-            <span className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)]">
-              {t('ai.title')}
-            </span>
-            <svg
-              width="12" height="12" viewBox="0 0 12 12"
-              className={`text-[var(--color-text-muted)] transition-transform ${aiExpanded ? 'rotate-180' : ''}`}
-              fill="none" stroke="currentColor" strokeWidth="2"
-            >
-              <path d="M2 4 L6 8 L10 4" />
-            </svg>
-          </button>
-          {aiExpanded && (
-            <div className="px-4 pb-4 space-y-2 text-sm text-[var(--color-text-secondary)] leading-relaxed">
-              <p>{data.summary.wind[lang]}</p>
-              <p>{data.summary.waves[lang]}</p>
-              <p>{data.summary.outlook[lang]}</p>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Bottom safe-area spacer */}
       <div className="h-4" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }} />
     </div>
   )
 
-  /* ── Desktop: map left (~25%), data right (~75%) ───────────────────── */
+  /* ── Desktop: left sidebar (map + detail) | right (charts) ─────────── */
   if (!mobile) {
     return (
       <div className="flex h-full">
-        <div className="w-[280px] min-w-[240px] relative shrink-0 border-r border-[var(--color-border)]">
-          <Suspense fallback={<div className="w-full h-full bg-black" />}>
-            <ForecastMap selectedId={locationId} onSelectLocation={setLocationId} />
-          </Suspense>
+        {/* Left column: map + location detail + AI */}
+        <div className="w-[300px] min-w-[260px] shrink-0 border-r border-[var(--color-border)] flex flex-col">
+          <div className="relative h-[45%] min-h-[200px] shrink-0">
+            <Suspense fallback={<div className="w-full h-full bg-black" />}>
+              <ForecastMap selectedId={locationId} onSelectLocation={setLocationId} />
+            </Suspense>
+          </div>
+          <div className="flex-1 overflow-y-auto border-t border-[var(--color-border)]">
+            {locationDetail}
+          </div>
         </div>
+
+        {/* Right column: timeline + charts */}
         <div className="flex-1 overflow-y-auto px-6 py-2">
-          {dataPanel}
+          {chartsPanel}
         </div>
       </div>
     )
   }
 
-  /* ── Mobile: map top (40vh), data below (scrolls) ──────────────────── */
+  /* ── Mobile: map top (40vh), detail + charts below (scrolls) ───────── */
   return (
     <div className="h-full overflow-y-auto">
       {/* Map section */}
@@ -304,7 +308,8 @@ export function NowPage() {
 
       {/* Data section */}
       <div className="px-4 py-2">
-        {dataPanel}
+        {locationDetail}
+        {chartsPanel}
       </div>
     </div>
   )
