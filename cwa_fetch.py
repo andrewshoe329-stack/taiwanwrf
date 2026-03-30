@@ -629,12 +629,39 @@ def fetch_tide_forecast(api_key: str,
     Returns a list of dicts with:
         time_utc, height_m, type ('high' or 'low'), station_name
     """
+    return fetch_tide_forecasts_multi(api_key, [station_name]).get(station_name, [])
+
+
+def fetch_tide_forecasts_multi(api_key: str,
+                               station_names: list[str] | None = None,
+                               ) -> dict[str, list[dict]]:
+    """
+    Fetch CWA official tide forecast for multiple stations in one API call.
+
+    Parameters
+    ----------
+    station_names : list of station name substrings to match (e.g. ["基隆", "蘇澳"]).
+                    If None, uses TIDE_STATIONS from config.
+
+    Returns
+    -------
+    dict mapping station_name → list of extrema dicts
+    """
+    from config import TIDE_STATIONS
+    if station_names is None:
+        station_names = TIDE_STATIONS
+
+    # Use LocationName query param to fetch only the stations we need
+    params = {}
+    if station_names:
+        params["LocationName"] = ",".join(station_names)
     data = _cwa_get(
         TIDE_FORECAST_ENDPOINT, api_key,
+        params=params,
         label="CWA-TideForecast",
     )
     if not data:
-        return []
+        return {}
 
     try:
         records = data.get("records") or data.get("Records") or data.get("Result") or {}
@@ -642,7 +669,6 @@ def fetch_tide_forecast(api_key: str,
         # TideForecasts is a list of {"Location": {LocationName, TimePeriods, ...}}
         tide_fc = records.get("TideForecasts", {})
         if isinstance(tide_fc, list):
-            # Each item wraps location data in a "Location" sub-dict
             locations = []
             for item in tide_fc:
                 if isinstance(item, dict):
@@ -660,9 +686,7 @@ def fetch_tide_forecast(api_key: str,
         if isinstance(locations, dict):
             locations = [locations]
 
-        # Find Keelung station — try multiple name keys
         def _loc_name(loc):
-            """Extract location/station name from various CWA key conventions."""
             if not isinstance(loc, dict):
                 return ""
             for key in ("LocationName", "locationName", "StationName",
@@ -672,91 +696,95 @@ def fetch_tide_forecast(api_key: str,
                     return v
             return ""
 
-        target = None
-        for loc in locations:
-            name = _loc_name(loc)
-            if station_name in name or "基隆" in name or "Keelung" in name:
-                target = loc
-                break
+        # Match each requested station name to a location in the response
+        result: dict[str, list[dict]] = {}
+        matched_names = set()
+        for wanted in station_names:
+            for loc in locations:
+                name = _loc_name(loc)
+                if wanted in name:
+                    extrema = _extract_tide_extrema(loc, name)
+                    result[wanted] = extrema
+                    matched_names.add(wanted)
+                    log.info("CWA tide forecast: %d extrema for %s",
+                             len(extrema), name)
+                    break
 
-        if target is None:
-            avail = [_loc_name(loc) or str(list(loc.keys())[:5])
-                     for loc in locations[:10] if isinstance(loc, dict)]
-            log.warning("Keelung not found in tide forecast. Available: %s", avail)
-            return []
+        unmatched = set(station_names) - matched_names
+        if unmatched:
+            avail = [_loc_name(loc) or "?"
+                     for loc in locations[:15] if isinstance(loc, dict)]
+            log.warning("Tide stations not found: %s. Available: %s",
+                        unmatched, avail)
 
-        # Extract tide extrema (high/low)
-        extrema = []
-        tide_data = (target.get("TimePeriods", {}).get("Daily", [])
-                     or target.get("validTime", [])
-                     or target.get("TideData", []))
-
-        for day in tide_data if isinstance(tide_data, list) else [tide_data]:
-            if not isinstance(day, dict):
-                continue
-            # Try nested tide extrema within each day
-            tides = (day.get("TideInfo", [])
-                     or day.get("Time", [])
-                     or day.get("tideInfo", []))
-            if isinstance(tides, dict):
-                tides = [tides]
-
-            for t in tides if isinstance(tides, list) else []:
-                time_raw = (t.get("DateTime", "")
-                            or t.get("dataTime", "")
-                            or t.get("time", ""))
-                tide_type = t.get("Tide", t.get("tide", "")).lower()
-                # CWA uses 滿潮/乾潮 or high/low
-                if "high" in tide_type or "滿" in tide_type:
-                    ttype = "high"
-                elif "low" in tide_type or "乾" in tide_type:
-                    ttype = "low"
-                else:
-                    continue
-
-                # Height may be in different keys
-                # CWA nests heights: TideHeights: {AboveTWVD, AboveLocalMSL, ...}
-                # Values are in cm (integers), convert to metres
-                height = None
-                tide_heights = t.get("TideHeights", {})
-                if isinstance(tide_heights, dict):
-                    for hkey in ("AboveLocalMSL", "AboveTWVD", "AboveChartDatum"):
-                        v = tide_heights.get(hkey)
-                        if v is not None and v != "":
-                            try:
-                                height = float(v) / 100.0  # cm → m
-                                break
-                            except (ValueError, TypeError):
-                                pass
-                # Fallback: height at top level (older formats)
-                if height is None:
-                    for hkey in ("AboveLocalMSL", "AboveTWVD", "AboveChartDatum",
-                                 "height"):
-                        v = t.get(hkey)
-                        if isinstance(v, dict):
-                            v = v.get("value") or v.get("Value")
-                        if v is not None and v != "":
-                            try:
-                                height = float(v) / 100.0  # cm → m
-                                break
-                            except (ValueError, TypeError):
-                                pass
-
-                if time_raw:
-                    extrema.append({
-                        "time_utc": norm_utc(time_raw) if time_raw else None,
-                        "height_m": height,
-                        "type": ttype,
-                        "station_name": target.get("LocationName",
-                                        target.get("locationName", "")),
-                    })
-
-        log.info("CWA tide forecast: %d extrema for %s", len(extrema), station_name)
-        return extrema
+        return result
 
     except Exception as e:
         log.error("Failed to parse CWA tide forecast: %s", e)
-        return []
+        return {}
+
+
+def _extract_tide_extrema(location: dict, station_name: str) -> list[dict]:
+    """Extract high/low tide extrema from a single CWA tide forecast location."""
+    extrema = []
+    tide_data = (location.get("TimePeriods", {}).get("Daily", [])
+                 or location.get("validTime", [])
+                 or location.get("TideData", []))
+
+    for day in tide_data if isinstance(tide_data, list) else [tide_data]:
+        if not isinstance(day, dict):
+            continue
+        tides = (day.get("TideInfo", [])
+                 or day.get("Time", [])
+                 or day.get("tideInfo", []))
+        if isinstance(tides, dict):
+            tides = [tides]
+
+        for t in tides if isinstance(tides, list) else []:
+            time_raw = (t.get("DateTime", "")
+                        or t.get("dataTime", "")
+                        or t.get("time", ""))
+            tide_type = t.get("Tide", t.get("tide", "")).lower()
+            if "high" in tide_type or "滿" in tide_type:
+                ttype = "high"
+            elif "low" in tide_type or "乾" in tide_type:
+                ttype = "low"
+            else:
+                continue
+
+            height = None
+            tide_heights = t.get("TideHeights", {})
+            if isinstance(tide_heights, dict):
+                for hkey in ("AboveLocalMSL", "AboveTWVD", "AboveChartDatum"):
+                    v = tide_heights.get(hkey)
+                    if v is not None and v != "":
+                        try:
+                            height = float(v) / 100.0
+                            break
+                        except (ValueError, TypeError):
+                            pass
+            if height is None:
+                for hkey in ("AboveLocalMSL", "AboveTWVD", "AboveChartDatum",
+                             "height"):
+                    v = t.get(hkey)
+                    if isinstance(v, dict):
+                        v = v.get("value") or v.get("Value")
+                    if v is not None and v != "":
+                        try:
+                            height = float(v) / 100.0
+                            break
+                        except (ValueError, TypeError):
+                            pass
+
+            if time_raw:
+                extrema.append({
+                    "time_utc": norm_utc(time_raw) if time_raw else None,
+                    "height_m": height,
+                    "type": ttype,
+                    "station_name": station_name,
+                })
+
+    return extrema
 
 
 # ── Township weather forecast ────────────────────────────────────────────────
@@ -1226,7 +1254,7 @@ def fetch_all(api_key: str) -> dict:
     # Phase 1: parallel independent fetches (station, marine, tide fc, warnings)
     station = None
     marine_stations = []
-    tide_forecast = []
+    tide_forecast_multi: dict[str, list[dict]] = {}
     warnings_result = []
     township_forecasts = {}
 
@@ -1235,7 +1263,7 @@ def fetch_all(api_key: str) -> dict:
     def _f_marine():
         return _fetch_marine_stations(api_key, station_ids=marine_filter)
     def _f_tide_fc():
-        return fetch_tide_forecast(api_key)
+        return fetch_tide_forecasts_multi(api_key)
     def _f_warnings():
         return fetch_warnings(api_key)
     def _f_townships():
@@ -1250,7 +1278,7 @@ def fetch_all(api_key: str) -> dict:
 
         station = fut_station.result()
         marine_stations = fut_marine.result() or []
-        tide_forecast = fut_tide_fc.result() or []
+        tide_forecast_multi = fut_tide_fc.result() or {}
         warnings_result = fut_warnings.result() or []
         township_forecasts = fut_townships.result() or {}
 
@@ -1298,7 +1326,9 @@ def fetch_all(api_key: str) -> dict:
         "buoy": buoy,
         "all_buoys": all_buoys,
         "tide": tide,
-        "tide_forecast": tide_forecast,
+        "tide_forecast": next((v for k, v in tide_forecast_multi.items()
+                              if "基隆" in k), []),
+        "tide_forecast_stations": tide_forecast_multi,
         "township_forecast": township,
         "township_forecasts": township_forecasts,
         "spot_obs": spot_obs,

@@ -6,7 +6,8 @@ from unittest.mock import patch, MagicMock
 
 from cwa_fetch import (
     fetch_station_obs, fetch_buoy_obs, fetch_all, fetch_all_buoys,
-    fetch_tide_obs, fetch_tide_forecast, fetch_township_forecast,
+    fetch_tide_obs, fetch_tide_forecast, fetch_tide_forecasts_multi,
+    fetch_township_forecast,
     fetch_warnings, find_nearest_buoy,
     _parse_buoy_station, _haversine_km, _fetch_marine_stations,
     load_station_mapping, _build_spot_obs, _fetch_spot_stations,
@@ -491,12 +492,12 @@ class TestFetchTownshipForecast:
 class TestFetchAllExpanded:
     @patch('cwa_fetch.fetch_warnings')
     @patch('cwa_fetch.fetch_township_forecast')
-    @patch('cwa_fetch.fetch_tide_forecast')
+    @patch('cwa_fetch.fetch_tide_forecasts_multi')
     @patch('cwa_fetch.fetch_tide_obs')
     @patch('cwa_fetch.fetch_all_buoys')
     @patch('cwa_fetch.fetch_station_obs')
     def test_returns_all_sources(self, mock_station, mock_all_buoys, mock_tide,
-                                  mock_tide_fc, mock_township, mock_warnings):
+                                  mock_tide_fc_multi, mock_township, mock_warnings):
         mock_station.return_value = {"temp_c": 22.5, "obs_time": "2026-03-23T06:00:00+00:00"}
         mock_all_buoys.return_value = [
             {"buoy_id": "46694A", "buoy_name": "龍洞", "wave_height_m": 1.2,
@@ -505,7 +506,10 @@ class TestFetchAllExpanded:
              "obs_time": "2026-03-23T06:00:00+00:00", "lat": 24.6, "lon": 121.9},
         ]
         mock_tide.return_value = {"tide_height_m": 0.85, "obs_time": "2026-03-23T06:00:00+00:00"}
-        mock_tide_fc.return_value = [{"type": "high", "height_m": 0.95}]
+        mock_tide_fc_multi.return_value = {
+            "基隆市中正區": [{"type": "high", "height_m": 0.95}],
+            "宜蘭縣頭城鎮": [{"type": "low", "height_m": 0.15}],
+        }
         mock_township.return_value = {"location": "基隆市", "elements": {"Wx": []}}
         mock_warnings.return_value = [{"type": "Gale", "severity": "warning"}]
         result = fetch_all("test-key")
@@ -514,7 +518,8 @@ class TestFetchAllExpanded:
         assert result["buoy"]["buoy_id"] == "46694A"  # primary = Keelung-area
         assert len(result["all_buoys"]) == 2
         assert result["tide"] is not None
-        assert len(result["tide_forecast"]) == 1
+        assert len(result["tide_forecast"]) == 1  # backward compat: 基隆 extracted
+        assert len(result["tide_forecast_stations"]) == 2  # both stations
         assert result["township_forecast"] is not None
         assert len(result["warnings"]) == 1
 
