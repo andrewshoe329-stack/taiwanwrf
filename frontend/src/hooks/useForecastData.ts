@@ -34,8 +34,10 @@ const initial: AllForecastData = {
 export const ForecastDataContext = createContext<AllForecastData>(initial)
 
 async function fetchJson<T>(url: string): Promise<T | null> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 30_000)
   try {
-    const res = await fetch(url)
+    const res = await fetch(url, { signal: controller.signal })
     if (!res.ok) {
       console.warn(`[useForecastData] ${url}: HTTP ${res.status}`)
       return null
@@ -44,6 +46,8 @@ async function fetchJson<T>(url: string): Promise<T | null> {
   } catch (err) {
     console.warn(`[useForecastData] ${url}:`, err)
     return null
+  } finally {
+    clearTimeout(timeout)
   }
 }
 

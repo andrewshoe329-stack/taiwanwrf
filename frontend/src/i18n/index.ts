@@ -6,7 +6,7 @@ import zh from './zh.json'
 const savedLang = localStorage.getItem('tw-forecast-lang')
 const validLangs = ['en', 'zh'] as const
 const browserLang = navigator.language?.toLowerCase().startsWith('zh') ? 'zh' : 'en'
-const initLang = savedLang && validLangs.includes(savedLang as any) ? savedLang : browserLang
+const initLang = savedLang && (validLangs as readonly string[]).includes(savedLang) ? savedLang : browserLang
 
 i18n.use(initReactI18next).init({
   resources: { en: { translation: en }, zh: { translation: zh } },

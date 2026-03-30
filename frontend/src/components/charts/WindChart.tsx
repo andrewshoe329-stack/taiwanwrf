@@ -2,6 +2,7 @@ import {
   ResponsiveContainer, LineChart, Line, Area, XAxis, YAxis,
   CartesianGrid, Tooltip, ReferenceLine,
 } from 'recharts'
+import type { TooltipContentProps } from 'recharts'
 import type { ForecastRecord } from '@/lib/types'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import {
@@ -26,15 +27,15 @@ interface ChartRow {
   ecmwf_wind?: number
 }
 
-function CustomTooltip(props: any) {
-  if (!props.active || !props.payload?.length) return null
+function CustomTooltip({ active, payload }: TooltipContentProps) {
+  if (!active || !payload?.length) return null
   return (
     <div style={{
       background: '#0a0a0a', border: '1px solid #1a1a1a',
       borderRadius: 8, padding: '8px 12px', fontSize: 12,
     }}>
-      <p style={{ color: '#666666', marginBottom: 4 }}>{props.payload[0]?.payload?.timeLabel}</p>
-      {props.payload.map((p: any, i: number) => (
+      <p style={{ color: '#666666', marginBottom: 4 }}>{(payload[0]?.payload as ChartRow)?.timeLabel}</p>
+      {payload.map((p, i) => (
         <p key={i} style={{ color: p.color, margin: 0 }}>
           {p.name}: {typeof p.value === 'number' ? p.value.toFixed(1) : '--'} kt
         </p>

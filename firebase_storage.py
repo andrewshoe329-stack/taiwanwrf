@@ -151,7 +151,7 @@ def upload_accuracy_log(entries: list) -> None:
     trimmed = entries[-90:] if len(entries) > 90 else entries
     doc_data = {'entries': trimmed}
     doc_size = len(json.dumps(doc_data).encode('utf-8'))
-    if doc_size > 900_000:
+    if doc_size > 900_000:  # 100KB safety margin below Firestore 1MB doc limit
         # Further trim until under limit
         while doc_size > 900_000 and len(trimmed) > 10:
             trimmed = trimmed[-len(trimmed)//2:]

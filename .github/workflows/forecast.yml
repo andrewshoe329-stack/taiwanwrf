@@ -51,6 +51,7 @@ jobs:
         run: |
           if [ -n "$SA_KEY" ]; then
             echo "$SA_KEY" > /tmp/firebase-sa-key.json
+            chmod 600 /tmp/firebase-sa-key.json
             echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/firebase-sa-key.json" >> "$GITHUB_ENV"
             echo "FIREBASE_PROJECT=$FIREBASE_PROJECT" >> "$GITHUB_ENV"
             echo "FIREBASE_STORAGE_BUCKET=$FIREBASE_STORAGE_BUCKET" >> "$GITHUB_ENV"
