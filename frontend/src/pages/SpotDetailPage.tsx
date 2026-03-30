@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { SPOTS } from '@/lib/constants'
 import { useForecastData } from '@/hooks/useForecastData'
+import { useModel } from '@/hooks/useModel'
 import { SwellCompass } from '@/components/spots/SwellCompass'
 import { ScoreBreakdown } from '@/components/spots/ScoreBreakdown'
 import { SpotForecastTable } from '@/components/shared/ForecastTable'
@@ -12,12 +13,15 @@ import {
   degToCompass, isCurrentTimestep,
   ratingColorClass, windColorClass, waveColorClass,
   windType, windTypeColorClass,
+  getModelRecords,
   type WindType,
 } from '@/lib/forecast-utils'
 import type { TimeRange } from '@/components/charts/chart-utils'
 
 const WaveChart = lazy(() => import('@/components/charts/WaveChart').then(m => ({ default: m.WaveChart })))
 const WindChart = lazy(() => import('@/components/charts/WindChart').then(m => ({ default: m.WindChart })))
+const TempChart = lazy(() => import('@/components/charts/TempPressureChart').then(m => ({ default: m.TempChart })))
+const PrecipChart = lazy(() => import('@/components/charts/PrecipChart').then(m => ({ default: m.PrecipChart })))
 
 export function SpotDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -25,6 +29,7 @@ export function SpotDetailPage() {
   const { t, i18n } = useTranslation()
   const lang = i18n.language as 'en' | 'zh'
   const data = useForecastData()
+  const { model } = useModel()
   const spotIndex = SPOTS.findIndex(s => s.id === id)
   const spot = spotIndex >= 0 ? SPOTS[spotIndex] : undefined
 
@@ -100,6 +105,17 @@ export function SpotDetailPage() {
       }))
   }, [spotForecast?.ratings])
 
+  // Model-aware weather records (for temp/precip charts)
+  const modelRecords = useMemo(() => {
+    if (!id) return []
+    return getModelRecords(id, model, data)
+  }, [id, model, data])
+
+  const modelTimeRange: TimeRange | undefined = useMemo(() => {
+    if (!modelRecords?.length) return undefined
+    return { startUtc: modelRecords[0].valid_utc, endUtc: modelRecords[modelRecords.length - 1].valid_utc }
+  }, [modelRecords])
+
   return (
     <div className="px-4 pt-4 pb-24 max-w-screen-xl mx-auto">
       {/* Prev/Next spot nav + back */}
@@ -133,7 +149,15 @@ export function SpotDetailPage() {
               {spot.name[lang === 'en' ? 'zh' : 'en']}
             </p>
           </div>
-          <DataFreshness />
+          <div className="flex items-center gap-2">
+            <Link
+              to={`/?loc=${id}`}
+              className="text-[10px] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] no-underline border border-[var(--color-border)] rounded-md px-2 py-1"
+            >
+              {t('spots.view_on_map')}
+            </Link>
+            <DataFreshness />
+          </div>
         </div>
         {/* Compact info pills */}
         <div className="flex flex-wrap items-center gap-2 mt-2">
@@ -229,6 +253,18 @@ export function SpotDetailPage() {
                 <div>
                   <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-dim)] mb-1">{t('spots.swell')}</p>
                   <WaveChart records={waveChartRecords} timeRange={timeRange} />
+                </div>
+              )}
+              {modelRecords.length > 0 && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-dim)] mb-1">{t('common.temp')}</p>
+                  <TempChart records={modelRecords} timeRange={modelTimeRange} />
+                </div>
+              )}
+              {modelRecords.length > 0 && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-dim)] mb-1">{t('common.precip')}</p>
+                  <PrecipChart records={modelRecords} timeRange={modelTimeRange} />
                 </div>
               )}
             </div>
