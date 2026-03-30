@@ -30,6 +30,9 @@ const MODEL_LABELS: Record<WindModel, string> = {
 const MIN_LON_SPAN = 0.8   // max zoom in — prevents Mercator distortion and blocky grid cells
 const MAX_LON_SPAN = TAIWAN_BBOX.lon_max - TAIWAN_BBOX.lon_min  // max zoom out = initial view
 
+// RainViewer max zoom levels (higher causes "zoom not supported" errors)
+const RAINVIEWER_MAX_ZOOM: Record<string, number> = { radar: 6, satellite: 4 }
+
 // Pin label colors: muted by default, brighter when selected
 const PIN_COLOR_DEFAULT = '#9ca3af'
 const PIN_COLOR_SELECTED = '#f5f5f5'
@@ -509,7 +512,7 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
 
         // Load tiles for current viewport
         const b = boundsRef.current
-        const zoom = zoomForSpan(b.east - b.west)
+        const zoom = zoomForSpan(b.east - b.west, RAINVIEWER_MAX_ZOOM[layer] ?? 6)
         const tiles = tilesInView(b.west, b.south, b.east, b.north, zoom)
         const cache = tileCacheRef.current
         const imageMap = new Map<string, HTMLImageElement>()
@@ -524,7 +527,7 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
           } catch { /* skip failed tiles */ }
         }))
 
-        particlesRef.current?.setTileOverlay(layer, imageMap)
+        particlesRef.current?.setTileOverlay(layer, imageMap, zoom)
       } catch (err) {
         console.warn('[ForecastMap] RainViewer fetch failed:', err)
       }
@@ -549,7 +552,8 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
     let cancelled = false
     const timer = setTimeout(async () => {
       const b = boundsRef.current
-      const zoom = zoomForSpan(b.east - b.west)
+      const maxZ = RAINVIEWER_MAX_ZOOM[layer] ?? 6
+      const zoom = zoomForSpan(b.east - b.west, maxZ)
       const tiles = tilesInView(b.west, b.south, b.east, b.north, zoom)
       const cache = tileCacheRef.current
       const frame = tileFrame
@@ -565,7 +569,7 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
         } catch { /* skip */ }
       }))
       if (!cancelled) {
-        particlesRef.current?.setTileOverlay(layer, imageMap)
+        particlesRef.current?.setTileOverlay(layer, imageMap, zoom)
       }
     }, 150) // debounce 150ms after zoom/pan settles
 

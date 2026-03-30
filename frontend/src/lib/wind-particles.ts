@@ -7,7 +7,7 @@
  */
 
 import type { WindGrid, WaveGrid } from './types'
-import { tileBounds, tilesInView, zoomForSpan } from './tile-loader'
+import { tileBounds, tilesInView } from './tile-loader'
 
 interface Particle {
   x: number
@@ -46,6 +46,7 @@ export class WindParticleSystem {
   private waveTimestepIndex = 0
   private tileOverlayMode: 'radar' | 'satellite' | null = null
   private tileImages = new Map<string, HTMLImageElement>()
+  private tileOverlayZoom = 0
   private tileOverlayAlpha = 0.7
   private animId: number | null = null
   private running = false
@@ -116,9 +117,10 @@ export class WindParticleSystem {
   }
 
   /** Set tile overlay mode (radar/satellite) and tile images */
-  setTileOverlay(mode: 'radar' | 'satellite' | null, images: Map<string, HTMLImageElement>) {
+  setTileOverlay(mode: 'radar' | 'satellite' | null, images: Map<string, HTMLImageElement>, zoom = 0) {
     this.tileOverlayMode = mode
     this.tileImages = images
+    this.tileOverlayZoom = zoom
   }
 
   /** Update the map viewport bounds (call on map move/zoom) */
@@ -322,11 +324,10 @@ export class WindParticleSystem {
 
   /** Draw tile overlay (radar or satellite) on the canvas */
   private drawTileOverlay(ctx: CanvasRenderingContext2D, w: number, h: number) {
-    if (!this.tileImages.size) return
+    if (!this.tileImages.size || !this.tileOverlayZoom) return
 
     const { west, east, south, north } = this.bounds
-    const lonSpan = east - west
-    const zoom = zoomForSpan(lonSpan)
+    const zoom = this.tileOverlayZoom
     const tiles = tilesInView(west, south, east, north, zoom)
 
     ctx.save()
