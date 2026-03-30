@@ -458,6 +458,7 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
       window.removeEventListener('resize', syncSize)
       ps.stop()
       ps.clear()
+      container.removeChild(canvas)
       particlesRef.current = null
       canvasRef.current = null
     }

@@ -467,8 +467,7 @@ export class WindParticleSystem {
     this.animId = requestAnimationFrame(this.loop)
   }
 
-  /** Convert lon/lat to canvas pixel coordinates */
-  /** Convert lon/lat to canvas pixel coordinates using Mercator-like projection */
+  /** Convert lon/lat to canvas pixel coordinates using Mercator projection */
   private project(lon: number, lat: number, w: number, h: number): [number, number] {
     const { west, east, south, north } = this.bounds
     // X is linear in longitude
