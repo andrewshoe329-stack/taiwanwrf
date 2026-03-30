@@ -263,9 +263,9 @@ export function NowPage() {
                   {data.accuracy[0].wave?.hs_mae_m != null && ` · ±${data.accuracy[0].wave.hs_mae_m.toFixed(1)}m wave`}
                 </span>
               )}
-              {data.accuracy?.[0]?.by_horizon?.['0-24h'] && (
+              {data.accuracy?.[0]?.by_horizon?.['0-24h']?.wind_mae_kt != null && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
-                  24h: ±{data.accuracy[0].by_horizon['0-24h'].wind_mae_kt?.toFixed(1) ?? '?'}kt
+                  24h: ±{data.accuracy[0].by_horizon['0-24h'].wind_mae_kt.toFixed(1)}kt
                 </span>
               )}
               {data.ensemble?.spread?.precip_spread_mm != null && data.ensemble.spread.precip_spread_mm > 1 && (
@@ -353,9 +353,9 @@ export function NowPage() {
                   {data.accuracy[0].wave?.hs_mae_m != null && ` · ±${data.accuracy[0].wave.hs_mae_m.toFixed(1)}m wave`}
                 </span>
               )}
-              {data.accuracy?.[0]?.by_horizon?.['0-24h'] && (
+              {data.accuracy?.[0]?.by_horizon?.['0-24h']?.wind_mae_kt != null && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
-                  24h: ±{data.accuracy[0].by_horizon['0-24h'].wind_mae_kt?.toFixed(1) ?? '?'}kt
+                  24h: ±{data.accuracy[0].by_horizon['0-24h'].wind_mae_kt.toFixed(1)}kt
                 </span>
               )}
               {data.ensemble?.spread?.precip_spread_mm != null && data.ensemble.spread.precip_spread_mm > 1 && (
