@@ -12,16 +12,16 @@
   /* Monochrome text hierarchy */
   --color-text-primary: #f5f5f5;
   --color-text-secondary: #a0a0a0;
-  --color-text-muted: #666666;
-  --color-text-dim: #333333;
+  --color-text-muted: #888888;
+  --color-text-dim: #444444;
 
   /* Single accent — white/near-white for emphasis */
   --color-accent: #ffffff;
   --color-accent-muted: #999999;
 
   /* Borders — barely visible */
-  --color-border: #1a1a1a;
-  --color-border-subtle: #111111;
+  --color-border: #222222;
+  --color-border-subtle: #181818;
   --color-border-active: #333333;
 
   /* Semantic — muted, not screaming */
@@ -165,6 +165,6 @@ body {
 
 /* Focus visible — minimal ring */
 :focus-visible {
-  outline: 1px solid var(--color-text-muted);
+  outline: 2px solid var(--color-accent-muted);
   outline-offset: 2px;
 }

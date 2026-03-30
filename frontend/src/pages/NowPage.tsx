@@ -121,7 +121,7 @@ export function NowPage() {
   return (
     <div className="min-h-screen">
       {/* Map + sticky timeline overlay */}
-      <div className="relative h-[50vh] md:h-[55vh]">
+      <div className="relative h-[40vh] md:h-[55vh]">
         <Suspense fallback={<div className="w-full h-full bg-[var(--color-bg-card)]" />}>
           <ForecastMap selectedId={locationId} onSelectLocation={setLocationId} />
         </Suspense>
@@ -265,7 +265,7 @@ export function NowPage() {
                 <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-2">
                   {t('spots.all_locations')}
                 </p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {data.surf.spots.map(sf => (
                     <LocationCard
                       key={sf.spot.id}
@@ -352,7 +352,7 @@ export function NowPage() {
             {/* All Locations — collapsed */}
             {data.surf && (
               <CollapsibleSection title={t('spots.all_locations')} defaultOpen={false}>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {data.surf.spots.map(sf => (
                     <LocationCard
                       key={sf.spot.id}

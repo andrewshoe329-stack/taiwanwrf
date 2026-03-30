@@ -188,7 +188,6 @@ export function ScoreBreakdown({ rating, spot }: ScoreBreakdownProps) {
 }
 
 function FactorBar({ name, score, max, label }: { name: string; score: number; max: number; label: string }) {
-  // Determine bar fill and color
   const isNegative = score < 0
   const absScore = Math.abs(score)
   const fillPct = max > 0 ? (absScore / max) * 100 : 0
@@ -203,6 +202,8 @@ function FactorBar({ name, score, max, label }: { name: string; score: number; m
   }
 
   const scoreDisplay = isNegative ? `${score}` : `+${score}`
+  // Center point for bidirectional bar (negative extends left, positive extends right)
+  const centerPct = isNegative ? 50 : 0
 
   return (
     <div>
@@ -218,11 +219,15 @@ function FactorBar({ name, score, max, label }: { name: string; score: number; m
           </span>
         </div>
       </div>
-      <div className="h-1 rounded-full bg-[var(--color-bg-elevated)] overflow-hidden">
+      <div className="relative h-1 rounded-full bg-[var(--color-bg-elevated)] overflow-hidden">
+        {isNegative && (
+          <div className="absolute top-0 h-full w-[1px] bg-[var(--color-text-dim)]" style={{ left: '50%' }} />
+        )}
         <div
-          className="h-full rounded-full transition-all duration-300"
+          className="absolute top-0 h-full rounded-full transition-all duration-300"
           style={{
-            width: `${fillPct}%`,
+            left: isNegative ? `${centerPct - fillPct / 2}%` : '0%',
+            width: `${isNegative ? fillPct / 2 : fillPct}%`,
             backgroundColor: barColor,
           }}
         />

@@ -29,6 +29,7 @@ export function SpotForecastTable({ ratings, facing, lang = 'en' }: SpotTablePro
   return (
     <div className="overflow-x-auto" style={{ scrollbarWidth: 'thin' }}>
       <table className="w-full border-collapse text-xs" style={{ minWidth: 480 }}>
+        <caption className="sr-only">{t('spots.title')} — hourly forecast</caption>
         <thead>
           <tr className="border-b border-[var(--color-border)]">
             <th className="text-left py-2 pr-2 text-[var(--color-text-muted)] font-normal">{t('spots.time')}</th>
@@ -138,6 +139,7 @@ export function HarbourForecastTable({ records, waveRecords, lang = 'en' }: Harb
   return (
     <div className="overflow-x-auto" style={{ scrollbarWidth: 'thin' }}>
       <table className="w-full border-collapse text-xs" style={{ minWidth: 520 }}>
+        <caption className="sr-only">{t('harbours_page.title')} — hourly forecast</caption>
         <thead>
           <tr className="border-b border-[var(--color-border)]">
             <th className="text-left py-2 pr-2 text-[var(--color-text-muted)] font-normal">{t('harbours_page.time')}</th>

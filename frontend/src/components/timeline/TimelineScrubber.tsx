@@ -126,7 +126,7 @@ export function TimelineScrubber() {
         {/* Slider track */}
         <div
           ref={trackRef}
-          className="relative h-6 flex items-center cursor-pointer touch-none"
+          className="relative h-8 flex items-center cursor-pointer touch-none"
           onPointerDown={handlePointerDown}
         >
           {/* Background rail */}
@@ -149,7 +149,7 @@ export function TimelineScrubber() {
 
           {/* Thumb */}
           <div
-            className="absolute w-3 h-3 rounded-full bg-[var(--color-text-primary)] border-2 border-[var(--color-bg)] shadow-sm transition-[left] duration-75"
+            className="absolute w-5 h-5 rounded-full bg-[var(--color-text-primary)] border-2 border-[var(--color-bg)] shadow-sm transition-[left] duration-75"
             style={{ left: `${progress * 100}%`, transform: 'translateX(-50%)' }}
           />
         </div>

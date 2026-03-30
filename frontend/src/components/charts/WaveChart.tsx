@@ -84,9 +84,10 @@ export function WaveChart({ records, timeRange }: WaveChartProps) {
           dataKey="swell"
           name="Swell"
           fill="var(--color-text-primary)"
-          fillOpacity={0.1}
+          fillOpacity={0.06}
           stroke="var(--color-text-primary)"
-          strokeWidth={1}
+          strokeWidth={0.75}
+          strokeOpacity={0.5}
           type="monotone"
           isAnimationActive={false}
         />
@@ -94,9 +95,10 @@ export function WaveChart({ records, timeRange }: WaveChartProps) {
           dataKey="wind_sea"
           name="Wind Sea"
           fill="#888888"
-          fillOpacity={0.15}
+          fillOpacity={0.08}
           stroke="#888888"
-          strokeWidth={1}
+          strokeWidth={0.75}
+          strokeOpacity={0.5}
           type="monotone"
           isAnimationActive={false}
         />
@@ -104,7 +106,7 @@ export function WaveChart({ records, timeRange }: WaveChartProps) {
           dataKey="total"
           name="Total"
           stroke="var(--color-text-primary)"
-          strokeWidth={1.5}
+          strokeWidth={2.5}
           dot={false}
           type="monotone"
           isAnimationActive={false}
