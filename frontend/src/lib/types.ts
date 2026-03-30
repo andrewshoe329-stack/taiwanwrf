@@ -174,6 +174,17 @@ export interface WaveGrid {
   }>
 }
 
+export interface CurrentGrid {
+  model: string
+  bounds: { lat_min: number; lat_max: number; lon_min: number; lon_max: number }
+  grid: { nx: number; ny: number }
+  timesteps: Array<{
+    valid_utc: string
+    velocity: (number | null)[][]
+    direction: (number | null)[][]
+  }>
+}
+
 // ── Surf spot types ──────────────────────────────────────────────────────────
 
 export type Region = 'north' | 'northeast'
@@ -190,6 +201,7 @@ export interface SpotInfo {
   region: Region
   opt_wind: string[]
   opt_swell: string[]
+  webcams?: Array<{ label: string; url: string }>
 }
 
 export interface SpotRating {
@@ -248,4 +260,5 @@ export interface HarbourInfo {
   name: { en: string; zh: string }
   lat: number
   lon: number
+  webcams?: Array<{ label: string; url: string }>
 }

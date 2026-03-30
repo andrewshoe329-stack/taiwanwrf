@@ -1,16 +1,17 @@
 import { useRef, useEffect, useCallback, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { TAIWAN_BBOX, SPOTS, HARBOURS, DATA_FILES } from '@/lib/constants'
 import { WindParticleSystem } from '@/lib/wind-particles'
 import { interpolateWindGrid } from '@/lib/interpolate'
 import { useTimeline } from '@/hooks/useTimeline'
 import { useModel, type WindModel } from '@/hooks/useModel'
 import { useForecastData } from '@/hooks/useForecastData'
-import type { SpotRating, WaveGrid } from '@/lib/types'
+import type { SpotRating, WaveGrid, CurrentGrid } from '@/lib/types'
 import { TileCache, tilesInView, zoomForSpan } from '@/lib/tile-loader'
 import { fetchRainViewerMaps, latestRadarPath, latestSatellitePath, tileUrl, satelliteTileUrl } from '@/lib/rainviewer'
 import type { RainViewerFrame } from '@/lib/rainviewer'
 
-type MapLayer = 'wind' | 'waves' | 'radar' | 'satellite'
+type MapLayer = 'wind' | 'waves' | 'currents' | 'radar' | 'satellite'
 
 /** Mercator forward: lat (degrees) → Mercator y */
 const mercY = (lat: number) =>
@@ -70,6 +71,7 @@ interface ForecastMapProps {
  * Renders: ocean background, land fill + coastline, wind particles, spot labels.
  */
 export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) {
+  const { t, i18n } = useTranslation()
   const containerRef = useRef<HTMLDivElement>(null)
   const particlesRef = useRef<WindParticleSystem | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -95,14 +97,22 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
   const tileCacheRef = useRef(new TileCache(128))
   const [tileFrame, setTileFrame] = useState<RainViewerFrame | null>(null)
   const [tileTimestamp, setTileTimestamp] = useState<string>('')
+  const [tileStale, setTileStale] = useState(false)
+  const [tileError, setTileError] = useState(false)
   const rainviewerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [boundsVersion, setBoundsVersion] = useState(0)
 
-  // Load wave grid data once
+  const currentGridRef = useRef<CurrentGrid | null>(null)
+
+  // Load wave + current grid data once
   useEffect(() => {
     fetch(DATA_FILES.wave_grid)
       .then(r => r.ok ? r.json() : null)
       .then(d => { waveGridRef.current = d })
+      .catch(() => {})
+    fetch(DATA_FILES.current_grid)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { currentGridRef.current = d })
       .catch(() => {})
   }, [])
 
@@ -142,6 +152,10 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
   useEffect(() => {
     particlesRef.current?.setSelectedId(selectedId ?? null)
   }, [selectedId])
+
+  useEffect(() => {
+    particlesRef.current?.setLang(i18n.language.startsWith('zh') ? 'zh' : 'en')
+  }, [i18n.language])
 
   /** Hit-test labels at canvas position, return label if within radius */
   const hitTestLabel = useCallback((canvasX: number, canvasY: number): MapLabel | null => {
@@ -263,8 +277,8 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
       const rect = canvas.getBoundingClientRect()
       const mx = e.clientX - rect.left
       const my = e.clientY - rect.top
-      const w = canvas.width
-      const h = canvas.height
+      const w = rect.width   // CSS pixels, not physical
+      const h = rect.height
 
       const { west, east, south, north } = boundsRef.current
       // Mouse position in geo coords (Mercator-aware for latitude)
@@ -308,10 +322,12 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
         const dx = e.clientX - dragRef.current.startX
         const dy = e.clientY - dragRef.current.startY
         const { west, east, south, north } = dragRef.current.startBounds
-        const lonPerPx = (east - west) / canvas.width
+        const cssW = canvas.getBoundingClientRect().width
+        const cssH = canvas.getBoundingClientRect().height
+        const lonPerPx = (east - west) / cssW
         const southMerc = mercY(south)
         const northMerc = mercY(north)
-        const mercPerPx = (northMerc - southMerc) / canvas.height
+        const mercPerPx = (northMerc - southMerc) / cssH
 
         const newSouthMerc = southMerc + dy * mercPerPx
         const newNorthMerc = northMerc + dy * mercPerPx
@@ -379,10 +395,12 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
         const dx = e.touches[0].clientX - dragRef.current.startX
         const dy = e.touches[0].clientY - dragRef.current.startY
         const { west, east, south, north } = dragRef.current.startBounds
-        const lonPerPx = (east - west) / canvas.width
+        const cssW = canvas.getBoundingClientRect().width
+        const cssH = canvas.getBoundingClientRect().height
+        const lonPerPx = (east - west) / cssW
         const southMerc = mercY(south)
         const northMerc = mercY(north)
-        const mercPerPx = (northMerc - southMerc) / canvas.height
+        const mercPerPx = (northMerc - southMerc) / cssH
 
         const newSouthMerc = southMerc + dy * mercPerPx
         const newNorthMerc = northMerc + dy * mercPerPx
@@ -452,6 +470,7 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
       window.removeEventListener('resize', syncSize)
       ps.stop()
       ps.clear()
+      container.removeChild(canvas)
       particlesRef.current = null
       canvasRef.current = null
     }
@@ -483,6 +502,20 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
     }
   }, [layer, index, data.keelung])
 
+  // Update current mode + current grid on layer/timestep change
+  useEffect(() => {
+    const ps = particlesRef.current
+    if (!ps) return
+    ps.setCurrentMode(layer === 'currents')
+    if (layer === 'currents' && currentGridRef.current) {
+      ps.setCurrentGrid(currentGridRef.current)
+      const currentSteps = currentGridRef.current.timesteps.length
+      const windSteps = data.keelung?.records?.length ?? currentSteps
+      const currentIdx = Math.min(Math.round(index * currentSteps / Math.max(windSteps, 1)), currentSteps - 1)
+      ps.setCurrentTimestep(currentIdx)
+    }
+  }, [layer, index, data.keelung])
+
   // Fetch RainViewer metadata when radar/satellite layer is active
   useEffect(() => {
     const isLive = layer === 'radar' || layer === 'satellite'
@@ -491,6 +524,8 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
       particlesRef.current?.setTileOverlay(null, new Map())
       setTileFrame(null)
       setTileTimestamp('')
+      setTileStale(false)
+      setTileError(false)
       if (rainviewerIntervalRef.current) {
         clearInterval(rainviewerIntervalRef.current)
         rainviewerIntervalRef.current = null
@@ -504,9 +539,12 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
         const frame = layer === 'radar'
           ? latestRadarPath(maps)
           : latestSatellitePath(maps)
-        if (!frame) return
+        if (!frame) { setTileError(true); return }
 
         setTileFrame(frame)
+        setTileError(false)
+        const ageMin = (Date.now() - frame.time * 1000) / 60000
+        setTileStale(ageMin > 30)
         const d = new Date(frame.time * 1000)
         setTileTimestamp(d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
 
@@ -530,6 +568,7 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
         particlesRef.current?.setTileOverlay(layer, imageMap, zoom)
       } catch (err) {
         console.warn('[ForecastMap] RainViewer fetch failed:', err)
+        setTileError(true)
       }
     }
 
@@ -583,7 +622,7 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
 
       {/* Layer toggle */}
       <div className="absolute top-3 left-3 z-20 flex gap-0.5 rounded-md overflow-hidden border border-[var(--color-border)] backdrop-blur-sm">
-        {(['wind', 'waves', 'radar', 'satellite'] as MapLayer[]).map(l => (
+        {(['wind', 'waves', 'currents', 'radar', 'satellite'] as MapLayer[]).map(l => (
           <button
             key={l}
             onClick={() => setLayer(l)}
@@ -595,7 +634,7 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
               }
             `}
           >
-            {{ wind: 'Wind', waves: 'Waves', radar: 'Radar', satellite: 'Satellite' }[l]}
+            {t(`map.${l}`)}
           </button>
         ))}
       </div>
@@ -673,13 +712,51 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
           </div>
         </div>
       )}
-      {/* Radar/Satellite timestamp */}
-      {(layer === 'radar' || layer === 'satellite') && tileTimestamp && (
-        <div className="absolute bottom-3 left-3 z-20 backdrop-blur-sm bg-[var(--color-bg-elevated)]/80 border border-[var(--color-border)] rounded-md px-2 py-1.5">
-          <p className="text-[8px] text-[var(--color-text-muted)] uppercase tracking-wider mb-0.5">
-            {layer === 'radar' ? 'Radar' : 'IR Satellite'}
-          </p>
-          <p className="text-[10px] text-[var(--color-text-secondary)]">{tileTimestamp}</p>
+      {/* Radar status badge + legend */}
+      {layer === 'radar' && (
+        <div className={`absolute bottom-3 left-3 z-20 backdrop-blur-sm bg-[var(--color-bg-elevated)]/80 border rounded-md px-2 py-1.5 ${tileStale ? 'border-amber-500/50' : tileError ? 'border-red-500/50' : 'border-[var(--color-border)]'}`}>
+          <p className="text-[8px] text-[var(--color-text-muted)] uppercase tracking-wider mb-1">{t('map.radar')}</p>
+          {tileError ? (
+            <p className="text-[10px] text-red-400">{t('common.unavailable')}</p>
+          ) : (
+            <>
+              <div className="flex items-center gap-0.5 mb-1">
+                {[
+                  { color: '#0a0f1e', label: '' },
+                  { color: '#00c85a', label: t('map.radar_light') },
+                  { color: '#ffff00', label: '' },
+                  { color: '#ff8c00', label: t('map.radar_mod') },
+                  { color: '#ff0000', label: '' },
+                  { color: '#c800c8', label: t('map.radar_heavy') },
+                ].map((s, i) => (
+                  <div key={i} className="flex flex-col items-center">
+                    <div className="w-3 h-1.5 rounded-sm" style={{ backgroundColor: s.color }} />
+                    {s.label && <span className="text-[6px] text-[var(--color-text-dim)] mt-0.5">{s.label}</span>}
+                  </div>
+                ))}
+              </div>
+              {tileTimestamp && (
+                <p className={`text-[9px] ${tileStale ? 'text-amber-400' : 'text-[var(--color-text-dim)]'}`}>
+                  {tileTimestamp}{tileStale ? ` (${t('common.stale')})` : ''}
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      )}
+      {/* Satellite status badge */}
+      {layer === 'satellite' && (
+        <div className={`absolute bottom-3 left-3 z-20 backdrop-blur-sm bg-[var(--color-bg-elevated)]/80 border rounded-md px-2 py-1.5 ${tileStale ? 'border-amber-500/50' : tileError ? 'border-red-500/50' : 'border-[var(--color-border)]'}`}>
+          <p className="text-[8px] text-[var(--color-text-muted)] uppercase tracking-wider mb-0.5">{t('map.ir_satellite')}</p>
+          {tileError ? (
+            <p className="text-[10px] text-red-400">{t('common.unavailable')}</p>
+          ) : tileTimestamp ? (
+            <p className={`text-[9px] ${tileStale ? 'text-amber-400' : 'text-[var(--color-text-dim)]'}`}>
+              {tileTimestamp}{tileStale ? ` (${t('common.stale')})` : ''}
+            </p>
+          ) : (
+            <p className="text-[10px] text-[var(--color-text-dim)]">{t('common.loading_short')}</p>
+          )}
         </div>
       )}
     </div>

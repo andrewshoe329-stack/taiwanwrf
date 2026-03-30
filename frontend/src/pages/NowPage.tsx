@@ -1,6 +1,6 @@
 import { lazy, Suspense, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { SPOTS } from '@/lib/constants'
+import { SPOTS, HARBOURS } from '@/lib/constants'
 import { useForecastData } from '@/hooks/useForecastData'
 import { useTimeline } from '@/hooks/useTimeline'
 import { useModel } from '@/hooks/useModel'
@@ -11,6 +11,8 @@ import { WeatherWarnings } from '@/components/layout/WeatherWarnings'
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner'
 import { ConditionsStrip } from '@/components/ConditionsStrip'
 import { SwellCompass } from '@/components/spots/SwellCompass'
+import { SpotCompare } from '@/components/spots/SpotCompare'
+import { TideSparkline } from '@/components/charts/TideSparkline'
 import {
   degToCompass, getModelRecords, windType,
   ratingsToWaveRecords, ratingsToTidePredictions, getSpotTideExtrema,
@@ -147,8 +149,8 @@ export function NowPage() {
             </button>
           </div>
 
-          {/* Swell compass + data cells side by side */}
-          {currentRating && (
+          {/* Swell compass + data cells side by side (desktop only — on mobile, shown below timeline) */}
+          {!mobile && currentRating && (
             <div className="flex items-start gap-3">
               <div className="shrink-0">
                 <SwellCompass
@@ -184,6 +186,15 @@ export function NowPage() {
                     unit="m"
                   />
                 </div>
+                {tidePredictions.length > 0 && (
+                  <TideSparkline
+                    predictions={tidePredictions}
+                    extrema={tideExtrema}
+                    nowMs={data.keelung?.records?.[index]?.valid_utc
+                      ? new Date(data.keelung.records[index].valid_utc).getTime()
+                      : undefined}
+                  />
+                )}
               </div>
             </div>
           )}
@@ -203,6 +214,17 @@ export function NowPage() {
               }`}>
                 {w.severity_level || w.event || w.type}
               </span>
+            ))}
+            {spotInfo.webcams?.map((cam, i) => (
+              <a
+                key={i}
+                href={cam.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
+              >
+                {cam.label}
+              </a>
             ))}
           </div>
 
@@ -263,9 +285,9 @@ export function NowPage() {
                   {data.accuracy[0].wave?.hs_mae_m != null && ` · ±${data.accuracy[0].wave.hs_mae_m.toFixed(1)}m wave`}
                 </span>
               )}
-              {data.accuracy?.[0]?.by_horizon?.['0-24h'] && (
+              {data.accuracy?.[0]?.by_horizon?.['0-24h']?.wind_mae_kt != null && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
-                  24h: ±{data.accuracy[0].by_horizon['0-24h'].wind_mae_kt?.toFixed(1) ?? '?'}kt
+                  24h: ±{data.accuracy[0].by_horizon['0-24h'].wind_mae_kt.toFixed(1)}kt
                 </span>
               )}
               {data.ensemble?.spread?.precip_spread_mm != null && data.ensemble.spread.precip_spread_mm > 1 && (
@@ -295,6 +317,23 @@ export function NowPage() {
               </svg>
             </button>
           </div>
+
+          {/* Webcam links for Keelung */}
+          {HARBOURS[0]?.webcams && (
+            <div className="flex flex-wrap gap-1.5">
+              {HARBOURS[0].webcams.map((cam, i) => (
+                <a
+                  key={i}
+                  href={cam.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
+                >
+                  {cam.label}
+                </a>
+              ))}
+            </div>
+          )}
 
           {/* Live observations for Keelung */}
           {(() => {
@@ -353,9 +392,9 @@ export function NowPage() {
                   {data.accuracy[0].wave?.hs_mae_m != null && ` · ±${data.accuracy[0].wave.hs_mae_m.toFixed(1)}m wave`}
                 </span>
               )}
-              {data.accuracy?.[0]?.by_horizon?.['0-24h'] && (
+              {data.accuracy?.[0]?.by_horizon?.['0-24h']?.wind_mae_kt != null && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
-                  24h: ±{data.accuracy[0].by_horizon['0-24h'].wind_mae_kt?.toFixed(1) ?? '?'}kt
+                  24h: ±{data.accuracy[0].by_horizon['0-24h'].wind_mae_kt.toFixed(1)}kt
                 </span>
               )}
               {data.ensemble?.spread?.precip_spread_mm != null && data.ensemble.spread.precip_spread_mm > 1 && (
@@ -365,6 +404,17 @@ export function NowPage() {
               )}
             </div>
           )}
+        </section>
+      )}
+
+      {/* Spot comparison (browse mode — no spot selected) */}
+      {!isSpotSelected && locationId !== 'keelung' && data.surf?.spots && (
+        <section className="md:px-3 py-2">
+          <SpotCompare
+            spots={data.surf.spots}
+            targetUtc={data.keelung?.records?.[index]?.valid_utc}
+            onSelectSpot={setLocationId}
+          />
         </section>
       )}
 
@@ -406,6 +456,56 @@ export function NowPage() {
         <div className="sticky top-0 z-10 bg-[var(--color-bg)] border-b border-[var(--color-border)] -mx-4 px-4 md:-mx-6 md:px-6">
           <TimelineScrubber records={chartRecords} />
           <ConditionsStrip />
+        </div>
+      )}
+
+      {/* Swell compass + data cells (mobile only — placed below timeline for clear connection) */}
+      {!compact && mobile && isSpotSelected && spotInfo && currentRating && (
+        <div className="flex items-start gap-3 px-1">
+          <div className="shrink-0">
+            <SwellCompass
+              facing={spotInfo.facing}
+              optSwell={spotInfo.opt_swell}
+              swellDir={currentRating.swell_dir}
+              swellHeight={currentRating.swell_height}
+              size={120}
+            />
+          </div>
+          <div className="flex-1 min-w-0 space-y-2">
+            <div className="grid grid-cols-2 gap-1.5">
+              <DataCell
+                label={t('common.wind')}
+                value={`${currentRating.wind_kt?.toFixed(0) ?? '--'}`}
+                unit="kt"
+                sub={currentRating.wind_dir != null ? degToCompass(currentRating.wind_dir) : undefined}
+              />
+              <DataCell
+                label={t('common.swell')}
+                value={`${currentRating.swell_height?.toFixed(1) ?? '--'}`}
+                unit="m"
+                sub={currentRating.swell_dir != null ? degToCompass(currentRating.swell_dir) : undefined}
+              />
+              <DataCell
+                label={t('spots.period')}
+                value={`${currentRating.swell_period?.toFixed(0) ?? '--'}`}
+                unit="s"
+              />
+              <DataCell
+                label={t('common.tide')}
+                value={`${currentRating.tide_height?.toFixed(2) ?? '--'}`}
+                unit="m"
+              />
+            </div>
+            {tidePredictions.length > 0 && (
+              <TideSparkline
+                predictions={tidePredictions}
+                extrema={tideExtrema}
+                nowMs={data.keelung?.records?.[index]?.valid_utc
+                  ? new Date(data.keelung.records[index].valid_utc).getTime()
+                  : undefined}
+              />
+            )}
+          </div>
         </div>
       )}
 

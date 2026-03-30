@@ -212,7 +212,24 @@
     "height": "潮位",
     "no_data": "無資料",
     "spot_not_found": "找不到浪點",
-    "scroll_for_more": "左滑查看更多 →"
+    "scroll_for_more": "左滑查看更多 →",
+    "current": "海流",
+    "webcam": "即時影像",
+    "unavailable": "無法使用",
+    "loading_short": "載入中...",
+    "stale": "過時",
+    "spot_comparison": "浪點比較"
+  },
+  "map": {
+    "wind": "風場",
+    "waves": "海浪",
+    "radar": "雷達",
+    "satellite": "衛星",
+    "radar_light": "小雨",
+    "radar_mod": "中雨",
+    "radar_heavy": "大雨",
+    "ir_satellite": "紅外衛星",
+    "currents": "海流"
   },
   "units": {
     "kt": "節",

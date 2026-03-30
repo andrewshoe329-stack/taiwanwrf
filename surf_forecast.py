@@ -9,7 +9,7 @@ Usage:
     python3 surf_forecast.py [--output surf_forecast.html]
 """
 
-import argparse, json, logging, os, sys, time, urllib.request, urllib.parse
+import argparse, json, logging, math, os, sys, time, urllib.request, urllib.parse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone, timedelta
 
@@ -177,6 +177,63 @@ def deg_diff(a: float, b: float) -> float:
     return min(d, 360 - d)
 
 compass = deg_to_compass  # local alias
+
+
+def _facing_deg(facing: str) -> float:
+    """Convert a spot facing string to degrees.
+
+    Handles compound directions like 'NE/E' by averaging the components.
+    """
+    parts = [p.strip() for p in facing.split('/')]
+    angles = [DIR_DEG[p] for p in parts if p in DIR_DEG]
+    if not angles:
+        return 0.0
+    if len(angles) == 1:
+        return float(angles[0])
+    # Average angles on a circle (handle wraparound via vector sum)
+    sx = sum(math.sin(math.radians(a)) for a in angles)
+    cx = sum(math.cos(math.radians(a)) for a in angles)
+    return math.degrees(math.atan2(sx, cx)) % 360
+
+
+def _swell_dir_score(sw_dir: float | None, spot: dict) -> float:
+    """Score swell direction using cos²(swell_angle - beach_facing) weighting.
+
+    Returns a continuous score in [0, 4]:
+      - Swell hitting the beach head-on (from the facing direction): 4.0
+      - 45° offset from facing: ~2.0
+      - Parallel or from behind: 0.0
+
+    The opt_swell list provides a bonus: swells from optimal directions get
+    the full cos² score, while other directions that still face the beach
+    are scaled to 75% max.
+    """
+    if sw_dir is None:
+        return 1.0  # unknown — same as old 'unknown' bucket
+
+    facing = _facing_deg(spot.get('facing', 'N'))
+    # Exposure angle: how directly the swell hits the beach face
+    diff = math.radians(sw_dir - facing)
+    cos_val = math.cos(diff)
+
+    if cos_val <= 0:
+        # Swell from behind the beach — cannot reach the shore
+        return 0.0
+
+    cos2 = cos_val ** 2  # 1.0 head-on, 0.5 at 45°, 0 at 90°
+
+    # Check if swell is from an optimal direction
+    opt_dirs = spot.get('opt_swell', [])
+    if opt_dirs:
+        min_diff_opt = min(deg_diff(sw_dir, DIR_DEG[d]) for d in opt_dirs)
+        is_optimal = min_diff_opt <= 45.0  # within 45° of any optimal dir
+    else:
+        is_optimal = True
+
+    # Optimal directions get full cos² score; non-optimal get 75% max
+    scale = 1.0 if is_optimal else 0.75
+    return round(4.0 * cos2 * scale, 1)
+
 
 def dir_quality(actual_deg: float | None, optimal_dirs: list[str]) -> str:
     """Returns 'good', 'ok', or 'poor' based on proximity to optimal directions."""
@@ -346,6 +403,76 @@ def process_spot(ec: dict, gfs: dict, mar: dict) -> list[dict[str, object]]:
         })
     return records
 
+# ── Build records from pre-fetched JSON (avoids redundant Keelung API calls) ──
+def _build_records_from_prefetched(ecmwf_path: str | None,
+                                    wave_path: str | None) -> list[dict] | None:
+    """Convert pre-fetched ecmwf_keelung.json + wave_keelung.json into the
+    record format that process_spot() produces.  Returns None on failure."""
+    from config import load_json_file
+    ecmwf_data = load_json_file(ecmwf_path, "pre-fetched ECMWF") if ecmwf_path else None
+    wave_data  = load_json_file(wave_path,  "pre-fetched wave")  if wave_path  else None
+
+    if not ecmwf_data or not ecmwf_data.get('records'):
+        log.warning("Pre-fetched ECMWF JSON missing or empty — will fetch Keelung from API")
+        return None
+
+    # Build wave lookup by valid_utc
+    wave_by_t: dict[str, dict] = {}
+    if wave_data:
+        ew = wave_data.get('ecmwf_wave') or {}
+        for wr in ew.get('records', []):
+            wave_by_t[wr.get('valid_utc', '')] = wr
+
+    records = []
+    for er in ecmwf_data['records']:
+        vt = er.get('valid_utc', '')
+        try:
+            dt_utc = datetime.fromisoformat(vt)
+        except (ValueError, TypeError):
+            continue
+        if dt_utc.tzinfo is None:
+            dt_utc = dt_utc.replace(tzinfo=timezone.utc)
+
+        # Only keep 6-hourly timesteps (matching process_spot behaviour)
+        if dt_utc.hour % 6 != 0:
+            continue
+
+        dt_cst = dt_utc + timedelta(hours=8)
+
+        # Wave data for this timestep
+        wr = wave_by_t.get(vt, {})
+
+        records.append({
+            'dt_utc':   dt_utc,
+            'dt_cst':   dt_cst,
+            'dk':       dt_cst.strftime('%Y-%m-%d'),
+            'wind':     er.get('wind_kt'),
+            'w_dir':    er.get('wind_dir'),
+            'gust':     er.get('gust_kt'),
+            'rain6h':   er.get('precip_mm_6h', 0) or 0,
+            'temp_c':   er.get('temp_c'),
+            'mslp_hpa': er.get('mslp_hpa'),
+            'cloud_pct': er.get('cloud_pct'),
+            'cape':     er.get('cape'),
+            'hs':       wr.get('wave_height'),
+            'tp':       wr.get('wave_period'),
+            'dir':      wr.get('wave_direction'),
+            'sw_hs':    wr.get('swell_wave_height'),
+            'sw_tp':    wr.get('swell_wave_period'),
+            'sw_dir':   wr.get('swell_wave_direction'),
+            # GFS fields not available from pre-fetched data
+            'gfs_wind': None, 'gfs_dir': None, 'gfs_gust': None,
+            'gfs_temp': None, 'gfs_mslp': None, 'gfs_vis': None,
+        })
+
+    if not records:
+        log.warning("No valid records from pre-fetched JSON — will fetch Keelung from API")
+        return None
+
+    log.info("Built %d records from pre-fetched ECMWF/wave JSON", len(records))
+    return records
+
+
 # ── Sailing location (for daily planner) ───────────────────────────────────
 KEELUNG = {'lat': KEELUNG_LAT, 'lon': KEELUNG_LON, 'name': 'Keelung'}
 
@@ -368,9 +495,8 @@ def _score_timestep(r: dict, spot: dict, tide_height_m: float | None = None) -> 
 
     score = 0
 
-    # Swell direction — weighted by swell height (full credit at ≥0.6m)
-    sq = dir_quality(sw_dir, spot['opt_swell'])
-    swell_dir_base = {'good': 4, 'ok': 2, 'poor': 0, 'unknown': 1}[sq]
+    # Swell direction — cos² weighting by beach facing, scaled by swell height
+    swell_dir_base = _swell_dir_score(sw_dir, spot)
     swell_factor = min(_sw_hs / 0.6, 1.0) if _sw_hs > 0 else 0
     score += round(swell_dir_base * swell_factor)
 
@@ -1777,6 +1903,10 @@ def main() -> None:
                     help='Output directory for multi-page HTML (generates surf.html + spots/*.html)')
     ap.add_argument('--cwa-obs', default=None,
                     help='CWA obs JSON (for tide forecast anchoring + live obs display)')
+    ap.add_argument('--ecmwf-json', default=None,
+                    help='Pre-fetched ECMWF Keelung JSON (avoids redundant API call)')
+    ap.add_argument('--wave-json', default=None,
+                    help='Pre-fetched wave Keelung JSON (avoids redundant API call)')
     args = ap.parse_args()
 
     # Load CWA data: tide forecast for anchoring + spot_obs for live display
@@ -1802,6 +1932,12 @@ def main() -> None:
             _CWA_SPOT_OBS = cwa["spot_obs"]
             log.info("Loaded CWA spot obs for %d spots", len(_CWA_SPOT_OBS))
 
+    # ── Load pre-fetched Keelung data if available ──────────────────────
+    prefetched_keelung_records = None
+    if args.ecmwf_json or args.wave_json:
+        prefetched_keelung_records = _build_records_from_prefetched(
+            args.ecmwf_json, args.wave_json)
+
     # ── Fetch all spots in parallel (Keelung sailing + 7 surf spots) ─────
     def _fetch_and_process(spot_entry):
         lat, lon = spot_entry['lat'], spot_entry['lon']
@@ -1823,10 +1959,23 @@ def main() -> None:
     }
     all_entries = list(SPOTS) + [keelung_entry]
 
+    # Separate Keelung if pre-fetched data is available
+    entries_to_fetch = all_entries
+    if prefetched_keelung_records is not None:
+        entries_to_fetch = [e for e in all_entries if e.get('id') != 'keelung']
+
     all_spot_data = []
     failed_count = 0
+
+    # Add pre-fetched Keelung data directly (no API calls needed)
+    if prefetched_keelung_records is not None:
+        log.info("Using pre-fetched ECMWF/wave data for Keelung (%d records)",
+                 len(prefetched_keelung_records))
+        all_spot_data.append({'spot': keelung_entry,
+                              'records': prefetched_keelung_records})
+
     with ThreadPoolExecutor(max_workers=8) as pool:
-        futures = {pool.submit(_fetch_and_process, e): e for e in all_entries}
+        futures = {pool.submit(_fetch_and_process, e): e for e in entries_to_fetch}
         for future in as_completed(futures):
             try:
                 entry, records = future.result()
