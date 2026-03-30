@@ -80,4 +80,6 @@ export const DATA_FILES = {
   wind_grid_wrf:   `${DATA_BASE}/wind_grid_wrf.json`,
   wind_grid_ecmwf: `${DATA_BASE}/wind_grid_ecmwf.json`,
   wind_grid_gfs:   `${DATA_BASE}/wind_grid_gfs.json`,
+  // Wave grid (heatmap overlay)
+  wave_grid:       `${DATA_BASE}/wave_grid.json`,
 }

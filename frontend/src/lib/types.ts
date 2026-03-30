@@ -150,6 +150,19 @@ export interface WindGrid {
   }>
 }
 
+export interface WaveGrid {
+  model: string
+  bounds: { lat_min: number; lat_max: number; lon_min: number; lon_max: number }
+  grid: { nx: number; ny: number }
+  timesteps: Array<{
+    valid_utc: string
+    wave_height: (number | null)[][]
+    swell_height: (number | null)[][]
+    swell_direction: (number | null)[][]
+    swell_period: (number | null)[][]
+  }>
+}
+
 // ── Surf spot types ──────────────────────────────────────────────────────────
 
 export type Region = 'north' | 'northeast'
