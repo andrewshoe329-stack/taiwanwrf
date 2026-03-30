@@ -168,7 +168,7 @@ compass = deg_to_compass  # local alias
 
 def dir_quality(actual_deg: float | None, optimal_dirs: list[str]) -> str:
     """Returns 'good', 'ok', or 'poor' based on proximity to optimal directions."""
-    if actual_deg is None:
+    if actual_deg is None or not optimal_dirs:
         return 'unknown'
     min_diff = min(deg_diff(actual_deg, DIR_DEG[d]) for d in optimal_dirs)
     if min_diff <= 22.5: return 'good'
