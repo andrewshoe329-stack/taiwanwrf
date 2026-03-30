@@ -7,6 +7,7 @@
  */
 
 import type { WindGrid, WaveGrid } from './types'
+import { tileBounds, tilesInView, zoomForSpan } from './tile-loader'
 
 interface Particle {
   x: number
@@ -43,6 +44,9 @@ export class WindParticleSystem {
   private waveGrid: WaveGrid | null = null
   private waveMode = false
   private waveTimestepIndex = 0
+  private tileOverlayMode: 'radar' | 'satellite' | null = null
+  private tileImages = new Map<string, HTMLImageElement>()
+  private tileOverlayAlpha = 0.7
   private animId: number | null = null
   private running = false
   private offscreen: HTMLCanvasElement | null = null
@@ -109,6 +113,12 @@ export class WindParticleSystem {
   /** Set the timestep index for wave heatmap */
   setWaveTimestep(index: number) {
     this.waveTimestepIndex = index
+  }
+
+  /** Set tile overlay mode (radar/satellite) and tile images */
+  setTileOverlay(mode: 'radar' | 'satellite' | null, images: Map<string, HTMLImageElement>) {
+    this.tileOverlayMode = mode
+    this.tileImages = images
   }
 
   /** Update the map viewport bounds (call on map move/zoom) */
@@ -310,6 +320,33 @@ export class WindParticleSystem {
     }
   }
 
+  /** Draw tile overlay (radar or satellite) on the canvas */
+  private drawTileOverlay(ctx: CanvasRenderingContext2D, w: number, h: number) {
+    if (!this.tileImages.size) return
+
+    const { west, east, south, north } = this.bounds
+    const lonSpan = east - west
+    const zoom = zoomForSpan(lonSpan)
+    const tiles = tilesInView(west, south, east, north, zoom)
+
+    ctx.save()
+    ctx.globalAlpha = this.tileOverlayAlpha
+
+    for (const tile of tiles) {
+      const key = `${zoom}/${tile.x}/${tile.y}`
+      const img = this.tileImages.get(key)
+      if (!img) continue
+
+      const tb = tileBounds(tile.x, tile.y, zoom)
+      const [x1, y1] = this.project(tb.west, tb.north, w, h)
+      const [x2, y2] = this.project(tb.east, tb.south, w, h)
+
+      ctx.drawImage(img, x1, y1, x2 - x1, y2 - y1)
+    }
+
+    ctx.restore()
+  }
+
   /** Wave height → color (blue calm → red big) */
   private waveColor(hs: number): string {
     if (hs < 0.3) return '#1e3a5f'  // very calm — dark blue
@@ -327,6 +364,16 @@ export class WindParticleSystem {
     const ctx = this.ctx
     const w = this.canvas.width
     const h = this.canvas.height
+
+    // Tile overlay mode (radar/satellite): static render
+    if (this.tileOverlayMode) {
+      ctx.clearRect(0, 0, w, h)
+      this.drawTileOverlay(ctx, w, h)
+      this.fillLandMask(ctx, w, h)
+      this.drawCoastline(ctx, w, h)
+      this.animId = requestAnimationFrame(this.loop)
+      return
+    }
 
     // Wave heatmap mode: static render (no particle animation)
     if (this.waveMode) {

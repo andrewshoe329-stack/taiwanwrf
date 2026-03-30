@@ -6,8 +6,19 @@ import { useTimeline } from '@/hooks/useTimeline'
 import { useModel, type WindModel } from '@/hooks/useModel'
 import { useForecastData } from '@/hooks/useForecastData'
 import type { SpotRating, WaveGrid } from '@/lib/types'
+import { TileCache, tilesInView, zoomForSpan } from '@/lib/tile-loader'
+import { fetchRainViewerMaps, latestRadarPath, latestSatellitePath, tileUrl, satelliteTileUrl } from '@/lib/rainviewer'
+import type { RainViewerFrame } from '@/lib/rainviewer'
 
-type MapLayer = 'wind' | 'waves'
+type MapLayer = 'wind' | 'waves' | 'radar' | 'satellite'
+
+/** Mercator forward: lat (degrees) → Mercator y */
+const mercY = (lat: number) =>
+  Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI / 180) / 2))
+
+/** Mercator inverse: Mercator y → lat (degrees) */
+const invMercY = (y: number) =>
+  (2 * Math.atan(Math.exp(y)) - Math.PI / 2) * 180 / Math.PI
 
 const MODEL_LABELS: Record<WindModel, string> = {
   wrf: 'WRF 3km',
@@ -78,6 +89,11 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
   const data = useForecastData()
   const [layer, setLayer] = useState<MapLayer>('wind')
   const waveGridRef = useRef<WaveGrid | null>(null)
+  const tileCacheRef = useRef(new TileCache(128))
+  const [tileFrame, setTileFrame] = useState<RainViewerFrame | null>(null)
+  const [tileTimestamp, setTileTimestamp] = useState<string>('')
+  const rainviewerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [boundsVersion, setBoundsVersion] = useState(0)
 
   // Load wave grid data once
   useEffect(() => {
@@ -146,17 +162,18 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
   const updateBounds = useCallback((west: number, south: number, east: number, north: number) => {
     // Clamp zoom span
     let lonSpan = east - west
-    let latSpan = north - south
-    const aspect = latSpan / lonSpan
+    const mercSpan = mercY(north) - mercY(south)
+    const aspect = mercSpan / lonSpan  // Mercator aspect ratio
 
     if (lonSpan < MIN_LON_SPAN) {
-      const center = (west + east) / 2
+      const centerLon = (west + east) / 2
+      const centerMerc = (mercY(south) + mercY(north)) / 2
       lonSpan = MIN_LON_SPAN
-      latSpan = lonSpan * aspect
-      west = center - lonSpan / 2
-      east = center + lonSpan / 2
-      south = (south + north) / 2 - latSpan / 2
-      north = (south + north) / 2 + latSpan / 2
+      const mercHalf = (lonSpan * aspect) / 2
+      west = centerLon - lonSpan / 2
+      east = centerLon + lonSpan / 2
+      south = invMercY(centerMerc - mercHalf)
+      north = invMercY(centerMerc + mercHalf)
     }
     if (lonSpan > MAX_LON_SPAN) {
       // At max zoom out, snap to initial TAIWAN_BBOX
@@ -170,7 +187,7 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
     const bboxLon = TAIWAN_BBOX.lon_max - TAIWAN_BBOX.lon_min
     const bboxLat = TAIWAN_BBOX.lat_max - TAIWAN_BBOX.lat_min
     lonSpan = east - west
-    latSpan = north - south
+    const latSpan = north - south
     if (lonSpan <= bboxLon) {
       if (west < TAIWAN_BBOX.lon_min) { west = TAIWAN_BBOX.lon_min; east = west + lonSpan }
       if (east > TAIWAN_BBOX.lon_max) { east = TAIWAN_BBOX.lon_max; west = east - lonSpan }
@@ -182,6 +199,7 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
 
     boundsRef.current = { west, south, east, north }
     particlesRef.current?.setBounds(west, south, east, north)
+    setBoundsVersion(v => v + 1)
   }, [])
 
   useEffect(() => {
@@ -246,18 +264,27 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
       const h = canvas.height
 
       const { west, east, south, north } = boundsRef.current
-      // Mouse position in geo coords
+      // Mouse position in geo coords (Mercator-aware for latitude)
       const lon = west + (mx / w) * (east - west)
-      const lat = north - (my / h) * (north - south)
+      const yMin = mercY(south)
+      const yMax = mercY(north)
+      const mouseMerc = yMax - (my / h) * (yMax - yMin)
+      const lat = invMercY(mouseMerc)
 
       // Zoom factor
       const factor = e.deltaY > 0 ? 1.15 : 1 / 1.15
 
-      // Scale bounds around mouse position
+      // Scale lon linearly around mouse position
       const newWest = lon - (lon - west) * factor
       const newEast = lon + (east - lon) * factor
-      const newSouth = lat - (lat - south) * factor
-      const newNorth = lat + (north - lat) * factor
+
+      // Scale lat in Mercator space around mouse position
+      const southMerc = mercY(south)
+      const northMerc = mercY(north)
+      const newSouthMerc = mouseMerc - (mouseMerc - southMerc) * factor
+      const newNorthMerc = mouseMerc + (northMerc - mouseMerc) * factor
+      const newSouth = invMercY(newSouthMerc)
+      const newNorth = invMercY(newNorthMerc)
 
       updateBounds(newWest, newSouth, newEast, newNorth)
     }
@@ -280,13 +307,17 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
         const dy = e.clientY - dragRef.current.startY
         const { west, east, south, north } = dragRef.current.startBounds
         const lonPerPx = (east - west) / canvas.width
-        const latPerPx = (north - south) / canvas.height
+        const southMerc = mercY(south)
+        const northMerc = mercY(north)
+        const mercPerPx = (northMerc - southMerc) / canvas.height
 
+        const newSouthMerc = southMerc + dy * mercPerPx
+        const newNorthMerc = northMerc + dy * mercPerPx
         updateBounds(
           west - dx * lonPerPx,
-          south + dy * latPerPx,
+          invMercY(newSouthMerc),
           east - dx * lonPerPx,
-          north + dy * latPerPx,
+          invMercY(newNorthMerc),
         )
         return
       }
@@ -347,25 +378,29 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
         const dy = e.touches[0].clientY - dragRef.current.startY
         const { west, east, south, north } = dragRef.current.startBounds
         const lonPerPx = (east - west) / canvas.width
-        const latPerPx = (north - south) / canvas.height
+        const southMerc = mercY(south)
+        const northMerc = mercY(north)
+        const mercPerPx = (northMerc - southMerc) / canvas.height
 
+        const newSouthMerc = southMerc + dy * mercPerPx
+        const newNorthMerc = northMerc + dy * mercPerPx
         updateBounds(
           west - dx * lonPerPx,
-          south + dy * latPerPx,
+          invMercY(newSouthMerc),
           east - dx * lonPerPx,
-          north + dy * latPerPx,
+          invMercY(newNorthMerc),
         )
       } else if (e.touches.length === 2 && pinchRef.current) {
         e.preventDefault()
         const dist = getTouchDist(e.touches)
         const scale = pinchRef.current.startDist / dist
         const { west, east, south, north } = pinchRef.current.startBounds
-        const cx = (west + east) / 2
-        const cy = (south + north) / 2
+        const cxLon = (west + east) / 2
+        const cMerc = (mercY(south) + mercY(north)) / 2
         const hw = ((east - west) / 2) * scale
-        const hh = ((north - south) / 2) * scale
+        const hhMerc = ((mercY(north) - mercY(south)) / 2) * scale
 
-        updateBounds(cx - hw, cy - hh, cx + hw, cy + hh)
+        updateBounds(cxLon - hw, invMercY(cMerc - hhMerc), cxLon + hw, invMercY(cMerc + hhMerc))
       }
     }
 
@@ -446,13 +481,106 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
     }
   }, [layer, index, data.keelung])
 
+  // Fetch RainViewer metadata when radar/satellite layer is active
+  useEffect(() => {
+    const isLive = layer === 'radar' || layer === 'satellite'
+    if (!isLive) {
+      // Clear tile overlay when switching away
+      particlesRef.current?.setTileOverlay(null, new Map())
+      setTileFrame(null)
+      setTileTimestamp('')
+      if (rainviewerIntervalRef.current) {
+        clearInterval(rainviewerIntervalRef.current)
+        rainviewerIntervalRef.current = null
+      }
+      return
+    }
+
+    const loadTiles = async () => {
+      try {
+        const maps = await fetchRainViewerMaps()
+        const frame = layer === 'radar'
+          ? latestRadarPath(maps)
+          : latestSatellitePath(maps)
+        if (!frame) return
+
+        setTileFrame(frame)
+        const d = new Date(frame.time * 1000)
+        setTileTimestamp(d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
+
+        // Load tiles for current viewport
+        const b = boundsRef.current
+        const zoom = zoomForSpan(b.east - b.west)
+        const tiles = tilesInView(b.west, b.south, b.east, b.north, zoom)
+        const cache = tileCacheRef.current
+        const imageMap = new Map<string, HTMLImageElement>()
+
+        await Promise.all(tiles.map(async (t) => {
+          const url = layer === 'radar'
+            ? tileUrl(frame, zoom, t.x, t.y)
+            : satelliteTileUrl(frame, zoom, t.x, t.y)
+          try {
+            const img = await cache.load(url)
+            imageMap.set(`${zoom}/${t.x}/${t.y}`, img)
+          } catch { /* skip failed tiles */ }
+        }))
+
+        particlesRef.current?.setTileOverlay(layer, imageMap)
+      } catch (err) {
+        console.warn('[ForecastMap] RainViewer fetch failed:', err)
+      }
+    }
+
+    loadTiles()
+    // Auto-refresh every 5 minutes
+    rainviewerIntervalRef.current = setInterval(loadTiles, 5 * 60 * 1000)
+    return () => {
+      if (rainviewerIntervalRef.current) {
+        clearInterval(rainviewerIntervalRef.current)
+        rainviewerIntervalRef.current = null
+      }
+    }
+  }, [layer])
+
+  // Reload tiles on zoom/pan when in radar/satellite mode (debounced)
+  useEffect(() => {
+    if (layer !== 'radar' && layer !== 'satellite') return
+    if (!tileFrame) return
+
+    let cancelled = false
+    const timer = setTimeout(async () => {
+      const b = boundsRef.current
+      const zoom = zoomForSpan(b.east - b.west)
+      const tiles = tilesInView(b.west, b.south, b.east, b.north, zoom)
+      const cache = tileCacheRef.current
+      const frame = tileFrame
+
+      const imageMap = new Map<string, HTMLImageElement>()
+      await Promise.all(tiles.map(async (t) => {
+        const url = layer === 'radar'
+          ? tileUrl(frame, zoom, t.x, t.y)
+          : satelliteTileUrl(frame, zoom, t.x, t.y)
+        try {
+          const img = await cache.load(url)
+          if (!cancelled) imageMap.set(`${zoom}/${t.x}/${t.y}`, img)
+        } catch { /* skip */ }
+      }))
+      if (!cancelled) {
+        particlesRef.current?.setTileOverlay(layer, imageMap)
+      }
+    }, 150) // debounce 150ms after zoom/pan settles
+
+    return () => { cancelled = true; clearTimeout(timer) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layer, tileFrame, boundsVersion])
+
   return (
     <div className="relative w-full h-full" style={{ background: '#000000' }}>
       <div ref={containerRef} className="absolute inset-0" />
 
-      {/* Layer toggle (Wind / Waves) */}
+      {/* Layer toggle */}
       <div className="absolute top-3 left-3 z-20 flex gap-0.5 rounded-md overflow-hidden border border-[var(--color-border)] backdrop-blur-sm">
-        {(['wind', 'waves'] as MapLayer[]).map(l => (
+        {(['wind', 'waves', 'radar', 'satellite'] as MapLayer[]).map(l => (
           <button
             key={l}
             onClick={() => setLayer(l)}
@@ -464,13 +592,13 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
               }
             `}
           >
-            {l === 'wind' ? 'Wind' : 'Waves'}
+            {{ wind: 'Wind', waves: 'Waves', radar: 'Radar', satellite: 'Satellite' }[l]}
           </button>
         ))}
       </div>
 
       {/* Model switcher (only visible in wind mode) */}
-      <div className={`absolute top-3 right-3 z-20 flex gap-1 ${layer !== 'wind' ? 'opacity-30 pointer-events-none' : ''}`}>
+      <div className={`absolute top-3 right-3 z-20 flex gap-1 ${layer !== 'wind' ? 'hidden' : ''}`}>
         {(['wrf', 'ecmwf', 'gfs'] as WindModel[]).map(m => (
           <button
             key={m}
@@ -494,9 +622,12 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
         <button
           onClick={() => {
             const { west, east, south, north } = boundsRef.current
-            const cx = (west + east) / 2, cy = (south + north) / 2
+            const cxLon = (west + east) / 2
+            const cMerc = (mercY(south) + mercY(north)) / 2
             const f = 1 / 1.3
-            updateBounds(cx - (cx - west) * f, cy - (cy - south) * f, cx + (east - cx) * f, cy + (north - cy) * f)
+            const hw = ((east - west) / 2) * f
+            const hhMerc = ((mercY(north) - mercY(south)) / 2) * f
+            updateBounds(cxLon - hw, invMercY(cMerc - hhMerc), cxLon + hw, invMercY(cMerc + hhMerc))
           }}
           className="w-7 h-7 flex items-center justify-center rounded-md bg-[var(--color-bg-elevated)]/80 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] backdrop-blur-sm border border-[var(--color-border)] text-sm font-bold"
         >
@@ -505,9 +636,12 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
         <button
           onClick={() => {
             const { west, east, south, north } = boundsRef.current
-            const cx = (west + east) / 2, cy = (south + north) / 2
+            const cxLon = (west + east) / 2
+            const cMerc = (mercY(south) + mercY(north)) / 2
             const f = 1.3
-            updateBounds(cx - (cx - west) * f, cy - (cy - south) * f, cx + (east - cx) * f, cy + (north - cy) * f)
+            const hw = ((east - west) / 2) * f
+            const hhMerc = ((mercY(north) - mercY(south)) / 2) * f
+            updateBounds(cxLon - hw, invMercY(cMerc - hhMerc), cxLon + hw, invMercY(cMerc + hhMerc))
           }}
           className="w-7 h-7 flex items-center justify-center rounded-md bg-[var(--color-bg-elevated)]/80 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] backdrop-blur-sm border border-[var(--color-border)] text-sm font-bold"
         >
@@ -534,6 +668,15 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
               </div>
             ))}
           </div>
+        </div>
+      )}
+      {/* Radar/Satellite timestamp */}
+      {(layer === 'radar' || layer === 'satellite') && tileTimestamp && (
+        <div className="absolute bottom-3 left-3 z-20 backdrop-blur-sm bg-[var(--color-bg-elevated)]/80 border border-[var(--color-border)] rounded-md px-2 py-1.5">
+          <p className="text-[8px] text-[var(--color-text-muted)] uppercase tracking-wider mb-0.5">
+            {layer === 'radar' ? 'Radar' : 'IR Satellite'}
+          </p>
+          <p className="text-[10px] text-[var(--color-text-secondary)]">{tileTimestamp}</p>
         </div>
       )}
     </div>
