@@ -2,6 +2,7 @@ import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis,
   CartesianGrid, Tooltip, ReferenceLine,
 } from 'recharts'
+import type { TooltipContentProps } from 'recharts'
 import type { ForecastRecord } from '@/lib/types'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import {
@@ -29,15 +30,15 @@ interface PressureRow {
   pressure?: number
 }
 
-function TempTooltip(props: any) {
-  if (!props.active || !props.payload?.length) return null
+function TempTooltip({ active, payload }: TooltipContentProps) {
+  if (!active || !payload?.length) return null
   return (
     <div style={{
       background: '#0a0a0a', border: '1px solid #1a1a1a',
       borderRadius: 8, padding: '8px 12px', fontSize: 12,
     }}>
-      <p style={{ color: '#666666', marginBottom: 4 }}>{props.payload[0]?.payload?.timeLabel}</p>
-      {props.payload.map((p: any, i: number) => (
+      <p style={{ color: '#666666', marginBottom: 4 }}>{(payload[0]?.payload as TempRow)?.timeLabel}</p>
+      {payload.map((p, i) => (
         <p key={i} style={{ color: p.color, margin: 0 }}>
           Temp: {typeof p.value === 'number' ? p.value.toFixed(1) : '--'} °C
         </p>
@@ -46,15 +47,15 @@ function TempTooltip(props: any) {
   )
 }
 
-function PressureTooltip(props: any) {
-  if (!props.active || !props.payload?.length) return null
+function PressureTooltip({ active, payload }: TooltipContentProps) {
+  if (!active || !payload?.length) return null
   return (
     <div style={{
       background: '#0a0a0a', border: '1px solid #1a1a1a',
       borderRadius: 8, padding: '8px 12px', fontSize: 12,
     }}>
-      <p style={{ color: '#666666', marginBottom: 4 }}>{props.payload[0]?.payload?.timeLabel}</p>
-      {props.payload.map((p: any, i: number) => (
+      <p style={{ color: '#666666', marginBottom: 4 }}>{(payload[0]?.payload as PressureRow)?.timeLabel}</p>
+      {payload.map((p, i) => (
         <p key={i} style={{ color: p.color, margin: 0 }}>
           Pressure: {typeof p.value === 'number' ? p.value.toFixed(1) : '--'} hPa
         </p>

@@ -1,5 +1,8 @@
 import { createContext, useContext, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { ALL_LOCATIONS } from '@/lib/constants'
+
+const VALID_LOCATION_IDS = new Set(ALL_LOCATIONS.map(l => l.id))
 
 export interface LocationState {
   locationId: string | null
@@ -15,7 +18,8 @@ export const LocationContext = createContext<LocationState>(defaultState)
 
 export function useLocationProvider(): LocationState {
   const [searchParams, setSearchParams] = useSearchParams()
-  const locationId = searchParams.get('loc') || null
+  const raw = searchParams.get('loc')
+  const locationId = raw && VALID_LOCATION_IDS.has(raw) ? raw : null
 
   const setLocationId = useCallback((id: string | null) => {
     setSearchParams(prev => {
