@@ -74,9 +74,14 @@ export function useLiveObs() {
   }, [])
 
   useEffect(() => {
-    fetchLive()
-    const interval = setInterval(fetchLive, REFRESH_INTERVAL)
-    return () => clearInterval(interval)
+    let cancelled = false
+    const safeFetch = async () => {
+      if (cancelled) return
+      await fetchLive()
+    }
+    safeFetch()
+    const interval = setInterval(safeFetch, REFRESH_INTERVAL)
+    return () => { cancelled = true; clearInterval(interval) }
   }, [fetchLive])
 
   return { data, loading, error, refresh: fetchLive }

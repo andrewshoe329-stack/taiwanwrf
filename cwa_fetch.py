@@ -128,7 +128,7 @@ def _cwa_get(endpoint: str, api_key: str, params: dict | None = None,
         except (urllib.error.HTTPError, urllib.error.URLError,
                 json.JSONDecodeError, OSError) as e:
             last_err = e
-            if attempt < RETRIES:
+            if attempt < max_retries:
                 log.warning("%s attempt %d failed (%s): %s",
                             label, attempt, _sanitize_url(url), e)
                 time.sleep(RETRY_DELAY * attempt)

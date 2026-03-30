@@ -300,7 +300,8 @@ export default async function handler(req, res) {
 
   try {
     // Fetch marine obs + weather obs + 10-min obs in parallel (3 API calls)
-    const [marineData, weatherData, tenMinData] = await Promise.all([
+    // Use allSettled so partial failures don't kill the entire response
+    const results = await Promise.allSettled([
       fetchCwa('O-B0075-001', {
         StationID: MARINE_STATIONS,
         WeatherElement: 'TideHeight,TideLevel,WaveHeight,WaveDirection,WavePeriod,SeaTemperature,PrimaryAnemometer,SeaCurrents',
@@ -316,6 +317,10 @@ export default async function handler(req, res) {
         WeatherElement: 'VisibilityDescription,UVIndex',
       }),
     ])
+
+    const marineData = results[0].status === 'fulfilled' ? results[0].value : null
+    const weatherData = results[1].status === 'fulfilled' ? results[1].value : null
+    const tenMinData = results[2].status === 'fulfilled' ? results[2].value : null
 
     const marineObs = parseMarineObs(marineData)
     const weatherObs = parseWeatherObs(weatherData)
