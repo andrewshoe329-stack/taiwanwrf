@@ -1,0 +1,257 @@
+# CWA Open Data API Reference
+
+> **For Taiwan WRF pipeline use.** Documents the CWA endpoints we use or may use, with query parameters and response structures learned from implementation.
+
+Base URL: `https://opendata.cwa.gov.tw/api/v1/rest/datastore/{endpoint_id}`
+
+All endpoints require `Authorization` query param (API key from `CWA_OPENDATA_KEY`).
+
+---
+
+## Endpoints We Use
+
+### F-A0021-001 — 潮汐預報 (Tide Forecast, 1 month)
+
+**Purpose:** Official CWA tide predictions (high/low times + heights) for coastal townships.
+
+**Used in:** `cwa_fetch.py` → `fetch_tide_forecasts_multi()`
+
+**Query Parameters:**
+| Param | Type | Description |
+|-------|------|-------------|
+| `LocationName` | array\<string\> | Township names (e.g. `基隆市中正區,宜蘭縣頭城鎮`). Ignored if `LocationId` is set. Default: all. |
+| `LocationId` | array\<string\> | Township IDs (e.g. `10017010,10002040`). Overrides `LocationName`. Default: all. |
+| `WeatherElement` | array\<string\> | Filter elements: `LunarDate`, `TideRange`, `Tide`, `TideHeights`. If `Tide`/`TideHeight` not selected, `Time` won't show. |
+| `TideRange` | array\<string\> | Filter by tidal range: `大`, `中`, `小` |
+| `Date` | array\<string\> | Filter by date: `yyyy-MM-dd` |
+| `hhmmss` | array\<string\> | Filter by time: `hh:mm:ss` |
+| `timeFrom` / `timeTo` | datetime | Time range filter: `yyyy-MM-ddThh:mm:ss`. Ignored if `Date`/`hhmmss` used. |
+| `sort` | array\<string\> | Sort by `Date` or `DateTime` |
+| `limit` / `offset` | int | Pagination |
+
+**Available Locations (northern Taiwan):**
+| LocationName | LocationId | Lon | Lat | Nearest Spot |
+|-------------|-----------|-----|-----|-------------|
+| 新北市金山區 | 65000270 | 121.638 | 25.248 | Jinshan (1km) |
+| 新北市萬里區 | 65000280 | 121.689 | 25.211 | Green Bay (2.5km) |
+| 新北市瑞芳區 | 65000120 | 121.829 | 25.131 | — |
+| 基隆市中正區 | 10017010 | 121.790 | 25.151 | Keelung (0.5km) |
+| 基隆市中山區 | 10017050 | 121.752 | 25.155 | — |
+| 基隆市安樂區 | 10017060 | 121.711 | 25.168 | — |
+| 新北市貢寮區 | 65000260 | 121.950 | 25.022 | Fulong (0.7km) |
+| 新北市石門區 | 65000220 | 121.531 | 25.293 | — |
+| 宜蘭縣頭城鎮 | 10002040 | 121.838 | 24.867 | Daxi/Double Lions/Wushih/Chousui (0.6-8km) |
+| 宜蘭縣壯圍鄉 | 10002060 | 121.843 | 24.760 | — |
+| 宜蘭縣五結鄉 | 10002090 | 121.842 | 24.680 | — |
+| 宜蘭縣蘇澳鎮 | 10002030 | 121.867 | 24.593 | — |
+| 宜蘭縣南澳鄉 | 10002120 | 121.807 | 24.415 | — |
+
+**Response Structure:**
+```
+records.TideForecasts[] → list of { "Location": {
+  "LocationName": "基隆市中正區",
+  "LocationId": "10017010",
+  "Latitude": "25.1506",
+  "Longitude": "121.79",
+  "TimePeriods": {
+    "Daily": [{
+      "Date": "2026-04-01",
+      "LunarDate": "三月初四",
+      "TideRange": "中",
+      "Time": [{
+        "DateTime": "2026-04-01T00:03:00+08:00",
+        "Tide": "乾潮",
+        "TideHeights": {
+          "AboveTWVD": "-55",       // cm, relative to Taiwan Vertical Datum
+          "AboveLocalMSL": "-70",   // cm, relative to local mean sea level
+          "AboveChartDatum": "47"   // cm, relative to chart datum
+        }
+      }, ...]
+    }, ...]
+  }
+}}
+```
+
+**Height datums (all in cm, we convert to metres):**
+- `AboveLocalMSL` — relative to local mean sea level (preferred, centered on 0)
+- `AboveTWVD` — relative to Taiwan Vertical Datum (TWVD2001)
+- `AboveChartDatum` — relative to chart datum (always positive, used for navigation)
+
+**Our mapping (config.py `SPOT_TIDE_STATION`):**
+- Keelung → 基隆市中正區
+- Jinshan → 新北市金山區
+- Green Bay → 新北市萬里區
+- Fulong → 新北市貢寮區
+- Daxi/Double Lions/Wushih/Chousui → 宜蘭縣頭城鎮
+
+---
+
+### O-A0001-001 — 氣象觀測站 (Weather Stations, hourly)
+
+**Purpose:** Real-time hourly weather observations from all CWA stations.
+
+**Used in:** `cwa_fetch.py` → `fetch_station_obs()`
+
+**Key fields:** StationId, StationName, ObsTime, GeoInfo (lat/lon), WeatherElement (temp, wind, humidity, pressure, precip)
+
+**Notes:**
+- Use `StationId` param to filter specific stations
+- Stations near our spots are mapped in `cwa_stations.json` (produced by `cwa_discover.py`)
+
+---
+
+### O-A0003-001 — 氣象觀測站 10分鐘綜觀氣象 (10-min conventional obs)
+
+**Purpose:** Higher-frequency conventional weather observations.
+
+**Used in:** Referenced in CLAUDE.md but not currently used in pipeline.
+
+---
+
+### O-A0002-001 — 雨量觀測站 (Rain gauge data)
+
+**Purpose:** Automatic rain gauge readings.
+
+**Used in:** Referenced but not actively used.
+
+---
+
+### O-B0075-001 — 海象監測 48h (Marine obs: buoys + tide stations)
+
+**Purpose:** Combined buoy wave data + tide station sea level observations, 48-hour window.
+
+**Used in:** `cwa_fetch.py` → `_fetch_marine_stations()`, `fetch_buoy_obs()`, `fetch_tide_obs()`
+
+**Query Parameters:**
+| Param | Type | Description |
+|-------|------|-------------|
+| `StationID` | string | Comma-separated station IDs (e.g. `46694A,C4B01`) |
+
+**Response Structure:**
+```
+Records.SeaSurfaceObs.Location[] → [{
+  "Station": { "StationID": "C4B01", "StationName": "基隆" },
+  "StationObsTimes": { "StationObsTime": [{
+    "DateTime": "...",
+    "WeatherElements": {
+      "TideHeight": "0.44",
+      "TideLevel": "退潮",
+      "SeaTemperature": "20.1",
+      "StationPressure": "1014.7",
+      "WaveHeight": "1.2",
+      "WavePeriod": "6.5",
+      "WaveDirection": "45",
+      "PrimaryAnemometer": { "WindSpeed": "1.8", ... }
+    }
+  }]}
+}]
+```
+
+**Key station IDs (northern Taiwan):**
+| ID | Name | Type | Notes |
+|----|------|------|-------|
+| 46694A | 龍洞 | Buoy | Primary wave buoy for Keelung area |
+| 46708A | 富貴角 | Buoy | North coast |
+| 46714C | 蘇澳 | Buoy | NE coast (near Chousui) |
+| C4B01 | 基隆 | Tide station | Keelung harbour tide gauge |
+| C6AH2 | 基隆 | Buoy | Keelung area |
+
+---
+
+### O-B0075-002 — 海象監測 30天 (Marine obs, 30-day window)
+
+**Purpose:** Same as O-B0075-001 but 30-day history. Not currently used.
+
+---
+
+### F-D0047-{XXX} — 鄉鎮天氣預報 (Township weather forecast)
+
+**Purpose:** Per-township 3-day or 1-week weather forecasts.
+
+**Used in:** `cwa_fetch.py` → `fetch_township_forecast()`
+
+**Endpoint numbering:** Odd = 3-day, even+1 = 1-week.
+
+| Endpoint | County | Used? |
+|----------|--------|-------|
+| F-D0047-001 | 宜蘭縣 (Yilan) | Yes — Daxi, Wushih, Double Lions, Chousui |
+| F-D0047-049 | 基隆市 (Keelung) | Yes — Keelung harbour |
+| F-D0047-069 | 新北市 (New Taipei) | Yes — Fulong, Green Bay, Jinshan |
+| F-D0047-093 | 全臺灣 (All Taiwan) | Not used yet — could replace all 3 above |
+
+**Response Structure (F-D0047-049 example):**
+```
+records.Locations[].Location[] → [{
+  "LocationName": "中正區",
+  "WeatherElement": [{
+    "ElementName": "天氣現象",    // Wx
+    "Time": [{
+      "StartTime": "...",
+      "EndTime": "...",
+      "ElementValue": [{ "value": "陰" }]
+    }]
+  }, ...]
+}]
+```
+
+**Note:** `records.Locations[]` is a wrapper array containing `LocationsName` (county) and `Location[]` (districts).
+
+---
+
+### W-C0033-002 — 天氣特報 (Weather warnings)
+
+**Purpose:** Active weather warnings and advisories with affected areas.
+
+**Used in:** `cwa_fetch.py` → `fetch_warnings()`
+
+---
+
+### F-D0047-093 — 全臺灣各鄉鎮市區預報 (All-Taiwan township forecast)
+
+**Purpose:** Cross-county township forecast in a single call (max 5 county endpoints per call).
+
+**Not yet used.** Could replace our 3 separate F-D0047 calls (001, 049, 069) with 1 call.
+
+**Key constraint:** `locationId` is **required** — pass the county endpoint IDs (e.g. `F-D0047-001,F-D0047-049,F-D0047-069`). Max 5 per call.
+
+**Query Parameters:**
+| Param | Type | Description |
+|-------|------|-------------|
+| `locationId` * | array\<string\> | **Required.** County endpoint IDs (F-D0047-001 to F-D0047-091, odd only). Min 1, max 5. |
+| `LocationName` | array\<string\> | Township names within the selected counties. See [township list PDF](https://opendata.cwa.gov.tw/opendatadoc/Opendata_City.pdf). |
+| `ElementName` | array\<string\> | Weather elements to return (Chinese names). |
+| `timeFrom` / `timeTo` | datetime | Time range filter (`yyyy-MM-ddThh:mm:ss`) |
+| `sort` | string | `time` for ascending time sort |
+
+**Available ElementName values:**
+`露點溫度`, `天氣預報綜合描述`, `舒適度指數`, `風向`, `3小時降雨機率`, `12小時降雨機率`, `溫度`, `風速`, `天氣現象`, `相對濕度`, `體感溫度`, `最高溫度`, `平均相對濕度`, `最高體感溫度`, `平均露點溫度`, `最低體感溫度`, `平均溫度`, `最大舒適度指數`, `最小舒適度指數`, `紫外線指數`, `最低溫度`
+
+**For our pipeline**, a single call would be:
+```
+locationId=F-D0047-001,F-D0047-049,F-D0047-069
+```
+This fetches 宜蘭縣 + 基隆市 + 新北市 in one request.
+
+---
+
+## Endpoints Not Used But Potentially Useful
+
+| Endpoint | Name | Potential Use |
+|----------|------|---------------|
+| O-A0003-001 | 10分鐘綜觀氣象 | Higher-frequency weather obs |
+| A-B0062-001 | 日出日沒時刻 | Official sunrise/sunset (currently computed offline) |
+| W-C0034-001 | 颱風警報 | Typhoon warnings |
+| O-A0005-001 | 紫外線指數 | UV index for surf/sail planning |
+
+---
+
+## Common API Patterns
+
+**Key casing varies by endpoint:**
+- Some use `"Success"`, `"Result"`, `"Records"` (capitalized)
+- Others use `"success"`, `"records"` (lowercase)
+- Our parsing always checks both: `data.get("records") or data.get("Records")`
+
+**Retry strategy:** 3 attempts with 5-second delay (`_cwa_get()` in `cwa_fetch.py`).
+
+**Rate limits:** Not officially documented, but we keep calls modest (one burst of ~5 parallel calls per pipeline run, 4x daily).
