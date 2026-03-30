@@ -403,6 +403,7 @@ This fetches 宜蘭縣 + 基隆市 + 新北市 in one request.
 | F-A0085-003 | 冷傷害指數72h逐3h | 3-hourly cold injury index (elements: `ColdInjuryIndex`, `ColdInjuryWarning`) |
 | F-A0085-004 | 溫差提醒5日預報 | Temperature swing warnings per township (elements: `MaxTemperature`, `MinTemperature`, `TemperatureDifferenceWarning`) |
 | F-A0085-005 | 溫差提醒72h逐3h | 3-hourly temp swing (elements: `TemperatureDifferenceIndex`, `TemperatureDifferenceWarning`) |
+| C-B0024-001 | 30天地面觀測資料 | 30-day station obs history + daily statistics. `WeatherElement`: AirPressure, AirTemperature, RelativeHumidity, WindSpeed, WindDirection, Precipitation, SunshineDuration. `StatisticsElement`: Maximum, Minimum, Mean. `DataType`: `stationObsTimes` (raw obs) or `stationObsStatistics` (daily stats). Default returns latest 24h if no time params set. Useful for accuracy tracking with longer history than O-A0001-001. |
 | O-A0003-001 | 10分鐘綜觀氣象 | Higher-frequency obs + visibility + UV (see above) |
 | O-A0005-001 | 紫外線指數每日最大值 | Daily max UV index per station. Query: `StationID`. Published ~2PM daily. |
 | A-B0062-001 | 日出日沒時刻 | Official sunrise/sunset (currently computed offline) |
