@@ -300,7 +300,9 @@ export default async function handler(req, res) {
 
   try {
     // Fetch marine obs + weather obs + 10-min obs in parallel (3 API calls)
-    const [marineData, weatherData, tenMinData] = await Promise.all([
+    // Use allSettled so partial failures don't kill the entire response
+    const today = new Date().toISOString().slice(0, 10)
+    const results = await Promise.allSettled([
       fetchCwa('O-B0075-001', {
         StationID: MARINE_STATIONS,
         WeatherElement: 'TideHeight,TideLevel,WaveHeight,WaveDirection,WavePeriod,SeaTemperature,PrimaryAnemometer,SeaCurrents',
@@ -310,12 +312,21 @@ export default async function handler(req, res) {
         StationId: WEATHER_STATIONS,
         WeatherElement: 'AirTemperature,WindSpeed,WindDirection,GustInfo,AirPressure,RelativeHumidity',
       }),
-      // 10-min obs: visibility + UV (only from staffed stations that have it)
       fetchCwa('O-A0003-001', {
-        StationId: '466940',  // Keelung staffed station (has visibility + UV)
+        StationId: '466940',
         WeatherElement: 'VisibilityDescription,UVIndex',
       }),
+      fetchCwa('A-B0062-001', {
+        CountyName: '基隆市',
+        Date: today,
+        parameter: 'SunRiseTime,SunSetTime,BeginCivilTwilightTime,EndCivilTwilightTime',
+      }),
     ])
+
+    const marineData = results[0].status === 'fulfilled' ? results[0].value : null
+    const weatherData = results[1].status === 'fulfilled' ? results[1].value : null
+    const tenMinData = results[2].status === 'fulfilled' ? results[2].value : null
+    const sunData = results[3].status === 'fulfilled' ? results[3].value : null
 
     const marineObs = parseMarineObs(marineData)
     const weatherObs = parseWeatherObs(weatherData)
@@ -333,14 +344,6 @@ export default async function handler(req, res) {
     }
 
     const spots = buildSpotObs(marineObs, weatherObs)
-
-    // Fetch sunrise/sunset for today (A-B0062-001)
-    const today = new Date().toISOString().slice(0, 10)
-    const sunData = await fetchCwa('A-B0062-001', {
-      CountyName: '基隆市',
-      Date: today,
-      parameter: 'SunRiseTime,SunSetTime,BeginCivilTwilightTime,EndCivilTwilightTime',
-    }).catch(() => null)
 
     let sun = null
     if (sunData) {

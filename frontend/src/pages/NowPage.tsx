@@ -19,6 +19,13 @@ import { useLiveObsContext } from '@/App'
 import type { TimeRange } from '@/components/charts/chart-utils'
 import type { SpotForecast } from '@/lib/types'
 
+const TIDE_LEVEL_MAP: Record<string, { en: string; zh: string }> = {
+  '漲潮': { en: 'Rising', zh: '漲潮' },
+  '退潮': { en: 'Falling', zh: '退潮' },
+  '滿潮': { en: 'High', zh: '滿潮' },
+  '乾潮': { en: 'Low', zh: '乾潮' },
+}
+
 const ForecastMap = lazy(() => import('@/components/map/ForecastMap').then(m => ({ default: m.ForecastMap })))
 const WindChart = lazy(() => import('@/components/charts/WindChart').then(m => ({ default: m.WindChart })))
 const OceanChart = lazy(() => import('@/components/charts/OceanChart').then(m => ({ default: m.OceanChart })))
@@ -181,13 +188,22 @@ export function NowPage() {
             </div>
           )}
 
-          {/* Info pills + wind type */}
+          {/* Info pills + wind type + warnings */}
           <div className="flex flex-wrap gap-1.5">
             <InfoPill label={t('spots.facing')} value={spotInfo.facing} />
             <InfoPill label={t('spots.optimal_wind')} value={spotInfo.opt_wind.join(', ')} />
             {currentRating?.wind_dir != null && spotInfo.facing && (
               <InfoPill label={t('common.wind')} value={windType(currentRating.wind_dir, spotInfo.facing)} />
             )}
+            {data.cwa_obs?.specialized_warnings?.map((w, i) => (
+              <span key={i} className={`text-[10px] px-1.5 py-0.5 rounded ${
+                w.type === 'rain' ? 'bg-blue-500/20 text-blue-400' :
+                w.type === 'heat' ? 'bg-red-500/20 text-red-400' :
+                'bg-cyan-500/20 text-cyan-400'
+              }`}>
+                {w.severity_level || w.event || w.type}
+              </span>
+            ))}
           </div>
 
           {/* CWA real-time observations (live from serverless, or fallback to deploy-time) */}
@@ -198,46 +214,30 @@ export function NowPage() {
             const buoy = live?.buoy ?? stale?.buoy
             const tide = live?.tide
             if (!stn && !buoy && !tide) return null
+            const waterTemp = tide?.sea_temp_c ?? live?.buoy?.sea_temp_c ?? stale?.buoy?.water_temp_c
+            const items: { label: string; value: string; accent?: boolean }[] = []
+            if (stn?.temp_c != null) items.push({ label: t('live.temp'), value: `${stn.temp_c.toFixed(1)}°C` })
+            if (stn?.wind_kt != null) items.push({ label: t('live.wind'), value: `${stn.wind_kt.toFixed(0)}${stn.gust_kt ? `G${stn.gust_kt.toFixed(0)}` : ''}kt ${stn.wind_dir != null ? degToCompass(stn.wind_dir) : ''}` })
+            if (stn?.pressure_hpa != null) items.push({ label: t('live.pressure'), value: `${stn.pressure_hpa.toFixed(0)} hPa` })
+            if (tide?.tide_height_m != null) { const tl = tide.tide_level ? (TIDE_LEVEL_MAP[tide.tide_level]?.[lang] ?? tide.tide_level) : ''; items.push({ label: t('live.tide'), value: `${tide.tide_height_m.toFixed(2)}m${tl ? ` ${tl}` : ''}` }) }
+            if (buoy?.wave_height_m != null) items.push({ label: t('live.waves'), value: `${buoy.wave_height_m.toFixed(1)}m${buoy.wave_period_s ? ` ${buoy.wave_period_s.toFixed(0)}s` : ''}` })
+            if (waterTemp != null) items.push({ label: t('live.water_temp'), value: `${waterTemp.toFixed(1)}°C` })
+            if (live?.station?.visibility_km != null && live.station.visibility_km < 10) items.push({ label: t('live.visibility'), value: `${live.station.visibility_km.toFixed(1)}km` })
+            if (live?.station?.uv_index != null && live.station.uv_index > 0) items.push({ label: 'UV', value: `${live.station.uv_index.toFixed(0)}`, accent: live.station.uv_index >= 6 })
+            if (live?.buoy?.current_speed_ms != null && live.buoy.current_speed_ms > 0.1) items.push({ label: t('common.current') || 'Current', value: `${(live.buoy.current_speed_ms * 1.94384).toFixed(1)}kt ${live.buoy.current_dir != null ? degToCompass(live.buoy.current_dir) : ''}` })
+            if (!items.length) return null
             return (
-              <div className="mt-2 px-2 py-1.5 rounded-lg bg-[var(--color-bg-elevated)]/50 border border-[var(--color-border)]">
-                <p className="text-[9px] uppercase tracking-widest text-[var(--color-text-muted)] mb-1">
-                  {t('common.live_obs') ?? 'Live Observations'}
-                </p>
-                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-[var(--color-text-secondary)]">
-                  {stn?.temp_c != null && <span>{stn.temp_c.toFixed(1)}°C</span>}
-                  {stn?.wind_kt != null && (
-                    <span>{stn.wind_kt.toFixed(0)}kt{stn.gust_kt ? ` G${stn.gust_kt.toFixed(0)}` : ''} {stn.wind_dir != null ? degToCompass(stn.wind_dir) : ''}</span>
-                  )}
-                  {stn?.pressure_hpa != null && <span>{stn.pressure_hpa.toFixed(0)}hPa</span>}
-                  {tide?.tide_height_m != null && (
-                    <span>{t('common.tide')} {tide.tide_height_m.toFixed(2)}m{tide.tide_level ? ` (${tide.tide_level})` : ''}</span>
-                  )}
-                  {buoy?.wave_height_m != null && (
-                    <span>Hs {buoy.wave_height_m.toFixed(1)}m</span>
-                  )}
-                  {buoy?.wave_period_s != null && (
-                    <span>{buoy.wave_period_s.toFixed(0)}s</span>
-                  )}
-                  {(() => {
-                    const wt = tide?.sea_temp_c ?? live?.buoy?.sea_temp_c ?? stale?.buoy?.water_temp_c
-                    return wt != null ? <span>{t('live.water_temp')} {wt.toFixed(1)}°C</span> : null
-                  })()}
-                  {live?.buoy?.current_speed_ms != null && live.buoy.current_speed_ms > 0.1 && (
-                    <span>{t('common.current') ?? 'Current'} {(live.buoy.current_speed_ms * 1.94384).toFixed(1)}kt {live.buoy.current_dir != null ? degToCompass(live.buoy.current_dir) : ''}</span>
-                  )}
-                  {live?.station?.visibility_km != null && live.station.visibility_km < 10 && (
-                    <span>{t('live.visibility')} {live.station.visibility_km.toFixed(1)}km</span>
-                  )}
-                  {live?.station?.uv_index != null && live.station.uv_index > 0 && (
-                    <span className={live.station.uv_index >= 8 ? 'text-red-400' : live.station.uv_index >= 6 ? 'text-orange-400' : ''}>
-                      UV {live.station.uv_index.toFixed(0)}
-                    </span>
-                  )}
+              <div className="mt-2 rounded-lg bg-[var(--color-bg-elevated)]/50 border border-[var(--color-border)] p-2">
+                <div className="grid grid-cols-3 gap-x-2 gap-y-1.5">
+                  {items.map((item, i) => (
+                    <div key={i} className="text-center">
+                      <p className="text-[8px] uppercase tracking-wider text-[var(--color-text-dim)]">{item.label}</p>
+                      <p className={`text-[11px] font-medium tabular-nums leading-tight ${item.accent ? 'text-orange-400' : 'text-[var(--color-text-secondary)]'}`}>{item.value}</p>
+                    </div>
+                  ))}
                 </div>
                 {liveObs.data && (
-                  <p className="text-[9px] text-[var(--color-text-dim)] mt-0.5">
-                    {t('live.title')}
-                  </p>
+                  <p className="text-[8px] text-[var(--color-text-dim)] mt-1.5 text-center">{t('live.title')}</p>
                 )}
               </div>
             )
@@ -260,6 +260,17 @@ export function NowPage() {
               {data.accuracy?.[0] && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
                   ±{data.accuracy[0].wind_mae_kt?.toFixed(1) ?? '?'}kt wind · ±{data.accuracy[0].temp_mae_c?.toFixed(1) ?? '?'}°C temp
+                  {data.accuracy[0].wave?.hs_mae_m != null && ` · ±${data.accuracy[0].wave.hs_mae_m.toFixed(1)}m wave`}
+                </span>
+              )}
+              {data.accuracy?.[0]?.by_horizon?.['0-24h'] && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
+                  24h: ±{data.accuracy[0].by_horizon['0-24h'].wind_mae_kt?.toFixed(1) ?? '?'}kt
+                </span>
+              )}
+              {data.ensemble?.spread?.precip_spread_mm != null && data.ensemble.spread.precip_spread_mm > 1 && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
+                  Rain spread ±{data.ensemble.spread.precip_spread_mm.toFixed(1)}mm
                 </span>
               )}
             </div>
@@ -269,7 +280,7 @@ export function NowPage() {
 
       {/* Harbour selected */}
       {locationId === 'keelung' && (
-        <section className="md:px-3 py-3">
+        <section className="md:px-3 py-3 space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
               {t('harbour.keelung')}
@@ -284,6 +295,76 @@ export function NowPage() {
               </svg>
             </button>
           </div>
+
+          {/* Live observations for Keelung */}
+          {(() => {
+            const live = liveObs.data?.spots?.keelung
+            const stale = data.cwa_obs?.spot_obs?.keelung ?? data.cwa_obs
+            const stn = live?.station ?? stale?.station
+            const tide = live?.tide
+            const buoy = live?.buoy ?? stale?.buoy
+            if (!stn && !buoy && !tide) return null
+            const waterTemp = tide?.sea_temp_c ?? live?.buoy?.sea_temp_c ?? stale?.buoy?.water_temp_c
+            const items: { label: string; value: string; accent?: boolean }[] = []
+            if (stn?.temp_c != null) items.push({ label: t('live.temp'), value: `${stn.temp_c.toFixed(1)}°C` })
+            if (stn?.wind_kt != null) items.push({ label: t('live.wind'), value: `${stn.wind_kt.toFixed(0)}${stn.gust_kt ? `G${stn.gust_kt.toFixed(0)}` : ''}kt ${stn.wind_dir != null ? degToCompass(stn.wind_dir) : ''}` })
+            if (stn?.pressure_hpa != null) items.push({ label: t('live.pressure'), value: `${stn.pressure_hpa.toFixed(0)} hPa` })
+            if (tide?.tide_height_m != null) { const tl = tide.tide_level ? (TIDE_LEVEL_MAP[tide.tide_level]?.[lang] ?? tide.tide_level) : ''; items.push({ label: t('live.tide'), value: `${tide.tide_height_m.toFixed(2)}m${tl ? ` ${tl}` : ''}` }) }
+            if (buoy?.wave_height_m != null) items.push({ label: t('live.waves'), value: `${buoy.wave_height_m.toFixed(1)}m${buoy.wave_period_s ? ` ${buoy.wave_period_s.toFixed(0)}s` : ''}` })
+            if (waterTemp != null) items.push({ label: t('live.water_temp'), value: `${waterTemp.toFixed(1)}°C` })
+            if (live?.station?.visibility_km != null && live.station.visibility_km < 10) items.push({ label: t('live.visibility'), value: `${live.station.visibility_km.toFixed(1)}km` })
+            if (live?.station?.uv_index != null && live.station.uv_index > 0) items.push({ label: 'UV', value: `${live.station.uv_index.toFixed(0)}`, accent: live.station.uv_index >= 6 })
+            if (live?.buoy?.current_speed_ms != null && live.buoy.current_speed_ms > 0.1) items.push({ label: t('common.current'), value: `${(live.buoy.current_speed_ms * 1.94384).toFixed(1)}kt ${live.buoy.current_dir != null ? degToCompass(live.buoy.current_dir) : ''}` })
+            if (!items.length) return null
+            return (
+              <div className="mt-2 rounded-lg bg-[var(--color-bg-elevated)]/50 border border-[var(--color-border)] p-2">
+                <div className="grid grid-cols-3 gap-x-2 gap-y-1.5">
+                  {items.map((item, i) => (
+                    <div key={i} className="text-center">
+                      <p className="text-[8px] uppercase tracking-wider text-[var(--color-text-dim)]">{item.label}</p>
+                      <p className={`text-[11px] font-medium tabular-nums leading-tight ${item.accent ? 'text-orange-400' : 'text-[var(--color-text-secondary)]'}`}>{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+                {liveObs.data && (
+                  <p className="text-[8px] text-[var(--color-text-dim)] mt-1.5 text-center">{t('live.title')}</p>
+                )}
+              </div>
+            )
+          })()}
+
+          {/* Ensemble confidence + accuracy */}
+          {data.ensemble?.spread && (
+            <div className="flex flex-wrap gap-1.5">
+              {(() => {
+                const ws = data.ensemble.spread.wind_spread_kt ?? 99
+                const level = ws < 5 ? 'high' : ws < 10 ? 'moderate' : 'low'
+                const stars = level === 'high' ? '★★★' : level === 'moderate' ? '★★☆' : '★☆☆'
+                const color = level === 'high' ? 'text-green-400' : level === 'moderate' ? 'text-yellow-400' : 'text-red-400'
+                return (
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] ${color}`}>
+                    {t('models_page.ensemble_confidence') ?? 'Confidence'} {stars}
+                  </span>
+                )
+              })()}
+              {data.accuracy?.[0] && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
+                  ±{data.accuracy[0].wind_mae_kt?.toFixed(1) ?? '?'}kt wind · ±{data.accuracy[0].temp_mae_c?.toFixed(1) ?? '?'}°C temp
+                  {data.accuracy[0].wave?.hs_mae_m != null && ` · ±${data.accuracy[0].wave.hs_mae_m.toFixed(1)}m wave`}
+                </span>
+              )}
+              {data.accuracy?.[0]?.by_horizon?.['0-24h'] && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
+                  24h: ±{data.accuracy[0].by_horizon['0-24h'].wind_mae_kt?.toFixed(1) ?? '?'}kt
+                </span>
+              )}
+              {data.ensemble?.spread?.precip_spread_mm != null && data.ensemble.spread.precip_spread_mm > 1 && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
+                  Rain spread ±{data.ensemble.spread.precip_spread_mm.toFixed(1)}mm
+                </span>
+              )}
+            </div>
+          )}
         </section>
       )}
 

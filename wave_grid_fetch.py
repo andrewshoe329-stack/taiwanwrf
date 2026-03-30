@@ -106,9 +106,12 @@ def fetch_wave_grid(lats: list[float], lons: list[float]) -> dict | None:
                 data = results.get((lat, lon))
                 if data and ti < len(data.get("wave_height", [])):
                     hs_row.append(data["wave_height"][ti])
-                    sh_row.append(data.get("swell_wave_height", [None] * (ti + 1))[ti])
-                    sd_row.append(data.get("swell_wave_direction", [None] * (ti + 1))[ti])
-                    sp_row.append(data.get("swell_wave_period", [None] * (ti + 1))[ti])
+                    sw_h = data.get("swell_wave_height", [])
+                    sw_d = data.get("swell_wave_direction", [])
+                    sw_p = data.get("swell_wave_period", [])
+                    sh_row.append(sw_h[ti] if ti < len(sw_h) else None)
+                    sd_row.append(sw_d[ti] if ti < len(sw_d) else None)
+                    sp_row.append(sw_p[ti] if ti < len(sw_p) else None)
                 else:
                     hs_row.append(None)
                     sh_row.append(None)

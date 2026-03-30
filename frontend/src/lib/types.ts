@@ -71,6 +71,16 @@ export interface CwaObs {
   source: string
   fetched_utc: string
   tide_forecast_stations?: Record<string, CwaTideExtremum[]>
+  specialized_warnings?: Array<{
+    type: string
+    event?: string
+    headline?: string
+    severity_level?: string
+    area?: string
+    description?: string
+    expires_utc?: string
+  }>
+  township_forecasts_week?: Record<string, { location?: string; elements?: Record<string, unknown[]> }>
   station?: {
     station_id: string
     obs_time: string
@@ -112,6 +122,7 @@ export interface EnsembleData {
   spread: {
     wind_spread_kt?: number
     temp_spread_c?: number
+    precip_spread_mm?: number
   }
 }
 

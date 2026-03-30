@@ -1,11 +1,13 @@
-import { useRef, useEffect, useCallback, useMemo } from 'react'
-import { TAIWAN_BBOX, SPOTS, HARBOURS } from '@/lib/constants'
+import { useRef, useEffect, useCallback, useMemo, useState } from 'react'
+import { TAIWAN_BBOX, SPOTS, HARBOURS, DATA_FILES } from '@/lib/constants'
 import { WindParticleSystem } from '@/lib/wind-particles'
 import { interpolateWindGrid } from '@/lib/interpolate'
 import { useTimeline } from '@/hooks/useTimeline'
 import { useModel, type WindModel } from '@/hooks/useModel'
 import { useForecastData } from '@/hooks/useForecastData'
-import type { SpotRating } from '@/lib/types'
+import type { SpotRating, WaveGrid } from '@/lib/types'
+
+type MapLayer = 'wind' | 'waves'
 
 const MODEL_LABELS: Record<WindModel, string> = {
   wrf: 'WRF 3km',
@@ -14,7 +16,7 @@ const MODEL_LABELS: Record<WindModel, string> = {
 }
 
 // Zoom limits (degrees of longitude span)
-const MIN_LON_SPAN = 0.3   // max zoom in
+const MIN_LON_SPAN = 0.5   // max zoom in (was 0.3 — too close causes distortion)
 const MAX_LON_SPAN = TAIWAN_BBOX.lon_max - TAIWAN_BBOX.lon_min  // max zoom out = initial view
 
 // Pin label colors: muted by default, brighter when selected
@@ -74,6 +76,16 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
   const { index } = useTimeline()
   const { grid, model, setModel } = useModel()
   const data = useForecastData()
+  const [layer, setLayer] = useState<MapLayer>('wind')
+  const waveGridRef = useRef<WaveGrid | null>(null)
+
+  // Load wave grid data once
+  useEffect(() => {
+    fetch(DATA_FILES.wave_grid)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { waveGridRef.current = d })
+      .catch(() => {})
+  }, [])
 
   // Current valid_utc from the keelung timeline
   const currentUtc = data.keelung?.records?.[index]?.valid_utc
@@ -419,12 +431,46 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
     })
   }, [grid, index])
 
+  // Update wave mode + wave grid on layer/timestep change
+  useEffect(() => {
+    const ps = particlesRef.current
+    if (!ps) return
+    ps.setWaveMode(layer === 'waves')
+    if (layer === 'waves' && waveGridRef.current) {
+      ps.setWaveGrid(waveGridRef.current)
+      // Map timeline index to wave grid timestep (wave grid may have different count)
+      const waveSteps = waveGridRef.current.timesteps.length
+      const windSteps = data.keelung?.records?.length ?? waveSteps
+      const waveIdx = Math.min(Math.round(index * waveSteps / Math.max(windSteps, 1)), waveSteps - 1)
+      ps.setWaveTimestep(waveIdx)
+    }
+  }, [layer, index, data.keelung])
+
   return (
     <div className="relative w-full h-full" style={{ background: '#000000' }}>
       <div ref={containerRef} className="absolute inset-0" />
 
-      {/* Model switcher */}
-      <div className="absolute top-3 right-3 z-20 flex gap-1">
+      {/* Layer toggle (Wind / Waves) */}
+      <div className="absolute top-3 left-3 z-20 flex gap-0.5 rounded-md overflow-hidden border border-[var(--color-border)] backdrop-blur-sm">
+        {(['wind', 'waves'] as MapLayer[]).map(l => (
+          <button
+            key={l}
+            onClick={() => setLayer(l)}
+            className={`
+              px-2 py-1 text-[10px] font-medium transition-all
+              ${layer === l
+                ? 'bg-[var(--color-text-primary)] text-[var(--color-bg)]'
+                : 'bg-[var(--color-bg-elevated)]/80 text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
+              }
+            `}
+          >
+            {l === 'wind' ? 'Wind' : 'Waves'}
+          </button>
+        ))}
+      </div>
+
+      {/* Model switcher (only visible in wind mode) */}
+      <div className={`absolute top-3 right-3 z-20 flex gap-1 ${layer !== 'wind' ? 'opacity-30 pointer-events-none' : ''}`}>
         {(['wrf', 'ecmwf', 'gfs'] as WindModel[]).map(m => (
           <button
             key={m}
@@ -468,6 +514,28 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
           −
         </button>
       </div>
+      {/* Wave height legend (only in wave mode) */}
+      {layer === 'waves' && (
+        <div className="absolute bottom-3 left-3 z-20 backdrop-blur-sm bg-[var(--color-bg-elevated)]/80 border border-[var(--color-border)] rounded-md px-2 py-1.5">
+          <p className="text-[8px] text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Wave Height</p>
+          <div className="flex items-center gap-0.5">
+            {[
+              { color: '#1e3a5f', label: '0' },
+              { color: '#1a6b8a', label: '' },
+              { color: '#2d9a4e', label: '1' },
+              { color: '#7ab648', label: '' },
+              { color: '#c9a832', label: '2' },
+              { color: '#d4682a', label: '' },
+              { color: '#c93030', label: '3m+' },
+            ].map((s, i) => (
+              <div key={i} className="flex flex-col items-center">
+                <div className="w-4 h-2 rounded-sm" style={{ backgroundColor: s.color }} />
+                {s.label && <span className="text-[7px] text-[var(--color-text-dim)] mt-0.5">{s.label}</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

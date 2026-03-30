@@ -77,8 +77,8 @@ export function TempChart({ records, timeRange, selectedMs }: ChartProps) {
   }))
 
   const nowMs = selectedMs
-  const domain = timeDomain(timeRange) ?? ['dataMin', 'dataMax'] as any
-  const ticks = timeTicks(timeRange, chartData)
+  const domain = timeDomain(timeRange) ?? (['dataMin', 'dataMax'] as const)
+  const ticks = timeTicks(timeRange, chartData, mobile)
 
   return (
     <ResponsiveContainer width="100%" height={chartHeightCompact(mobile)}>
@@ -138,8 +138,8 @@ export function PressureChart({ records, timeRange, selectedMs }: ChartProps) {
   }))
 
   const nowMs = selectedMs
-  const domain = timeDomain(timeRange) ?? ['dataMin', 'dataMax'] as any
-  const ticks = timeTicks(timeRange, chartData)
+  const domain = timeDomain(timeRange) ?? (['dataMin', 'dataMax'] as const)
+  const ticks = timeTicks(timeRange, chartData, mobile)
 
   return (
     <ResponsiveContainer width="100%" height={chartHeightCompact(mobile)}>

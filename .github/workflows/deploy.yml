@@ -77,6 +77,9 @@ jobs:
           python tide_predict.py --output frontend/public/data/tide.json --days 7 2>/dev/null || true
           python ensemble_fetch.py --output frontend/public/data/ensemble.json 2>/dev/null || true
           python surf_forecast.py --output-frontend-json frontend/public/data/surf.json 2>/dev/null || true
+          # Wind + wave grids for map overlays
+          python wind_grid_fetch.py --output-dir frontend/public/data 2>/dev/null || true
+          python wave_grid_fetch.py --output-dir frontend/public/data 2>/dev/null || true
           # CWA observations (requires API key)
           if [ -n "${CWA_OPENDATA_KEY:-}" ]; then
             python cwa_fetch.py --output frontend/public/data/cwa.json 2>/dev/null || true

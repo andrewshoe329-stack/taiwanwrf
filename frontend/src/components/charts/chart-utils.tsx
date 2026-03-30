@@ -8,6 +8,18 @@
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
+/** Find the data array index closest to a given ms timestamp. Returns -1 if no match. */
+export function findClosestIndex(data: { timeMs: number }[], targetMs: number | undefined): number {
+  if (!targetMs || !data.length) return -1
+  let best = 0
+  let bestDiff = Infinity
+  for (let i = 0; i < data.length; i++) {
+    const diff = Math.abs(data[i].timeMs - targetMs)
+    if (diff < bestDiff) { bestDiff = diff; best = i }
+  }
+  return best
+}
+
 /** Convert UTC ISO string → CST Date (UTC+8) */
 export function cstDate(utc: string): Date {
   const d = new Date(utc)
@@ -32,7 +44,7 @@ export function toCSTLabel(utc: string): string {
  * Targets ~6-8 ticks, snapped to 6-hour CST boundaries.
  * Accepts either a TimeRange (preferred, for cross-chart consistency) or data array.
  */
-export function timeTicks(range: TimeRange | undefined, data?: { timeMs: number }[]): number[] {
+export function timeTicks(range: TimeRange | undefined, data?: { timeMs: number }[], mobile?: boolean): number[] {
   let min: number, max: number
   if (range) {
     min = new Date(range.startUtc).getTime()
@@ -44,13 +56,15 @@ export function timeTicks(range: TimeRange | undefined, data?: { timeMs: number 
     return data?.map(d => d.timeMs) ?? []
   }
   const span = max - min
-  // Pick interval: 6h, 12h, or 24h to get ~6-8 ticks
+  // Pick interval: 6h, 12h, or 24h
+  // Mobile targets ~4-5 ticks; desktop targets ~6-8
   const SIX_H = 6 * 3600_000
   const TWELVE_H = 12 * 3600_000
   const TWENTY_FOUR_H = 24 * 3600_000
+  const maxTicks = mobile ? 5 : 8
   let interval = SIX_H
-  if (span / SIX_H > 12) interval = TWELVE_H
-  if (span / TWELVE_H > 12) interval = TWENTY_FOUR_H
+  if (span / SIX_H > maxTicks) interval = TWELVE_H
+  if (span / TWELVE_H > maxTicks) interval = TWENTY_FOUR_H
 
   // Snap first tick to next CST boundary
   // CST = UTC+8, so midnight CST = 16:00 UTC prev day

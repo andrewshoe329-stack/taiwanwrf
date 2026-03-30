@@ -31,6 +31,8 @@ GitHub Actions (cron 4x/day)
   │      Output: tide_keelung.json
   ├─ 3d. cwa_fetch.py             → CWA real-time obs: station + buoy + tide + warnings
   │      Output: cwa_obs.json (requires CWA_OPENDATA_KEY, optional)
+  │      Includes: per-spot weather stations, tide forecasts for 5 township
+  │      stations, 1-week township forecasts, specialized rain/heat/cold warnings
   │
   ├─ 4. GRIB2 variable diagnostic → wrf_analyze.py --list-vars
   │
@@ -71,12 +73,16 @@ GitHub Actions (cron 4x/day)
   ├─12. wind_grid_fetch.py       → Gridded u/v wind fields for map overlay
   │     Outputs: frontend/public/data/wind_grid_{ecmwf,gfs}.json
   │
+  ├─12b. wave_grid_fetch.py     → Gridded wave height/swell for map heatmap
+  │     Output: frontend/public/data/wave_grid.json
+  │
   ├─13. React frontend build     → Vite + React SPA (frontend/)
   │     Reads JSON data from frontend/public/data/
   │     Outputs: frontend/dist/ (static assets)
   │
   └─14. Vercel deploy            → React SPA: frontend/dist/
                                     + JSON data files in /data/
+                                    + /api/live-obs serverless function
 ```
 
 ### Accuracy Feedback Loop
@@ -101,6 +107,31 @@ Recent model accuracy (last 10 verified runs):
 ```
 Claude uses this to hedge language — e.g. "actual temps will likely be a degree or two cooler than shown."
 
+### Live Observations (Serverless)
+
+```
+/api/live-obs (Vercel serverless function, polled every 5 min)
+  │
+  ├─ O-B0075-001   → Tide stations (C4B01, C4A05, C4U02, C4A03) + buoys
+  ├─ O-A0001-001   → Weather stations (466940, C0A940, C0AJ20, etc.)
+  ├─ O-A0003-001   → 10-min obs (visibility, UV index — Keelung only)
+  └─ A-B0062-001   → Sunrise/sunset + civil twilight
+```
+
+Returns per-spot live data (tide height, wave, wind, sea temp, currents, visibility, UV) without exposing CWA API key to the browser. Frontend falls back to deploy-time `cwa_obs.json` when serverless is unavailable.
+
+### Per-Spot Tide Stations
+
+Each spot uses its nearest CWA township tide station (F-A0021-001) for predictions and its nearest O-B0075-001 tide station for live observations:
+
+| Spot | Tide Forecast (F-A0021) | Tide Obs (O-B0075) |
+|------|------------------------|-------------------|
+| Keelung | 基隆市中正區 | C4B01 (0km) |
+| Jinshan | 新北市金山區 | C4A03 (15km) |
+| Green Bay | 新北市萬里區 | C4B01 |
+| Fulong | 新北市貢寮區 | C4A05 (0.2km) |
+| Daxi/DL/Wushih/Chousui | 宜蘭縣頭城鎮 | C4U02 (0.4km) |
+
 ---
 
 ## File Map
@@ -108,7 +139,7 @@ Claude uses this to hedge language — e.g. "actual temps will likely be a degre
 | File | Lines | Purpose |
 |------|-------|---------|
 | `i18n.py` | ~325 | Bilingual translation infrastructure: `T()`, `T_str()`, `bilingual()`, `STRINGS` dict |
-| `config.py` | ~398 | Shared constants + utilities: `KEELUNG_LAT/LON`, `SPOT_COORDS`, `SPOT_COUNTY`, `SPOT_REGION`, `deg_to_compass()`, `norm_utc()`, `sunrise_sunset()`, `is_daylight()`, `setup_logging()`, `fetch_json()`, `load_json_file()` |
+| `config.py` | ~430 | Shared constants + utilities: `KEELUNG_LAT/LON`, `SPOT_COORDS`, `SPOT_COUNTY`, `SPOT_REGION`, `SPOT_TIDE_STATION`, `SPOT_TIDE_OBS_STATION`, `deg_to_compass()`, `norm_utc()` (converts CST→UTC), `sunrise_sunset()`, `fetch_json()`, `load_json_file()` |
 | `taiwan_wrf_download.py` | ~702 | Download CWA WRF GRIB2 from S3, subset with eccodes, archive with tar.gz |
 | `wrf_analyze.py` | ~2410 | GRIB2 point extraction, derived fields, unified HTML table, daily summary cards |
 | `ecmwf_fetch.py` | ~258 | Fetch ECMWF IFS from Open-Meteo, 6-hourly conversion, GFS gust/vis backfill |
@@ -116,18 +147,24 @@ Claude uses this to hedge language — e.g. "actual temps will likely be a degre
 | `surf_forecast.py` | ~1796 | 7 surf spots scoring, daily activity planner, matrix + detail HTML |
 | `tide_predict.py` | ~323 | Tide prediction: harmonic analysis + CWA-anchored cosine interpolation |
 | `accuracy_track.py` | ~736 | Forecast accuracy tracking vs Open-Meteo + CWA observations + tide accuracy |
-| `forecast_summary.py` | ~647 | Anthropic API call (3-attempt retry), prompt + accuracy context, HTML + JSON output |
+| `forecast_summary.py` | ~680 | Anthropic API call (3-attempt retry), prompt + accuracy context + monthly climate normals, HTML + JSON output |
 | `ensemble_fetch.py` | ~299 | Fetch GFS/ICON/JMA from Open-Meteo, compute multi-model spread stats |
-| `wind_grid_fetch.py` | ~310 | Fetch gridded u/v wind from Open-Meteo for ECMWF/GFS map overlay |
+| `wind_grid_fetch.py` | ~310 | Fetch gridded u/v wind from Open-Meteo for ECMWF/GFS particle animation map overlay |
 | `notify.py` | ~401 | Threshold-based alerts via LINE Notify and Telegram Bot API |
 | `firebase_storage.py` | ~280 | Firebase Firestore + Cloud Storage: read/write JSON docs, upload/cleanup GRIB2 archives |
-| `cwa_fetch.py` | ~1167 | CWA Open Data API: per-spot weather stations + wave buoys + tide obs + tide forecast + township forecasts (Keelung/New Taipei/Yilan) + weather warnings |
+| `cwa_fetch.py` | ~1400 | CWA Open Data API: per-spot weather stations (batched), wave buoys, tide obs, per-township tide forecasts (5 stations), 3-day + 1-week township forecasts, specialized rain/heat/cold warnings |
 | `cwa_discover.py` | ~475 | Monthly CWA station/buoy discovery: queries all stations, maps nearest to each spot, writes `cwa_stations.json` |
 | `cwa_stations.json` | ~varies | Discovered station/buoy mapping (committed by cwa-discover workflow, read by cwa_fetch.py) |
-| `frontend/` | React SPA | Vite + React + TypeScript + MapLibre GL — interactive forecast UI |
+| `wave_grid_fetch.py` | ~160 | Fetch gridded wave data from Open-Meteo marine API for map heatmap overlay |
+| `api/live-obs.js` | ~400 | Vercel serverless function: proxies CWA real-time observations (4 parallel API calls) |
+| `CWA_API_REFERENCE.md` | ~300 | Complete CWA Open Data API reference with all endpoints, params, station lists |
+| `IMPROVEMENT_PLAN.md` | ~90 | Post-audit improvement plan with priorities |
+| `frontend/` | React SPA | Vite + React + TypeScript — interactive forecast UI with wind/wave map overlays |
 | `frontend/src/router.tsx` | ~77 | React Router config: `/`, `/spots`, `/spots/:id`, `/harbours`, `/models` |
-| `frontend/src/lib/constants.ts` | ~73 | Shared constants: spot coords, regions, Beaufort scale, data file paths |
-| `frontend/src/lib/types.ts` | ~184 | TypeScript interfaces for all JSON data contracts |
+| `frontend/src/lib/constants.ts` | ~100 | Shared constants: spot coords, regions, `SPOT_TIDE_STATION`/`SPOT_TIDE_OBS_STATION`, data file paths |
+| `frontend/src/lib/types.ts` | ~240 | TypeScript interfaces: `ForecastRecord`, `WaveRecord`, `SpotRating`, `CwaObs`, `WaveGrid`, `LiveSpotObs`, etc. |
+| `frontend/src/hooks/useLiveObs.ts` | ~80 | Hook polling `/api/live-obs` every 5 min for real-time CWA data |
+| `frontend/src/lib/wind-particles.ts` | ~450 | Canvas wind particle animation + wave heatmap renderer with Mercator projection |
 | `.github/workflows/wrf.yml` | ~170 | WRF download, subset, analysis — 4x daily |
 | `.github/workflows/forecast.yml` | ~220 | Forecast pipeline: ECMWF/wave/ensemble fetch, surf, AI summary — 4x daily |
 | `.github/workflows/deploy.yml` | ~70 | Vercel deploy triggered by forecast completion |
@@ -174,20 +211,23 @@ All scripts import coordinates, compass functions, and `norm_utc()` from here. *
 - WRF valid times derived from init_time + forecast_hour
 
 ### React SPA Frontend (`frontend/`)
-The primary UI is a **React single-page application** built with Vite + TypeScript + MapLibre GL:
-- `/` — **Forecast**: current conditions, AI summary, wind map overlay, surf heatmap, location cards
-- `/?view=spots` — **Spots**: scrolls to surf spot heatmap and rankings (via bottom nav Spots tab)
-- `/?loc=<id>` — **Focus Mode**: individual spot/harbour with hero card, charts, 5-day forecast
-- `/models` — **Models**: multi-model comparison (WRF vs ECMWF vs ensemble)
-- Bottom nav has 3 tabs: **Forecast**, **Spots**, **Models**
+The primary UI is a **React single-page application** built with Vite + TypeScript:
+- `/` — **Forecast**: current conditions, AI summary, map overlay, surf heatmap, location cards
+- `/?loc=<id>` — **Focus Mode**: individual spot/harbour with swell compass, charts, live obs, accuracy badges
 
-**Focus mode chart order** (logical grouping for sailors/surfers):
-Wind → Wave Height → Swell Period → Tide → Precipitation → Temperature → Pressure
+**Map overlay**: Canvas-based with Wind/Waves toggle:
+- **Wind mode**: Animated streamline particles driven by u/v grid (ECMWF/GFS selectable). Uses Mercator projection.
+- **Wave mode**: Colored heatmap (blue→red, 0-3m+) with swell direction arrows. Legend in bottom-left.
 
-**Focus mode layout**: Spot info pills + hero card appear **above** charts to give context before detail.
-Weather warnings and data freshness indicator are visible in **all** modes (browse + focus).
+**Focus mode layout**: Swell compass + data cells → info pills + CWA warning badges → live observations grid (temp, wind, tide, waves, water temp, UV, visibility, currents) → ensemble confidence + accuracy badges → charts.
 
-Data is served as static JSON files from `frontend/public/data/` (gitignored except `taiwan.geojson`). The pipeline writes JSON outputs there; the React app fetches them at runtime.
+**Charts** (Recharts): Wind, Wave Height + Swell Period, Tide, Precipitation, Temperature. All use shared numeric X-axis with mobile-adaptive tick count. Reference line tracks timeline scrubber.
+
+**Live data**: `useLiveObs` hook polls `/api/live-obs` every 5 min for real-time CWA observations. Falls back to deploy-time `cwa_obs.json`. Shows in a 3-column labeled grid on both spot and harbour panels.
+
+**ConditionsStrip**: Sticky bar below timeline. Browse mode: Wind, Swell, Wave Height, Temp, Precip (5 cols). Spot mode: Wave Height, Water Temp, Air Temp, Precip, Pressure (5 cols — no duplication with compass data).
+
+Data is served as static JSON files from `frontend/public/data/` (gitignored except `taiwan.geojson`). The pipeline writes JSON outputs there; the React app fetches them at runtime. Live data comes from the serverless function.
 
 **PWA**: manifest includes app shortcuts (Spots, Models). Service worker uses cache-first with 3-day TTL for map tiles, network-first for data JSON, cache-first for Vite hashed assets.
 

@@ -128,7 +128,7 @@ def _cwa_get(endpoint: str, api_key: str, params: dict | None = None,
         except (urllib.error.HTTPError, urllib.error.URLError,
                 json.JSONDecodeError, OSError) as e:
             last_err = e
-            if attempt < RETRIES:
+            if attempt < max_retries:
                 log.warning("%s attempt %d failed (%s): %s",
                             label, attempt, _sanitize_url(url), e)
                 time.sleep(RETRY_DELAY * attempt)
@@ -1103,40 +1103,63 @@ _AREA_MAP = {
 
 
 def _apply_fallback_translations(warnings: list[dict]) -> list[dict]:
-    """Apply hardcoded translations as fallback for common warning types."""
+    """Apply hardcoded translations as fallback for common warning types.
+
+    Fills in any missing or empty _en fields with hardcoded translations.
+    """
+    import re as _re
     for w in warnings:
-        if 'type_en' not in w:
+        # Type translation
+        if not w.get('type_en'):
             w['type_en'] = _WARNING_TYPE_MAP.get(w.get('type', ''), w.get('type', ''))
-        if 'area_en' not in w:
+
+        # Area translation (split Chinese separator 、 and map each part)
+        if not w.get('area_en'):
             area = w.get('area', '')
-            # Split on both 、 (Chinese) and , (legacy flat format)
-            import re as _re
             raw_parts = _re.split(r'[、,]', area) if area else []
             parts = [_AREA_MAP.get(a.strip(), a.strip()) for a in raw_parts if a.strip()]
             w['area_en'] = ', '.join(parts) if parts else area
-        if 'description_en' not in w:
-            # Generate a basic English description from type + area
+
+        # Description: generate English summary from type + area + Chinese description
+        if not w.get('description_en'):
             t = w.get('type_en', w.get('type', ''))
             a = w.get('area_en', w.get('area', ''))
-            w['description_en'] = f"{t} in effect for {a}." if a else f"{t} in effect."
+            desc_zh = w.get('description', '')
+            # Build a useful English description
+            parts = []
+            if t:
+                parts.append(f"{t} in effect")
+            if a:
+                parts.append(f"for {a}")
+            # Extract any useful numbers from the Chinese description
+            wind_match = _re.search(r'(\d+)\s*(?:級|kt|kn)', desc_zh)
+            if wind_match:
+                parts.append(f"(gusts to Beaufort {wind_match.group(1)})")
+            w['description_en'] = ' '.join(parts) + '.' if parts else desc_zh
     return warnings
 
 
 def _translate_warnings(warnings: list[dict]) -> list[dict]:
+    """Translate Chinese warning fields to English.
+
+    Uses hardcoded translation maps for reliability and speed.
+    Previous API-based translation was fragile and slow.
+    """
+    return _apply_fallback_translations(warnings)
+
+
+def _translate_warnings_api(warnings: list[dict]) -> list[dict]:
     """Translate Chinese warning fields to English using Claude API.
 
-    Adds 'type_en', 'area_en', 'description_en' to each warning dict.
-    Falls back to hardcoded map if API is unavailable.
+    Deprecated in favor of hardcoded translations. Kept for reference.
     """
     api_key = os.environ.get('ANTHROPIC_API_KEY', '')
     if not api_key:
-        log.debug("ANTHROPIC_API_KEY not set — using fallback translations")
         return _apply_fallback_translations(warnings)
 
     try:
         import anthropic
     except ImportError:
-        log.debug("anthropic package not installed — using fallback translations")
         return _apply_fallback_translations(warnings)
 
     # Build a single prompt with all warnings to translate in one API call

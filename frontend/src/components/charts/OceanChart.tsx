@@ -60,8 +60,8 @@ export function OceanChart({ records, timeRange, selectedMs }: OceanChartProps) 
   }))
 
   const nowMs = selectedMs
-  const domain = timeDomain(timeRange) ?? ['dataMin', 'dataMax'] as any
-  const ticks = timeTicks(timeRange, chartData)
+  const domain = timeDomain(timeRange) ?? (['dataMin', 'dataMax'] as const)
+  const ticks = timeTicks(timeRange, chartData, mobile)
   const h = mobile ? 160 : 180
 
   return (
