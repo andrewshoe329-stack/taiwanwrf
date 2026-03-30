@@ -131,6 +131,7 @@ function computeFactors(rating: SpotRating, spot: SpotInfo): ScoreFactors {
 
 const RATING_COLORS: Record<string, string> = {
   firing: 'var(--color-firing)',
+  great: 'var(--color-rating-good)',
   good: 'var(--color-rating-good)',
   marginal: 'var(--color-rating-marginal)',
   poor: 'var(--color-rating-poor)',
@@ -147,8 +148,8 @@ export function ScoreBreakdown({ rating, spot }: ScoreBreakdownProps) {
   const { t } = useTranslation()
   const factors = computeFactors(rating, spot)
   const totalScore = rating.score
-  const ratingLabel = t(`rating.${rating.rating}`, rating.rating)
-  const ratingColor = RATING_COLORS[rating.rating] ?? 'var(--color-text-dim)'
+  const ratingLabel = rating.rating ? t(`rating.${rating.rating}`, rating.rating) : '--'
+  const ratingColor = (rating.rating ? RATING_COLORS[rating.rating] : undefined) ?? 'var(--color-text-dim)'
 
   const rows: Array<{ name: string; factor: { score: number; max: number; label: string } }> = [
     { name: t('spots.score_swell_dir'), factor: factors.swellDir },

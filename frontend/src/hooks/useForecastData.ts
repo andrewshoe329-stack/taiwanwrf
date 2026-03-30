@@ -3,6 +3,7 @@ import { DATA_FILES } from '@/lib/constants'
 import type {
   ForecastData, WaveData, TideData, CwaObs,
   EnsembleData, SurfData, AISummary, AccuracyEntry,
+  WrfSpotsData,
 } from '@/lib/types'
 
 export interface AllForecastData {
@@ -15,6 +16,7 @@ export interface AllForecastData {
   cwa_obs: CwaObs | null
   accuracy: AccuracyEntry[] | null
   summary: AISummary | null
+  wrf_spots: WrfSpotsData | null
   loading: boolean
   error: string | null
 }
@@ -22,7 +24,7 @@ export interface AllForecastData {
 const initial: AllForecastData = {
   keelung: null, ecmwf: null, wave: null, tide: null,
   ensemble: null, surf: null, cwa_obs: null, accuracy: null,
-  summary: null, loading: true, error: null,
+  summary: null, wrf_spots: null, loading: true, error: null,
 }
 
 export const ForecastDataContext = createContext<AllForecastData>(initial)
@@ -45,7 +47,7 @@ export function useForecastDataLoader(): AllForecastData {
 
     async function load() {
       const [
-        keelung, ecmwf, wave, tide, ensemble, surf, cwa_obs, accuracy, summary,
+        keelung, ecmwf, wave, tide, ensemble, surf, cwa_obs, accuracy, summary, wrf_spots,
       ] = await Promise.all([
         fetchJson<ForecastData>(DATA_FILES.keelung),
         fetchJson<ForecastData>(DATA_FILES.ecmwf),
@@ -56,13 +58,14 @@ export function useForecastDataLoader(): AllForecastData {
         fetchJson<CwaObs>(DATA_FILES.cwa_obs),
         fetchJson<AccuracyEntry[]>(DATA_FILES.accuracy),
         fetchJson<AISummary>(DATA_FILES.summary),
+        fetchJson<WrfSpotsData>(DATA_FILES.wrf_spots),
       ])
 
       if (cancelled) return
 
       const hasAnyData = keelung || ecmwf || wave || surf
       setData({
-        keelung, ecmwf, wave, tide, ensemble, surf, cwa_obs, accuracy, summary,
+        keelung, ecmwf, wave, tide, ensemble, surf, cwa_obs, accuracy, summary, wrf_spots,
         loading: false,
         error: hasAnyData ? null : 'Failed to load forecast data',
       })

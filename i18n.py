@@ -66,6 +66,7 @@ STRINGS: dict[str, dict[str, str]] = {
 
     # ── Surf rating labels ────────────────────────────────────────────────
     'firing':           {'en': 'Firing!',    'zh': '超讚！'},
+    'great':            {'en': 'Great',      'zh': '很好'},
     'good':             {'en': 'Good',       'zh': '好'},
     'marginal':         {'en': 'Marginal',   'zh': '勉強'},
     'poor':             {'en': 'Poor',       'zh': '差'},

@@ -44,7 +44,9 @@ export class WindParticleSystem {
   private running = false
   private offscreen: HTMLCanvasElement | null = null
   private coastline: [number, number][][] = []  // array of rings, each ring is [lon, lat][]
-  private labels: { lon: number; lat: number; text: string; type: 'spot' | 'harbour' | 'city' }[] = []
+  private labels: { lon: number; lat: number; text: string; type: 'spot' | 'harbour' | 'city'; id?: string }[] = []
+  private labelColors: Record<string, string> = {}  // label id → rating color
+  private selectedId: string | null = null
 
   // Viewport mapping (set by the map component)
   private bounds = { west: 119.0, east: 122.5, south: 21.5, north: 25.5 }
@@ -66,8 +68,18 @@ export class WindParticleSystem {
   }
 
   /** Set location labels to draw on the canvas */
-  setLabels(labels: { lon: number; lat: number; text: string; type: 'spot' | 'harbour' | 'city' }[]) {
+  setLabels(labels: { lon: number; lat: number; text: string; type: 'spot' | 'harbour' | 'city'; id?: string }[]) {
     this.labels = labels
+  }
+
+  /** Set per-label rating colors (keyed by label id) */
+  setLabelColors(colors: Record<string, string>) {
+    this.labelColors = colors
+  }
+
+  /** Set selected location id for highlight ring */
+  setSelectedId(id: string | null) {
+    this.selectedId = id
   }
 
   /** Set the wind grid data (call when timeline changes) */
@@ -325,32 +337,70 @@ export class WindParticleSystem {
         // Skip if off-screen
         if (x < -50 || x > w + 50 || y < -50 || y > h + 50) continue
 
-        // Dot
-        ctx.beginPath()
-        const dotRadius = label.type === 'city' ? 3 : label.type === 'harbour' ? 4 : 3.5
-        ctx.arc(x, y, dotRadius, 0, Math.PI * 2)
-        ctx.fillStyle = label.type === 'harbour' ? '#cccccc'
-          : label.type === 'city' ? '#888'
-          : '#e0e0e0'
-        ctx.fill()
-        ctx.strokeStyle = 'rgba(255,255,255,0.8)'
-        ctx.lineWidth = 1
-        ctx.stroke()
+        const isSelected = label.id != null && label.id === this.selectedId
+        const ratingColor = label.id ? this.labelColors[label.id] : undefined
+
+        // Selected highlight ring
+        if (isSelected) {
+          ctx.beginPath()
+          ctx.arc(x, y, 10, 0, Math.PI * 2)
+          ctx.strokeStyle = ratingColor ?? '#ffffff'
+          ctx.lineWidth = 2
+          ctx.stroke()
+          // Glow effect
+          ctx.beginPath()
+          ctx.arc(x, y, 12, 0, Math.PI * 2)
+          ctx.strokeStyle = `${ratingColor ?? '#ffffff'}40`
+          ctx.lineWidth = 3
+          ctx.stroke()
+        }
+
+        // Dot — rating-colored for spots, diamond shape for harbour
+        if (label.type === 'harbour') {
+          // Diamond pin for harbour
+          const s = isSelected ? 6 : 4.5
+          ctx.beginPath()
+          ctx.moveTo(x, y - s)
+          ctx.lineTo(x + s, y)
+          ctx.lineTo(x, y + s)
+          ctx.lineTo(x - s, y)
+          ctx.closePath()
+          ctx.fillStyle = ratingColor ?? '#cccccc'
+          ctx.fill()
+          ctx.strokeStyle = 'rgba(255,255,255,0.8)'
+          ctx.lineWidth = 1
+          ctx.stroke()
+        } else {
+          // Circular dot for spots + cities
+          const dotRadius = label.type === 'city' ? 3 : isSelected ? 5 : 4
+          ctx.beginPath()
+          ctx.arc(x, y, dotRadius, 0, Math.PI * 2)
+          ctx.fillStyle = label.type === 'city' ? '#888'
+            : ratingColor ?? '#e0e0e0'
+          ctx.fill()
+          ctx.strokeStyle = 'rgba(255,255,255,0.8)'
+          ctx.lineWidth = 1
+          ctx.stroke()
+        }
 
         // Label text
+        const offsetX = label.type === 'harbour' ? 10 : label.type === 'city' ? 8 : (isSelected ? 10 : 9)
         ctx.font = label.type === 'city'
           ? '10px Inter, system-ui, sans-serif'
-          : '11px Inter, system-ui, sans-serif'
+          : isSelected
+            ? 'bold 12px Inter, system-ui, sans-serif'
+            : '11px Inter, system-ui, sans-serif'
         ctx.fillStyle = label.type === 'harbour' ? '#d0d0d0'
           : label.type === 'city' ? '#999'
+          : isSelected ? '#ffffff'
           : '#f0f0f0'
         ctx.textAlign = 'left'
 
         // Text shadow for readability
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)'
         ctx.lineWidth = 3
-        ctx.strokeText(label.text, x + dotRadius + 5, y)
-        ctx.fillText(label.text, x + dotRadius + 5, y)
+        ctx.strokeText(label.text, x + offsetX, y)
+        ctx.fillText(label.text, x + offsetX, y)
       }
     }
 

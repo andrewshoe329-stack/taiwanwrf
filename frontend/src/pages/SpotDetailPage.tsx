@@ -154,9 +154,9 @@ export function SpotDetailPage() {
             <h2 className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
               {t('spots.current_conditions')}
             </h2>
-            <span className={`text-sm font-semibold ${ratingColorClass(currentRating.rating)}`}>
-              {t(`rating.${currentRating.rating}`)}
-              <span className="text-[var(--color-text-dim)] font-normal ml-1 text-xs">{currentRating.score}/14</span>
+            <span className={`text-sm font-semibold ${ratingColorClass(currentRating.rating ?? 'flat')}`}>
+              {t(`rating.${currentRating.rating ?? 'flat'}`)}
+              {currentRating.score != null && <span className="text-[var(--color-text-dim)] font-normal ml-1 text-xs">{currentRating.score}/14</span>}
             </span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -199,10 +199,10 @@ export function SpotDetailPage() {
         <h2 className="text-xs uppercase tracking-wider text-[var(--color-text-muted)] mb-3">
           {t('spots.five_day_forecast')}
         </h2>
-        {spotForecast && spotForecast.daily_best.length > 0 ? (
+        {spotForecast?.daily_best && spotForecast.daily_best.length > 0 ? (
           <div className="grid grid-cols-5 gap-2">
             {spotForecast.daily_best.map(day => {
-              const bt = spotForecast.best_times.find(b => b.date === day.date)
+              const bt = spotForecast.best_times?.find(b => b.date === day.date)
               return <DayCard key={day.date} date={day.date} rating={day.rating} score={day.score} bestTime={bt} t={t} />
             })}
           </div>

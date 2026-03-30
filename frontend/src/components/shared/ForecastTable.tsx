@@ -102,8 +102,8 @@ export function SpotForecastTable({ ratings, facing, lang = 'en' }: SpotTablePro
                     {r.tide_height != null ? <>{r.tide_height.toFixed(2)}<span className="text-[var(--color-text-dim)] ml-0.5">m</span></> : '--'}
                   </td>
                   <td className="text-right py-1.5 pl-2">
-                    <span className={`inline-block text-[10px] font-medium px-1.5 py-0.5 rounded-full ${ratingBgClass(r.rating)}`}>
-                      {t(`rating.${r.rating}`)}
+                    <span className={`inline-block text-[10px] font-medium px-1.5 py-0.5 rounded-full ${ratingBgClass(r.rating ?? 'flat')}`}>
+                      {t(`rating.${r.rating ?? 'flat'}`)}
                     </span>
                     <span className="text-[var(--color-text-dim)] ml-1 text-[10px]">{r.score}/14</span>
                   </td>

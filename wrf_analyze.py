@@ -401,6 +401,95 @@ def extract_forecast(rundir: Path) -> tuple[dict, list[dict]]:
     return meta, records
 
 
+def extract_all_spots(rundir: Path) -> dict:
+    """Extract WRF forecast for all locations in config.SPOT_COORDS.
+
+    Returns a dict matching the wrf_spots.json schema:
+    {
+      "meta": { "model_id", "init_utc" },
+      "locations": {
+        "keelung": { "records": [...] },
+        "fulong":  { "records": [...] },
+        ...
+      }
+    }
+    """
+    from config import SPOT_COORDS
+
+    grb_files = sorted(rundir.glob('*_keelung*.grb2'))
+    if not grb_files:
+        return {}
+
+    init_time = _parse_init_time(rundir.name)
+    model_id = rundir.name.split('_')[0]
+
+    meta = {
+        'model_id': model_id,
+        'init_utc': init_time.isoformat() if init_time else None,
+    }
+
+    # Pre-read all GRIB2 files for each location
+    locations: dict[str, list[dict]] = {sc['id']: [] for sc in SPOT_COORDS}
+    # Track per-location previous precip for incremental calculation
+    prev_precip: dict[str, float | None] = {sc['id']: None for sc in SPOT_COORDS}
+    prev_fhs: dict[str, int | None] = {sc['id']: None for sc in SPOT_COORDS}
+
+    for grb in grb_files:
+        m = re.search(r'-(\d{3})_keelung', grb.name)
+        if not m:
+            continue
+        fh = int(m.group(1))
+        valid_time = (init_time + timedelta(hours=fh)) if init_time else None
+
+        for sc in SPOT_COORDS:
+            spot_id = sc['id']
+            raw = read_point(grb, sc['lat'], sc['lon'])
+            if not raw:
+                continue
+
+            rec: dict = {
+                'fh': fh,
+                'valid_utc': valid_time.isoformat() if valid_time else None,
+            }
+
+            for key, (unit, fn) in DERIVED.items():
+                try:
+                    if all(k in raw for k in _NEEDED_RAW_KEYS.get(key, [])):
+                        val = fn(raw)
+                        rec[key] = round(val, 2) if val is not None else None
+                    else:
+                        rec[key] = None
+                except (KeyError, ValueError, ZeroDivisionError):
+                    rec[key] = None
+
+            # Convert accumulated precip to 6-hourly incremental
+            if fh == 0:
+                rec['precip_mm_6h'] = 0.0
+            elif rec.get('precip_mm') is not None and prev_precip[spot_id] is not None:
+                pfh = prev_fhs[spot_id]
+                if pfh is not None and fh - pfh != 6:
+                    rec['precip_mm_6h'] = None
+                elif rec['precip_mm'] >= prev_precip[spot_id]:
+                    rec['precip_mm_6h'] = round(rec['precip_mm'] - prev_precip[spot_id], 2)
+                else:
+                    rec['precip_mm_6h'] = rec['precip_mm']
+            else:
+                rec['precip_mm_6h'] = rec.get('precip_mm')
+
+            prev_precip[spot_id] = rec.get('precip_mm')
+            prev_fhs[spot_id] = fh
+            locations[spot_id].append(rec)
+
+    # Sort each location's records by forecast hour
+    for spot_id in locations:
+        locations[spot_id].sort(key=lambda r: r['fh'])
+
+    return {
+        'meta': meta,
+        'locations': {sid: {'records': recs} for sid, recs in locations.items()},
+    }
+
+
 # ── Wind grid extraction (for frontend particle animation) ────────────────────
 
 def extract_wind_grid(rundir: Path, meta: dict) -> dict | None:
@@ -2224,6 +2313,8 @@ def main() -> None:
                    help='AI summary HTML fragment to embed in dashboard page')
     p.add_argument('--output-wind-grid', default=None,
                    help='Output wind grid JSON for frontend particle animation')
+    p.add_argument('--output-spots-json', default=None,
+                   help='Output per-spot WRF JSON (wrf_spots.json) for all locations in config.SPOT_COORDS')
     p.add_argument('--list-vars',   action='store_true',
                    help='Diagnostic: list all GRIB2 shortNames in the first file and exit')
     args = p.parse_args()
@@ -2288,6 +2379,22 @@ def main() -> None:
                      wind_grid['grid']['nx'], wind_grid['grid']['ny'])
         else:
             log.warning("Could not extract wind grid from GRIB2 files")
+
+    # ── Extract per-spot WRF data (optional) ────────────────────────────────────
+    if args.output_spots_json:
+        log.info("Extracting WRF for all spot locations …")
+        spots_data = extract_all_spots(rundir)
+        if spots_data:
+            spots_path = Path(args.output_spots_json)
+            spots_path.parent.mkdir(parents=True, exist_ok=True)
+            spots_path.write_text(json.dumps(spots_data, indent=2), encoding='utf-8')
+            n_locs = len(spots_data.get('locations', {}))
+            n_recs = sum(len(v.get('records', []))
+                         for v in spots_data.get('locations', {}).values())
+            log.info("WRF spots → %s (%d locations, %d total records)",
+                     spots_path, n_locs, n_recs)
+        else:
+            log.warning("No WRF spot data extracted")
 
     # ── Load ECMWF comparison data ────────────────────────────────────────────
     ecmwf_records = []

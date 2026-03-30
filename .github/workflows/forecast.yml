@@ -70,6 +70,14 @@ jobs:
             echo "::warning::No WRF summary in Firebase — forecast will use ECMWF only"
           fi
 
+      # Download WRF per-spot data from Firebase (produced by wrf.yml)
+      - name: Fetch WRF spots data from Firebase
+        continue-on-error: true
+        timeout-minutes: 3
+        run: |
+          python firebase_storage.py download-wrf-spots \
+            --output wrf_spots.json 2>/dev/null || true
+
       # Download accuracy log from Firebase
       - name: Fetch accuracy log
         timeout-minutes: 3
@@ -222,6 +230,7 @@ jobs:
           done
           [ -f surf_frontend.json ] && cp surf_frontend.json frontend/public/data/surf.json
           [ -f ai_summary.json ] && cp ai_summary.json frontend/public/data/summary.json
+          [ -f wrf_spots.json ] && cp wrf_spots.json frontend/public/data/wrf_spots.json
 
       - name: Upload forecast data
         if: "!cancelled()"
