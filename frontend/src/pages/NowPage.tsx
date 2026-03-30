@@ -399,13 +399,15 @@ export function NowPage() {
   )
 
   /* ── Charts panel ──────────────────────────────────────────────────── */
-  const chartsPanel = (
-    <div className="space-y-3">
-      {/* Sticky header: timeline + conditions */}
-      <div className="sticky top-0 z-10 bg-[var(--color-bg)] border-b border-[var(--color-border)] -mx-4 px-4 md:-mx-6 md:px-6">
-        <TimelineScrubber records={chartRecords} />
-        <ConditionsStrip />
-      </div>
+  const chartsPanel = (compact?: boolean) => (
+    <div className={compact ? "space-y-1.5" : "space-y-3"}>
+      {/* Sticky header: timeline + conditions (only in non-compact / mobile) */}
+      {!compact && (
+        <div className="sticky top-0 z-10 bg-[var(--color-bg)] border-b border-[var(--color-border)] -mx-4 px-4 md:-mx-6 md:px-6">
+          <TimelineScrubber records={chartRecords} />
+          <ConditionsStrip />
+        </div>
+      )}
 
       {/* Weather warnings */}
       <WeatherWarnings />
@@ -435,8 +437,8 @@ export function NowPage() {
           </ChartCard>
         )}
 
-        {/* Precip + Temp: side by side on desktop, stacked on mobile */}
-        <div className={mobile ? 'space-y-0' : 'grid grid-cols-2 gap-3'}>
+        {/* Precip + Temp: side by side on desktop (non-compact), stacked otherwise */}
+        <div className={!compact && !mobile ? 'grid grid-cols-2 gap-3' : 'space-y-1.5'}>
           {chartRecords.length > 0 && (
             <ChartCard title={t('common.precip')}>
               <PrecipChart records={chartRecords} timeRange={timeRange} selectedMs={selectedMs} />
@@ -449,31 +451,38 @@ export function NowPage() {
           )}
         </div>
       </Suspense>
-
-      {/* Bottom safe-area spacer */}
-      <div className="h-4" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }} />
     </div>
   )
 
-  /* ── Desktop: left sidebar (map + detail) | right (charts) ─────────── */
+  /* ── Desktop: 3-column layout ──────────────────────────────────────── */
   if (!mobile) {
     return (
       <div className="flex h-full">
-        {/* Left column: map + location detail + AI */}
-        <div className="w-[300px] min-w-[260px] shrink-0 border-r border-[var(--color-border)] flex flex-col">
-          <div className="relative h-[45%] min-h-[200px] shrink-0">
-            <Suspense fallback={<div className="w-full h-full bg-black" />}>
-              <ForecastMap selectedId={locationId} onSelectLocation={setLocationId} />
-            </Suspense>
-          </div>
-          <div className="flex-1 overflow-y-auto border-t border-[var(--color-border)]">
+        {/* Left column: location detail + AI summary */}
+        <div className="w-[260px] min-w-[240px] shrink-0 border-r border-[var(--color-border)] flex flex-col overflow-y-auto">
+          <div className="px-1 py-2">
             {locationDetail}
           </div>
         </div>
 
-        {/* Right column: timeline + charts */}
-        <div className="flex-1 overflow-y-auto px-6 py-2">
-          {chartsPanel}
+        {/* Center column: map + timeline + conditions */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Map takes most of the space */}
+          <div className="relative flex-1 min-h-[300px]">
+            <Suspense fallback={<div className="w-full h-full bg-black" />}>
+              <ForecastMap selectedId={locationId} onSelectLocation={setLocationId} />
+            </Suspense>
+          </div>
+          {/* Timeline + conditions below map */}
+          <div className="shrink-0 border-t border-[var(--color-border)] px-3">
+            <TimelineScrubber records={chartRecords} />
+            <ConditionsStrip />
+          </div>
+        </div>
+
+        {/* Right column: compact charts */}
+        <div className="w-[300px] min-w-[260px] shrink-0 border-l border-[var(--color-border)] overflow-y-auto px-2 py-1.5">
+          {chartsPanel(true)}
         </div>
       </div>
     )
@@ -492,7 +501,7 @@ export function NowPage() {
       {/* Data section */}
       <div className="px-4 py-2">
         {locationDetail}
-        {chartsPanel}
+        {chartsPanel()}
       </div>
     </div>
   )
