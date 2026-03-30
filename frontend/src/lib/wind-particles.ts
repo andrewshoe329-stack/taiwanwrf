@@ -184,9 +184,13 @@ export class WindParticleSystem {
     const w = this.canvas.width  // physical pixels
     const h = this.canvas.height
 
-    // Canvas pixel → geographic coords
+    // Canvas pixel → geographic coords (inverse Mercator)
     const lon = west + (px / w) * (east - west)
-    const lat = north - (py / h) * (north - south)
+    const mercY = (l: number) => Math.log(Math.tan(Math.PI / 4 + (l * Math.PI / 180) / 2))
+    const yMin = mercY(south)
+    const yMax = mercY(north)
+    const mercLat = yMax - (py / h) * (yMax - yMin)
+    const lat = (2 * Math.atan(Math.exp(mercLat)) - Math.PI / 2) * 180 / Math.PI
 
     // Geographic → grid indices
     const { bounds: gb, grid: { nx, ny } } = this.grid
@@ -415,12 +419,17 @@ export class WindParticleSystem {
   }
 
   /** Convert lon/lat to canvas pixel coordinates */
+  /** Convert lon/lat to canvas pixel coordinates using Mercator-like projection */
   private project(lon: number, lat: number, w: number, h: number): [number, number] {
     const { west, east, south, north } = this.bounds
-    return [
-      ((lon - west) / (east - west)) * w,
-      ((north - lat) / (north - south)) * h,
-    ]
+    // X is linear in longitude
+    const x = ((lon - west) / (east - west)) * w
+    // Y uses Mercator-like scaling (lat → sinh) for correct aspect ratio
+    const mercY = (l: number) => Math.log(Math.tan(Math.PI / 4 + (l * Math.PI / 180) / 2))
+    const yMin = mercY(south)
+    const yMax = mercY(north)
+    const y = ((yMax - mercY(lat)) / (yMax - yMin)) * h
+    return [x, y]
   }
 
   private drawCoastline(ctx: CanvasRenderingContext2D, w: number, h: number) {

@@ -16,7 +16,7 @@ const MODEL_LABELS: Record<WindModel, string> = {
 }
 
 // Zoom limits (degrees of longitude span)
-const MIN_LON_SPAN = 0.3   // max zoom in
+const MIN_LON_SPAN = 0.5   // max zoom in (was 0.3 — too close causes distortion)
 const MAX_LON_SPAN = TAIWAN_BBOX.lon_max - TAIWAN_BBOX.lon_min  // max zoom out = initial view
 
 // Pin label colors: muted by default, brighter when selected
