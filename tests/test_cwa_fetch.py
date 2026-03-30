@@ -321,6 +321,53 @@ class TestFetchWarnings:
         assert len(result) == 0
 
     @patch('cwa_fetch.urllib.request.urlopen')
+    def test_nested_affected_areas(self, mock_open):
+        """CWA W-C0033-002 may return affectedAreas as nested dict with location array."""
+        resp = {
+            "success": "true",
+            "records": {
+                "record": [{
+                    "datasetDescription": "豪雨特報",
+                    "hazardConditions": {
+                        "hazards": {
+                            "hazard": [{
+                                "info": {
+                                    "phenomena": "豪雨",
+                                    "significance": "warning",
+                                }
+                            }]
+                        },
+                        "validTime": {
+                            "startTime": "2026-03-23T06:00:00+08:00",
+                            "endTime": "2026-03-24T06:00:00+08:00",
+                        },
+                    },
+                    "affectedAreas": {
+                        "location": [
+                            {"locationName": "基隆市"},
+                            {"locationName": "新北市"},
+                        ]
+                    },
+                    "contents": {
+                        "content": [{"contentText": "北部地區有豪雨", "contentLanguage": "zh_TW"}]
+                    },
+                }],
+            },
+        }
+        mock_open.return_value = _mock_urlopen(resp)
+        result = fetch_warnings("test-key")
+        assert len(result) == 1
+        assert "基隆" in result[0]["area"]
+        assert result[0]["type"] == "豪雨"
+        assert result[0]["severity"] == "warning"
+        # Fallback translation should produce English fields
+        assert "type_en" in result[0]
+        assert result[0]["type_en"] == "Torrential Rain"
+        assert "area_en" in result[0]
+        assert "Keelung" in result[0]["area_en"]
+        assert "description_en" in result[0]
+
+    @patch('cwa_fetch.urllib.request.urlopen')
     def test_empty_warnings(self, mock_open):
         mock_open.return_value = _mock_urlopen({"success": "true", "records": {"record": []}})
         result = fetch_warnings("test-key")

@@ -1,18 +1,23 @@
 import { lazy, Suspense, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { SPOTS } from '@/lib/constants'
 import { useForecastData } from '@/hooks/useForecastData'
 import { useTimeline } from '@/hooks/useTimeline'
-import { useModel } from '@/hooks/useModel'
+import { useModel, type WindModel } from '@/hooks/useModel'
 import { useLocation } from '@/hooks/useLocation'
 import { TimelineScrubber } from '@/components/timeline/TimelineScrubber'
 import { WeatherWarnings } from '@/components/layout/WeatherWarnings'
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner'
 import { SurfHeatmap } from '@/components/spots/SurfHeatmap'
+import { SwellCompass } from '@/components/spots/SwellCompass'
+import { ScoreBreakdown } from '@/components/spots/ScoreBreakdown'
+import { SpotForecastTable } from '@/components/shared/ForecastTable'
 import {
   sailDecision, surfDecision, degToCompass,
   getLocationForecast, getBestSpot, getModelRecords,
   windType, windTypeColorClass,
+  ratingColorClass,
+  windColorClass, waveColorClass,
 } from '@/lib/forecast-utils'
 import type { TimeRange } from '@/components/charts/chart-utils'
 import type { SpotForecast } from '@/lib/types'
@@ -110,6 +115,34 @@ export function NowPage() {
   const sailDec = sailDecision(windKt)
   const surfDec = surfDecision(waveHt, windKt)
 
+  // Spot metadata from constants (for focus mode detail sections)
+  const spotInfo = useMemo(() => {
+    if (!locationId || isHarbour) return undefined
+    return SPOTS.find(s => s.id === locationId)
+  }, [locationId, isHarbour])
+
+  // CWA per-spot live obs
+  const spotObs = useMemo(() => {
+    if (!locationId || !data.cwa_obs?.spot_obs) return undefined
+    return data.cwa_obs.spot_obs[locationId] as
+      | { station?: { temp_c?: number; wind_kt?: number; wind_dir?: number; distance_km?: number }; buoy?: { wave_height_m?: number; wave_period_s?: number; distance_km?: number } }
+      | undefined
+  }, [locationId, data.cwa_obs])
+
+  // Nearby spots for focus mode
+  const nearbySpots = useMemo(() => {
+    if (!locationId || isHarbour || !data.surf?.spots) return []
+    return SPOTS
+      .filter(s => s.id !== locationId)
+      .map(s => {
+        const sf = data.surf!.spots.find(f => f.spot.id === s.id)
+        const best = sf?.daily_best?.[0]
+        return { spot: s, rating: best?.rating, score: best?.score }
+      })
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+      .slice(0, 4)
+  }, [data.surf, locationId, isHarbour])
+
   // CWA observed badges (browse mode / Keelung)
   const cwa = data.cwa_obs?.station
   const buoy = data.cwa_obs?.buoy
@@ -152,14 +185,6 @@ export function NowPage() {
               )}
             </div>
             <div className="flex items-center gap-2">
-              {!isHarbour && (
-                <Link
-                  to={`/spots/${locationId}`}
-                  className="text-[10px] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] no-underline"
-                >
-                  {t('spots.more_details')}
-                </Link>
-              )}
               <button
                 onClick={() => setLocationId(null)}
                 aria-label="Close location detail"
@@ -297,6 +322,9 @@ export function NowPage() {
         {/* Focus mode content */}
         {isFocusMode && (
           <>
+            {/* Model switcher */}
+            <ModelPills />
+
             {/* Charts */}
             <Suspense fallback={null}>
               <div className="grid grid-cols-1 md:grid-cols-2 md:gap-4 gap-0">
@@ -348,6 +376,142 @@ export function NowPage() {
                 )}
               </div>
             </Suspense>
+
+            {/* ─── Spot Detail Sections (surf spots only) ─── */}
+            {!isHarbour && spotInfo && locationForecast && (
+              <>
+                {/* Spot info pills */}
+                <div className="mx-4 md:mx-0 flex flex-wrap items-center gap-2">
+                  <InfoPill label={t('spots.facing')} value={spotInfo.facing} />
+                  <InfoPill label={t(`region.${spotInfo.region}`)} />
+                  <InfoPill label={t('spots.optimal_wind')} value={spotInfo.opt_wind.join(', ')} />
+                  <InfoPill label={t('spots.optimal_swell')} value={spotInfo.opt_swell.join(', ')} />
+                </div>
+
+                {/* Current conditions hero */}
+                {currentRating && (
+                  <section className="mx-4 md:mx-0 border border-[var(--color-border)] rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h2 className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
+                        {t('spots.current_conditions')}
+                      </h2>
+                      <span className={`text-sm font-semibold ${ratingColorClass(currentRating.rating ?? 'flat')}`}>
+                        {t(`rating.${currentRating.rating ?? 'flat'}`)}
+                        {currentRating.score != null && <span className="text-[var(--color-text-dim)] font-normal ml-1 text-xs">{currentRating.score}/14</span>}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <HeroStat
+                        label={t('common.wind')}
+                        value={currentRating.wind_kt?.toFixed(0) ?? '--'}
+                        unit="kt"
+                        colorClass={currentRating.wind_kt != null ? windColorClass(currentRating.wind_kt) : undefined}
+                        sub={currentRating.wind_dir != null ? (
+                          <span className={windTypeColorClass(windType(currentRating.wind_dir, spotInfo.facing))}>
+                            {t(`spots.${windType(currentRating.wind_dir, spotInfo.facing)}`)}
+                          </span>
+                        ) : undefined}
+                        observed={spotObs?.station?.wind_kt != null ? `${spotObs.station.wind_kt.toFixed(0)} obs` : undefined}
+                      />
+                      <HeroStat
+                        label={t('spots.swell')}
+                        value={currentRating.swell_height?.toFixed(1) ?? '--'}
+                        unit="m"
+                        colorClass={currentRating.swell_height != null ? waveColorClass(currentRating.swell_height) : undefined}
+                        sub={currentRating.swell_period != null ? (
+                          <span className="text-[var(--color-text-dim)]">@ {currentRating.swell_period.toFixed(0)}s {currentRating.swell_dir != null ? degToCompass(currentRating.swell_dir) : ''}</span>
+                        ) : undefined}
+                        observed={spotObs?.buoy?.wave_height_m != null ? `${spotObs.buoy.wave_height_m.toFixed(1)} obs` : undefined}
+                      />
+                      <HeroStat
+                        label={t('spots.tide')}
+                        value={currentRating.tide_height?.toFixed(2) ?? '--'}
+                        unit="m"
+                      />
+                      <HeroStat
+                        label={t('harbours_page.direction')}
+                        value={currentRating.wind_dir != null ? degToCompass(currentRating.wind_dir) : '--'}
+                        unit={currentRating.wind_dir != null ? `${currentRating.wind_dir}°` : ''}
+                      />
+                    </div>
+                  </section>
+                )}
+
+                {/* 5-Day Forecast */}
+                {locationForecast.daily_best && locationForecast.daily_best.length > 0 && (
+                  <CollapsibleSection title={t('spots.five_day_forecast')} defaultOpen={true}>
+                    <div className="grid grid-cols-5 gap-2">
+                      {locationForecast.daily_best.map(day => {
+                        const bt = locationForecast.best_times?.find(b => b.date === day.date)
+                        return <DayCard key={day.date} date={day.date} rating={day.rating} score={day.score} bestTime={bt} t={t} />
+                      })}
+                    </div>
+                  </CollapsibleSection>
+                )}
+
+                {/* Hourly Forecast Table */}
+                {locationForecast.ratings.length > 0 && (
+                  <CollapsibleSection title={t('spots.hourly_forecast')} defaultOpen={false}>
+                    <SpotForecastTable ratings={locationForecast.ratings} facing={spotInfo.facing} lang={lang} />
+                  </CollapsibleSection>
+                )}
+
+                {/* Swell Compass + Score Breakdown */}
+                <CollapsibleSection title={t('spots.swell_compass')} defaultOpen={false}>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <div className="flex items-center justify-center py-2">
+                        <SwellCompass
+                          facing={spotInfo.facing}
+                          optSwell={spotInfo.opt_swell}
+                          swellDir={currentRating?.swell_dir}
+                          swellHeight={currentRating?.swell_height}
+                        />
+                      </div>
+                      {currentRating?.swell_height != null && (
+                        <p className="text-center text-[10px] text-[var(--color-text-muted)] mt-1">
+                          {currentRating.swell_height.toFixed(1)} m @ {currentRating.swell_period?.toFixed(0) ?? '--'} s
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="text-xs uppercase tracking-wider text-[var(--color-text-muted)] mb-3">
+                        {t('spots.score_breakdown')}
+                      </h3>
+                      {currentRating ? (
+                        <ScoreBreakdown rating={currentRating} spot={spotInfo} />
+                      ) : (
+                        <p className="text-sm text-[var(--color-text-dim)] py-4 text-center">{t('spots.no_data')}</p>
+                      )}
+                    </div>
+                  </div>
+                </CollapsibleSection>
+
+                {/* Nearby Spots */}
+                {nearbySpots.length > 0 && (
+                  <CollapsibleSection title={t('spots.nearby')} defaultOpen={false}>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {nearbySpots.map(ns => (
+                        <button
+                          key={ns.spot.id}
+                          onClick={() => setLocationId(ns.spot.id)}
+                          className="text-left border border-[var(--color-border)] rounded-lg px-3 py-2 hover:border-[var(--color-border-active)] transition-colors"
+                        >
+                          <p className="text-xs text-[var(--color-text-primary)] font-medium truncate">{ns.spot.name[lang]}</p>
+                          <p className="text-[10px] text-[var(--color-text-muted)]">{ns.spot.name[lang === 'en' ? 'zh' : 'en']}</p>
+                          {ns.rating && (
+                            <p className={`text-[10px] font-medium mt-1 ${ratingColorClass(ns.rating)}`}>
+                              {t(`rating.${ns.rating}`)}
+                              {ns.score != null && <span className="text-[var(--color-text-dim)] ml-1">{ns.score}/14</span>}
+                            </p>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </CollapsibleSection>
+                )}
+              </>
+            )}
 
             {/* All Locations — collapsed */}
             {data.surf && (
@@ -521,6 +685,97 @@ function CollapsibleSection({ title, defaultOpen, children }: {
         </svg>
       </button>
       {open && <div className="px-4 pb-4">{children}</div>}
+    </div>
+  )
+}
+
+function InfoPill({ label, value }: { label: string; value?: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] border border-[var(--color-border)] rounded-full px-2.5 py-0.5 text-[var(--color-text-muted)]">
+      <span>{label}</span>
+      {value && <span className="text-[var(--color-text-secondary)]">{value}</span>}
+    </span>
+  )
+}
+
+function HeroStat({ label, value, unit, colorClass, sub, observed }: {
+  label: string; value: string; unit: string; colorClass?: string; sub?: React.ReactNode; observed?: string
+}) {
+  return (
+    <div className="bg-[var(--color-bg-elevated)] rounded-lg px-3 py-2">
+      <p className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wider mb-0.5">{label}</p>
+      <p className={`text-base font-semibold tabular-nums ${colorClass ?? 'text-[var(--color-text-primary)]'}`}>
+        {value}
+        <span className="text-xs text-[var(--color-text-muted)] ml-0.5">{unit}</span>
+      </p>
+      {sub && <p className="text-[10px] leading-tight mt-0.5">{sub}</p>}
+      {observed && <p className="text-[9px] text-emerald-500/80 leading-tight mt-0.5">{observed}</p>}
+    </div>
+  )
+}
+
+function DayCard({ date, rating, score, bestTime, t }: {
+  date: string; rating: string; score: number
+  bestTime?: { start_cst: string; end_cst: string; rating: string }
+  t: (key: string) => string
+}) {
+  const d = new Date(date + 'T00:00:00Z')
+  const weekday = d.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' })
+  const dayNum = d.getUTCDate()
+
+  const bgMap: Record<string, string> = {
+    firing:    'bg-[var(--color-firing-bg)] border-[var(--color-firing)]/30',
+    good:      'bg-[rgba(94,234,212,0.08)] border-[var(--color-rating-good)]/20',
+    marginal:  'bg-[rgba(251,191,36,0.06)] border-[var(--color-rating-marginal)]/15',
+    poor:      'border-[var(--color-border)]',
+    flat:      'border-[var(--color-border)]',
+    dangerous: 'bg-[rgba(248,113,113,0.08)] border-[var(--color-rating-dangerous)]/20',
+  }
+
+  return (
+    <div className={`flex flex-col items-center gap-1 py-2 rounded-lg border ${bgMap[rating] ?? 'border-[var(--color-border)]'}`}>
+      <span className="text-[10px] text-[var(--color-text-muted)]">{weekday}</span>
+      <span className="text-xs text-[var(--color-text-secondary)]">{dayNum}</span>
+      <span className={`text-[10px] font-medium mt-0.5 ${ratingColorClass(rating)}`}>
+        {t(`rating.${rating}`)}
+      </span>
+      <span className="text-[10px] text-[var(--color-text-dim)]">{score}/14</span>
+      {bestTime && (
+        <span className="text-[9px] text-[var(--color-text-muted)] mt-0.5 tabular-nums">
+          {bestTime.start_cst}–{bestTime.end_cst}
+        </span>
+      )}
+    </div>
+  )
+}
+
+const MODEL_LABELS: Record<WindModel, string> = {
+  wrf: 'WRF 3km',
+  ecmwf: 'ECMWF',
+  gfs: 'GFS',
+}
+
+function ModelPills() {
+  const { model, setModel, gridLoading } = useModel()
+  return (
+    <div className="mx-4 md:mx-0 flex items-center gap-1.5 py-2">
+      <span className="text-[9px] uppercase tracking-wider text-[var(--color-text-dim)] mr-1">Model</span>
+      {(['wrf', 'ecmwf', 'gfs'] as WindModel[]).map(m => (
+        <button
+          key={m}
+          onClick={() => setModel(m)}
+          className={`px-2.5 py-1 text-[10px] font-medium rounded-md transition-all border ${
+            model === m
+              ? 'bg-[var(--color-text-primary)] text-[var(--color-bg)] border-[var(--color-text-primary)]'
+              : 'bg-transparent text-[var(--color-text-muted)] border-[var(--color-border)] hover:text-[var(--color-text-secondary)] hover:border-[var(--color-border-active)]'
+          }`}
+        >
+          {MODEL_LABELS[m]}
+        </button>
+      ))}
+      {gridLoading && (
+        <span className="text-[9px] text-[var(--color-text-dim)] ml-1 animate-pulse">...</span>
+      )}
     </div>
   )
 }

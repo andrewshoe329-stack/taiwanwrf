@@ -1,10 +1,15 @@
 import React, { lazy, Suspense } from 'react'
-import { createBrowserRouter, Navigate } from 'react-router-dom'
+import { createBrowserRouter, Navigate, useParams } from 'react-router-dom'
 import { App } from './App'
 
 const NowPage = lazy(() => import('./pages/NowPage').then(m => ({ default: m.NowPage })))
-const SpotDetailPage = lazy(() => import('./pages/SpotDetailPage').then(m => ({ default: m.SpotDetailPage })))
 const ModelsPage = lazy(() => import('./pages/ModelsPage').then(m => ({ default: m.ModelsPage })))
+
+/** Redirect /spots/:id → /?loc=:id */
+function SpotRedirect() {
+  const { id } = useParams<{ id: string }>()
+  return <Navigate to={`/?loc=${id}`} replace />
+}
 
 function LazyFallback() {
   return (
@@ -66,7 +71,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: withSuspense(NowPage) },
       { path: 'spots', element: <Navigate to="/" replace /> },
-      { path: 'spots/:id', element: withSuspense(SpotDetailPage) },
+      { path: 'spots/:id', element: <SpotRedirect /> },
       { path: 'harbours', element: <Navigate to="/?loc=keelung" replace /> },
       { path: 'models', element: withSuspense(ModelsPage) },
     ],
