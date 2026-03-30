@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { SpotForecast, Region } from '@/lib/types'
@@ -32,32 +33,34 @@ export function SurfHeatmap({ spots, filter, onSelectSpot }: SurfHeatmapProps) {
   const { t, i18n } = useTranslation()
   const lang = i18n.language as 'en' | 'zh'
 
-  const filtered = (filter === 'all'
-    ? spots
-    : spots.filter(sf => sf.spot.region === filter)
-  ).filter(sf => sf.spot.type !== 'harbour' && sf.daily_best != null)
+  const filtered = useMemo(() =>
+    (filter === 'all'
+      ? spots
+      : spots.filter(sf => sf.spot.region === filter)
+    ).filter(sf => sf.spot.type !== 'harbour' && sf.daily_best != null),
+    [spots, filter],
+  )
 
-  if (filtered.length === 0) return null
-
-  // Collect all unique dates across all spots, sorted
-  const allDates = new Set<string>()
-  for (const sf of filtered) {
-    for (const db of sf.daily_best!) {
-      allDates.add(db.date)
+  const { dates, lookup } = useMemo(() => {
+    const allDates = new Set<string>()
+    for (const sf of filtered) {
+      for (const db of sf.daily_best!) {
+        allDates.add(db.date)
+      }
     }
-  }
-  const dates = Array.from(allDates).sort().slice(0, 7)
+    const dates = Array.from(allDates).sort().slice(0, 7)
 
-  if (dates.length === 0) return null
-
-  // Build lookup: spot_id -> date -> daily_best entry
-  const lookup: Record<string, Record<string, { rating: string; score: number }>> = {}
-  for (const sf of filtered) {
-    lookup[sf.spot.id] = {}
-    for (const db of sf.daily_best!) {
-      lookup[sf.spot.id][db.date] = { rating: db.rating, score: db.score }
+    const lookup: Record<string, Record<string, { rating: string; score: number }>> = {}
+    for (const sf of filtered) {
+      lookup[sf.spot.id] = {}
+      for (const db of sf.daily_best!) {
+        lookup[sf.spot.id][db.date] = { rating: db.rating, score: db.score }
+      }
     }
-  }
+    return { dates, lookup }
+  }, [filtered])
+
+  if (filtered.length === 0 || dates.length === 0) return null
 
   return (
     <div className="mb-5 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>

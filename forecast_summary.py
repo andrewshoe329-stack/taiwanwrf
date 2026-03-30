@@ -432,29 +432,31 @@ def call_api(user_prompt: str) -> str:
         log.warning("ANTHROPIC_API_KEY not set — skipping AI summary")
         return ''
 
+    model_name = os.environ.get('CLAUDE_MODEL', 'claude-sonnet-4-6')
     client = anthropic.Anthropic(api_key=api_key, max_retries=5)
     last_exc: Exception = RuntimeError("no attempts made")
     for attempt in range(1, 4):
         try:
             msg = client.messages.create(
-                model='claude-sonnet-4-6',
+                model=model_name,
                 max_tokens=800,
                 system=SYSTEM_PROMPT,
                 messages=[{'role': 'user', 'content': user_prompt}],
             )
-            if not msg.content:
+            if not msg.content or not getattr(msg.content[0], 'text', ''):
                 raise ValueError("Empty response from API")
             return msg.content[0].text.strip()
         except (anthropic.APIConnectionError, anthropic.RateLimitError,
                 anthropic.InternalServerError, anthropic.APIStatusError,
-                ValueError, OSError) as e:
+                ValueError, OSError, TimeoutError) as e:
             last_exc = e
             if isinstance(e, (anthropic.AuthenticationError,
                               anthropic.BadRequestError)):
                 log.error("Non-retryable API error: %s", e)
                 return ''
             if attempt < 3:
-                delay = 10 * attempt
+                import random
+                delay = 10 * (2 ** (attempt - 1)) + random.randint(0, 5)
                 log.warning("Anthropic API attempt %d failed (%s); retrying in %ds …",
                             attempt, e, delay)
                 time.sleep(delay)

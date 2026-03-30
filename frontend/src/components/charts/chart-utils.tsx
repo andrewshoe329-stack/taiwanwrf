@@ -63,11 +63,11 @@ export function timeTicks(range: TimeRange | undefined, data?: { timeMs: number 
   return ticks
 }
 
-/** Format a ms timestamp for the x-axis tick label */
-let prevTickDay = ''
-
+/** Format a ms timestamp for the x-axis tick label.
+ *  Uses the ticks array from props to determine day boundaries
+ *  (avoids module-global mutable state that breaks with multiple charts). */
 export function MultiLineTick(props: any) {
-  const { x, y, payload, index } = props
+  const { x, y, payload, index, ticks } = props
   if (payload?.value == null) return null
 
   // Numeric axis: value is ms timestamp
@@ -83,8 +83,18 @@ export function MultiLineTick(props: any) {
   const hh = String(d.getUTCHours()).padStart(2, '0')
 
   const dayKey = `${dayName} ${mm}/${dd}`
-  const showDate = index === 0 || dayKey !== prevTickDay
-  prevTickDay = dayKey
+
+  // Determine whether to show day header by comparing to previous tick
+  let showDate = index === 0
+  if (!showDate && Array.isArray(ticks) && index > 0) {
+    const prevMs = typeof ticks[index - 1] === 'number'
+      ? ticks[index - 1]
+      : ticks[index - 1]?.value ?? 0
+    const pd = new Date(prevMs)
+    pd.setUTCHours(pd.getUTCHours() + 8)
+    const prevKey = `${DAY_NAMES[pd.getUTCDay()]} ${pd.getUTCMonth() + 1}/${pd.getUTCDate()}`
+    showDate = dayKey !== prevKey
+  }
 
   return (
     <g transform={`translate(${x},${y})`}>

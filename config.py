@@ -383,9 +383,18 @@ def fetch_json(url: str, *, label: str = "",
                 json.JSONDecodeError, OSError) as e:
             last_exc = e
             if attempt < retries:
+                # Exponential backoff; respect Retry-After header on 429
+                delay = retry_delay * (2 ** (attempt - 1))
+                if isinstance(e, urllib.error.HTTPError) and e.code == 429:
+                    ra = e.headers.get('Retry-After') if e.headers else None
+                    if ra:
+                        try:
+                            delay = max(delay, int(ra))
+                        except (ValueError, TypeError):
+                            pass
                 log.warning("Request failed (%s); retry %d/%d in %ds …",
-                            e, attempt, retries, retry_delay)
-                time.sleep(retry_delay)
+                            e, attempt, retries, delay)
+                time.sleep(delay)
     log.error("%s fetch failed after %d attempts: %s",
               label or url, retries, last_exc)
     return None

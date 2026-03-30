@@ -140,7 +140,7 @@ def _rmse(errors: list) -> float | None:
 
 def _circular_diff(a: float, b: float) -> float:
     """Signed angular difference in range [-180, 180]."""
-    d = (a - b) % 360
+    d = (a % 360 - b % 360) % 360
     return d - 360 if d > 180 else d
 
 
@@ -277,14 +277,16 @@ def compute_accuracy(forecast_records: list, obs_raw: dict,
                 obs_6h_count = 0
                 for h_offset in range(6):
                     h_time = (vt_dt - timedelta(hours=h_offset)).isoformat()
-                    h_key = norm_utc(h_time) if len(h_time) < 25 else h_time
+                    h_key = norm_utc(h_time)
                     h_obs = obs_by_time.get(h_key, {})
                     h_rain = h_obs.get('precip_mm')
                     if h_rain is not None:
                         obs_6h_sum += h_rain
                         obs_6h_count += 1
                 if obs_6h_count >= 4:  # require at least 4 of 6 hours
-                    err = fp - obs_6h_sum
+                    # Scale partial obs sum to 6h equivalent
+                    obs_6h_est = obs_6h_sum * (6 / obs_6h_count)
+                    err = fp - obs_6h_est
                     precip_errors.append(err)
                     bins[bk]['precip'].append(err)
             except (ValueError, TypeError):

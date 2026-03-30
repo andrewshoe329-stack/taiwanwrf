@@ -300,10 +300,12 @@ def read_point(grib_path: Path, lat: float, lon: float) -> dict[str, float]:
                         # 'kg m**-2' == mm of liquid water, no conversion needed
                     except (KeyError, ValueError):
                         # Units key unavailable: fall back to a conservative
-                        # heuristic — only convert if value looks like metres
-                        # (i.e. plausibly < 0.5 m of rain in 6 h).
+                        # heuristic — only convert if value looks like metres.
+                        # A 6h accumulated precip in metres is typically 0–0.5;
+                        # the same in mm is 0–500.  Values < 0.5 are ambiguous,
+                        # so only convert when the value is clearly sub-mm scale.
                         log.warning("GRIB2 units key unavailable for precip; using magnitude heuristic")
-                        if 0 < val < 0.01:
+                        if 0 < val < 0.5:
                             log.info("Precip value %.6f looks like metres, converting to mm", val)
                             val *= 1000.0
 
@@ -1019,6 +1021,7 @@ def _daily_summary_html(
             bf_day    = _beaufort(max_wind)
             arrow_bit = f' {peak_arrow}' if peak_arrow else ''
             gust_bit  = (f' g{max_gust:.0f}' if max_gust is not None
+                         and max_wind is not None
                          and max_gust >= max_wind * 1.15 and max_gust >= max_wind + 3
                          else '')
             wind_str  = f'{max_wind:.0f}kt B{bf_day}{arrow_bit}{peak_dir_s}{gust_bit}'
@@ -1548,7 +1551,7 @@ def render_unified_html(
             dt_c = dt_u + timedelta(hours=8)
             utc_str      = dt_u.strftime('%H:%M')
             cst_str      = dt_c.strftime('%H:%M')
-            cst_date_str = dt_c.strftime('%a %-d %b')
+            cst_date_str = f'{dt_c.strftime("%a")} {dt_c.day} {dt_c.strftime("%b")}'
             cst_date_key = dt_c.strftime('%Y-%m-%d')
         except (ValueError, TypeError):
             utc_str, cst_str = vt, ''
@@ -1786,7 +1789,7 @@ def render_unified_html(
             dt_u = datetime.fromisoformat(vt)
             dt_c = dt_u + timedelta(hours=8)
             cst_str      = dt_c.strftime('%H:%M')
-            cst_date_str = dt_c.strftime('%a %-d %b')
+            cst_date_str = f'{dt_c.strftime("%a")} {dt_c.day} {dt_c.strftime("%b")}'
             cst_date_key = dt_c.strftime('%Y-%m-%d')
         except (ValueError, TypeError):
             cst_str = vt

@@ -162,6 +162,7 @@ export function NowPage() {
               )}
               <button
                 onClick={() => setLocationId(null)}
+                aria-label="Close location detail"
                 className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
               >
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">

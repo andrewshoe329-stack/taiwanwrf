@@ -162,15 +162,13 @@ def process(raw: dict, raw_fill: dict | None = None) -> tuple[dict, list]:
             continue
 
         # Precipitation: sum hours [i-5 .. i] inclusive (6-hour window).
-        # When fewer than 6 values are available (early forecast hours),
-        # scale up proportionally so the result represents a 6h equivalent.
+        # Sum the preceding 6 hourly precipitation values.  For early forecast
+        # hours with fewer than 6 values, use the actual sum (no scaling up).
         window_start = max(0, i - 5)
-        window_len = i + 1 - window_start
-        raw_precip = sum(
+        precip_6h = sum(
             (safe(precip, j) or 0.0)
             for j in range(window_start, i + 1)
         )
-        precip_6h = raw_precip * (6 / window_len) if window_len < 6 else raw_precip
 
         # Visibility: metres → km
         vis_val = safe(vis, i)
@@ -204,7 +202,8 @@ def process(raw: dict, raw_fill: dict | None = None) -> tuple[dict, list]:
     # ECMWF init time: use the first hourly timestamp (model cycle start).
     # Note: current/current_weather.time is the observation time, not the
     # model init time, so we don't use it.
-    init_raw = raw.get("hourly", {}).get("time", [""])[0]
+    _times = raw.get("hourly", {}).get("time", [])
+    init_raw = _times[0] if _times else ""
     meta = {
         "model_id":  "ECMWF-IFS-0.25",
         "init_utc":  _norm_utc(init_raw) if init_raw else None,

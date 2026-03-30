@@ -782,8 +782,12 @@ def fetch_township_forecast(api_key: str,
         locations_wrapper = records.get("Locations") or records.get("locations")
         if isinstance(locations_wrapper, list) and locations_wrapper:
             # Unwrap: first Locations item contains the Location array
-            locations = locations_wrapper[0].get("Location",
-                        locations_wrapper[0].get("location", []))
+            first_item = locations_wrapper[0]
+            if isinstance(first_item, dict):
+                locations = first_item.get("Location",
+                            first_item.get("location", []))
+            else:
+                locations = []
         else:
             locations = records.get("location", records.get("Location", []))
         if not locations:
