@@ -11,7 +11,7 @@ function Stat({ label, value, unit, detail }: {
   label: string; value: string; unit: string; detail?: string
 }) {
   return (
-    <div className="shrink-0 text-center min-w-[48px]">
+    <div className="text-center">
       <p className="text-[9px] text-[var(--color-text-muted)] uppercase tracking-wider">{label}</p>
       <p className="text-sm font-semibold text-[var(--color-text-primary)] tabular-nums leading-tight">
         {value}<span className="text-[10px] text-[var(--color-text-muted)] ml-0.5">{unit}</span>
@@ -50,43 +50,54 @@ export function ConditionsStrip() {
   const swellP = waveRec?.swell_wave_period ?? waveRec?.wave_period
   const swellDir = waveRec?.swell_wave_direction
 
+  // Count visible stats for grid columns
+  const hasSwell = swellH != null
+  const hasWave = waveRec?.wave_height != null
+  const hasPrecip = rec.precip_mm_6h != null && rec.precip_mm_6h > 0
+  const cols = 2 + (hasSwell ? 1 : 0) + (hasWave ? 1 : 0) + (hasPrecip ? 1 : 0)
+
   return (
-    <div className="space-y-1">
-      <div className="flex items-center gap-4 overflow-x-auto py-1">
+    <div className="space-y-1.5">
+      <div
+        className="grid gap-2 py-1.5"
+        style={{ gridTemplateColumns: `repeat(${Math.min(cols, 5)}, 1fr)` }}
+      >
         <Stat
           label={t('common.wind')}
           value={rec.wind_kt?.toFixed(0) ?? '--'}
           unit="kt"
           detail={rec.wind_dir != null ? degToCompass(rec.wind_dir) + (rec.gust_kt ? ` G${rec.gust_kt.toFixed(0)}` : '') : undefined}
         />
-        {swellH != null && (
+        {hasSwell && (
           <Stat
             label={t('common.swell')}
-            value={swellH.toFixed(1)}
+            value={swellH!.toFixed(1)}
             unit="m"
             detail={`${swellP?.toFixed(0) ?? '--'}s${swellDir != null ? ' ' + degToCompass(swellDir) : ''}`}
           />
         )}
-        {waveRec?.wave_height != null && (
+        {hasWave && (
           <Stat
             label={t('common.wave_height')}
-            value={waveRec.wave_height.toFixed(1)}
+            value={waveRec!.wave_height!.toFixed(1)}
             unit="m"
           />
         )}
         <Stat
           label={t('common.temp')}
           value={rec.temp_c?.toFixed(0) ?? '--'}
-          unit="°C"
+          unit="\u00B0C"
         />
-        {rec.precip_mm_6h != null && rec.precip_mm_6h > 0 && (
+        {hasPrecip && (
           <Stat
             label={t('common.precip')}
-            value={rec.precip_mm_6h.toFixed(1)}
+            value={rec.precip_mm_6h!.toFixed(1)}
             unit="mm"
           />
         )}
-        <span className="ml-auto shrink-0"><DataFreshness /></span>
+      </div>
+      <div className="flex justify-end">
+        <DataFreshness />
       </div>
     </div>
   )

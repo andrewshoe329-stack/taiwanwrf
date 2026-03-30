@@ -7,7 +7,7 @@ import { useIsMobile } from '@/hooks/useIsMobile'
 import {
   toCSTLabel, MultiLineTick, timeTicks, timeDomain,
   filterByTimeRange, findNowMs,
-  chartMargin, chartHeight, xAxisHeight, YAXIS_WIDTH, NOW_LABEL,
+  chartMargin, chartHeightCompact, xAxisHeight, YAXIS_WIDTH, NOW_LABEL,
   type TimeRange,
 } from './chart-utils'
 
@@ -57,7 +57,7 @@ export function PrecipChart({ records, timeRange }: PrecipChartProps) {
   const ticks = timeTicks(timeRange, chartData)
 
   return (
-    <ResponsiveContainer width="100%" height={chartHeight(mobile)}>
+    <ResponsiveContainer width="100%" height={chartHeightCompact(mobile)}>
       <BarChart data={chartData} margin={chartMargin(mobile, false)}>
         <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
         <XAxis
