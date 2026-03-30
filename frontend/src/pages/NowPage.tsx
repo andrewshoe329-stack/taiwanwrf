@@ -55,12 +55,11 @@ export function NowPage() {
 
   // Selected timestep as ms — drives chart reference line
   const selectedMs = useMemo(() => {
-    const records = data.keelung?.records
-    if (!records?.length) return undefined
-    const rec = records[Math.min(index, records.length - 1)]
+    if (!chartRecords?.length) return undefined
+    const rec = chartRecords[Math.min(index, chartRecords.length - 1)]
     if (!rec?.valid_utc) return undefined
     return new Date(rec.valid_utc).getTime()
-  }, [data.keelung, index])
+  }, [chartRecords, index])
 
   // Spot metadata
   const spotInfo = useMemo(() => {
@@ -71,7 +70,7 @@ export function NowPage() {
   // Current rating for spot detail
   const currentRating = useMemo(() => {
     if (!locationForecast) return null
-    const targetUtc = data.keelung?.records?.[index]?.valid_utc
+    const targetUtc = chartRecords?.[index]?.valid_utc
     if (!targetUtc) return locationForecast.ratings[0] ?? null
     const targetMs = new Date(targetUtc).getTime()
     let best = locationForecast.ratings[0] ?? null
@@ -81,7 +80,7 @@ export function NowPage() {
       if (diff < bestDiff) { bestDiff = diff; best = r }
     }
     return best
-  }, [locationForecast, data.keelung, index])
+  }, [locationForecast, chartRecords, index])
 
   if (data.loading) {
     return <LoadingSpinner />
@@ -122,7 +121,7 @@ export function NowPage() {
                   optSwell={spotInfo.opt_swell}
                   swellDir={currentRating.swell_dir}
                   swellHeight={currentRating.swell_height}
-                  size={80}
+                  size={120}
                 />
               </div>
               <div className="flex-1 min-w-0 space-y-2">
@@ -220,7 +219,7 @@ export function NowPage() {
     <div className="space-y-3">
       {/* Sticky header: timeline + conditions */}
       <div className="sticky top-0 z-10 bg-[var(--color-bg)] border-b border-[var(--color-border)] -mx-4 px-4 md:-mx-6 md:px-6">
-        <TimelineScrubber />
+        <TimelineScrubber records={chartRecords} />
         <ConditionsStrip />
       </div>
 

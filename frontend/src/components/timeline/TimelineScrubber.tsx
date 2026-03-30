@@ -1,8 +1,8 @@
 import { useRef, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useTimeline } from '@/hooks/useTimeline'
-import { useForecastData } from '@/hooks/useForecastData'
 import { DataFreshness } from '@/components/layout/DataFreshness'
+import type { ForecastRecord } from '@/lib/types'
 
 function formatTime(utc: string): string {
   const d = new Date(utc)
@@ -18,15 +18,19 @@ function formatDate(utc: string): string {
   return `${DAY_NAMES[d.getUTCDay()]} ${d.getUTCMonth() + 1}/${d.getUTCDate()}`
 }
 
-export function TimelineScrubber() {
+interface TimelineScrubberProps {
+  /** The records driving the timeline. Determines total length and time labels. */
+  records?: ForecastRecord[]
+}
+
+export function TimelineScrubber({ records: externalRecords }: TimelineScrubberProps) {
   const { t } = useTranslation()
   const { index, total, setIndex, playing, toggle, setTotal } = useTimeline()
-  const { keelung } = useForecastData()
   const trackRef = useRef<HTMLDivElement>(null)
 
-  const records = keelung?.records ?? []
+  const records = externalRecords ?? []
 
-  // Sync total timesteps
+  // Sync total timesteps when records change
   useEffect(() => {
     if (records.length > 0 && total !== records.length) {
       setTotal(records.length)
