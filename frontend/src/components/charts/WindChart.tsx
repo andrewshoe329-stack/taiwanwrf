@@ -7,7 +7,7 @@ import type { ForecastRecord } from '@/lib/types'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import {
   toCSTLabel, MultiLineTick, timeTicks, timeDomain,
-  filterByTimeRange,
+  filterByTimeRange, findClosestIndex,
   chartMargin, chartHeight, xAxisHeight, YAXIS_WIDTH, NOW_LABEL,
   type TimeRange,
 } from './chart-utils'
@@ -84,7 +84,7 @@ export function WindChart({ records, ecmwfRecords, timeRange, selectedMs }: Wind
           unit=" kt"
           width={YAXIS_WIDTH}
         />
-        <Tooltip content={CustomTooltip} />
+        <Tooltip content={CustomTooltip} defaultIndex={findClosestIndex(chartData, nowMs)} />
         {/* Beaufort reference lines */}
         <ReferenceLine y={12} stroke="var(--color-text-dim)" strokeDasharray="2 4" />
         <ReferenceLine y={25} stroke="var(--color-text-dim)" strokeDasharray="2 4" />

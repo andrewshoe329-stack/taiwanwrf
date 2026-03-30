@@ -8,6 +8,18 @@
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
+/** Find the data array index closest to a given ms timestamp. Returns -1 if no match. */
+export function findClosestIndex(data: { timeMs: number }[], targetMs: number | undefined): number {
+  if (!targetMs || !data.length) return -1
+  let best = 0
+  let bestDiff = Infinity
+  for (let i = 0; i < data.length; i++) {
+    const diff = Math.abs(data[i].timeMs - targetMs)
+    if (diff < bestDiff) { bestDiff = diff; best = i }
+  }
+  return best
+}
+
 /** Convert UTC ISO string → CST Date (UTC+8) */
 export function cstDate(utc: string): Date {
   const d = new Date(utc)

@@ -7,7 +7,7 @@ import type { ForecastRecord } from '@/lib/types'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import {
   toCSTLabel, MultiLineTick, timeTicks, timeDomain,
-  filterByTimeRange,
+  filterByTimeRange, findClosestIndex,
   chartMargin, chartHeightCompact, xAxisHeight, YAXIS_WIDTH, NOW_LABEL,
   type TimeRange,
 } from './chart-utils'
@@ -78,7 +78,7 @@ export function PrecipChart({ records, timeRange, selectedMs }: PrecipChartProps
           unit=" mm"
           width={YAXIS_WIDTH}
         />
-        <Tooltip content={PrecipTooltip} />
+        <Tooltip content={PrecipTooltip} defaultIndex={findClosestIndex(chartData, nowMs)} />
         <Bar
           dataKey="precip"
           name="Precip 6h"

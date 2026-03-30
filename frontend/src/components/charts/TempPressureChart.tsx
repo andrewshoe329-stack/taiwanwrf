@@ -7,7 +7,7 @@ import type { ForecastRecord } from '@/lib/types'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import {
   toCSTLabel, MultiLineTick, timeTicks, timeDomain,
-  filterByTimeRange,
+  filterByTimeRange, findClosestIndex,
   chartMargin, chartHeightCompact, xAxisHeight, YAXIS_WIDTH, NOW_LABEL,
   type TimeRange,
 } from './chart-utils'
@@ -101,7 +101,7 @@ export function TempChart({ records, timeRange, selectedMs }: ChartProps) {
           width={YAXIS_WIDTH}
           domain={['auto', 'auto']}
         />
-        <Tooltip content={TempTooltip} />
+        <Tooltip content={TempTooltip} defaultIndex={findClosestIndex(chartData, nowMs)} />
         <Line
           dataKey="temp"
           name="Temp"
@@ -162,7 +162,7 @@ export function PressureChart({ records, timeRange, selectedMs }: ChartProps) {
           width={YAXIS_WIDTH}
           domain={['auto', 'auto']}
         />
-        <Tooltip content={PressureTooltip} />
+        <Tooltip content={PressureTooltip} defaultIndex={findClosestIndex(chartData, nowMs)} />
         <Line
           dataKey="pressure"
           name="Pressure"

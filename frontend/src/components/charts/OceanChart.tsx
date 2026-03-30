@@ -7,7 +7,7 @@ import type { WaveRecord } from '@/lib/types'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import {
   toCSTLabel, MultiLineTick, timeTicks, timeDomain,
-  filterByTimeRange,
+  filterByTimeRange, findClosestIndex,
   chartMargin, xAxisHeight, YAXIS_WIDTH, NOW_LABEL,
   type TimeRange,
 } from './chart-utils'
@@ -96,7 +96,7 @@ export function OceanChart({ records, timeRange, selectedMs }: OceanChartProps) 
           width={36}
           domain={[0, 'auto']}
         />
-        <Tooltip content={OceanTooltip} />
+        <Tooltip content={OceanTooltip} defaultIndex={findClosestIndex(chartData, nowMs)} />
         <Area
           yAxisId="height"
           dataKey="swell"

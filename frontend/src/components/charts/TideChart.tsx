@@ -8,7 +8,7 @@ import type { TidePrediction, TideExtremum } from '@/lib/types'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import {
   toCSTLabel, MultiLineTick, timeTicks, timeDomain,
-  filterByTimeRange, downsampleTide,
+  filterByTimeRange, downsampleTide, findClosestIndex,
   chartMargin, chartHeight, xAxisHeight, YAXIS_WIDTH, NOW_LABEL,
   type TimeRange,
 } from './chart-utils'
@@ -100,7 +100,7 @@ export function TideChart({ predictions, extrema, timeRange, selectedMs }: TideC
           width={YAXIS_WIDTH}
           domain={['auto', 'auto']}
         />
-        <Tooltip content={CustomTooltip} />
+        <Tooltip content={CustomTooltip} defaultIndex={findClosestIndex(chartData, nowMs)} />
         <Area
           dataKey="height"
           name="Tide"
