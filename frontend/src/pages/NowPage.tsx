@@ -13,6 +13,7 @@ import { ConditionsStrip } from '@/components/ConditionsStrip'
 import { SwellCompass } from '@/components/spots/SwellCompass'
 import {
   degToCompass, getModelRecords, windType,
+  ratingsToWaveRecords, ratingsToTidePredictions,
 } from '@/lib/forecast-utils'
 import type { TimeRange } from '@/components/charts/chart-utils'
 import type { SpotForecast } from '@/lib/types'
@@ -81,6 +82,30 @@ export function NowPage() {
     }
     return best
   }, [locationForecast, chartRecords, index])
+
+  // Spot-specific wave records for OceanChart (fall back to Keelung)
+  const waveRecords = useMemo(() => {
+    if (locationForecast && locationId !== 'keelung') {
+      return ratingsToWaveRecords(locationForecast.ratings)
+    }
+    return data.wave?.ecmwf_wave?.records ?? []
+  }, [locationForecast, locationId, data.wave])
+
+  // Spot-specific tide predictions for TideChart (fall back to Keelung)
+  const tidePredictions = useMemo(() => {
+    if (locationForecast && locationId !== 'keelung') {
+      return ratingsToTidePredictions(locationForecast.ratings)
+    }
+    return data.tide?.predictions ?? []
+  }, [locationForecast, locationId, data.tide])
+
+  // Tide extrema (only available for Keelung detailed data)
+  const tideExtrema = useMemo(() => {
+    if (locationForecast && locationId !== 'keelung') {
+      return []  // spot ratings don't include extrema detail
+    }
+    return data.tide?.extrema ?? []
+  }, [locationForecast, locationId, data.tide])
 
   if (data.loading) {
     return <LoadingSpinner />
@@ -234,17 +259,17 @@ export function NowPage() {
           </ChartCard>
         )}
 
-        {data.wave?.ecmwf_wave?.records && (
+        {waveRecords.length > 0 && (
           <ChartCard title={`${t('common.wave_height')} + ${t('common.swell_period')}`}>
-            <OceanChart records={data.wave.ecmwf_wave.records} timeRange={timeRange} selectedMs={selectedMs} />
+            <OceanChart records={waveRecords} timeRange={timeRange} selectedMs={selectedMs} />
           </ChartCard>
         )}
 
-        {data.tide?.predictions && (
+        {tidePredictions.length > 0 && (
           <ChartCard title={t('common.tide')}>
             <TideChart
-              predictions={data.tide.predictions}
-              extrema={data.tide.extrema}
+              predictions={tidePredictions}
+              extrema={tideExtrema}
               timeRange={timeRange}
               selectedMs={selectedMs}
             />

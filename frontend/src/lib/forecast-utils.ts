@@ -5,7 +5,7 @@
 
 import type {
   ForecastRecord, SpotForecast, SpotRating,
-  AccuracyEntry, GfsRecord,
+  AccuracyEntry, GfsRecord, WaveRecord, TidePrediction,
 } from './types'
 import type { AllForecastData } from '@/hooks/useForecastData'
 import type { WindModel } from '@/hooks/useModel'
@@ -273,6 +273,27 @@ export function ratingsToForecastRecords(ratings: SpotRating[]): ForecastRecord[
     cloud_pct: r.cloud_pct,
     cape: r.cape,
   }))
+}
+
+/** Map SpotRating[] to WaveRecord[] for OceanChart consumption. */
+export function ratingsToWaveRecords(ratings: SpotRating[]): WaveRecord[] {
+  return ratings.map(r => ({
+    valid_utc: r.valid_utc,
+    wave_height: r.wave_height,
+    swell_wave_height: r.swell_height,
+    swell_wave_direction: r.swell_dir,
+    swell_wave_period: r.swell_period,
+  }))
+}
+
+/** Map SpotRating[] to TidePrediction[] for TideChart consumption. */
+export function ratingsToTidePredictions(ratings: SpotRating[]): TidePrediction[] {
+  return ratings
+    .filter(r => r.tide_height != null)
+    .map(r => ({
+      time_utc: r.valid_utc,
+      height_m: r.tide_height!,
+    }))
 }
 
 /** Map GfsRecord[] to ForecastRecord[] for chart consumption. */
