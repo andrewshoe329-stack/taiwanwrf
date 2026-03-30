@@ -19,7 +19,8 @@ interface TideSparklineProps {
 }
 
 export function TideSparkline({ predictions, extrema, nowMs }: TideSparklineProps) {
-  const now = nowMs ?? Date.now()
+  // Stabilize `now` so memos don't recompute every render when nowMs is undefined
+  const now = useMemo(() => nowMs ?? Date.now(), [nowMs])
   const windowEnd = now + 24 * 3600_000
 
   const chartData = useMemo(() => {
@@ -50,8 +51,6 @@ export function TideSparkline({ predictions, extrema, nowMs }: TideSparklineProp
 
   if (chartData.length < 2) return null
 
-  const domain = [chartData[0].t, chartData[chartData.length - 1].t]
-
   return (
     <div className="w-full rounded-md border border-white/10 overflow-hidden" style={{ height: 48 }}>
       <ResponsiveContainer width="100%" height={48}>
@@ -71,7 +70,7 @@ export function TideSparkline({ predictions, extrema, nowMs }: TideSparklineProp
             isAnimationActive={false}
             dot={false}
           />
-          {nowMs != null && now >= domain[0] && now <= domain[1] && (
+          {nowMs != null && chartData.length >= 2 && now >= chartData[0].t && now <= chartData[chartData.length - 1].t && (
             <ReferenceLine
               x={now}
               stroke="#f8fafc"
