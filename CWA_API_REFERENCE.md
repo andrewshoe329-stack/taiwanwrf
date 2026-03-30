@@ -347,6 +347,17 @@ records.Locations[].Location[] → [{
 - For our pipeline, we could filter by `locationName` for northern Taiwan areas only, but currently fetch all and filter client-side
 - Sailors/surfers care most about: `陸上強風`, `颱風`, `濃霧`, `大雨`/`豪雨`
 
+**Related specialized warning endpoints (CAP format, township-level):**
+
+| Endpoint | Name | severity_level values | Notes |
+|----------|------|----------------------|-------|
+| W-C0033-001 | 各縣市警特報情形 | Same as 002 + `海上陸上颱風` | County-level quick check |
+| W-C0033-003 | 豪大雨特報 | `超大豪雨`, `大豪雨`, `豪雨`, `大雨` | Township-level rain, has `expires` filter |
+| W-C0033-004 | 低溫特報 | `低溫紅色燈號`, `低溫橙色燈號1/2`, `低溫黃色燈號` | Winter sailing safety |
+| W-C0033-005 | 高溫資訊 | `高溫紅色燈號`, `高溫橙色36/38燈號`, `高溫黃色燈號` | Summer heat stroke risk |
+
+All support: `CountyName`, `TownName`, `geocode` (township code), `expires=true` (active only). CAP format with `info` fields: language, category, event, severity, headline, description, instruction, area.
+
 ---
 
 ### F-D0047-093 — 全臺灣各鄉鎮市區預報 (All-Taiwan township forecast)
@@ -407,7 +418,8 @@ This fetches 宜蘭縣 + 基隆市 + 新北市 in one request.
 | O-A0003-001 | 10分鐘綜觀氣象 | Higher-frequency obs + visibility + UV (see above) |
 | O-A0005-001 | 紫外線指數每日最大值 | Daily max UV index per station. Query: `StationID`. Published ~2PM daily. |
 | A-B0062-001 | 日出日沒時刻 | Official sunrise/sunset (currently computed offline) |
-| W-C0034-001 | 颱風警報 | Typhoon warnings |
+| W-C0034-001 | 颱風警報 | Typhoon warnings — CAP format. Filter by `areaDesc` (sea areas: `臺灣北部海面`, `臺灣東北部海面` + counties), `headline` (`海上颱風警報`/`海上陸上颱風警報`/`解除颱風警報`), `cwaTyNo`/`typhoonName`. `description` filter: `typhoon-info`, `命名與位置`, `強度與半徑`, `移速與預測`, `颱風動態`, `警戒區域及事項`, `強風特報`. `expires=true` for active only. |
+| W-C0034-005 | 熱帶氣旋路徑 | Tropical cyclone track data |
 
 ---
 
