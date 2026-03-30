@@ -1,6 +1,6 @@
 import { lazy, Suspense, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { SPOTS } from '@/lib/constants'
+import { SPOTS, HARBOURS } from '@/lib/constants'
 import { useForecastData } from '@/hooks/useForecastData'
 import { useTimeline } from '@/hooks/useTimeline'
 import { useModel } from '@/hooks/useModel'
@@ -317,6 +317,23 @@ export function NowPage() {
               </svg>
             </button>
           </div>
+
+          {/* Webcam links for Keelung */}
+          {HARBOURS[0]?.webcams && (
+            <div className="flex flex-wrap gap-1.5">
+              {HARBOURS[0].webcams.map((cam, i) => (
+                <a
+                  key={i}
+                  href={cam.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
+                >
+                  {cam.label}
+                </a>
+              ))}
+            </div>
+          )}
 
           {/* Live observations for Keelung */}
           {(() => {

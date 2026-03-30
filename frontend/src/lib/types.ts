@@ -249,4 +249,5 @@ export interface HarbourInfo {
   name: { en: string; zh: string }
   lat: number
   lon: number
+  webcams?: Array<{ label: string; url: string }>
 }
