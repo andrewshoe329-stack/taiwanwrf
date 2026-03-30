@@ -310,16 +310,13 @@ def is_daylight(dt_utc, lat: float = KEELUNG_LAT, lon: float = KEELUNG_LON,
 
 def norm_utc(iso: str) -> str:
     """
-    Normalise a bare or Z-suffixed ISO-8601 UTC timestamp to the canonical
-    format used throughout the pipeline: 'YYYY-MM-DDTHH:MM:SS+00:00'.
+    Normalise an ISO-8601 timestamp to the canonical UTC format used
+    throughout the pipeline: 'YYYY-MM-DDTHH:MM:SS+00:00'.
 
-    Assumes the input is already in UTC.  Open-Meteo returns bare
-    'YYYY-MM-DDTHH:MM' with timezone=UTC, so we append the explicit
-    offset so string comparison with WRF valid_utc works.
-
-    Does NOT validate date correctness or convert non-UTC offsets.
-    If a non-UTC offset is detected, a warning is logged and the string
-    is returned unchanged (no conversion is performed).
+    Handles:
+    - Bare timestamps (assumed UTC): '2026-03-30T12:00' → '2026-03-30T12:00:00+00:00'
+    - Z suffix: '2026-03-30T12:00:00Z' → '2026-03-30T12:00:00+00:00'
+    - Non-UTC offsets (converted): '2026-03-30T20:00:00+08:00' → '2026-03-30T12:00:00+00:00'
     """
     iso = iso.strip()
     if iso.endswith('Z'):
@@ -329,8 +326,14 @@ def norm_utc(iso: str) -> str:
     elif len(iso) == 19:     # YYYY-MM-DDTHH:MM:SS
         iso += "+00:00"
     elif len(iso) >= 25 and '+' in iso[19:] and not iso.endswith('+00:00'):
-        _log = logging.getLogger(__name__)
-        _log.warning("norm_utc received non-UTC offset: %s — returning unchanged", iso)
+        # Non-UTC offset — convert to UTC
+        try:
+            from datetime import datetime, timezone
+            dt = datetime.fromisoformat(iso)
+            dt_utc = dt.astimezone(timezone.utc)
+            iso = dt_utc.strftime('%Y-%m-%dT%H:%M:%S+00:00')
+        except (ValueError, TypeError):
+            pass  # malformed — return as-is
     return iso
 
 
