@@ -97,8 +97,9 @@ def _sanitize_url(url: str) -> str:
 
 
 def _cwa_get(endpoint: str, api_key: str, params: dict | None = None,
-             label: str = "CWA") -> dict | None:
+             label: str = "CWA", retries: int | None = None) -> dict | None:
     """Fetch from CWA Open Data API with retries."""
+    max_retries = retries if retries is not None else RETRIES
     base_params = {"Authorization": api_key}
     if params:
         base_params.update(params)
@@ -106,7 +107,7 @@ def _cwa_get(endpoint: str, api_key: str, params: dict | None = None,
     url = f"{CWA_BASE}/{endpoint}?{urllib.parse.urlencode(base_params)}"
     last_err = None
 
-    for attempt in range(1, RETRIES + 1):
+    for attempt in range(1, max_retries + 1):
         try:
             req = urllib.request.Request(url)
             req.add_header("Accept", "application/json")
@@ -133,7 +134,7 @@ def _cwa_get(endpoint: str, api_key: str, params: dict | None = None,
                 time.sleep(RETRY_DELAY * attempt)
 
     log.error("%s failed after %d attempts (%s): %s",
-              label, RETRIES, _sanitize_url(url), last_err)
+              label, max_retries, _sanitize_url(url), last_err)
     return None
 
 
@@ -1010,6 +1011,7 @@ def fetch_specialized_warnings(api_key: str) -> list[dict]:
             endpoint, api_key,
             params={"CountyName": WARNING_COUNTIES, "expires": "true"},
             label=f"CWA-{wtype}-warning",
+            retries=1,  # optional data — don't block pipeline with retries
         )
         if not data:
             continue

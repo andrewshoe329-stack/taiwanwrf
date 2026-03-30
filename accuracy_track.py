@@ -122,12 +122,14 @@ def fetch_cwa_observations(api_key: str) -> dict | None:
                  buoy.get("buoy_name"), buoy.get("wave_height_m") or 0)
 
     # Rain gauge data (O-A0002-001) for precipitation verification
+    # Single attempt only — this is optional enrichment, not worth 15s of retries
     try:
-        rain_data = _cwa_get(
-            "O-A0002-001", api_key,
-            params={"StationId": "466940", "RainfallElement": "Past6hr"},
-            label="CWA-RainGauge",
-        )
+        import urllib.request
+        rain_url = (f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/O-A0002-001"
+                    f"?Authorization={api_key}&StationId=466940&RainfallElement=Past6hr")
+        req = urllib.request.Request(rain_url, headers={"Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            rain_data = json.load(r)
         if rain_data:
             records = (rain_data.get("records") or rain_data.get("Records") or {})
             stations = records.get("Station", [])
