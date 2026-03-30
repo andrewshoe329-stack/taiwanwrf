@@ -6,7 +6,9 @@
 import type {
   ForecastRecord, SpotForecast, SpotRating,
   AccuracyEntry, GfsRecord, WaveRecord, TidePrediction,
+  TideExtremum, CwaTideExtremum,
 } from './types'
+import { SPOT_TIDE_STATION } from './constants'
 import type { AllForecastData } from '@/hooks/useForecastData'
 import type { WindModel } from '@/hooks/useModel'
 
@@ -293,6 +295,25 @@ export function ratingsToTidePredictions(ratings: SpotRating[]): TidePrediction[
     .map(r => ({
       time_utc: r.valid_utc,
       height_m: r.tide_height!,
+    }))
+}
+
+/** Get tide extrema for a spot from CWA per-station tide forecasts. */
+export function getSpotTideExtrema(
+  locationId: string,
+  tideStations: Record<string, CwaTideExtremum[]> | undefined,
+): TideExtremum[] {
+  if (!tideStations) return []
+  const stationName = SPOT_TIDE_STATION[locationId]
+  if (!stationName) return []
+  const extrema = tideStations[stationName]
+  if (!extrema?.length) return []
+  return extrema
+    .filter(e => e.time_utc && e.height_m != null)
+    .map(e => ({
+      time_utc: e.time_utc,
+      height_m: e.height_m!,
+      type: e.type,
     }))
 }
 

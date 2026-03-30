@@ -38,6 +38,30 @@ export const ALL_LOCATIONS: SpotInfo[] = [
 
 export const REGIONS: Region[] = ['north', 'northeast']
 
+// Spot → nearest CWA tide forecast station (F-A0021-001 LocationName)
+export const SPOT_TIDE_STATION: Record<string, string> = {
+  keelung:     '基隆市中正區',
+  jinshan:     '新北市金山區',
+  greenbay:    '新北市萬里區',
+  fulong:      '新北市貢寮區',
+  daxi:        '宜蘭縣頭城鎮',
+  doublelions: '宜蘭縣頭城鎮',
+  wushih:      '宜蘭縣頭城鎮',
+  chousui:     '宜蘭縣頭城鎮',
+}
+
+// Spot → nearest CWA tide observation station (O-B0075-001 StationID)
+export const SPOT_TIDE_OBS_STATION: Record<string, string> = {
+  keelung:     'C4B01',
+  jinshan:     'C4A03',
+  greenbay:    'C4B01',
+  fulong:      'C4A05',
+  daxi:        'C4U02',
+  doublelions: 'C4U02',
+  wushih:      'C4U02',
+  chousui:     'C4U02',
+}
+
 // ── Data file paths ──────────────────────────────────────────────────────────
 
 export const DATA_BASE = '/data'

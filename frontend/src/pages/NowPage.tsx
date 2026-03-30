@@ -13,7 +13,7 @@ import { ConditionsStrip } from '@/components/ConditionsStrip'
 import { SwellCompass } from '@/components/spots/SwellCompass'
 import {
   degToCompass, getModelRecords, windType,
-  ratingsToWaveRecords, ratingsToTidePredictions,
+  ratingsToWaveRecords, ratingsToTidePredictions, getSpotTideExtrema,
 } from '@/lib/forecast-utils'
 import type { TimeRange } from '@/components/charts/chart-utils'
 import type { SpotForecast } from '@/lib/types'
@@ -99,13 +99,14 @@ export function NowPage() {
     return data.tide?.predictions ?? []
   }, [locationForecast, locationId, data.tide])
 
-  // Tide extrema (only available for Keelung detailed data)
+  // Tide extrema — per-spot from CWA tide forecast stations, or Keelung default
   const tideExtrema = useMemo(() => {
-    if (locationForecast && locationId !== 'keelung') {
-      return []  // spot ratings don't include extrema detail
+    if (locationId && locationId !== 'keelung') {
+      const spotExtrema = getSpotTideExtrema(locationId, data.cwa_obs?.tide_forecast_stations)
+      if (spotExtrema.length > 0) return spotExtrema
     }
     return data.tide?.extrema ?? []
-  }, [locationForecast, locationId, data.tide])
+  }, [locationId, data.cwa_obs, data.tide])
 
   if (data.loading) {
     return <LoadingSpinner />
@@ -186,6 +187,38 @@ export function NowPage() {
               <InfoPill label={t('common.wind')} value={windType(currentRating.wind_dir, spotInfo.facing)} />
             )}
           </div>
+
+          {/* CWA real-time observations */}
+          {(() => {
+            const spotObs = data.cwa_obs?.spot_obs?.[spotInfo.id]
+            if (!spotObs) return null
+            const stn = spotObs.station
+            const buoy = spotObs.buoy
+            if (!stn && !buoy) return null
+            return (
+              <div className="mt-2 px-2 py-1.5 rounded-lg bg-[var(--color-bg-elevated)]/50 border border-[var(--color-border)]">
+                <p className="text-[9px] uppercase tracking-widest text-[var(--color-text-muted)] mb-1">
+                  {t('common.live_obs') ?? 'Live Observations'}
+                </p>
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-[var(--color-text-secondary)]">
+                  {stn?.temp_c != null && <span>{stn.temp_c.toFixed(1)}°C</span>}
+                  {stn?.wind_kt != null && (
+                    <span>{stn.wind_kt.toFixed(0)}kt {stn.wind_dir != null ? degToCompass(stn.wind_dir) : ''}</span>
+                  )}
+                  {stn?.pressure_hpa != null && <span>{stn.pressure_hpa.toFixed(0)}hPa</span>}
+                  {buoy?.wave_height_m != null && (
+                    <span>Hs {buoy.wave_height_m.toFixed(1)}m</span>
+                  )}
+                  {buoy?.wave_period_s != null && (
+                    <span>{buoy.wave_period_s.toFixed(0)}s</span>
+                  )}
+                  {buoy?.water_temp_c != null && (
+                    <span>🌊 {buoy.water_temp_c.toFixed(1)}°C</span>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
         </section>
       )}
 
