@@ -125,7 +125,14 @@ records.TideForecasts[] → list of { "Location": {
 **Query Parameters:**
 | Param | Type | Description |
 |-------|------|-------------|
-| `StationID` | string | Comma-separated station IDs (e.g. `46694A,C4B01`) |
+| `StationID` | array\<string\> | Station codes. See [O-B0076-001](https://opendata.cwa.gov.tw/dataset/observation/O-B0076-001) for full list. |
+| `WeatherElement` | array\<string\> | Filter elements (see below). Default: all. |
+| `DataTime` | array\<string\> | Exact time filter (`yyyy-MM-ddThh:mm:ss`). Default: all. |
+| `timeFrom` / `timeTo` | datetime | Time range filter (`yyyy-MM-ddThh:mm:ss`). Ignored if `DataTime` used. |
+| `sort` | string | `StationID` or `DataTime` ascending sort |
+
+**Available WeatherElement values:**
+`TideHeight`, `TideLevel`, `WaveHeight`, `WaveDirection`, `WaveDirectionDescription`, `WavePeriod`, `SeaTemperature`, `Temperature`, `StationPressure`, `PrimaryAnemometer`, `SeaCurrents`
 
 **Response Structure:**
 ```
@@ -141,7 +148,9 @@ Records.SeaSurfaceObs.Location[] → [{
       "WaveHeight": "1.2",
       "WavePeriod": "6.5",
       "WaveDirection": "45",
-      "PrimaryAnemometer": { "WindSpeed": "1.8", ... }
+      "WaveDirectionDescription": "NE",
+      "PrimaryAnemometer": { "WindSpeed": "1.8", ... },
+      "SeaCurrents": { ... }
     }
   }]}
 }]
