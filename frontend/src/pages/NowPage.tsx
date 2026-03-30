@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useForecastData } from '@/hooks/useForecastData'
 import { useTimeline } from '@/hooks/useTimeline'
-import { useModel } from '@/hooks/useModel'
+import { useModel, type WindModel } from '@/hooks/useModel'
 import { useLocation } from '@/hooks/useLocation'
 import { TimelineScrubber } from '@/components/timeline/TimelineScrubber'
 import { WeatherWarnings } from '@/components/layout/WeatherWarnings'
@@ -297,6 +297,9 @@ export function NowPage() {
         {/* Focus mode content */}
         {isFocusMode && (
           <>
+            {/* Model switcher */}
+            <ModelPills />
+
             {/* Charts */}
             <Suspense fallback={null}>
               <div className="grid grid-cols-1 md:grid-cols-2 md:gap-4 gap-0">
@@ -521,6 +524,37 @@ function CollapsibleSection({ title, defaultOpen, children }: {
         </svg>
       </button>
       {open && <div className="px-4 pb-4">{children}</div>}
+    </div>
+  )
+}
+
+const MODEL_LABELS: Record<WindModel, string> = {
+  wrf: 'WRF 3km',
+  ecmwf: 'ECMWF',
+  gfs: 'GFS',
+}
+
+function ModelPills() {
+  const { model, setModel, gridLoading } = useModel()
+  return (
+    <div className="mx-4 md:mx-0 flex items-center gap-1.5 py-2">
+      <span className="text-[9px] uppercase tracking-wider text-[var(--color-text-dim)] mr-1">Model</span>
+      {(['wrf', 'ecmwf', 'gfs'] as WindModel[]).map(m => (
+        <button
+          key={m}
+          onClick={() => setModel(m)}
+          className={`px-2.5 py-1 text-[10px] font-medium rounded-md transition-all border ${
+            model === m
+              ? 'bg-[var(--color-text-primary)] text-[var(--color-bg)] border-[var(--color-text-primary)]'
+              : 'bg-transparent text-[var(--color-text-muted)] border-[var(--color-border)] hover:text-[var(--color-text-secondary)] hover:border-[var(--color-border-active)]'
+          }`}
+        >
+          {MODEL_LABELS[m]}
+        </button>
+      ))}
+      {gridLoading && (
+        <span className="text-[9px] text-[var(--color-text-dim)] ml-1 animate-pulse">...</span>
+      )}
     </div>
   )
 }
