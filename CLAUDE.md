@@ -168,9 +168,19 @@ Each spot uses its nearest CWA township tide station (F-A0021-001) for predictio
 | `frontend/src/hooks/useLiveObs.ts` | ~80 | Hook polling `/api/live-obs` every 5 min for real-time CWA data |
 | `frontend/src/lib/wind-particles.ts` | ~580 | Canvas wind particle animation + wave heatmap + tile overlay renderer with Mercator projection |
 | `frontend/src/lib/tile-loader.ts` | ~95 | XYZ tile math (Web Mercator), tile bounds, zoom calculation, image cache |
-| `frontend/src/lib/rainviewer.ts` | ~90 | RainViewer API: metadata fetch, tile URL builders, 5-min auto-refresh cache |
+| `frontend/src/lib/rainviewer.ts` | ~50 | RainViewer API: radar tile URL builder, 5-min auto-refresh cache (satellite removed — use Himawari) |
+| `frontend/src/lib/himawari.ts` | ~180 | NICT Himawari-9 satellite client: geostationary projection (`geoToDisk`/`diskToGeo`), tile math, per-band caching, auto day/night band switching |
 | `frontend/src/components/charts/TideSparkline.tsx` | ~95 | Compact 24h tide curve sparkline (Recharts) with extrema dots + now marker |
-| `frontend/src/components/spots/SpotCompare.tsx` | ~110 | At-a-glance spot comparison table: rating, wind, swell for all spots at current time |
+| `frontend/src/components/charts/AccuracyTrend.tsx` | ~145 | 30-day accuracy trend chart (compact sparkline + full mode) with forecast horizon tabs (All/0-24h/24-48h/48-72h) |
+| `frontend/src/components/charts/EnsembleChart.tsx` | ~155 | Multi-model comparison chart: GFS/ICON/JMA wind speed lines on shared timeline |
+| `frontend/src/components/spots/SpotCompare.tsx` | ~120 | At-a-glance spot comparison table: rating, wind, swell for all spots at current time |
+| `frontend/src/components/spots/ScoreBreakdownTooltip.tsx` | ~80 | Popover showing per-factor score breakdown (swell_dir, wind_dir, wind_spd, energy, rain, tide) |
+| `frontend/src/components/spots/BestTimeWindows.tsx` | ~60 | Per-spot top 3 upcoming surf sessions with day/time/rating |
+| `frontend/src/components/spots/SwellWindowFinder.tsx` | ~70 | Cross-spot ranked top 5 best sessions, clickable to select spot |
+| `frontend/src/components/layout/TownshipForecastCard.tsx` | ~120 | CWA township forecast card (expandable per county: Keelung/New Taipei/Yilan) |
+| `frontend/src/components/layout/ShareButton.tsx` | ~70 | Deep-link share button (native share on mobile, clipboard on desktop) |
+| `frontend/src/components/layout/AlertSettingsPanel.tsx` | ~250 | Browser notification preferences: adjustable thresholds (wind/wave/rain/surf score), Web Notifications API, localStorage persistence |
+| `api/himawari.js` | ~120 | Vercel serverless proxy for NICT Himawari-9 satellite tiles (IR + visible bands) |
 | `.github/workflows/wrf.yml` | ~170 | WRF download, subset, analysis — 4x daily |
 | `.github/workflows/forecast.yml` | ~220 | Forecast pipeline: ECMWF/wave/ensemble fetch, surf, AI summary — 4x daily |
 | `.github/workflows/deploy.yml` | ~70 | Vercel deploy triggered by forecast completion |
@@ -221,21 +231,29 @@ The primary UI is a **React single-page application** built with Vite + TypeScri
 - `/` — **Forecast**: current conditions, AI summary, map overlay, surf heatmap, location cards
 - `/?loc=<id>` — **Focus Mode**: individual spot/harbour with swell compass, charts, live obs, accuracy badges
 
-**Map overlay**: Canvas-based with 4-layer toggle (Wind / Waves / Radar / Satellite):
+**Map overlay**: Canvas-based with 5-layer toggle (Wind / Waves / Currents / Radar / Satellite):
 - **Wind mode**: Animated streamline particles driven by u/v grid (WRF/ECMWF/GFS selectable). Uses Mercator projection.
-- **Wave mode**: Colored heatmap (blue→red, 0-3m+) with swell direction arrows. Legend in bottom-left.
+- **Wave mode**: Colored heatmap (blue→red, 0-3m+) with swell direction arrows (zoom-scaled). Legend in bottom-left.
+- **Currents mode**: Animated particles for ocean surface currents.
 - **Radar mode**: Live precipitation tiles from RainViewer API (free, no key). Auto-refreshes every 5 min. Color legend (light→moderate→heavy). Timestamp + stale warning badge.
-- **Satellite mode**: Infrared cloud imagery from RainViewer (Himawari satellite). Auto-refreshes every 5 min.
-- Tile loading: `tile-loader.ts` handles XYZ tile math + LRU cache; `rainviewer.ts` fetches metadata. Tiles debounce-reload on zoom/pan (150ms).
+- **Satellite mode**: NICT Himawari-9 geostationary satellite imagery via `api/himawari.js` serverless proxy. Supports IR (infrared, always available) and visible light (daytime only) bands with auto day/night switching (CST 06:30-17:30 = visible, else IR). Manual band toggle (Auto/IR/VIS). Uses geostationary projection math (`geoToDisk`/`diskToGeo` in `himawari.ts`) mapped onto Mercator canvas via explicit geo bounds per tile.
+- Tile loading: `tile-loader.ts` handles XYZ tile math + LRU cache; `rainviewer.ts` for radar; `himawari.ts` for satellite. Tiles debounce-reload on zoom/pan (150ms).
 - Map labels support bilingual display (English/Chinese) via `setLang()`.
+- Accessibility: canvas has `role="img"` + aria-label; layer buttons have `aria-pressed` state.
 
-**Focus mode layout (desktop)**: Swell compass + data cells + tide sparkline → info pills + webcam links + CWA warning badges → live observations grid → ensemble confidence + accuracy badges → charts.
+**Focus mode layout (desktop)**: Rating badge (clickable → score breakdown tooltip) + share button + swell compass + data cells + tide sparkline + best time windows → info pills + webcam links + CWA warning badges → live observations grid → ensemble confidence + accuracy badges + accuracy trend sparkline → charts.
 
-**Focus mode layout (mobile)**: Info pills + webcam links + warnings → live observations → accuracy badges → [sticky timeline + conditions strip] → swell compass + data cells + tide sparkline → charts. (Compass placed below timeline on mobile to make the time-dependency obvious.)
+**Focus mode layout (mobile)**: Info pills + webcam links + warnings → live observations → accuracy badges + accuracy trend → [sticky timeline + conditions strip + alert bell] → swell compass + data cells + tide sparkline + best time windows → charts. (Compass placed below timeline on mobile to make the time-dependency obvious.)
 
-**Spot comparison**: When no spot is selected, the left panel shows a compact comparison table of all spots' current rating, wind, and swell at the timeline timestep.
+**Browse mode** (no spot selected): SpotCompare table → SwellWindowFinder (top 5 best sessions across all spots) → AI Summary accordion.
 
-**Charts** (Recharts): Wind, Wave Height + Swell Period, Tide, Precipitation, Temperature. All use shared numeric X-axis with mobile-adaptive tick count. Reference line tracks timeline scrubber.
+**Weather warnings**: Full-width banner above 3-column layout (desktop) and above map (mobile). Separate from per-spot warning pills.
+
+**Charts** (Recharts): Wind, Wave Height + Swell Period, Tide, Precipitation, Temperature, Ensemble Model Comparison (GFS/ICON/JMA wind), Accuracy Trend (30-day with horizon tabs). All use shared numeric X-axis with mobile-adaptive tick count. Reference line tracks timeline scrubber.
+
+**Browser notifications**: AlertSettingsPanel (bell icon in timeline bar) lets users configure thresholds for wind/wave/rain/surf score. Uses Web Notifications API + localStorage. `checkAlerts()` fires on forecast data load, deduplicates per forecast cycle.
+
+**CWA Township Forecast**: TownshipForecastCard shows official county-level weather forecast (Keelung/New Taipei/Yilan) in charts panel, expandable per county.
 
 **Live data**: `useLiveObs` hook polls `/api/live-obs` every 5 min for real-time CWA observations. Falls back to deploy-time `cwa_obs.json`. Shows in a 3-column labeled grid on both spot and harbour panels.
 
@@ -260,16 +278,18 @@ The Python scripts (`wrf_analyze.py`, `surf_forecast.py`) still generate static 
 - **Spot filters**: Client-side JS filter (All/Good+/Firing) toggles visibility of matrix rows, detail sections, and best-time rows via `data-best-rating` attributes. Rating levels: 5=firing, 4=good, 3=marginal, 2=poor, 1=flat, 0=dangerous.
 
 ### Surf Spot Scoring
-Scoring system (0–14 max) evaluates each 6h timestep:
-- Swell direction match: +4 (good), +2 (ok), 0 (poor)
-- Wind direction (offshore): +3/+1/0
-- Wind speed: +2 (light <10kt), +1 (<15kt), -2 (onshore >22kt)
-- Swell height: +3 (0.6–2.5m), +1 (>0.3m)
-- Wave period: +2 (≥12s), +1 (≥9s)
+Scoring system (0–16 max) evaluates each 6h timestep with 6 components:
+- **Swell direction** (0-4): cos²-based angular matching against spot's `opt_swell` directions. Finds minimum angle to any optimal direction, applies cos² weighting: ≥0.75→4, ≥0.5→3, ≥0.25→2, >0→1, else 0
+- **Wind direction** (0-3): offshore wind quality scoring
+- **Wind speed** (-2 to +2): +2 (light <10kt), +1 (<15kt), -2 (onshore >22kt)
+- **Energy** (0-5): swell height (+3 for 0.6-2.5m, +1 for >0.3m) + wave period (+2 for ≥12s, +1 for ≥9s)
+- **Rain** (-2 to 0): penalty for heavy precipitation
+- **Tide** (-1 to +1): bonus/penalty based on tide level
 - Ratings: Firing! (9+), Good (7+), Marginal (4+), Poor (<4)
 - Dangerous: swell >4.5m or wind >32kt
 - Best-time selection: only daylight windows considered (uses `sunrise_sunset()` from config)
 - Sunrise/sunset displayed in "Best Time to Surf" section per day
+- **Score breakdown**: `_score_timestep(breakdown=True)` returns per-component dict; surfaced in frontend via `ScoreBreakdownTooltip`
 
 ### API Fetching
 - All HTTP calls use `urllib.request` (stdlib only, no requests dependency)
@@ -315,7 +335,8 @@ Scoring system (0–14 max) evaluates each 6h timestep:
 | CWA Open Data (`opendata.cwa.gov.tw`) | Station + marine obs + tide forecast + township forecast + warnings | `CWA_OPENDATA_KEY` secret (optional) |
 | Open-Meteo (`api.open-meteo.com`) | ECMWF IFS, GFS forecasts | Free, no key, 10k req/day |
 | Open-Meteo Marine (`marine-api.open-meteo.com`) | ECMWF WAM wave data | Free, no key |
-| RainViewer (`api.rainviewer.com`, `tilecache.rainviewer.com`) | Live radar + IR satellite tiles | Free, no key |
+| RainViewer (`api.rainviewer.com`, `tilecache.rainviewer.com`) | Live radar tiles only (satellite discontinued Jan 2026) | Free, no key |
+| NICT Himawari-9 (`himawari8-dl.nict.go.jp`) | Geostationary satellite imagery (IR + visible bands) via `api/himawari.js` proxy | Free, no key (CORS requires server proxy) |
 | Anthropic API | AI forecast summary | `ANTHROPIC_API_KEY` secret |
 | LINE Notify (`notify-api.line.me`) | Push alerts | `LINE_NOTIFY_TOKEN` secret (optional) |
 | Telegram Bot API (`api.telegram.org`) | Push alerts | `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` (optional) |
@@ -564,8 +585,16 @@ python cwa_fetch.py --output cwa_obs.json
 3. ~~**Consolidate surf_forecast.py fetches**~~ — Done: `--ecmwf-json`/`--wave-json` for Keelung reuse
 4. **CWA tide API validation** — compare harmonic predictions against official CWA tide tables
 5. ~~**Station bias correction**~~ — Done: MOS-lite 7-day rolling avg in `wrf_analyze.py`
-6. **Directional wave scoring** — weight surf spot energy by `cos²(swell_angle - beach_angle)` for realistic quality estimates
-7. **Ocean currents layer** — animated particles for surface currents (needs Open-Meteo marine current data confirmation)
+6. ~~**Directional wave scoring**~~ — Done: cos²-based swell direction scoring in `_swell_quality()` + score breakdown in frontend
+7. ~~**Ocean currents layer**~~ — Done: animated particles in currents map mode
+8. ~~**Satellite imagery**~~ — Done: Himawari-9 IR + visible via NICT proxy (replaced broken RainViewer satellite)
+9. ~~**Score breakdown tooltip**~~ — Done: per-factor breakdown popover on rating badges
+10. ~~**Best time windows**~~ — Done: per-spot top 3 sessions + cross-spot swell window finder
+11. ~~**Township forecast cards**~~ — Done: CWA county-level forecast in charts panel
+12. ~~**Accuracy trend chart**~~ — Done: 30-day trend with forecast horizon tabs
+13. ~~**Ensemble model comparison**~~ — Done: GFS/ICON/JMA wind comparison chart
+14. ~~**Browser notifications**~~ — Done: AlertSettingsPanel with configurable thresholds
+15. ~~**Share/deep-link button**~~ — Done: native share (mobile) + clipboard (desktop)
 
 ---
 

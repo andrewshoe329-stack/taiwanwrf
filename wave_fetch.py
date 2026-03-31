@@ -146,9 +146,14 @@ def process_ecmwf_wave(raw: dict) -> tuple[dict, list[dict]]:
         if dt.hour % 6 != 0:
             continue
 
+        # Fall back to swell wave height when total wave height is unavailable
+        wh_val = safe(wh, i)
+        if wh_val is None:
+            wh_val = safe(swh, i)
+
         records.append({
             "valid_utc":           _norm_utc(t),
-            "wave_height":         r2(safe(wh,  i)),
+            "wave_height":         r2(wh_val),
             "wave_direction":      r2(safe(wd,  i)),
             "wave_period":         r2(safe(wp,  i)),
             "wind_wave_height":    r2(safe(wwh, i)),

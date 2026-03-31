@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SPOTS, HARBOURS } from '@/lib/constants'
 import { useForecastData } from '@/hooks/useForecastData'
@@ -12,6 +12,13 @@ import { LoadingSpinner } from '@/components/layout/LoadingSpinner'
 import { ConditionsStrip } from '@/components/ConditionsStrip'
 import { SwellCompass } from '@/components/spots/SwellCompass'
 import { SpotCompare } from '@/components/spots/SpotCompare'
+import { ScoreBreakdownTooltip } from '@/components/spots/ScoreBreakdownTooltip'
+import { BestTimeWindows } from '@/components/spots/BestTimeWindows'
+import { SwellWindowFinder } from '@/components/spots/SwellWindowFinder'
+import { TownshipForecastCard } from '@/components/layout/TownshipForecastCard'
+import { ShareButton } from '@/components/layout/ShareButton'
+import { AlertSettingsPanel, checkAlerts } from '@/components/layout/AlertSettingsPanel'
+import { AccuracyTrend } from '@/components/charts/AccuracyTrend'
 import { TideSparkline } from '@/components/charts/TideSparkline'
 import {
   degToCompass, getModelRecords, windType,
@@ -34,6 +41,7 @@ const OceanChart = lazy(() => import('@/components/charts/OceanChart').then(m =>
 const TideChart = lazy(() => import('@/components/charts/TideChart').then(m => ({ default: m.TideChart })))
 const TempChart = lazy(() => import('@/components/charts/TempPressureChart').then(m => ({ default: m.TempChart })))
 const PrecipChart = lazy(() => import('@/components/charts/PrecipChart').then(m => ({ default: m.PrecipChart })))
+const EnsembleChart = lazy(() => import('@/components/charts/EnsembleChart').then(m => ({ default: m.EnsembleChart })))
 
 export function NowPage() {
   const { t, i18n } = useTranslation()
@@ -46,6 +54,21 @@ export function NowPage() {
   const liveObs = useLiveObsContext()
 
   const [aiExpanded, setAiExpanded] = useState(false)
+  const [scoreTooltipOpen, setScoreTooltipOpen] = useState(false)
+  const [alertsOpen, setAlertsOpen] = useState(false)
+  const alertsFired = useRef(false)
+
+  // Fire browser notifications when forecast data loads (once per session)
+  useEffect(() => {
+    if (alertsFired.current || data.loading) return
+    const records = data.keelung?.records
+    const waveRecs = data.wave?.ecmwf_wave?.records
+    const surfRatings = data.surf?.spots?.flatMap(s => s.ratings) ?? []
+    if (records?.length) {
+      alertsFired.current = true
+      checkAlerts(records, waveRecs ?? [], surfRatings)
+    }
+  }, [data.loading, data.keelung, data.wave, data.surf])
 
   // Location-specific forecast data
   const locationForecast: SpotForecast | null = useMemo(() => {
@@ -138,15 +161,38 @@ export function NowPage() {
                 {spotInfo.name[lang === 'en' ? 'zh' : 'en']}
               </span>
             </h2>
-            <button
-              onClick={() => setLocationId(null)}
-              className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]"
-              aria-label="Deselect"
-            >
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M1 1 L9 9 M9 1 L1 9" />
-              </svg>
-            </button>
+            <div className="flex items-center gap-1.5">
+              {/* Rating badge with score breakdown tooltip */}
+              {currentRating?.rating && (
+                <div className="relative">
+                  <button
+                    onClick={() => setScoreTooltipOpen(!scoreTooltipOpen)}
+                    className="text-[10px] font-medium capitalize px-1.5 py-0.5 rounded"
+                    style={{
+                      color: { firing: '#f97316', great: '#22c55e', good: '#4ade80', marginal: '#facc15', poor: '#ef4444', flat: '#6b7280', dangerous: '#dc2626' }[currentRating.rating] ?? '#6b7280',
+                      backgroundColor: ({ firing: '#f97316', great: '#22c55e', good: '#4ade80', marginal: '#facc15', poor: '#ef4444', flat: '#6b7280', dangerous: '#dc2626' }[currentRating.rating] ?? '#6b7280') + '20',
+                    }}
+                  >
+                    {currentRating.rating} {currentRating.score != null ? `${currentRating.score}` : ''}
+                  </button>
+                  {scoreTooltipOpen && currentRating.score_breakdown && (
+                    <div className="absolute right-0 top-7 z-50">
+                      <ScoreBreakdownTooltip rating={currentRating} onClose={() => setScoreTooltipOpen(false)} />
+                    </div>
+                  )}
+                </div>
+              )}
+              <ShareButton locationId={locationId} />
+              <button
+                onClick={() => setLocationId(null)}
+                className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]"
+                aria-label="Deselect"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M1 1 L9 9 M9 1 L1 9" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           {/* Swell compass + data cells (desktop only — on mobile, shown below timeline) */}
@@ -194,6 +240,8 @@ export function NowPage() {
                     : undefined}
                 />
               )}
+              {/* Best time windows */}
+              {locationForecast && <BestTimeWindows spotForecast={locationForecast} />}
             </div>
           )}
 
@@ -298,6 +346,10 @@ export function NowPage() {
               )}
             </div>
           )}
+          {/* Accuracy trend sparkline */}
+          {data.accuracy && data.accuracy.length >= 2 && (
+            <AccuracyTrend entries={data.accuracy} compact />
+          )}
         </section>
       )}
 
@@ -308,15 +360,18 @@ export function NowPage() {
             <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
               {t('harbour.keelung')}
             </h2>
-            <button
-              onClick={() => setLocationId(null)}
-              className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]"
-              aria-label="Deselect"
-            >
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M1 1 L9 9 M9 1 L1 9" />
-              </svg>
-            </button>
+            <div className="flex items-center gap-1.5">
+              <ShareButton locationId="keelung" />
+              <button
+                onClick={() => setLocationId(null)}
+                className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]"
+                aria-label="Deselect"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M1 1 L9 9 M9 1 L1 9" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           {/* Webcam links for Keelung */}
@@ -408,18 +463,25 @@ export function NowPage() {
               )}
             </div>
           )}
+          {/* Accuracy trend sparkline */}
+          {data.accuracy && data.accuracy.length >= 2 && (
+            <AccuracyTrend entries={data.accuracy} compact />
+          )}
         </section>
       )}
 
       {/* Spot comparison (browse mode — no spot selected) */}
       {!isSpotSelected && locationId !== 'keelung' && data.surf?.spots && (
-        <section className="md:px-3 py-2">
-          <SpotCompare
-            spots={data.surf.spots}
-            targetUtc={data.keelung?.records?.[index]?.valid_utc}
-            onSelectSpot={setLocationId}
-          />
-        </section>
+        <>
+          <section className="md:px-3 py-2">
+            <SpotCompare
+              spots={data.surf.spots}
+              targetUtc={data.keelung?.records?.[index]?.valid_utc}
+              onSelectSpot={setLocationId}
+            />
+          </section>
+          <SwellWindowFinder spots={data.surf.spots} onSelectSpot={setLocationId} />
+        </>
       )}
 
       {/* AI Summary */}
@@ -458,7 +520,19 @@ export function NowPage() {
       {/* Sticky header: timeline + conditions (only in non-compact / mobile) */}
       {!compact && (
         <div className="sticky top-0 z-10 bg-[var(--color-bg)] border-b border-[var(--color-border)] -mx-4 px-4 md:-mx-6 md:px-6">
-          <TimelineScrubber records={chartRecords} />
+          <div className="flex items-center gap-1">
+            <div className="flex-1 min-w-0"><TimelineScrubber records={chartRecords} /></div>
+            <button
+              onClick={() => setAlertsOpen(true)}
+              className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] transition-colors"
+              aria-label="Alert settings"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+              </svg>
+            </button>
+          </div>
           <ConditionsStrip />
         </div>
       )}
@@ -509,12 +583,17 @@ export function NowPage() {
                   : undefined}
               />
             )}
+            {/* Best time windows (mobile) */}
+            {locationForecast && <BestTimeWindows spotForecast={locationForecast} />}
           </div>
         </div>
       )}
 
       {/* Weather warnings */}
       <WeatherWarnings />
+
+      {/* CWA Township Forecast */}
+      <TownshipForecastCard cwaObs={data.cwa_obs} locationId={locationId} />
 
       {/* Charts */}
       <Suspense fallback={null}>
@@ -554,6 +633,18 @@ export function NowPage() {
             </ChartCard>
           )}
         </div>
+
+        {/* Ensemble model comparison */}
+        {data.ensemble?.models && (
+          <ChartCard title="Model Comparison">
+            <EnsembleChart ensemble={data.ensemble} timeRange={timeRange} selectedMs={selectedMs} />
+          </ChartCard>
+        )}
+
+        {/* Accuracy trend (full chart) */}
+        {data.accuracy && data.accuracy.length >= 2 && (
+          <AccuracyTrend entries={data.accuracy} />
+        )}
       </Suspense>
     </div>
   )
@@ -561,7 +652,12 @@ export function NowPage() {
   /* ── Desktop: 3-column layout ──────────────────────────────────────── */
   if (!mobile) {
     return (
-      <div className="flex h-full">
+      <div className="flex flex-col h-full">
+        {/* Full-width weather warnings banner */}
+        <div className="shrink-0">
+          <WeatherWarnings />
+        </div>
+        <div className="flex flex-1 min-h-0">
         {/* Left column: location detail + AI summary */}
         <div className="w-[260px] min-w-[240px] shrink-0 border-r border-[var(--color-border)] flex flex-col overflow-y-auto">
           <div className="px-1 py-2">
@@ -579,7 +675,19 @@ export function NowPage() {
           </div>
           {/* Timeline + conditions below map */}
           <div className="shrink-0 border-t border-[var(--color-border)] px-3">
-            <TimelineScrubber records={chartRecords} />
+            <div className="flex items-center gap-1">
+              <div className="flex-1 min-w-0"><TimelineScrubber records={chartRecords} /></div>
+              <button
+                onClick={() => setAlertsOpen(true)}
+                className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] transition-colors"
+                aria-label="Alert settings"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+              </button>
+            </div>
             <ConditionsStrip />
           </div>
         </div>
@@ -588,6 +696,8 @@ export function NowPage() {
         <div className="w-[300px] min-w-[260px] shrink-0 border-l border-[var(--color-border)] overflow-y-auto px-2 py-1.5">
           {chartsPanel(true)}
         </div>
+        </div>
+        <AlertSettingsPanel open={alertsOpen} onClose={() => setAlertsOpen(false)} />
       </div>
     )
   }
@@ -595,6 +705,8 @@ export function NowPage() {
   /* ── Mobile: map top (40vh), detail + charts below (scrolls) ───────── */
   return (
     <div className="h-full overflow-y-auto overflow-x-hidden">
+      {/* Full-width weather warnings banner */}
+      <WeatherWarnings />
       {/* Map section — shorter in landscape to leave room for data */}
       <div className="h-[40vh] min-h-[200px] max-h-[360px] landscape:h-[30vh] landscape:min-h-[140px] landscape:max-h-[240px] relative shrink-0">
         <Suspense fallback={<div className="w-full h-full bg-black" />}>
@@ -607,6 +719,7 @@ export function NowPage() {
         {locationDetail}
         {chartsPanel()}
       </div>
+      <AlertSettingsPanel open={alertsOpen} onClose={() => setAlertsOpen(false)} />
     </div>
   )
 }

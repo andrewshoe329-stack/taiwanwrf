@@ -349,12 +349,14 @@ export class WindParticleSystem {
     }
     ctx.globalAlpha = 1.0
 
-    // Draw swell direction arrows
+    // Draw swell direction arrows (scaled with zoom level)
     const swellDir = step.swell_direction
     const swellH = step.swell_height
     if (swellDir && swellH) {
-      ctx.strokeStyle = 'rgba(255,255,255,0.5)'
-      ctx.lineWidth = 1 * this.dpr
+      // Scale arrows based on map zoom: larger arrows when zoomed in
+      const zoomScale = this.tileOverlayZoom > 0 ? Math.max(1, this.tileOverlayZoom / 6) : 1
+      ctx.strokeStyle = 'rgba(255,255,255,0.6)'
+      ctx.lineWidth = Math.max(1, 1.5 * zoomScale) * this.dpr
       for (let yi = 0; yi < ny; yi++) {
         for (let xi = 0; xi < nx; xi++) {
           const dir = swellDir[yi]?.[xi]
@@ -366,8 +368,8 @@ export class WindParticleSystem {
           const [cx, cy] = this.project(lon, lat, w, h)
           if (cx < 0 || cx > w || cy < 0 || cy > h) continue
 
-          // Arrow length proportional to swell height (capped)
-          const len = Math.min(sh * 8, 20) * this.dpr
+          // Arrow length proportional to swell height, scaled with zoom
+          const len = Math.min(sh * 8 * zoomScale, 36 * zoomScale) * this.dpr
           const rad = (dir * Math.PI) / 180
           const dx = Math.sin(rad) * len
           const dy = -Math.cos(rad) * len
@@ -377,10 +379,10 @@ export class WindParticleSystem {
           ctx.lineTo(cx + dx * 0.5, cy + dy * 0.5)
           ctx.stroke()
 
-          // Arrowhead
+          // Arrowhead (also scaled)
           const ax = cx + dx * 0.5
           const ay = cy + dy * 0.5
-          const headLen = 4 * this.dpr
+          const headLen = Math.max(4, 5 * zoomScale) * this.dpr
           ctx.beginPath()
           ctx.moveTo(ax, ay)
           ctx.lineTo(ax - headLen * Math.sin(rad - 0.5), ay + headLen * Math.cos(rad - 0.5))

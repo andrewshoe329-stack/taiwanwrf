@@ -222,6 +222,14 @@ export interface SpotRating {
   cloud_pct?: number
   cape?: number
   tide_height?: number
+  score_breakdown?: {
+    swell_dir: number
+    wind_dir: number
+    wind_spd: number
+    energy: number
+    rain: number
+    tide: number
+  }
 }
 
 export interface GfsRecord {

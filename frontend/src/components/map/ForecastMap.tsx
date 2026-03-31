@@ -227,6 +227,8 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
 
     const canvas = document.createElement('canvas')
     canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;touch-action:none;'
+    canvas.setAttribute('role', 'img')
+    canvas.setAttribute('aria-label', 'Weather map with wind and wave overlay')
     container.appendChild(canvas)
     canvasRef.current = canvas
 
@@ -677,6 +679,8 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
           <button
             key={l}
             onClick={() => setLayer(l)}
+            aria-label={`Show ${l} layer`}
+            aria-pressed={layer === l}
             className={`
               px-2 py-1 text-[10px] font-medium transition-all
               ${layer === l
@@ -696,6 +700,8 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
           <button
             key={m}
             onClick={() => setModel(m)}
+            aria-label={`Select ${MODEL_LABELS[m]} model`}
+            aria-pressed={model === m}
             className={`
               px-2 py-1 text-[10px] font-medium rounded-md transition-all
               ${model === m
@@ -722,6 +728,7 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
             const hhMerc = ((mercY(north) - mercY(south)) / 2) * f
             updateBounds(cxLon - hw, invMercY(cMerc - hhMerc), cxLon + hw, invMercY(cMerc + hhMerc))
           }}
+          aria-label="Zoom in"
           className="w-7 h-7 flex items-center justify-center rounded-md bg-[var(--color-bg-elevated)]/80 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] backdrop-blur-sm border border-[var(--color-border)] text-sm font-bold"
         >
           +
@@ -736,6 +743,7 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
             const hhMerc = ((mercY(north) - mercY(south)) / 2) * f
             updateBounds(cxLon - hw, invMercY(cMerc - hhMerc), cxLon + hw, invMercY(cMerc + hhMerc))
           }}
+          aria-label="Zoom out"
           className="w-7 h-7 flex items-center justify-center rounded-md bg-[var(--color-bg-elevated)]/80 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] backdrop-blur-sm border border-[var(--color-border)] text-sm font-bold"
         >
           −
@@ -804,6 +812,8 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
               <button
                 key={mode}
                 onClick={() => { setHimawariBandMode(mode); tileCacheRef.current.clear() }}
+                aria-label={`Satellite band: ${label}`}
+                aria-pressed={himawariBandMode === mode}
                 className={`px-1.5 py-0.5 text-[8px] font-medium rounded transition-all ${
                   himawariBandMode === mode
                     ? 'bg-[var(--color-text-primary)] text-[var(--color-bg)]'
