@@ -144,19 +144,20 @@ export function NowPage() {
     return data.tide?.extrema ?? []
   }, [locationId, data.cwa_obs, data.tide])
 
-  if (data.loading) {
-    return <LoadingSpinner />
-  }
-
-  const isSpotSelected = locationId != null && locationId !== 'keelung'
-
   // Forecast time label for selected timestep (CST)
+  // NOTE: must be above the loading guard to satisfy Rules of Hooks
   const forecastTimeLabel = useMemo(() => {
     const rec = chartRecords?.[index]
     if (!rec?.valid_utc) return ''
     const d = new Date(rec.valid_utc)
     return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Taipei' })
   }, [chartRecords, index])
+
+  if (data.loading) {
+    return <LoadingSpinner />
+  }
+
+  const isSpotSelected = locationId != null && locationId !== 'keelung'
 
   // Shared live obs renderer — returns grid items or null
   const renderLiveObs = (spotId: string) => {
