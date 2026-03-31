@@ -240,7 +240,7 @@ export function NowPage() {
             const waterTemp = tide?.sea_temp_c ?? live?.buoy?.sea_temp_c ?? stale?.buoy?.water_temp_c
             const items: { label: string; value: string; accent?: boolean }[] = []
             if (stn?.temp_c != null) items.push({ label: t('live.temp'), value: `${stn.temp_c.toFixed(1)}°C` })
-            if (stn?.wind_kt != null) items.push({ label: t('live.wind'), value: `${stn.wind_kt.toFixed(0)}${stn.gust_kt ? `G${stn.gust_kt.toFixed(0)}` : ''}kt ${stn.wind_dir != null ? degToCompass(stn.wind_dir) : ''}` })
+            { const wKt = stn?.wind_kt ?? buoy?.wind_kt; const wDir = stn?.wind_dir ?? buoy?.wind_dir; if (wKt != null) items.push({ label: t('live.wind'), value: `${wKt.toFixed(0)}${stn?.gust_kt ? `G${stn.gust_kt.toFixed(0)}` : ''}kt ${wDir != null ? degToCompass(wDir) : ''}` }) }
             if (stn?.pressure_hpa != null) items.push({ label: t('live.pressure'), value: `${stn.pressure_hpa.toFixed(0)} hPa` })
             if (tide?.tide_height_m != null) { const tl = tide.tide_level ? (TIDE_LEVEL_MAP[tide.tide_level]?.[lang] ?? tide.tide_level) : ''; items.push({ label: t('live.tide'), value: `${tide.tide_height_m.toFixed(2)}m${tl ? ` ${tl}` : ''}` }) }
             if (buoy?.wave_height_m != null) items.push({ label: t('live.waves'), value: `${buoy.wave_height_m.toFixed(1)}m${buoy.wave_period_s ? ` ${buoy.wave_period_s.toFixed(0)}s` : ''}` })
@@ -350,7 +350,7 @@ export function NowPage() {
             const waterTemp = tide?.sea_temp_c ?? live?.buoy?.sea_temp_c ?? stale?.buoy?.water_temp_c
             const items: { label: string; value: string; accent?: boolean }[] = []
             if (stn?.temp_c != null) items.push({ label: t('live.temp'), value: `${stn.temp_c.toFixed(1)}°C` })
-            if (stn?.wind_kt != null) items.push({ label: t('live.wind'), value: `${stn.wind_kt.toFixed(0)}${stn.gust_kt ? `G${stn.gust_kt.toFixed(0)}` : ''}kt ${stn.wind_dir != null ? degToCompass(stn.wind_dir) : ''}` })
+            { const wKt = stn?.wind_kt ?? buoy?.wind_kt; const wDir = stn?.wind_dir ?? buoy?.wind_dir; if (wKt != null) items.push({ label: t('live.wind'), value: `${wKt.toFixed(0)}${stn?.gust_kt ? `G${stn.gust_kt.toFixed(0)}` : ''}kt ${wDir != null ? degToCompass(wDir) : ''}` }) }
             if (stn?.pressure_hpa != null) items.push({ label: t('live.pressure'), value: `${stn.pressure_hpa.toFixed(0)} hPa` })
             if (tide?.tide_height_m != null) { const tl = tide.tide_level ? (TIDE_LEVEL_MAP[tide.tide_level]?.[lang] ?? tide.tide_level) : ''; items.push({ label: t('live.tide'), value: `${tide.tide_height_m.toFixed(2)}m${tl ? ` ${tl}` : ''}` }) }
             if (buoy?.wave_height_m != null) items.push({ label: t('live.waves'), value: `${buoy.wave_height_m.toFixed(1)}m${buoy.wave_period_s ? ` ${buoy.wave_period_s.toFixed(0)}s` : ''}` })

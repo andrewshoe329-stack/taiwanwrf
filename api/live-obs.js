@@ -281,6 +281,8 @@ function buildSpotObs(marineObs, weatherObs) {
         wave_period_s: buoy.wave_period_s,
         wave_dir: buoy.wave_dir,
         sea_temp_c: buoy.sea_temp_c,
+        wind_kt: buoy.wind_speed_ms != null ? Math.round(buoy.wind_speed_ms * 1.94384 * 10) / 10 : undefined,
+        wind_dir: buoy.wind_dir,
         current_speed_ms: buoy.current_speed_ms,
         current_dir: buoy.current_dir,
       }
