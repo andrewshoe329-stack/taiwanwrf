@@ -19,9 +19,12 @@ const SUBLON_DEG = 140.7 // Himawari-9 subsatellite longitude
 const SUBLON = (SUBLON_DEG * Math.PI) / 180
 const TILE_PX = 550
 
+export type HimawariBand = 'INFRARED_FULL' | 'D531106'
+export type HimawariBandMode = 'auto' | 'ir' | 'vis'
+
 const REFRESH_MS = 5 * 60 * 1000 // poll latest every 5 min
-let cached: { date: Date; fetchedAt: number } | null = null
-let inflight: Promise<Date> | null = null
+const bandCache = new Map<string, { date: Date; fetchedAt: number }>()
+const bandInflight = new Map<string, Promise<Date>>()
 
 // --- Geostationary projection math ---
 
@@ -160,27 +163,47 @@ export function himawariTilesForBounds(
 
 // --- API layer ---
 
-/** Fetch the latest available Himawari timestamp (cached 5 min) */
-export async function fetchHimawariLatest(band = 'INFRARED_FULL'): Promise<Date> {
-  if (cached && Date.now() - cached.fetchedAt < REFRESH_MS) {
-    return cached.date
+/** Fetch the latest available Himawari timestamp (cached 5 min, per band) */
+export async function fetchHimawariLatest(band: HimawariBand = 'INFRARED_FULL'): Promise<Date> {
+  const c = bandCache.get(band)
+  if (c && Date.now() - c.fetchedAt < REFRESH_MS) {
+    return c.date
   }
-  if (inflight) return inflight
+  const existing = bandInflight.get(band)
+  if (existing) return existing
 
-  inflight = (async () => {
+  const promise = (async () => {
     try {
       const resp = await fetch(`/api/himawari?q=latest&band=${band}`)
       if (!resp.ok) throw new Error(`Himawari API ${resp.status}`)
       const data = await resp.json()
       const date = new Date(data.date)
-      cached = { date, fetchedAt: Date.now() }
+      bandCache.set(band, { date, fetchedAt: Date.now() })
       return date
     } finally {
-      inflight = null
+      bandInflight.delete(band)
     }
   })()
 
-  return inflight
+  bandInflight.set(band, promise)
+  return promise
+}
+
+/**
+ * Determine the appropriate Himawari band based on mode and current time.
+ * Auto mode uses visible (D531106) during Taiwan daytime (~06:30-17:30 CST),
+ * infrared otherwise.
+ */
+export function resolveHimawariBand(mode: HimawariBandMode): HimawariBand {
+  if (mode === 'ir') return 'INFRARED_FULL'
+  if (mode === 'vis') return 'D531106'
+  // Auto: check current time in CST (UTC+8)
+  const now = new Date()
+  const cstHour = (now.getUTCHours() + 8) % 24
+  const cstMin = now.getUTCMinutes()
+  const cstTime = cstHour + cstMin / 60
+  // Visible is usable roughly 06:30 to 17:30 CST
+  return (cstTime >= 6.5 && cstTime < 17.5) ? 'D531106' : 'INFRARED_FULL'
 }
 
 /** Format a Date as the time string used in NICT tile URLs (YYYYMMDDHHMMSS) */

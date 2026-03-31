@@ -10,7 +10,8 @@ import type { SpotRating, WaveGrid, CurrentGrid } from '@/lib/types'
 import { TileCache, tilesInView, zoomForSpan } from '@/lib/tile-loader'
 import { fetchRainViewerMaps, latestRadarPath, tileUrl } from '@/lib/rainviewer'
 import type { RainViewerFrame } from '@/lib/rainviewer'
-import { fetchHimawariLatest, formatHimawariTime, himawariTilesForBounds, himawariTileUrl, himawariTileBounds, himawariZoomForSpan } from '@/lib/himawari'
+import { fetchHimawariLatest, formatHimawariTime, himawariTilesForBounds, himawariTileUrl, himawariTileBounds, himawariZoomForSpan, resolveHimawariBand } from '@/lib/himawari'
+import type { HimawariBandMode } from '@/lib/himawari'
 
 type MapLayer = 'wind' | 'waves' | 'currents' | 'radar' | 'satellite'
 
@@ -519,6 +520,8 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
 
   // Himawari satellite state
   const [himawariTime, setHimawariTime] = useState<string | null>(null)
+  const [himawariBandMode, setHimawariBandMode] = useState<HimawariBandMode>('auto')
+  const [himawariActiveBand, setHimawariActiveBand] = useState<string>('IR')
 
   // Fetch tile data when radar or satellite layer is active
   useEffect(() => {
@@ -567,7 +570,9 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
           particlesRef.current?.setTileOverlay('radar', imageMap, zoom)
         } else {
           // Himawari satellite
-          const date = await fetchHimawariLatest()
+          const band = resolveHimawariBand(himawariBandMode)
+          setHimawariActiveBand(band === 'D531106' ? 'VIS' : 'IR')
+          const date = await fetchHimawariLatest(band)
           const timeStr = formatHimawariTime(date)
           setHimawariTime(timeStr)
           setTileError(false)
@@ -583,7 +588,7 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
           const geoBounds = new Map<string, { west: number; east: number; north: number; south: number }>()
 
           await Promise.all(tiles.map(async (t) => {
-            const url = himawariTileUrl('INFRARED_FULL', zoom, t.x, t.y, timeStr)
+            const url = himawariTileUrl(band, zoom, t.x, t.y, timeStr)
             const key = `${zoom}/${t.x}/${t.y}`
             try {
               const img = await cache.load(url)
@@ -610,7 +615,7 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
         rainviewerIntervalRef.current = null
       }
     }
-  }, [layer])
+  }, [layer, himawariBandMode])
 
   // Reload tiles on zoom/pan when in radar/satellite mode (debounced)
   useEffect(() => {
@@ -636,13 +641,14 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
         }))
         if (!cancelled) particlesRef.current?.setTileOverlay('radar', imageMap, zoom)
       } else {
+        const band = resolveHimawariBand(himawariBandMode)
         const zoom = himawariZoomForSpan(b.east - b.west)
         const tiles = himawariTilesForBounds(b.west, b.south, b.east, b.north, zoom)
         const timeStr = himawariTime!
         const imageMap = new Map<string, HTMLImageElement>()
         const geoBounds = new Map<string, { west: number; east: number; north: number; south: number }>()
         await Promise.all(tiles.map(async (t) => {
-          const url = himawariTileUrl('INFRARED_FULL', zoom, t.x, t.y, timeStr)
+          const url = himawariTileUrl(band, zoom, t.x, t.y, timeStr)
           const key = `${zoom}/${t.x}/${t.y}`
           try {
             const img = await cache.load(url)
@@ -659,7 +665,7 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
 
     return () => { cancelled = true; clearTimeout(timer) }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [layer, tileFrame, himawariTime, boundsVersion])
+  }, [layer, tileFrame, himawariTime, himawariBandMode, boundsVersion])
 
   return (
     <div className="relative w-full h-full" style={{ background: '#000000' }}>
@@ -789,10 +795,25 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
           )}
         </div>
       )}
-      {/* Satellite status badge */}
+      {/* Satellite status badge + band toggle */}
       {layer === 'satellite' && (
         <div className={`absolute bottom-3 left-3 z-20 backdrop-blur-sm bg-[var(--color-bg-elevated)]/80 border rounded-md px-2 py-1.5 ${tileStale ? 'border-amber-500/50' : tileError ? 'border-red-500/50' : 'border-[var(--color-border)]'}`}>
-          <p className="text-[8px] text-[var(--color-text-muted)] uppercase tracking-wider mb-0.5">Himawari IR</p>
+          <p className="text-[8px] text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Himawari {himawariActiveBand}</p>
+          <div className="flex gap-0.5 mb-1">
+            {([['auto', 'Auto'], ['ir', 'IR'], ['vis', 'VIS']] as const).map(([mode, label]) => (
+              <button
+                key={mode}
+                onClick={() => { setHimawariBandMode(mode); tileCacheRef.current.clear() }}
+                className={`px-1.5 py-0.5 text-[8px] font-medium rounded transition-all ${
+                  himawariBandMode === mode
+                    ? 'bg-[var(--color-text-primary)] text-[var(--color-bg)]'
+                    : 'bg-[var(--color-bg)]/50 text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           {tileError ? (
             <p className="text-[10px] text-red-400">{t('common.unavailable')}</p>
           ) : tileTimestamp ? (
