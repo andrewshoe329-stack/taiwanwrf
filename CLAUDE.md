@@ -141,7 +141,7 @@ Each spot uses its nearest CWA township tide station (F-A0021-001) for predictio
 | File | Lines | Purpose |
 |------|-------|---------|
 | `i18n.py` | ~325 | Bilingual translation infrastructure: `T()`, `T_str()`, `bilingual()`, `STRINGS` dict |
-| `config.py` | ~430 | Shared constants + utilities: `KEELUNG_LAT/LON`, `SPOT_COORDS`, `SPOT_COUNTY`, `SPOT_REGION`, `SPOT_TIDE_STATION`, `SPOT_TIDE_OBS_STATION`, `deg_to_compass()`, `norm_utc()` (converts CST→UTC), `sunrise_sunset()`, `fetch_json()`, `load_json_file()` |
+| `config.py` | ~490 | Shared constants + utilities: `KEELUNG_LAT/LON`, `SPOT_COORDS`, `SPOT_COUNTY`, `SPOT_REGION`, `SPOT_TIDE_STATION`, `SPOT_TIDE_OBS_STATION`, `deg_to_compass()`, `norm_utc()` (converts CST→UTC), `sunrise_sunset()`, `fetch_json()`, `load_json_file()`, `run_parallel()` (thread pool with failure tracking) |
 | `taiwan_wrf_download.py` | ~702 | Download CWA WRF GRIB2 from S3, subset with eccodes, archive with tar.gz |
 | `wrf_analyze.py` | ~2410 | GRIB2 point extraction, derived fields, unified HTML table, daily summary cards |
 | `ecmwf_fetch.py` | ~258 | Fetch ECMWF IFS from Open-Meteo, 6-hourly conversion, GFS gust/vis backfill |
@@ -160,13 +160,13 @@ Each spot uses its nearest CWA township tide station (F-A0021-001) for predictio
 | `wave_grid_fetch.py` | ~160 | Fetch gridded wave data from Open-Meteo marine API for map heatmap overlay |
 | `api/live-obs.js` | ~400 | Vercel serverless function: proxies CWA real-time observations (4 parallel API calls) |
 | `CWA_API_REFERENCE.md` | ~300 | Complete CWA Open Data API reference with all endpoints, params, station lists |
-| `IMPROVEMENT_PLAN.md` | ~90 | Post-audit improvement plan with priorities |
+| `IMPROVEMENT_PLAN.md` | ~170 | Post-audit improvement plan with status tracking (FIXED/OPEN) |
 | `frontend/` | React SPA | Vite + React + TypeScript — interactive forecast UI with wind/wave map overlays |
 | `frontend/src/router.tsx` | ~77 | React Router config: `/`, `/spots`, `/spots/:id`, `/harbours`, `/models` |
-| `frontend/src/lib/constants.ts` | ~100 | Shared constants: spot coords, regions, `SPOT_TIDE_STATION`/`SPOT_TIDE_OBS_STATION`, data file paths |
+| `frontend/src/lib/constants.ts` | ~110 | Shared constants: spot coords, regions, `SPOT_TIDE_STATION`/`SPOT_TIDE_OBS_STATION`/`SPOT_COUNTY`, data file paths |
 | `frontend/src/lib/types.ts` | ~240 | TypeScript interfaces: `ForecastRecord`, `WaveRecord`, `SpotRating`, `CwaObs`, `WaveGrid`, `LiveSpotObs`, etc. |
-| `frontend/src/hooks/useLiveObs.ts` | ~80 | Hook polling `/api/live-obs` every 5 min for real-time CWA data |
-| `frontend/src/lib/wind-particles.ts` | ~580 | Canvas wind particle animation + wave heatmap + tile overlay renderer with Mercator projection |
+| `frontend/src/hooks/useLiveObs.ts` | ~90 | Hook polling `/api/live-obs` with exponential backoff (5m→10m→20m on failures) |
+| `frontend/src/lib/wind-particles.ts` | ~620 | Canvas wind particle animation + wave heatmap (with color legend) + tile overlay renderer with Mercator projection |
 | `frontend/src/lib/tile-loader.ts` | ~95 | XYZ tile math (Web Mercator), tile bounds, zoom calculation, image cache |
 | `frontend/src/lib/rainviewer.ts` | ~50 | RainViewer API: radar tile URL builder, 5-min auto-refresh cache (satellite removed — use Himawari) |
 | `frontend/src/lib/himawari.ts` | ~180 | NICT Himawari-9 satellite client: geostationary projection (`geoToDisk`/`diskToGeo`), tile math, per-band caching, auto day/night band switching |
@@ -179,17 +179,25 @@ Each spot uses its nearest CWA township tide station (F-A0021-001) for predictio
 | `frontend/src/components/spots/SwellWindowFinder.tsx` | ~70 | Cross-spot ranked top 5 best sessions, clickable to select spot |
 | `frontend/src/components/layout/TownshipForecastCard.tsx` | ~120 | CWA township forecast card (expandable per county: Keelung/New Taipei/Yilan) |
 | `frontend/src/components/layout/ShareButton.tsx` | ~70 | Deep-link share button (native share on mobile, clipboard on desktop) |
+| `frontend/src/components/spots/LiveObsCard.tsx` | ~62 | Per-spot live observation grid (tide, wave, wind, temp, UV, currents) |
+| `frontend/src/components/spots/SpotDetail.tsx` | ~203 | Spot detail panel: header, rating badge, live obs, info pills, swell compass, data cells, per-spot CWA warnings |
+| `frontend/src/components/spots/KeelungDetail.tsx` | ~65 | Keelung harbour detail panel: header, live obs, webcams |
+| `frontend/src/components/spots/EnsembleAccuracyPills.tsx` | ~50 | Ensemble confidence stars + accuracy badges (per-horizon: 24h/48h/72h) + accuracy trend |
+| `frontend/src/components/map/MapControls.tsx` | ~207 | Map layer toggles, model selector, zoom controls, satellite band toggle, radar/satellite status badges |
+| `frontend/src/components/layout/ErrorBoundary.tsx` | ~50 | React error boundary wrapping app — shows reload button on crash |
 | `frontend/src/components/layout/AlertSettingsPanel.tsx` | ~250 | Browser notification preferences: adjustable thresholds (wind/wave/rain/surf score), Web Notifications API, localStorage persistence |
 | `api/himawari.js` | ~120 | Vercel serverless proxy for NICT Himawari-9 satellite tiles (IR + visible bands) |
-| `.github/workflows/wrf.yml` | ~170 | WRF download, subset, analysis — 4x daily |
-| `.github/workflows/forecast.yml` | ~220 | Forecast pipeline: ECMWF/wave/ensemble fetch, surf, AI summary — 4x daily |
+| `.github/workflows/wrf.yml` | ~180 | WRF download, subset, analysis — 4x daily (runs pytest before download) |
+| `.github/workflows/forecast.yml` | ~220 | Forecast pipeline: parallelized fetch (7 concurrent), surf, AI summary — 4x daily |
 | `.github/workflows/deploy.yml` | ~70 | Vercel deploy triggered by forecast completion |
 | `.github/workflows/cwa-discover.yml` | ~30 | Monthly workflow to discover CWA stations/buoys and commit mapping |
 | `html_template.py` | ~171 | Shared page shell: `render_page()` wraps content in full HTML5 doc with header/nav/footer (legacy) |
 | `pwa/` | 6 files | Legacy PWA assets (manifest, service worker, icons, styles) — superseded by React frontend |
-| `vercel.json` | ~30 | Static site config (rewrites, cache headers) |
+| `vercel.json` | ~45 | Static site config (rewrites, cache headers, CSP, HSTS, Permissions-Policy) |
 | `requirements.txt` | ~7 | `eccodes>=1.5,<2`, `numpy>=1.24,<3`, `anthropic>=0.40,<1`, `firebase-admin>=6.0,<7` |
-| `tests/` | 14 files, 428 tests | Unit tests for pure functions (pytest), run in CI/CD |
+| `tests/` | 17 files, 525 tests | Unit tests for pure functions (pytest), run in CI/CD |
+| `frontend/src/lib/__tests__/` | 1 file, 50 tests | Frontend unit tests (vitest): forecast-utils.ts |
+| `frontend/vitest.config.ts` | ~18 | Vitest config with jsdom environment and path aliases |
 
 ---
 
@@ -210,14 +218,15 @@ The site is fully bilingual English/Traditional Chinese. All user-visible string
 **To add a new translatable string:** Add a key to `STRINGS` in `i18n.py`, then use `T('key')` in HTML generators.
 
 ### Shared Config (`config.py`)
-All scripts import coordinates, compass functions, and `norm_utc()` from here. **Do not duplicate these** — earlier bugs came from hardcoded coordinates and duplicated utility functions. `SPOT_COORDS` is the single source of truth for spot coordinates (used by `surf_forecast.py`, `cwa_fetch.py`, `cwa_discover.py`). `SPOT_COUNTY` maps each spot to its CWA county for township forecasts.
+All scripts import coordinates, compass functions, and `norm_utc()` from here. **Do not duplicate these** — earlier bugs came from hardcoded coordinates and duplicated utility functions. `SPOT_COORDS` is the single source of truth for spot coordinates (used by `surf_forecast.py`, `cwa_fetch.py`, `cwa_discover.py`). `SPOT_COUNTY` maps each spot to its CWA county for township forecasts and per-spot warning filtering. `run_parallel(fn, items, max_workers, max_fail_pct)` provides standardized thread pool execution with failure tracking — use it instead of raw `ThreadPoolExecutor` for new parallel work.
 
 ### GRIB2 Processing
 - CWA WRF uses **Lambert Conformal** grid projection (not regular lat/lon)
 - eccodes is the primary GRIB2 library; cfgrib/xarray is a fallback
 - Grid geometry is **cached per file** — all messages in a WRF file share the same grid
 - Cache key: `(grid_type, ni, nj)` in both subsetting and point extraction
-- Precipitation is **accumulated** in WRF GRIB2 — must compute 6h increments by differencing consecutive forecast hours. F000 (analysis hour) always gets `precip_mm_6h = 0.0`
+- Precipitation is **accumulated** in WRF GRIB2 — must compute 6h increments by differencing consecutive forecast hours. F000 (analysis hour) always gets `precip_mm_6h = 0.0`. On accumulation reset (model restart), `precip_mm_6h = None` (cannot compute delta)
+- Exception handling in GRIB2 processing is split by type: `KeyError` at debug level (expected for missing fields), `ValueError`/`TypeError` at warning (decode errors), `OSError` at warning (I/O errors)
 - Units: WMO standard may use metres for precip; read the `units` GRIB2 key to decide conversion
 
 ### Time Handling
@@ -247,7 +256,7 @@ The primary UI is a **React single-page application** built with Vite + TypeScri
 
 **Browse mode** (no spot selected): SpotCompare table → SwellWindowFinder (top 5 best sessions across all spots) → AI Summary accordion.
 
-**Weather warnings**: Full-width banner above 3-column layout (desktop) and above map (mobile). Separate from per-spot warning pills.
+**Weather warnings**: Full-width banner above 3-column layout (desktop) and above map (mobile). Separate from per-spot warning pills. Specialized CWA warnings (rain/heat/cold) are filtered per-spot using `SPOT_COUNTY` mapping and shown as colored badges in `SpotDetail`.
 
 **Charts** (Recharts): Wind, Wave Height + Swell Period, Tide, Precipitation, Temperature, Ensemble Model Comparison (GFS/ICON/JMA wind), Accuracy Trend (30-day with horizon tabs). All use shared numeric X-axis with mobile-adaptive tick count. Reference line tracks timeline scrubber.
 
@@ -255,7 +264,7 @@ The primary UI is a **React single-page application** built with Vite + TypeScri
 
 **CWA Township Forecast**: TownshipForecastCard shows official county-level weather forecast (Keelung/New Taipei/Yilan) in charts panel, expandable per county.
 
-**Live data**: `useLiveObs` hook polls `/api/live-obs` every 5 min for real-time CWA observations. Falls back to deploy-time `cwa_obs.json`. Shows in a 3-column labeled grid on both spot and harbour panels.
+**Live data**: `useLiveObs` hook polls `/api/live-obs` every 5 min for real-time CWA observations, with exponential backoff on failures (5m→10m→20m, resets on success). Falls back to deploy-time `cwa_obs.json`. Shows in a 3-column labeled grid via `LiveObsCard` component on both spot and harbour panels.
 
 **ConditionsStrip**: Sticky bar below timeline. Browse mode: Wind, Swell, Wave Height, Temp, Precip (5 cols). Spot mode: Wave Height, Water Temp, Air Temp, Precip, Pressure (5 cols — no duplication with compass data).
 
@@ -294,9 +303,12 @@ Scoring system (0–16 max) evaluates each 6h timestep with 6 components:
 ### API Fetching
 - All HTTP calls use `urllib.request` (stdlib only, no requests dependency)
 - Shared `fetch_json()` in `config.py` — centralised retry logic used by all fetch modules
+- Shared `run_parallel()` in `config.py` — standardised thread pool execution with failure counting and threshold-based abort (raises if >N% fail)
 - Retry logic: 3 attempts with 5s delay (Open-Meteo), exponential backoff (S3 downloads)
-- `surf_forecast.py` fetches all 8 locations (Keelung + 7 spots) in parallel via ThreadPoolExecutor(4)
+- `surf_forecast.py` fetches all 8 locations (Keelung + 7 spots) in parallel via ThreadPoolExecutor(8)
+- `taiwan_wrf_download.py` aborts if >30% of forecast hours fail to download
 - GFS data backfills ECMWF gaps (wind gusts, visibility)
+- CI pipeline runs 7 independent fetch steps in parallel (ECMWF, wave, tide, CWA, wind grid, wave grid, current grid)
 - `ensemble_fetch.py` fetches GFS/ICON/JMA in parallel via ThreadPoolExecutor(3)
 - `cwa_fetch.py` fetches Keelung station + nearest wave buoy from CWA Open Data API
 - `notify.py` sends threshold-based alerts via LINE Notify and Telegram Bot API
@@ -507,15 +519,23 @@ These are the intermediate JSON files passed between pipeline steps:
 
 ## Running Tests
 
+### Python tests
 ```bash
 pip install -r requirements.txt
 pip install pytest
 python -m pytest tests/ -v
 ```
 
-428 tests should pass. Tests cover: compass conversion, Beaufort scale, color functions, direction quality scoring, day ratings, sail ratings, time normalization, bbox geometry, GRIB2 constant validation, tide prediction (semidiurnal pattern, extrema detection, CWA-anchored interpolation), accuracy tracking (error metrics, buoy verification, tide accuracy), CWA API parsing (station, buoy, tide, tide forecast, township forecast, warnings), AI summary prompt construction (with CWA obs and ensemble spread), notification alert dedup, and shared HTTP fetch/JSON loading utilities.
+525 tests should pass (17 test files). Tests cover: compass conversion, Beaufort scale, color functions, direction quality scoring, day ratings, sail ratings, time normalization, bbox geometry, GRIB2 constant validation, tide prediction (semidiurnal pattern, extrema detection, CWA-anchored interpolation), accuracy tracking (error metrics, buoy verification, tide accuracy, circular wind direction NaN guard), CWA API parsing (station, buoy, tide, tide forecast, township forecast, warnings), AI summary prompt construction (with CWA obs and ensemble spread), notification alert dedup, shared HTTP fetch/JSON loading utilities, wave grid processing, and current grid processing.
 
-**Tests run in CI/CD** — the GitHub Actions workflow runs `python -m pytest tests/ -v` before deployment.
+### Frontend tests
+```bash
+cd frontend && npm ci && npx vitest run
+```
+
+50 tests should pass. Tests cover: compass conversion, wind type detection, sail/surf decisions, CST time conversion, day grouping, color classes, rating mapping, and data record transformations.
+
+**Tests run in CI/CD** — both `wrf.yml` and `forecast.yml` workflows run `python -m pytest tests/ -v` before deployment.
 
 **No integration tests exist.** Tests don't require network access or GRIB2 files — they only test pure functions.
 
@@ -573,6 +593,7 @@ python cwa_fetch.py --output cwa_obs.json
 - `surf_forecast.py` `generate_full_html()` refactored into `_render_rating_matrix()`, `_render_spot_detail()`, `_render_surf_legend()`
 - Missing type hints on many functions
 - Shell `find` in workflow step "Download and subset WRF data" is redundant (Python writes to `GITHUB_OUTPUT`)
+- `ForecastMap.tsx` still ~700 lines after `MapControls` extraction — canvas rendering logic is monolithic but hard to split further due to shared state
 
 ### UX Debt
 - Mobile forecast cards implemented but desktop table (12+ columns) still has horizontal scroll
@@ -595,6 +616,13 @@ python cwa_fetch.py --output cwa_obs.json
 13. ~~**Ensemble model comparison**~~ — Done: GFS/ICON/JMA wind comparison chart
 14. ~~**Browser notifications**~~ — Done: AlertSettingsPanel with configurable thresholds
 15. ~~**Share/deep-link button**~~ — Done: native share (mobile) + clipboard (desktop)
+16. ~~**Wave map legend**~~ — Done: color ramp (0-3+m) rendered on canvas in wave heatmap mode
+17. ~~**Per-spot CWA warnings**~~ — Done: specialized rain/heat/cold warnings filtered by SPOT_COUNTY
+18. ~~**Accuracy by forecast horizon**~~ — Done: 24h/48h/72h wind+temp MAE in EnsembleAccuracyPills
+19. ~~**Error boundary**~~ — Done: React ErrorBoundary wrapping app, shows reload on crash
+20. ~~**NowPage decomposition**~~ — Done: extracted LiveObsCard, SpotDetail, KeelungDetail, EnsembleAccuracyPills
+21. ~~**ForecastMap decomposition**~~ — Done: extracted MapControls (layer toggles, model selector, zoom, status badges)
+22. ~~**Frontend tests**~~ — Done: vitest with 50 tests for forecast-utils.ts
 
 ---
 
@@ -607,4 +635,9 @@ python cwa_fetch.py --output cwa_obs.json
 - **HTML fragments:** Scripts output HTML fragments, not full documents. The workflow assembles `public/index.html` from `forecast.html`
 - **Units:** Wind in knots, temp in Celsius, pressure in hPa, waves in metres, visibility in km, precipitation in mm
 - **Time format:** ISO-8601 with `+00:00` offset everywhere (use `norm_utc()` from config)
+- **Error handling in GRIB2:** Use split catches — `KeyError` at debug (expected), `ValueError`/`TypeError` at warning, `OSError` at warning. Do not use broad `except Exception`.
+- **Thread pools:** Use `config.run_parallel()` for new parallel work; it provides failure counting and threshold-based abort.
+- **Frontend components:** Keep components small. Extract >200-line sections into separate files. Use `@/` path aliases for imports.
+- **Frontend tests:** Add vitest tests for new utility functions in `frontend/src/lib/__tests__/`.
+- **Security headers:** CSP, HSTS, Permissions-Policy configured in `vercel.json`. Update CSP `connect-src` if adding new external API domains.
 - **Keep CLAUDE.md updated:** Any commit that changes the pipeline, adds a module, updates secrets, or fixes a bug should also update this file.

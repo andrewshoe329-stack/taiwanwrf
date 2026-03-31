@@ -62,6 +62,18 @@ export const SPOT_TIDE_OBS_STATION: Record<string, string> = {
   chousui:     'C4U02',
 }
 
+// Spot → CWA county for filtering specialized warnings
+export const SPOT_COUNTY: Record<string, string> = {
+  keelung:     '基隆市',
+  jinshan:     '新北市',
+  greenbay:    '新北市',
+  fulong:      '新北市',
+  daxi:        '宜蘭縣',
+  doublelions: '宜蘭縣',
+  wushih:      '宜蘭縣',
+  chousui:     '宜蘭縣',
+}
+
 // ── Data file paths ──────────────────────────────────────────────────────────
 
 export const DATA_BASE = '/data'
