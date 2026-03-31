@@ -143,6 +143,13 @@ export function NowPage() {
     return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Taipei' })
   }, [chartRecords, index])
 
+  // nowMs for tide sparkline in spot detail
+  // NOTE: must be above the loading guard to satisfy Rules of Hooks
+  const nowMs = useMemo(() => {
+    const vu = data.keelung?.records?.[index]?.valid_utc
+    return vu ? new Date(vu).getTime() : undefined
+  }, [data.keelung, index])
+
   if (data.loading) {
     return <LoadingSpinner />
   }
@@ -164,12 +171,6 @@ export function NowPage() {
   }
 
   const isSpotSelected = locationId != null && locationId !== 'keelung'
-
-  // nowMs for tide sparkline in spot detail
-  const nowMs = useMemo(() => {
-    const vu = data.keelung?.records?.[index]?.valid_utc
-    return vu ? new Date(vu).getTime() : undefined
-  }, [data.keelung, index])
 
   /* ── Spot / harbour detail panel ──────────────────────────────────── */
   const locationDetail = (
