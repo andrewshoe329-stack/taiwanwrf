@@ -151,12 +151,21 @@ body {
 /* ── PWA safe-area header/nav (Dynamic Island, notch, home indicator) ──── */
 .pwa-header {
   padding-top: env(safe-area-inset-top, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
 }
 .pwa-bottom-nav {
   padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
 }
 .pwa-main {
   padding-top: calc(3rem + env(safe-area-inset-top, 0px));
+}
+/* Landscape safe-area: prevent content from being hidden behind Dynamic Island / notch */
+.pwa-safe-lr {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
 }
 
 .divider {

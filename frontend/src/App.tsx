@@ -34,7 +34,7 @@ export function App() {
         <TimelineContext.Provider value={timeline}>
           <ModelContext.Provider value={modelState}>
             <LocationContext.Provider value={locationState}>
-              <div className="h-[100dvh] flex flex-col bg-[var(--color-bg)]">
+              <div className="h-[100dvh] flex flex-col bg-[var(--color-bg)] pwa-safe-lr">
                 <Header />
                 <main className="flex-1 min-h-0">
                   <Outlet />
