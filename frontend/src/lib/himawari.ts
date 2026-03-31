@@ -24,7 +24,6 @@ export type HimawariBandMode = 'auto' | 'ir' | 'vis'
 
 const REFRESH_MS = 5 * 60 * 1000 // poll latest every 5 min
 const bandCache = new Map<string, { date: Date; fetchedAt: number }>()
-const bandInflight = new Map<string, Promise<Date>>()
 
 // --- Geostationary projection math ---
 
@@ -163,30 +162,64 @@ export function himawariTilesForBounds(
 
 // --- API layer ---
 
+export interface HimawariLatest {
+  date: Date
+  source: 'nict' | 'slider' | 'jma'
+  /** SLIDER timestamp string (YYYYMMDDHHmmSS) */
+  sliderTime?: string
+  /** JMA-specific fields for regional image fallback */
+  jmaBand?: string
+  hhmm?: string
+}
+
+const latestCache = new Map<string, { data: HimawariLatest; fetchedAt: number }>()
+const latestInflight = new Map<string, Promise<HimawariLatest>>()
+
 /** Fetch the latest available Himawari timestamp (cached 5 min, per band) */
-export async function fetchHimawariLatest(band: HimawariBand = 'INFRARED_FULL'): Promise<Date> {
-  const c = bandCache.get(band)
-  if (c && Date.now() - c.fetchedAt < REFRESH_MS) {
-    return c.date
+export async function fetchHimawariLatest(band: HimawariBand = 'INFRARED_FULL'): Promise<HimawariLatest> {
+  const lc = latestCache.get(band)
+  if (lc && Date.now() - lc.fetchedAt < REFRESH_MS) {
+    return lc.data
   }
-  const existing = bandInflight.get(band)
+  const existing = latestInflight.get(band)
   if (existing) return existing
 
   const promise = (async () => {
     try {
       const resp = await fetch(`/api/himawari?q=latest&band=${band}`)
       if (!resp.ok) throw new Error(`Himawari API ${resp.status}`)
-      const data = await resp.json()
-      const date = new Date(data.date)
-      bandCache.set(band, { date, fetchedAt: Date.now() })
-      return date
+      const json = await resp.json()
+      const data: HimawariLatest = {
+        date: new Date(json.date),
+        source: json.source || 'nict',
+        sliderTime: json.sliderTime,
+        jmaBand: json.jmaBand,
+        hhmm: json.hhmm,
+      }
+      latestCache.set(band, { data, fetchedAt: Date.now() })
+      // Also update legacy bandCache for backward compat
+      bandCache.set(band, { date: data.date, fetchedAt: Date.now() })
+      return data
     } finally {
-      bandInflight.delete(band)
+      latestInflight.delete(band)
     }
   })()
 
-  bandInflight.set(band, promise)
+  latestInflight.set(band, promise)
   return promise
+}
+
+/** Build URL for JMA MSC regional image (fallback) */
+export function jmaRegionalUrl(jmaBand: string, hhmm: string, band: string): string {
+  return `/api/himawari?q=regional&band=${band}&jmaBand=${jmaBand}&hhmm=${hhmm}`
+}
+
+/** Geographic bounds of JMA MSC SE2 (Southeast Asia 2) region image */
+export const JMA_SE2_BOUNDS = {
+  north: 50,
+  south: 0,
+  west: 90,
+  east: 150,
 }
 
 /**
