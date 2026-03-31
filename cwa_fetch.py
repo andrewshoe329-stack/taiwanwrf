@@ -797,9 +797,9 @@ def _extract_tide_extrema(location: dict, station_name: str) -> list[dict]:
                         except (ValueError, TypeError):
                             pass
 
-            if time_raw:
+            if time_raw and height is not None:
                 extrema.append({
-                    "time_utc": norm_utc(time_raw) if time_raw else None,
+                    "time_utc": norm_utc(time_raw),
                     "height_m": height,
                     "type": ttype,
                     "station_name": station_name,

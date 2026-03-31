@@ -45,8 +45,8 @@ function CustomTooltip({ active, payload }: TooltipContentProps) {
 }
 
 export function WindChart({ records, ecmwfRecords, timeRange, selectedMs }: WindChartProps) {
-  if (!records?.length) return null
   const mobile = useIsMobile()
+  if (!records?.length) return null
 
   const filtered = filterByTimeRange(records, timeRange)
   const ecmwfMap = new Map<string, ForecastRecord>()

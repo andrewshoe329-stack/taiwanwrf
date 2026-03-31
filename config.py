@@ -326,7 +326,7 @@ def norm_utc(iso: str) -> str:
         iso += ":00+00:00"
     elif len(iso) == 19:     # YYYY-MM-DDTHH:MM:SS
         iso += "+00:00"
-    elif len(iso) >= 25 and '+' in iso[19:] and not iso.endswith('+00:00'):
+    elif len(iso) >= 25 and ('+' in iso[19:] or '-' in iso[19:]) and not iso.endswith('+00:00'):
         # Non-UTC offset — convert to UTC
         try:
             from datetime import datetime, timezone

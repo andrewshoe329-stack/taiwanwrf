@@ -43,9 +43,9 @@ export function TideSparkline({ predictions, extrema, nowMs }: TideSparklineProp
       })
       .map(e => {
         const t = new Date(e.time_utc).getTime()
-        const localH = new Date(t).getHours()
-        const ampm = localH >= 12 ? 'p' : 'a'
-        const h12 = localH % 12 || 12
+        const cstH = (new Date(t).getUTCHours() + 8) % 24
+        const ampm = cstH >= 12 ? 'p' : 'a'
+        const h12 = cstH % 12 || 12
         return {
           t,
           h: e.height_m,

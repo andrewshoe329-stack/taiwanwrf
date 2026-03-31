@@ -52,9 +52,9 @@ function CustomTooltip({ active, payload }: TooltipContentProps) {
 }
 
 export function EnsembleChart({ ensemble, timeRange, selectedMs }: EnsembleChartProps) {
-  if (!ensemble?.models) return null
-
   const mobile = useIsMobile()
+
+  if (!ensemble?.models) return null
 
   // Build a merged timeline from all models
   const timeMap = new Map<number, ChartRow>()
