@@ -71,8 +71,12 @@ export function SpotCompare({ spots, targetUtc, onSelectSpot }: SpotCompareProps
             return (
               <tr
                 key={spot.id}
+                role="button"
+                aria-label={`Select ${spot.name.en}`}
+                tabIndex={0}
                 className="hover:bg-[var(--color-bg-elevated)]/50 cursor-pointer transition-colors"
                 onClick={() => onSelectSpot?.(spot.id)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectSpot?.(spot.id) } }}
               >
                 <td className="py-1 pr-1 text-[var(--color-text-secondary)] whitespace-nowrap">
                   {spot.name[lang]}

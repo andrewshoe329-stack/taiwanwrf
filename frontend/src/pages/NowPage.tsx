@@ -41,6 +41,7 @@ const OceanChart = lazy(() => import('@/components/charts/OceanChart').then(m =>
 const TideChart = lazy(() => import('@/components/charts/TideChart').then(m => ({ default: m.TideChart })))
 const TempChart = lazy(() => import('@/components/charts/TempPressureChart').then(m => ({ default: m.TempChart })))
 const PrecipChart = lazy(() => import('@/components/charts/PrecipChart').then(m => ({ default: m.PrecipChart })))
+const EnsembleChart = lazy(() => import('@/components/charts/EnsembleChart').then(m => ({ default: m.EnsembleChart })))
 
 export function NowPage() {
   const { t, i18n } = useTranslation()
@@ -619,6 +620,13 @@ export function NowPage() {
             </ChartCard>
           )}
         </div>
+
+        {/* Ensemble model comparison */}
+        {data.ensemble?.models && (
+          <ChartCard title="Model Comparison">
+            <EnsembleChart ensemble={data.ensemble} timeRange={timeRange} selectedMs={selectedMs} />
+          </ChartCard>
+        )}
 
         {/* Accuracy trend (full chart) */}
         {data.accuracy && data.accuracy.length >= 2 && (

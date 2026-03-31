@@ -276,8 +276,13 @@ def _parse_buoy_station(stn: dict) -> dict | None:
 
     # O-B0075-001 uses WaveHeight; older endpoints used SignificantWaveHeight
     hs = _val("SignificantWaveHeight") or _val("WaveHeight")
+
+    # If total wave height is unavailable, fall back to swell wave height
     if hs is None:
-        return None  # buoy has no wave data
+        hs = _val("SwellWaveHeight") or _val("SwellHeight")
+
+    if hs is None:
+        return None  # buoy has no wave data at all
 
     return {
         "buoy_id": stn.get("StationId", stn.get("stationId",

@@ -118,6 +118,13 @@ export function TimelineScrubber({ records: externalRecords }: TimelineScrubberP
       {/* Slider track */}
       <div
         ref={trackRef}
+        role="slider"
+        aria-label={t('timeline.scrubber', 'Forecast time scrubber')}
+        aria-valuemin={0}
+        aria-valuemax={total > 0 ? total - 1 : 0}
+        aria-valuenow={index}
+        aria-valuetext={currentRecord?.valid_utc ? `${formatDate(currentRecord.valid_utc)} ${formatTime(currentRecord.valid_utc)} CST` : undefined}
+        tabIndex={0}
         className="relative h-6 flex items-center cursor-pointer touch-none"
         onPointerDown={handlePointerDown}
       >
