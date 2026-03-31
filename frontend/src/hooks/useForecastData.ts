@@ -57,6 +57,9 @@ export function useForecastDataLoader(): AllForecastData {
 
   useEffect(() => {
     let cancelled = false
+    let retryCount = 0
+    const MAX_RETRIES = 2
+    const RETRY_DELAY = 3000
 
     async function load() {
       setData(prev => ({ ...prev, loading: true, error: null }))
@@ -79,6 +82,15 @@ export function useForecastDataLoader(): AllForecastData {
       if (cancelled) return
 
       const hasAnyData = keelung || ecmwf || wave || surf
+
+      // Auto-retry on initial load failure (CDN propagation delay)
+      if (!hasAnyData && retryCount < MAX_RETRIES) {
+        retryCount++
+        console.warn(`[useForecastData] No data loaded, retrying (${retryCount}/${MAX_RETRIES})...`)
+        setTimeout(() => { if (!cancelled) load() }, RETRY_DELAY)
+        return
+      }
+
       setData({
         keelung, ecmwf, wave, tide, ensemble, surf, cwa_obs, accuracy, summary, wrf_spots,
         loading: false,
