@@ -22,7 +22,7 @@ export function LiveObsCard({ spotId }: { spotId: string }) {
     : data.cwa_obs?.spot_obs?.[spotId]
   const stn = live?.station ?? stale?.station
   const buoy = live?.buoy ?? stale?.buoy
-  const tide = live?.tide ?? stale?.tide
+  const tide = live?.tide
   if (!stn && !buoy && !tide) return null
   const waterTemp = tide?.sea_temp_c ?? live?.buoy?.sea_temp_c ?? stale?.buoy?.water_temp_c
   const items: { label: string; value: string; accent?: boolean }[] = []
