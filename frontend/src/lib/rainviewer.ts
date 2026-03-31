@@ -82,5 +82,5 @@ export function satelliteTileUrl(
   z: number, x: number, y: number,
   size: 256 | 512 = 256
 ): string {
-  return `https://tilecache.rainviewer.com${frame.path}/${size}/${z}/${x}/${y}/0/0_0.png`
+  return `https://tilecache.rainviewer.com${frame.path}/${size}/${z}/${x}/${y}/0/0_1.png`
 }

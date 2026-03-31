@@ -30,6 +30,8 @@ export interface LiveSpotObs {
     wave_period_s?: number
     wave_dir?: number
     sea_temp_c?: number
+    wind_kt?: number
+    wind_dir?: number
     current_speed_ms?: number
     current_dir?: number
   }
