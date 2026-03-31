@@ -160,8 +160,5 @@ Alternative to Recharts tooltip sync: show all values at selected timestep below
 
 ## Priority Order (remaining work)
 
-1. Fix P1-5 (specialized warning UI)
-2. Show accuracy by horizon
-3. Add precipitation spread display
-4. Narrow GRIB2 exception catches (Q3)
-5. ForecastMap.tsx decomposition (877 lines — extract layer renderers)
+1. Route weather — interpolate WRF grid along sailing waypoints
+2. CWA tide API validation — compare harmonic predictions against official tables
