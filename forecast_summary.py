@@ -92,14 +92,23 @@ deteriorate; surf can be messy but fun.
 
 
 def _trim_records(records: list, max_days: int = 7) -> list:
-    """Keep only the next `max_days` of records to stay within token budget."""
+    """Keep only the next `max_days` of records to stay within token budget.
+
+    Uses the first record's valid_utc as the reference time. On malformed
+    timestamps, falls back to ``max_days * 4`` entries (assumes 6-hourly data,
+    so ~4 records per day).
+    """
     if not records:
         return []
     try:
         first = datetime.fromisoformat(records[0].get('valid_utc', ''))
         cutoff = first + timedelta(days=max_days)
-        return [r for r in records
-                if datetime.fromisoformat(r.get('valid_utc', '')) <= cutoff]
+        trimmed = [r for r in records
+                   if datetime.fromisoformat(r.get('valid_utc', '')) <= cutoff]
+        if len(trimmed) < len(records):
+            log.info("Trimmed forecast records from %d to %d (max %d days)",
+                     len(records), len(trimmed), max_days)
+        return trimmed
     except (ValueError, TypeError):
         log.warning("Malformed valid_utc in records — falling back to first %d entries",
                     max_days * 4)

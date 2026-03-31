@@ -502,6 +502,7 @@ def run(
     log.info(sep)
 
     results = []
+    failed_hours = []
     with ThreadPoolExecutor(max_workers=workers) as pool:
         futures = {
             pool.submit(
@@ -515,7 +516,18 @@ def run(
             try:
                 results.append(future.result())
             except Exception as exc:
+                failed_hours.append(fh)
                 _log(f"  [F{fh:03d}]  ✗  Failed: {exc}")
+    if failed_hours:
+        fail_pct = len(failed_hours) / len(hours) * 100
+        log.warning("Failed %d/%d forecast hours (%.0f%%): %s",
+                    len(failed_hours), len(hours), fail_pct,
+                    sorted(failed_hours))
+        if fail_pct > 30:
+            log.error("More than 30%% of forecast hours failed — aborting")
+            raise RuntimeError(
+                f"{len(failed_hours)}/{len(hours)} forecast hours failed"
+            )
 
     # ── Compress subsets into a single archive ────────────────────────────────
     archive = None

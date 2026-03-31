@@ -168,9 +168,20 @@ def _rmse(errors: list) -> float | None:
     return round(math.sqrt(sum(e**2 for e in errors) / len(errors)), 2) if errors else None
 
 
-def _circular_diff(a: float, b: float) -> float:
-    """Signed angular difference in range [-180, 180]."""
-    d = (a % 360 - b % 360) % 360
+def _circular_diff(a: float, b: float) -> float | None:
+    """Signed angular difference in range [-180, 180].
+
+    Returns None if either input is not a finite number.
+    """
+    if a is None or b is None:
+        return None
+    try:
+        a_f, b_f = float(a), float(b)
+    except (TypeError, ValueError):
+        return None
+    if not (math.isfinite(a_f) and math.isfinite(b_f)):
+        return None
+    d = (a_f % 360 - b_f % 360) % 360
     return d - 360 if d > 180 else d
 
 
@@ -294,8 +305,9 @@ def compute_accuracy(forecast_records: list, obs_raw: dict,
         od = obs.get('wind_dir')
         if fd is not None and od is not None:
             err = _circular_diff(fd, od)
-            wdir_errors.append(err)
-            bins[bk]['wdir'].append(err)
+            if err is not None:
+                wdir_errors.append(err)
+                bins[bk]['wdir'].append(err)
 
         # Precipitation — forecast is 6h accumulated, obs is hourly.
         # Sum the 6 preceding hourly obs values to get a comparable 6h total.
@@ -722,10 +734,12 @@ def main() -> None:
 
     # Load existing log and append
     log_entries = []
-    if args.existing_log and Path(args.existing_log).exists():
+    if args.existing_log:
         try:
             with open(args.existing_log) as f:
                 log_entries = json.load(f)
+        except FileNotFoundError:
+            log.info("No existing accuracy log at %s; starting fresh", args.existing_log)
         except json.JSONDecodeError as e:
             log.warning("Existing accuracy log corrupted (%s); starting fresh", e)
 

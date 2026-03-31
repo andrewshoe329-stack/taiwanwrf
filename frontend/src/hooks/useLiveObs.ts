@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 export interface LiveSpotObs {
   station?: {
@@ -42,12 +42,14 @@ export interface LiveObsData {
   spots: Record<string, LiveSpotObs>
 }
 
-const REFRESH_INTERVAL = 5 * 60 * 1000 // 5 minutes
+const BASE_INTERVAL = 5 * 60 * 1000 // 5 minutes
+const MAX_INTERVAL = 20 * 60 * 1000 // 20 minutes (cap for backoff)
 
 export function useLiveObs() {
   const [data, setData] = useState<LiveObsData | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const failCountRef = useRef(0)
 
   const fetchLive = useCallback(async () => {
     setLoading(true)
@@ -59,7 +61,8 @@ export function useLiveObs() {
 
       if (!res.ok) {
         // Serverless function not available (dev mode, no CWA key, etc.)
-        setError(null) // Don't show error — just means live data unavailable
+        failCountRef.current++
+        setError(null)
         setData(null)
         return
       }
@@ -67,8 +70,10 @@ export function useLiveObs() {
       const json = await res.json()
       setData(json)
       setError(null)
+      failCountRef.current = 0 // Reset on success
     } catch {
       // Silent fail — live data is optional enhancement
+      failCountRef.current++
       setData(null)
     } finally {
       setLoading(false)
@@ -77,13 +82,30 @@ export function useLiveObs() {
 
   useEffect(() => {
     let cancelled = false
-    const safeFetch = async () => {
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
+
+    const schedule = () => {
       if (cancelled) return
-      await fetchLive()
+      // Exponential backoff: 5m → 10m → 20m (capped) on consecutive failures
+      const backoff = Math.min(
+        BASE_INTERVAL * Math.pow(2, failCountRef.current),
+        MAX_INTERVAL,
+      )
+      const interval = failCountRef.current === 0 ? BASE_INTERVAL : backoff
+      timeoutId = setTimeout(async () => {
+        if (cancelled) return
+        await fetchLive()
+        schedule()
+      }, interval)
     }
-    safeFetch()
-    const interval = setInterval(safeFetch, REFRESH_INTERVAL)
-    return () => { cancelled = true; clearInterval(interval) }
+
+    // Initial fetch
+    fetchLive().then(() => { if (!cancelled) schedule() })
+
+    return () => {
+      cancelled = true
+      if (timeoutId) clearTimeout(timeoutId)
+    }
   }, [fetchLive])
 
   return { data, loading, error, refresh: fetchLive }

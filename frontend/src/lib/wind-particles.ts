@@ -535,6 +535,47 @@ export class WindParticleSystem {
     return '#c93030'                // extreme — red
   }
 
+  /** Draw a compact wave height color legend in the bottom-left corner */
+  private drawWaveLegend(ctx: CanvasRenderingContext2D, _w: number, h: number) {
+    const dpr = this.dpr
+    const legendW = 110 * dpr
+    const legendH = 18 * dpr
+    const x = 8 * dpr
+    const y = h - legendH - 8 * dpr
+    const steps = [0, 0.3, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0]
+    const labels = ['0', '', '0.5', '1', '1.5', '2', '3', '3+']
+    const segW = legendW / (steps.length - 1)
+
+    // Background
+    ctx.fillStyle = 'rgba(0,0,0,0.6)'
+    ctx.beginPath()
+    ctx.roundRect(x - 4 * dpr, y - 14 * dpr, legendW + 8 * dpr, legendH + 20 * dpr, 4 * dpr)
+    ctx.fill()
+
+    // Color segments
+    for (let i = 0; i < steps.length - 1; i++) {
+      ctx.fillStyle = this.waveColor((steps[i] + steps[i + 1]) / 2)
+      ctx.globalAlpha = 0.7
+      ctx.fillRect(x + i * segW, y, segW + 1, legendH)
+    }
+    ctx.globalAlpha = 1.0
+
+    // Labels
+    ctx.fillStyle = '#e2e8f0'
+    ctx.font = `${9 * dpr}px system-ui, sans-serif`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'top'
+    for (let i = 0; i < labels.length; i++) {
+      if (labels[i]) {
+        ctx.fillText(labels[i], x + i * segW, y - 12 * dpr)
+      }
+    }
+    // Title
+    ctx.font = `${8 * dpr}px system-ui, sans-serif`
+    ctx.textAlign = 'left'
+    ctx.fillText('Wave Ht (m)', x, y + legendH + 2 * dpr)
+  }
+
   private loop = () => {
     if (!this.running || !this.ctx) return
 
@@ -574,6 +615,7 @@ export class WindParticleSystem {
       // Mask out land: fill coastline polygons with background color
       this.fillLandMask(ctx, w, h)
       this.drawCoastline(ctx, w, h)
+      this.drawWaveLegend(ctx, w, h)
       this.animId = requestAnimationFrame(this.loop)
       return
     }
