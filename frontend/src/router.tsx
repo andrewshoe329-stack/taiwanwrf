@@ -42,14 +42,7 @@ class LazyErrorBoundary extends React.Component<
   }
 
   handleRetry = () => {
-    // Clear SW caches then hard reload — stale cached chunks are the usual cause
-    if ('caches' in window) {
-      caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).then(() => {
-        window.location.reload()
-      })
-    } else {
-      window.location.reload()
-    }
+    window.location.reload()
   }
 
   render() {

@@ -14,10 +14,9 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 )
 
+// Unregister any existing service worker — caching caused stale chunk issues after deploys
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch((err) => {
-      console.warn('SW registration failed:', err)
-    })
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(r => r.unregister())
   })
 }

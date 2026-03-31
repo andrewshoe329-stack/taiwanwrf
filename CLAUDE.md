@@ -270,7 +270,7 @@ The primary UI is a **React single-page application** built with Vite + TypeScri
 
 Data is served as static JSON files from `frontend/public/data/` (gitignored except `taiwan.geojson`). The pipeline writes JSON outputs there; the React app fetches them at runtime. Live data comes from the serverless function.
 
-**PWA**: manifest includes app shortcuts (Spots, Models). Service worker uses cache-first with 3-day TTL for map tiles, network-first for data JSON, cache-first for Vite hashed assets.
+**PWA**: manifest includes app shortcuts (Spots, Models). Service worker removed — caching caused stale chunk issues after deploys. Existing SWs are unregistered on load.
 
 ### Legacy Multi-Page HTML
 The Python scripts (`wrf_analyze.py`, `surf_forecast.py`) still generate static HTML pages via `html_template.render_page()` when `--output-dir public` is passed. This is retained for backwards compatibility but the React frontend is the primary deployment target.
@@ -598,7 +598,7 @@ python cwa_fetch.py --output cwa_obs.json
 ### UX Debt
 - Mobile forecast cards implemented but desktop table (12+ columns) still has horizontal scroll
 - Colorblind-safe CSS indicators added (✓/⚠/✗ symbols via `.cb-ok`/`.cb-warn`/`.cb-danger`)
-- Stale data detection: timestamp bar + age classes + service worker CACHE_HIT + auto-warning at 12h
+- Stale data detection: timestamp bar + age classes + auto-warning at 12h
 
 ### Potential Future Features
 1. **Route weather** — interpolate WRF grid along sailing waypoints
