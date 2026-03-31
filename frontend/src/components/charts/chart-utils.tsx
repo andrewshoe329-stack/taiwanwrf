@@ -124,19 +124,19 @@ export function MultiLineTick(props: TickProps) {
           dy={10}
           textAnchor="middle"
           fill="var(--color-text-secondary)"
-          fontSize={9}
+          fontSize={10}
           fontWeight={500}
         >
           {dayKey}
         </text>
       )}
       <text
-        dy={showDate ? 21 : 10}
+        dy={showDate ? 22 : 10}
         textAnchor="middle"
         fill="var(--color-text-muted)"
         fontSize={9}
       >
-        {hh}h
+        {hh}:00
       </text>
     </g>
   )

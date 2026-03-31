@@ -149,53 +149,51 @@ export function NowPage() {
             </button>
           </div>
 
-          {/* Swell compass + data cells side by side (desktop only — on mobile, shown below timeline) */}
+          {/* Swell compass + data cells (desktop only — on mobile, shown below timeline) */}
           {!mobile && currentRating && (
-            <div className="flex items-start gap-3">
-              <div className="shrink-0">
+            <div className="space-y-2">
+              <div className="flex justify-center">
                 <SwellCompass
                   facing={spotInfo.facing}
                   optSwell={spotInfo.opt_swell}
                   swellDir={currentRating.swell_dir}
                   swellHeight={currentRating.swell_height}
-                  size={120}
+                  size={100}
                 />
               </div>
-              <div className="flex-1 min-w-0 space-y-2">
-                <div className="grid grid-cols-2 gap-1.5">
-                  <DataCell
-                    label={t('common.wind')}
-                    value={`${currentRating.wind_kt?.toFixed(0) ?? '--'}`}
-                    unit="kt"
-                    sub={currentRating.wind_dir != null ? degToCompass(currentRating.wind_dir) : undefined}
-                  />
-                  <DataCell
-                    label={t('common.swell')}
-                    value={`${currentRating.swell_height?.toFixed(1) ?? '--'}`}
-                    unit="m"
-                    sub={currentRating.swell_dir != null ? degToCompass(currentRating.swell_dir) : undefined}
-                  />
-                  <DataCell
-                    label={t('spots.period')}
-                    value={`${currentRating.swell_period?.toFixed(0) ?? '--'}`}
-                    unit="s"
-                  />
-                  <DataCell
-                    label={t('common.tide')}
-                    value={`${currentRating.tide_height?.toFixed(2) ?? '--'}`}
-                    unit="m"
-                  />
-                </div>
-                {tidePredictions.length > 0 && (
-                  <TideSparkline
-                    predictions={tidePredictions}
-                    extrema={tideExtrema}
-                    nowMs={data.keelung?.records?.[index]?.valid_utc
-                      ? new Date(data.keelung.records[index].valid_utc).getTime()
-                      : undefined}
-                  />
-                )}
+              <div className="grid grid-cols-2 gap-1.5">
+                <DataCell
+                  label={t('common.wind')}
+                  value={`${currentRating.wind_kt?.toFixed(0) ?? '--'}`}
+                  unit="kt"
+                  sub={currentRating.wind_dir != null ? degToCompass(currentRating.wind_dir) : undefined}
+                />
+                <DataCell
+                  label={t('common.swell')}
+                  value={`${currentRating.swell_height?.toFixed(1) ?? '--'}`}
+                  unit="m"
+                  sub={currentRating.swell_dir != null ? degToCompass(currentRating.swell_dir) : undefined}
+                />
+                <DataCell
+                  label={t('spots.period')}
+                  value={`${currentRating.swell_period?.toFixed(0) ?? '--'}`}
+                  unit="s"
+                />
+                <DataCell
+                  label={t('common.tide')}
+                  value={`${currentRating.tide_height?.toFixed(2) ?? '--'}`}
+                  unit="m"
+                />
               </div>
+              {tidePredictions.length > 0 && (
+                <TideSparkline
+                  predictions={tidePredictions}
+                  extrema={tideExtrema}
+                  nowMs={data.keelung?.records?.[index]?.valid_utc
+                    ? new Date(data.keelung.records[index].valid_utc).getTime()
+                    : undefined}
+                />
+              )}
             </div>
           )}
 
