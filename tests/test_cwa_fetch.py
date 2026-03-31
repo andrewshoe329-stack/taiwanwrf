@@ -718,10 +718,10 @@ class TestBuildSpotObs:
     def test_basic_mapping(self):
         mapping = {
             "fulong": {
-                "station_id": "466950",
-                "station_dist_km": 5.0,
-                "buoy_id": "46694A",
-                "buoy_dist_km": 12.0,
+                "weather": "466950",
+                "weather_alt": ["C0AJ20"],
+                "tide": "C4A05",
+                "buoy": "46694A",
             }
         }
         station_obs = {
@@ -739,12 +739,26 @@ class TestBuildSpotObs:
         result = _build_spot_obs(mapping, station_obs, all_buoys)
         assert "fulong" in result
         assert result["fulong"]["station"]["temp_c"] == 22.0
-        assert result["fulong"]["station"]["distance_km"] == 5.0
         assert result["fulong"]["buoy"]["wave_height_m"] == 1.2
-        assert result["fulong"]["buoy"]["distance_km"] == 12.0
+
+    def test_weather_alt_fallback(self):
+        """If primary weather station has no data, fall back to weather_alt."""
+        mapping = {
+            "fulong": {
+                "weather": "MISSING",
+                "weather_alt": ["C0AJ20", "C0U880"],
+                "buoy": "46694A",
+            }
+        }
+        station_obs = {
+            "C0AJ20": {"station_id": "C0AJ20", "temp_c": 20.0,
+                        "obs_time": "2026-03-24T00:00:00+00:00"},
+        }
+        result = _build_spot_obs(mapping, station_obs, [])
+        assert result["fulong"]["station"]["temp_c"] == 20.0
 
     def test_missing_station(self):
-        mapping = {"fulong": {"buoy_id": "46694A", "buoy_dist_km": 12.0}}
+        mapping = {"fulong": {"weather": "MISSING", "buoy": "46694A"}}
         result = _build_spot_obs(mapping, {}, [
             {"buoy_id": "46694A", "wave_height_m": 0.8,
              "obs_time": "2026-03-24T00:00:00+00:00"},
@@ -758,11 +772,11 @@ class TestBuildSpotObs:
 
     def test_shared_buoy_across_spots(self):
         mapping = {
-            "daxi": {"buoy_id": "46694A", "buoy_dist_km": 20.0},
-            "wushih": {"buoy_id": "46694A", "buoy_dist_km": 18.0},
+            "daxi": {"weather": "C0UA80", "buoy": "46694A"},
+            "wushih": {"weather": "C0U860", "buoy": "46694A"},
         }
         buoys = [{"buoy_id": "46694A", "wave_height_m": 1.0,
                   "obs_time": "2026-03-24T00:00:00+00:00"}]
         result = _build_spot_obs(mapping, {}, buoys)
-        assert result["daxi"]["buoy"]["distance_km"] == 20.0
-        assert result["wushih"]["buoy"]["distance_km"] == 18.0
+        assert result["daxi"]["buoy"]["wave_height_m"] == 1.0
+        assert result["wushih"]["buoy"]["wave_height_m"] == 1.0

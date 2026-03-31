@@ -46,6 +46,7 @@ const WEATHER_STATIONS = [
 ].join(',')
 
 // Spot → nearest stations mapping (weather_alt: fallback stations for wind)
+// Source of truth: config.py SPOT_STATIONS — keep in sync when spots change.
 const SPOT_STATIONS = {
   keelung:     { weather: '466940', weather_alt: ['C0B050'],                   tide: 'C4B01',  buoy: '46694A' },
   jinshan:     { weather: 'C0A940', weather_alt: ['C0AJ20', '466940'],         tide: 'C4A03',  buoy: 'C6AH2'  },

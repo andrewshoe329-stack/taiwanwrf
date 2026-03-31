@@ -141,7 +141,7 @@ Each spot uses its nearest CWA township tide station (F-A0021-001) for predictio
 | File | Lines | Purpose |
 |------|-------|---------|
 | `i18n.py` | ~325 | Bilingual translation infrastructure: `T()`, `T_str()`, `bilingual()`, `STRINGS` dict |
-| `config.py` | ~490 | Shared constants + utilities: `KEELUNG_LAT/LON`, `SPOT_COORDS`, `SPOT_COUNTY`, `SPOT_REGION`, `SPOT_TIDE_STATION`, `SPOT_TIDE_OBS_STATION`, `deg_to_compass()`, `norm_utc()` (converts CST→UTC), `sunrise_sunset()`, `fetch_json()`, `load_json_file()`, `run_parallel()` (thread pool with failure tracking) |
+| `config.py` | ~490 | Shared constants + utilities: `KEELUNG_LAT/LON`, `SPOT_COORDS`, `SPOT_COUNTY`, `SPOT_REGION`, `SPOT_TIDE_STATION`, `SPOT_STATIONS` (single source of truth for per-spot CWA station mappings), `deg_to_compass()`, `norm_utc()` (converts CST→UTC), `sunrise_sunset()`, `fetch_json()`, `load_json_file()`, `run_parallel()` (thread pool with failure tracking) |
 | `taiwan_wrf_download.py` | ~702 | Download CWA WRF GRIB2 from S3, subset with eccodes, archive with tar.gz |
 | `wrf_analyze.py` | ~2410 | GRIB2 point extraction, derived fields, unified HTML table, daily summary cards |
 | `ecmwf_fetch.py` | ~258 | Fetch ECMWF IFS from Open-Meteo, 6-hourly conversion, GFS gust/vis backfill |
@@ -156,7 +156,7 @@ Each spot uses its nearest CWA township tide station (F-A0021-001) for predictio
 | `firebase_storage.py` | ~280 | Firebase Firestore + Cloud Storage: read/write JSON docs, upload/cleanup GRIB2 archives |
 | `cwa_fetch.py` | ~1400 | CWA Open Data API: per-spot weather stations (batched), wave buoys, tide obs, per-township tide forecasts (5 stations), 3-day + 1-week township forecasts, specialized rain/heat/cold warnings |
 | `cwa_discover.py` | ~475 | Monthly CWA station/buoy discovery: queries all stations, maps nearest to each spot, writes `cwa_stations.json` |
-| `cwa_stations.json` | ~varies | Discovered station/buoy mapping (committed by cwa-discover workflow, read by cwa_fetch.py) |
+| `cwa_stations.json` | ~varies | Discovered station/buoy mapping (committed by cwa-discover workflow, kept for reference but NOT used at runtime — `config.SPOT_STATIONS` is the single source of truth) |
 | `wave_grid_fetch.py` | ~160 | Fetch gridded wave data from Open-Meteo marine API for map heatmap overlay |
 | `api/live-obs.js` | ~400 | Vercel serverless function: proxies CWA real-time observations (4 parallel API calls) |
 | `CWA_API_REFERENCE.md` | ~300 | Complete CWA Open Data API reference with all endpoints, params, station lists |

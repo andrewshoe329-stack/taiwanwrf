@@ -25,7 +25,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 
 from config import (KEELUNG_LAT, KEELUNG_LON, SPOT_COORDS, SPOT_COUNTY,
-                     norm_utc, setup_logging, load_json_file)
+                     SPOT_STATIONS, norm_utc, setup_logging, load_json_file)
 
 log = logging.getLogger(__name__)
 
@@ -1281,13 +1281,19 @@ def _fetch_spot_stations(api_key: str, mapping: dict,
 
     Parameters
     ----------
+    mapping : dict keyed by spot_id → {"weather": "...", "weather_alt": [...], ...}
+        Uses SPOT_STATIONS shape from config.py.
     existing_obs : dict mapping station_id → obs dict already fetched
         (e.g. Keelung station from the main fetch). Avoids re-fetching.
 
     Returns dict keyed by station_id → parsed obs dict.
     """
-    unique_ids = {v["station_id"] for v in mapping.values()
-                  if "station_id" in v}
+    unique_ids = set()
+    for v in mapping.values():
+        if "weather" in v:
+            unique_ids.add(v["weather"])
+        for alt in v.get("weather_alt", []):
+            unique_ids.add(alt)
     results = dict(existing_obs or {})
     to_fetch = unique_ids - set(results.keys())
     if not to_fetch:
@@ -1333,22 +1339,31 @@ def _build_spot_obs(mapping: dict, station_obs: dict,
                     all_buoys: list[dict]) -> dict:
     """Build per-spot observation dict from mapping + fetched data.
 
+    Uses SPOT_STATIONS shape: {"weather": "...", "weather_alt": [...],
+    "tide": "...", "buoy": "..."}.
+
     Returns {"fulong": {"station": {...}, "buoy": {...}}, ...}
     """
     buoy_by_id = {b["buoy_id"]: b for b in all_buoys}
     result = {}
     for spot_id, info in mapping.items():
         entry = {}
-        sid = info.get("station_id")
+        # Try primary weather station, then alternates
+        sid = info.get("weather")
+        stn_data = None
         if sid and sid in station_obs:
-            stn = dict(station_obs[sid])
-            stn["distance_km"] = info.get("station_dist_km")
-            entry["station"] = stn
+            stn_data = dict(station_obs[sid])
+        else:
+            for alt in info.get("weather_alt", []):
+                if alt in station_obs:
+                    stn_data = dict(station_obs[alt])
+                    break
+        if stn_data is not None:
+            entry["station"] = stn_data
 
-        bid = info.get("buoy_id")
+        bid = info.get("buoy")
         if bid and bid in buoy_by_id:
             buoy = dict(buoy_by_id[bid])
-            buoy["distance_km"] = info.get("buoy_dist_km")
             entry["buoy"] = buoy
 
         if entry:
@@ -1415,14 +1430,12 @@ def fetch_all(api_key: str) -> dict:
     The 'spot_obs' key holds per-spot station/buoy observations.
     The 'township_forecasts' key holds per-county township forecasts.
     """
-    # Load station mapping from cwa_stations.json (created by cwa_discover.py)
-    mapping = load_station_mapping()
+    # Use consolidated station mapping from config.py (single source of truth)
+    mapping = SPOT_STATIONS
 
     # Build marine station filter from mapping (buoys + tide obs stations)
-    from config import SPOT_TIDE_OBS_STATION
-    mapped_buoy_ids = {v["buoy_id"] for v in mapping.values()
-                       if "buoy_id" in v}
-    tide_obs_ids = set(SPOT_TIDE_OBS_STATION.values())
+    mapped_buoy_ids = {v["buoy"] for v in mapping.values() if "buoy" in v}
+    tide_obs_ids = {v["tide"] for v in mapping.values() if "tide" in v}
     marine_filter = (mapped_buoy_ids | set(KEELUNG_BUOY_IDS)
                      | KEELUNG_TIDE_STATION_IDS | tide_obs_ids)
 

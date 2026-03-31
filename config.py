@@ -192,6 +192,8 @@ SPOT_TIDE_STATION = {
 TIDE_STATIONS = list(dict.fromkeys(SPOT_TIDE_STATION.values()))
 
 # Spot → nearest CWA tide observation station (O-B0075-001 StationID)
+# DEPRECATED: use SPOT_STATIONS["tide"] instead.  Kept temporarily for
+# any downstream code that imports it; will be removed in a future cleanup.
 SPOT_TIDE_OBS_STATION = {
     "keelung":     "C4B01",   # 基隆潮位站
     "jinshan":     "C4A03",   # 麟山鼻潮位站
@@ -201,6 +203,24 @@ SPOT_TIDE_OBS_STATION = {
     "doublelions": "C4U02",   # 烏石潮位站
     "wushih":      "C4U02",   # 烏石潮位站 (0.4km!)
     "chousui":     "C4U02",   # 烏石潮位站
+}
+
+# ── Single source of truth for per-spot CWA station mappings ─────────────────
+# Used by cwa_fetch.py (deploy-time) and must stay in sync with
+# api/live-obs.js SPOT_STATIONS (real-time serverless).
+# weather:      O-A0001-001 primary weather station
+# weather_alt:  fallback stations if primary has no wind
+# tide:         O-B0075-001 tide observation station
+# buoy:         O-B0075-001 wave buoy
+SPOT_STATIONS = {
+    "keelung":     {"weather": "466940", "weather_alt": ["C0B050"],            "tide": "C4B01",  "buoy": "46694A"},
+    "jinshan":     {"weather": "C0A940", "weather_alt": ["C0AJ20", "466940"],  "tide": "C4A03",  "buoy": "C6AH2"},
+    "greenbay":    {"weather": "C0AJ20", "weather_alt": ["C0B050", "466940"],  "tide": "C4B01",  "buoy": "46694A"},
+    "fulong":      {"weather": "C2A880", "weather_alt": ["C0AJ20", "C0U880"],  "tide": "C4A05",  "buoy": "46694A"},
+    "daxi":        {"weather": "C0UA80", "weather_alt": ["C0U880", "C0U860"],  "tide": "C4U02",  "buoy": "46708A"},
+    "doublelions": {"weather": "C0U860", "weather_alt": ["C0U880", "C0UA80"],  "tide": "C4U02",  "buoy": "46708A"},
+    "wushih":      {"weather": "C0U860", "weather_alt": ["C0U880", "C0UA80"],  "tide": "C4U02",  "buoy": "46708A"},
+    "chousui":     {"weather": "C0U860", "weather_alt": ["C0U880", "C0UA80"],  "tide": "C4U02",  "buoy": "46708A"},
 }
 
 # ── Shared direction / compass utilities ─────────────────────────────────────
