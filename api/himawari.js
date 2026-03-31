@@ -14,9 +14,16 @@
  * Source: https://himawari8.nict.go.jp/
  */
 
-const NICT_BASE = 'https://himawari8-dl.nict.go.jp/himawari8/img'
+const NICT_BASE = 'https://himawari8-dl.nict.go.jp/himawari9/img'
+const NICT_BASE_LEGACY = 'https://himawari8-dl.nict.go.jp/himawari8/img'
 const VALID_BANDS = ['INFRARED_FULL', 'D531106']
 const VALID_ZOOMS = [1, 2, 4, 8, 16, 20]
+
+const FETCH_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (compatible; TaiwanWRF/1.0)',
+  'Referer': 'https://himawari8.nict.go.jp/',
+  'Accept': 'application/json, image/png, */*',
+}
 
 export default async function handler(req, res) {
   const { q, band = 'INFRARED_FULL', z, x, y, time } = req.query
@@ -26,18 +33,21 @@ export default async function handler(req, res) {
   }
 
   if (q === 'latest') {
-    try {
-      const resp = await fetch(`${NICT_BASE}/${band}/latest.json`, {
-        signal: AbortSignal.timeout(10000),
-      })
-      if (!resp.ok) return res.status(502).json({ error: `NICT returned ${resp.status}` })
-      const data = await resp.json()
-      res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=300')
-      res.setHeader('Access-Control-Allow-Origin', '*')
-      return res.status(200).json({ date: data.date, band })
-    } catch (err) {
-      return res.status(502).json({ error: 'NICT fetch failed', message: err.message })
+    // Try himawari9 path first, then legacy himawari8
+    for (const base of [NICT_BASE, NICT_BASE_LEGACY]) {
+      try {
+        const resp = await fetch(`${base}/${band}/latest.json`, {
+          signal: AbortSignal.timeout(8000),
+          headers: FETCH_HEADERS,
+        })
+        if (!resp.ok) continue
+        const data = await resp.json()
+        res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=300')
+        res.setHeader('Access-Control-Allow-Origin', '*')
+        return res.status(200).json({ date: data.date, band, base })
+      } catch { /* try next */ }
     }
+    return res.status(502).json({ error: 'NICT fetch failed (both himawari9 and himawari8 paths)' })
   }
 
   if (q === 'tile') {
@@ -64,25 +74,26 @@ export default async function handler(req, res) {
     const mm = time.slice(4, 6)
     const dd = time.slice(6, 8)
     const hhmmss = time.slice(8, 14)
-    const url = `${NICT_BASE}/${band}/${zoom}d/550/${yyyy}/${mm}/${dd}/${hhmmss}_${tx}_${ty}.png`
+    const tilePath = `/${band}/${zoom}d/550/${yyyy}/${mm}/${dd}/${hhmmss}_${tx}_${ty}.png`
 
-    try {
-      const resp = await fetch(url, {
-        signal: AbortSignal.timeout(15000),
-      })
-      if (!resp.ok) {
-        return res.status(resp.status).json({ error: `NICT tile returned ${resp.status}` })
-      }
+    // Try himawari9 path first, then legacy himawari8
+    for (const base of [NICT_BASE, NICT_BASE_LEGACY]) {
+      try {
+        const resp = await fetch(`${base}${tilePath}`, {
+          signal: AbortSignal.timeout(12000),
+          headers: FETCH_HEADERS,
+        })
+        if (!resp.ok) continue
 
-      const buffer = await resp.arrayBuffer()
-      // Cache tiles for 10 minutes (images don't change once generated)
-      res.setHeader('Cache-Control', 's-maxage=600, stale-while-revalidate=1800')
-      res.setHeader('Access-Control-Allow-Origin', '*')
-      res.setHeader('Content-Type', 'image/png')
-      return res.status(200).send(Buffer.from(buffer))
-    } catch (err) {
-      return res.status(502).json({ error: 'NICT tile fetch failed', message: err.message })
+        const buffer = await resp.arrayBuffer()
+        // Cache tiles for 10 minutes (images don't change once generated)
+        res.setHeader('Cache-Control', 's-maxage=600, stale-while-revalidate=1800')
+        res.setHeader('Access-Control-Allow-Origin', '*')
+        res.setHeader('Content-Type', 'image/png')
+        return res.status(200).send(Buffer.from(buffer))
+      } catch { /* try next */ }
     }
+    return res.status(502).json({ error: 'NICT tile fetch failed (both paths)' })
   }
 
   return res.status(400).json({ error: 'Missing q parameter (latest|tile)' })
