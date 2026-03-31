@@ -12,6 +12,11 @@ import { LoadingSpinner } from '@/components/layout/LoadingSpinner'
 import { ConditionsStrip } from '@/components/ConditionsStrip'
 import { SwellCompass } from '@/components/spots/SwellCompass'
 import { SpotCompare } from '@/components/spots/SpotCompare'
+import { ScoreBreakdownTooltip } from '@/components/spots/ScoreBreakdownTooltip'
+import { BestTimeWindows } from '@/components/spots/BestTimeWindows'
+import { SwellWindowFinder } from '@/components/spots/SwellWindowFinder'
+import { TownshipForecastCard } from '@/components/layout/TownshipForecastCard'
+import { AccuracyTrend } from '@/components/charts/AccuracyTrend'
 import { TideSparkline } from '@/components/charts/TideSparkline'
 import {
   degToCompass, getModelRecords, windType,
@@ -46,6 +51,7 @@ export function NowPage() {
   const liveObs = useLiveObsContext()
 
   const [aiExpanded, setAiExpanded] = useState(false)
+  const [scoreTooltipOpen, setScoreTooltipOpen] = useState(false)
 
   // Location-specific forecast data
   const locationForecast: SpotForecast | null = useMemo(() => {
@@ -138,15 +144,37 @@ export function NowPage() {
                 {spotInfo.name[lang === 'en' ? 'zh' : 'en']}
               </span>
             </h2>
-            <button
-              onClick={() => setLocationId(null)}
-              className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]"
-              aria-label="Deselect"
-            >
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M1 1 L9 9 M9 1 L1 9" />
-              </svg>
-            </button>
+            <div className="flex items-center gap-1.5">
+              {/* Rating badge with score breakdown tooltip */}
+              {currentRating?.rating && (
+                <div className="relative">
+                  <button
+                    onClick={() => setScoreTooltipOpen(!scoreTooltipOpen)}
+                    className="text-[10px] font-medium capitalize px-1.5 py-0.5 rounded"
+                    style={{
+                      color: { firing: '#f97316', great: '#22c55e', good: '#4ade80', marginal: '#facc15', poor: '#ef4444', flat: '#6b7280', dangerous: '#dc2626' }[currentRating.rating] ?? '#6b7280',
+                      backgroundColor: ({ firing: '#f97316', great: '#22c55e', good: '#4ade80', marginal: '#facc15', poor: '#ef4444', flat: '#6b7280', dangerous: '#dc2626' }[currentRating.rating] ?? '#6b7280') + '20',
+                    }}
+                  >
+                    {currentRating.rating} {currentRating.score != null ? `${currentRating.score}` : ''}
+                  </button>
+                  {scoreTooltipOpen && currentRating.score_breakdown && (
+                    <div className="absolute right-0 top-7 z-50">
+                      <ScoreBreakdownTooltip rating={currentRating} onClose={() => setScoreTooltipOpen(false)} />
+                    </div>
+                  )}
+                </div>
+              )}
+              <button
+                onClick={() => setLocationId(null)}
+                className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]"
+                aria-label="Deselect"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M1 1 L9 9 M9 1 L1 9" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           {/* Swell compass + data cells (desktop only — on mobile, shown below timeline) */}
@@ -194,6 +222,8 @@ export function NowPage() {
                     : undefined}
                 />
               )}
+              {/* Best time windows */}
+              {locationForecast && <BestTimeWindows spotForecast={locationForecast} />}
             </div>
           )}
 
@@ -297,6 +327,10 @@ export function NowPage() {
                 </span>
               )}
             </div>
+          )}
+          {/* Accuracy trend sparkline */}
+          {data.accuracy && data.accuracy.length >= 2 && (
+            <AccuracyTrend entries={data.accuracy} compact />
           )}
         </section>
       )}
@@ -408,18 +442,25 @@ export function NowPage() {
               )}
             </div>
           )}
+          {/* Accuracy trend sparkline */}
+          {data.accuracy && data.accuracy.length >= 2 && (
+            <AccuracyTrend entries={data.accuracy} compact />
+          )}
         </section>
       )}
 
       {/* Spot comparison (browse mode — no spot selected) */}
       {!isSpotSelected && locationId !== 'keelung' && data.surf?.spots && (
-        <section className="md:px-3 py-2">
-          <SpotCompare
-            spots={data.surf.spots}
-            targetUtc={data.keelung?.records?.[index]?.valid_utc}
-            onSelectSpot={setLocationId}
-          />
-        </section>
+        <>
+          <section className="md:px-3 py-2">
+            <SpotCompare
+              spots={data.surf.spots}
+              targetUtc={data.keelung?.records?.[index]?.valid_utc}
+              onSelectSpot={setLocationId}
+            />
+          </section>
+          <SwellWindowFinder spots={data.surf.spots} onSelectSpot={setLocationId} />
+        </>
       )}
 
       {/* AI Summary */}
@@ -509,12 +550,17 @@ export function NowPage() {
                   : undefined}
               />
             )}
+            {/* Best time windows (mobile) */}
+            {locationForecast && <BestTimeWindows spotForecast={locationForecast} />}
           </div>
         </div>
       )}
 
       {/* Weather warnings */}
       <WeatherWarnings />
+
+      {/* CWA Township Forecast */}
+      <TownshipForecastCard cwaObs={data.cwa_obs} locationId={locationId} />
 
       {/* Charts */}
       <Suspense fallback={null}>
@@ -554,6 +600,11 @@ export function NowPage() {
             </ChartCard>
           )}
         </div>
+
+        {/* Accuracy trend (full chart) */}
+        {data.accuracy && data.accuracy.length >= 2 && (
+          <AccuracyTrend entries={data.accuracy} />
+        )}
       </Suspense>
     </div>
   )
@@ -561,7 +612,12 @@ export function NowPage() {
   /* ── Desktop: 3-column layout ──────────────────────────────────────── */
   if (!mobile) {
     return (
-      <div className="flex h-full">
+      <div className="flex flex-col h-full">
+        {/* Full-width weather warnings banner */}
+        <div className="shrink-0">
+          <WeatherWarnings />
+        </div>
+        <div className="flex flex-1 min-h-0">
         {/* Left column: location detail + AI summary */}
         <div className="w-[260px] min-w-[240px] shrink-0 border-r border-[var(--color-border)] flex flex-col overflow-y-auto">
           <div className="px-1 py-2">
@@ -588,6 +644,7 @@ export function NowPage() {
         <div className="w-[300px] min-w-[260px] shrink-0 border-l border-[var(--color-border)] overflow-y-auto px-2 py-1.5">
           {chartsPanel(true)}
         </div>
+        </div>
       </div>
     )
   }
@@ -595,6 +652,8 @@ export function NowPage() {
   /* ── Mobile: map top (40vh), detail + charts below (scrolls) ───────── */
   return (
     <div className="h-full overflow-y-auto overflow-x-hidden">
+      {/* Full-width weather warnings banner */}
+      <WeatherWarnings />
       {/* Map section — shorter in landscape to leave room for data */}
       <div className="h-[40vh] min-h-[200px] max-h-[360px] landscape:h-[30vh] landscape:min-h-[140px] landscape:max-h-[240px] relative shrink-0">
         <Suspense fallback={<div className="w-full h-full bg-black" />}>

@@ -480,8 +480,13 @@ KEELUNG = {'lat': KEELUNG_LAT, 'lon': KEELUNG_LON, 'name': 'Keelung'}
 WKDAY = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 MONTH = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
-def _score_timestep(r: dict, spot: dict, tide_height_m: float | None = None) -> int:
-    """Score a single 6-hourly timestep for a given surf spot. Returns integer score."""
+def _score_timestep(r: dict, spot: dict, tide_height_m: float | None = None,
+                    breakdown: bool = False) -> int | dict:
+    """Score a single 6-hourly timestep for a given surf spot.
+
+    Returns integer score by default, or dict with component breakdown
+    if breakdown=True.
+    """
     sw_hs   = r.get('sw_hs')
     sw_dir  = r.get('sw_dir')
     wind_kt = r.get('wind')  or 0
@@ -493,44 +498,55 @@ def _score_timestep(r: dict, spot: dict, tide_height_m: float | None = None) -> 
     _sw_hs = sw_hs if sw_hs is not None else 0
     _sw_tp = sw_tp if sw_tp is not None else 0
 
-    score = 0
-
     # Swell direction — cos² weighting by beach facing, scaled by swell height
     swell_dir_base = _swell_dir_score(sw_dir, spot)
     swell_factor = min(_sw_hs / 0.6, 1.0) if _sw_hs > 0 else 0
-    score += round(swell_dir_base * swell_factor)
+    pts_swell_dir = round(swell_dir_base * swell_factor)
 
     # Wind direction (offshore) — weighted by wind speed (full credit at ≥LIGHT_WIND_KT)
     wq = dir_quality(w_dir, spot['opt_wind'])
     wind_dir_base = {'good': 3, 'ok': 1, 'poor': 0, 'unknown': 1}[wq]
     wind_factor = min(wind_kt / LIGHT_WIND_KT, 1.0) if wind_kt > 0 else 0
-    score += round(wind_dir_base * wind_factor)
+    pts_wind_dir = round(wind_dir_base * wind_factor)
 
     # Wind speed (light is better)
-    if wind_kt < LIGHT_WIND_KT:   score += 2
-    elif wind_kt < 15:            score += 1
-    elif wind_kt > ONSHORE_WIND_KT: score -= 2
+    if wind_kt < LIGHT_WIND_KT:   pts_wind_spd = 2
+    elif wind_kt < 15:            pts_wind_spd = 1
+    elif wind_kt > ONSHORE_WIND_KT: pts_wind_spd = -2
+    else:                         pts_wind_spd = 0
 
     # Wave energy — height² × period (replaces independent height + period)
     energy = _sw_hs ** 2 * _sw_tp
-    if energy >= 12:    score += 5   # e.g. 1.0m @ 12s, 1.5m @ 5.3s
-    elif energy >= 5:   score += 3   # e.g. 0.7m @ 10s
-    elif energy >= 1.5: score += 2   # e.g. 0.5m @ 6s
-    elif energy > 0:    score += 1
+    if energy >= 12:    pts_energy = 5
+    elif energy >= 5:   pts_energy = 3
+    elif energy >= 1.5: pts_energy = 2
+    elif energy > 0:    pts_energy = 1
+    else:               pts_energy = 0
 
     # Rain penalty — heavy rain makes surfing miserable
     rain6h = r.get('rain6h', 0) or 0
-    if rain6h > 25:
-        score -= 2
-    elif rain6h > 10:
-        score -= 1
+    if rain6h > 25:     pts_rain = -2
+    elif rain6h > 10:   pts_rain = -1
+    else:               pts_rain = 0
 
     # Tide preference
     opt_tide = spot.get('opt_tide', 'any')
     tide_class = classify_tide(tide_height_m)
-    score += tide_score(tide_class, opt_tide)
+    pts_tide = tide_score(tide_class, opt_tide)
 
-    return score
+    total = pts_swell_dir + pts_wind_dir + pts_wind_spd + pts_energy + pts_rain + pts_tide
+
+    if breakdown:
+        return {
+            'total': total,
+            'swell_dir': pts_swell_dir,
+            'wind_dir': pts_wind_dir,
+            'wind_spd': pts_wind_spd,
+            'energy': pts_energy,
+            'rain': pts_rain,
+            'tide': pts_tide,
+        }
+    return total
 
 
 def day_rating(day_recs: list[dict], spot: dict,
@@ -905,9 +921,11 @@ def generate_frontend_json(all_spot_data: list[dict]) -> dict:
 
             if is_harbour:
                 score = None
+                score_bd = None
                 rating_label = None
             else:
-                score = _score_timestep(r, spot_entry, tide_height_m=tide_h)
+                score_bd = _score_timestep(r, spot_entry, tide_height_m=tide_h, breakdown=True)
+                score = score_bd['total']
                 sw_hs = r.get('sw_hs') or 0
                 wind_kt = r.get('wind') or 0
 
@@ -946,6 +964,15 @@ def generate_frontend_json(all_spot_data: list[dict]) -> dict:
                 'cloud_pct': r.get('cloud_pct'),
                 'cape': r.get('cape'),
             }
+            if score_bd is not None:
+                rating_entry['score_breakdown'] = {
+                    'swell_dir': score_bd['swell_dir'],
+                    'wind_dir': score_bd['wind_dir'],
+                    'wind_spd': score_bd['wind_spd'],
+                    'energy': score_bd['energy'],
+                    'rain': score_bd['rain'],
+                    'tide': score_bd['tide'],
+                }
             if tide_h is not None:
                 rating_entry['tide_height'] = round(tide_h, 2)
             ratings.append(rating_entry)
