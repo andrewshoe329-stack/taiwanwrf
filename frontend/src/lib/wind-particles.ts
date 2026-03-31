@@ -419,7 +419,7 @@ export class WindParticleSystem {
     ctx.lineCap = 'round'
 
     // Current speed factor: currents are ~0.1-1.5 m/s vs wind 1-30 m/s
-    const sf = colorMode === 'current' ? this.speedFactor * 4 : this.speedFactor
+    const sf = colorMode === 'current' ? this.speedFactor * 2 : this.speedFactor
 
     for (const p of this.particles) {
       const [u, v] = this.sampleWind(p.x, p.y)

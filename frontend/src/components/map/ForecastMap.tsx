@@ -539,7 +539,7 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
         const frame = layer === 'radar'
           ? latestRadarPath(maps)
           : latestSatellitePath(maps)
-        if (!frame) { setTileError(true); return }
+        if (!frame) { setTileError(true); particlesRef.current?.setTileOverlay(null, new Map()); return }
 
         setTileFrame(frame)
         setTileError(false)
@@ -569,6 +569,7 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
       } catch (err) {
         console.warn('[ForecastMap] RainViewer fetch failed:', err)
         setTileError(true)
+        particlesRef.current?.setTileOverlay(null, new Map())
       }
     }
 
