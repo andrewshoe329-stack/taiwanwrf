@@ -16,6 +16,8 @@ import { ScoreBreakdownTooltip } from '@/components/spots/ScoreBreakdownTooltip'
 import { BestTimeWindows } from '@/components/spots/BestTimeWindows'
 import { SwellWindowFinder } from '@/components/spots/SwellWindowFinder'
 import { TownshipForecastCard } from '@/components/layout/TownshipForecastCard'
+import { ShareButton } from '@/components/layout/ShareButton'
+import { AlertSettingsPanel, checkAlerts } from '@/components/layout/AlertSettingsPanel'
 import { AccuracyTrend } from '@/components/charts/AccuracyTrend'
 import { TideSparkline } from '@/components/charts/TideSparkline'
 import {
@@ -52,6 +54,7 @@ export function NowPage() {
 
   const [aiExpanded, setAiExpanded] = useState(false)
   const [scoreTooltipOpen, setScoreTooltipOpen] = useState(false)
+  const [alertsOpen, setAlertsOpen] = useState(false)
 
   // Location-specific forecast data
   const locationForecast: SpotForecast | null = useMemo(() => {
@@ -165,6 +168,7 @@ export function NowPage() {
                   )}
                 </div>
               )}
+              <ShareButton locationId={locationId} />
               <button
                 onClick={() => setLocationId(null)}
                 className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]"
@@ -342,15 +346,18 @@ export function NowPage() {
             <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
               {t('harbour.keelung')}
             </h2>
-            <button
-              onClick={() => setLocationId(null)}
-              className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]"
-              aria-label="Deselect"
-            >
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M1 1 L9 9 M9 1 L1 9" />
-              </svg>
-            </button>
+            <div className="flex items-center gap-1.5">
+              <ShareButton locationId="keelung" />
+              <button
+                onClick={() => setLocationId(null)}
+                className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]"
+                aria-label="Deselect"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M1 1 L9 9 M9 1 L1 9" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           {/* Webcam links for Keelung */}
@@ -499,7 +506,19 @@ export function NowPage() {
       {/* Sticky header: timeline + conditions (only in non-compact / mobile) */}
       {!compact && (
         <div className="sticky top-0 z-10 bg-[var(--color-bg)] border-b border-[var(--color-border)] -mx-4 px-4 md:-mx-6 md:px-6">
-          <TimelineScrubber records={chartRecords} />
+          <div className="flex items-center gap-1">
+            <div className="flex-1 min-w-0"><TimelineScrubber records={chartRecords} /></div>
+            <button
+              onClick={() => setAlertsOpen(true)}
+              className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] transition-colors"
+              aria-label="Alert settings"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+              </svg>
+            </button>
+          </div>
           <ConditionsStrip />
         </div>
       )}
@@ -635,7 +654,19 @@ export function NowPage() {
           </div>
           {/* Timeline + conditions below map */}
           <div className="shrink-0 border-t border-[var(--color-border)] px-3">
-            <TimelineScrubber records={chartRecords} />
+            <div className="flex items-center gap-1">
+              <div className="flex-1 min-w-0"><TimelineScrubber records={chartRecords} /></div>
+              <button
+                onClick={() => setAlertsOpen(true)}
+                className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] transition-colors"
+                aria-label="Alert settings"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+              </button>
+            </div>
             <ConditionsStrip />
           </div>
         </div>
@@ -645,6 +676,7 @@ export function NowPage() {
           {chartsPanel(true)}
         </div>
         </div>
+        <AlertSettingsPanel open={alertsOpen} onClose={() => setAlertsOpen(false)} />
       </div>
     )
   }
@@ -666,6 +698,7 @@ export function NowPage() {
         {locationDetail}
         {chartsPanel()}
       </div>
+      <AlertSettingsPanel open={alertsOpen} onClose={() => setAlertsOpen(false)} />
     </div>
   )
 }

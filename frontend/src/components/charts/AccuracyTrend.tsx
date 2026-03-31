@@ -14,24 +14,38 @@ interface AccuracyTrendProps {
   compact?: boolean // inline sparkline mode
 }
 
+const HORIZONS = ['all', '0-24h', '24-48h', '48-72h'] as const
+type Horizon = typeof HORIZONS[number]
+
 export function AccuracyTrend({ entries, compact = false }: AccuracyTrendProps) {
   const { i18n } = useTranslation()
   const lang = i18n.language?.startsWith('zh') ? 'zh' : 'en'
   const [expanded, setExpanded] = useState(false)
+  const [horizon, setHorizon] = useState<Horizon>('all')
 
   const chartData = useMemo(() => {
     if (!entries || entries.length === 0) return []
-    // Sort chronologically, take last 30
     const sorted = [...entries]
       .sort((a, b) => a.init_utc.localeCompare(b.init_utc))
       .slice(-30)
-    return sorted.map(e => ({
-      date: new Date(e.init_utc).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-      wind: e.wind_mae_kt != null ? Math.round(e.wind_mae_kt * 10) / 10 : null,
-      temp: e.temp_mae_c != null ? Math.round(e.temp_mae_c * 10) / 10 : null,
-      wave: e.wave?.hs_mae_m != null ? Math.round(e.wave.hs_mae_m * 100) / 100 : null,
-    }))
-  }, [entries])
+    return sorted.map(e => {
+      if (horizon === 'all') {
+        return {
+          date: new Date(e.init_utc).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+          wind: e.wind_mae_kt != null ? Math.round(e.wind_mae_kt * 10) / 10 : null,
+          temp: e.temp_mae_c != null ? Math.round(e.temp_mae_c * 10) / 10 : null,
+          wave: e.wave?.hs_mae_m != null ? Math.round(e.wave.hs_mae_m * 100) / 100 : null,
+        }
+      }
+      const h = e.by_horizon?.[horizon]
+      return {
+        date: new Date(e.init_utc).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+        wind: h?.wind_mae_kt != null ? Math.round(h.wind_mae_kt * 10) / 10 : null,
+        temp: h?.temp_mae_c != null ? Math.round(h.temp_mae_c * 10) / 10 : null,
+        wave: null, // wave not broken down by horizon
+      }
+    })
+  }, [entries, horizon])
 
   if (!entries || entries.length < 2) return null
 
@@ -100,6 +114,22 @@ export function AccuracyTrend({ entries, compact = false }: AccuracyTrendProps) 
             </span>
           )}
         </div>
+      </div>
+      {/* Forecast horizon tabs */}
+      <div className="flex gap-0.5 mb-1.5">
+        {HORIZONS.map(h => (
+          <button
+            key={h}
+            onClick={() => setHorizon(h)}
+            className={`text-[8px] px-1.5 py-0.5 rounded transition-colors ${
+              horizon === h
+                ? 'bg-[var(--color-text-muted)]/20 text-[var(--color-text-primary)]'
+                : 'text-[var(--color-text-dim)] hover:text-[var(--color-text-muted)]'
+            }`}
+          >
+            {h === 'all' ? (lang === 'zh' ? '全部' : 'All') : h}
+          </button>
+        ))}
       </div>
       {chartData.length > 0 && (
         <div style={{ height: 140 }}>
