@@ -82,8 +82,8 @@ export function MapControls({
         ))}
       </div>
 
-      {/* Model switcher (only visible in wind mode) */}
-      <div className={`absolute top-3 right-3 z-20 flex gap-1 ${layer !== 'wind' ? 'hidden' : ''}`}>
+      {/* Model switcher (only visible in wind mode) — below layers on small screens, top-right on md+ */}
+      <div className={`absolute z-20 flex gap-1 top-11 left-3 md:top-3 md:left-auto md:right-3 ${layer !== 'wind' ? 'hidden' : ''}`}>
         {(['wrf', 'ecmwf', 'gfs'] as WindModel[]).map(m => (
           <button
             key={m}
