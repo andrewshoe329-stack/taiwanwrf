@@ -19,6 +19,9 @@ const SUBLON_DEG = 140.7 // Himawari-9 subsatellite longitude
 const SUBLON = (SUBLON_DEG * Math.PI) / 180
 const TILE_PX = 550
 
+/** Cloudflare Worker URL for NICT tile proxy (bypasses Vercel IP blocking) */
+const CF_WORKER_URL = 'https://himawari-proxy.andrewshoe329.workers.dev'
+
 export type HimawariBand = 'INFRARED_FULL' | 'D531106'
 export type HimawariBandMode = 'auto' | 'ir' | 'vis'
 
@@ -176,7 +179,8 @@ export interface HimawariLatest {
 const latestCache = new Map<string, { data: HimawariLatest; fetchedAt: number }>()
 const latestInflight = new Map<string, Promise<HimawariLatest>>()
 
-/** Fetch the latest available Himawari timestamp (cached 5 min, per band) */
+/** Fetch the latest available Himawari timestamp (cached 5 min, per band).
+ *  Tries Cloudflare Worker (direct NICT proxy) first, falls back to Vercel proxy. */
 export async function fetchHimawariLatest(band: HimawariBand = 'INFRARED_FULL'): Promise<HimawariLatest> {
   const lc = latestCache.get(band)
   if (lc && Date.now() - lc.fetchedAt < REFRESH_MS) {
@@ -187,6 +191,24 @@ export async function fetchHimawariLatest(band: HimawariBand = 'INFRARED_FULL'):
 
   const promise = (async () => {
     try {
+      // 1. Try Cloudflare Worker (NICT proxy, bypasses Vercel IP block)
+      try {
+        const cfResp = await fetch(`${CF_WORKER_URL}/latest?band=${band}`, {
+          signal: AbortSignal.timeout(5000),
+        })
+        if (cfResp.ok) {
+          const json = await cfResp.json()
+          const data: HimawariLatest = {
+            date: new Date(json.date),
+            source: 'nict',
+          }
+          latestCache.set(band, { data, fetchedAt: Date.now() })
+          bandCache.set(band, { date: data.date, fetchedAt: Date.now() })
+          return data
+        }
+      } catch { /* CF Worker unavailable, fall through */ }
+
+      // 2. Fall back to Vercel proxy (NICT → SLIDER → JMA chain)
       const resp = await fetch(`/api/himawari?q=latest&band=${band}`)
       if (!resp.ok) throw new Error(`Himawari API ${resp.status}`)
       const json = await resp.json()
@@ -199,7 +221,6 @@ export async function fetchHimawariLatest(band: HimawariBand = 'INFRARED_FULL'):
         jmaSector: json.jmaSector,
       }
       latestCache.set(band, { data, fetchedAt: Date.now() })
-      // Also update legacy bandCache for backward compat
       bandCache.set(band, { date: data.date, fetchedAt: Date.now() })
       return data
     } finally {
@@ -255,14 +276,19 @@ export function formatHimawariTime(date: Date): string {
   )
 }
 
-/** Build the proxy URL for a Himawari tile */
+/** Build the proxy URL for a Himawari tile.
+ *  Uses CF Worker (NICT proxy) when source is 'nict', Vercel proxy otherwise. */
 export function himawariTileUrl(
   band: string,
   zoom: number,
   tx: number,
   ty: number,
-  time: string
+  time: string,
+  source?: string
 ): string {
+  if (!source || source === 'nict') {
+    return `${CF_WORKER_URL}/tile?band=${band}&z=${zoom}&x=${tx}&y=${ty}&time=${time}`
+  }
   return `/api/himawari?q=tile&band=${band}&z=${zoom}&x=${tx}&y=${ty}&time=${time}`
 }
 

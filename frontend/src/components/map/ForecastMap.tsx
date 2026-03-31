@@ -609,7 +609,7 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
             const tiles = himawariTilesForBounds(b.west, b.south, b.east, b.north, zoom)
 
             await Promise.all(tiles.map(async (t) => {
-              const url = himawariTileUrl(band, zoom, t.x, t.y, timeStr)
+              const url = himawariTileUrl(band, zoom, t.x, t.y, timeStr, source)
               const key = `${zoom}/${t.x}/${t.y}`
               try {
                 const img = await cache.load(url)
@@ -680,13 +680,13 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
           } catch { /* skip */ }
           if (!cancelled) particlesRef.current?.setTileOverlay('satellite', imageMap, 1, geoBounds)
         } else {
-          // NICT tiles
+          // NICT or SLIDER tiles
           const band = resolveHimawariBand(himawariBandMode)
           const zoom = himawariZoomForSpan(b.east - b.west)
           const tiles = himawariTilesForBounds(b.west, b.south, b.east, b.north, zoom)
           const timeStr = himawariTime!
           await Promise.all(tiles.map(async (t) => {
-            const url = himawariTileUrl(band, zoom, t.x, t.y, timeStr)
+            const url = himawariTileUrl(band, zoom, t.x, t.y, timeStr, latest?.source)
             const key = `${zoom}/${t.x}/${t.y}`
             try {
               const img = await cache.load(url)
