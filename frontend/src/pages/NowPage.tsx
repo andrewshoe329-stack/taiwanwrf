@@ -594,9 +594,9 @@ export function NowPage() {
 
   /* ── Mobile: map top (40vh), detail + charts below (scrolls) ───────── */
   return (
-    <div className="h-full overflow-y-auto">
-      {/* Map section */}
-      <div className="h-[40vh] min-h-[200px] max-h-[360px] relative shrink-0">
+    <div className="h-full overflow-y-auto overflow-x-hidden">
+      {/* Map section — shorter in landscape to leave room for data */}
+      <div className="h-[40vh] min-h-[200px] max-h-[360px] landscape:h-[30vh] landscape:min-h-[140px] landscape:max-h-[240px] relative shrink-0">
         <Suspense fallback={<div className="w-full h-full bg-black" />}>
           <ForecastMap selectedId={locationId} onSelectLocation={setLocationId} />
         </Suspense>
