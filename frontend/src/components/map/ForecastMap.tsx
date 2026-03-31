@@ -598,8 +598,11 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
             } catch { /* skip */ }
             particlesRef.current?.setTileOverlay('satellite', imageMap, 1, geoBounds)
           } else {
-            // NICT tile-based approach
-            const timeStr = formatHimawariTime(date)
+            // NICT or SLIDER tile-based approach
+            // For SLIDER, use the sliderTime from the API (proxy translates tile requests)
+            const timeStr = source === 'slider' && latest.sliderTime
+              ? latest.sliderTime
+              : formatHimawariTime(date)
             setHimawariTime(timeStr)
             const b = boundsRef.current
             const zoom = himawariZoomForSpan(b.east - b.west)

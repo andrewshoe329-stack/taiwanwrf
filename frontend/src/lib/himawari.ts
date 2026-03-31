@@ -164,7 +164,9 @@ export function himawariTilesForBounds(
 
 export interface HimawariLatest {
   date: Date
-  source: 'nict' | 'jma'
+  source: 'nict' | 'slider' | 'jma'
+  /** SLIDER timestamp string (YYYYMMDDHHmmSS) */
+  sliderTime?: string
   /** JMA-specific fields for regional image fallback */
   jmaBand?: string
   hhmm?: string
@@ -190,6 +192,7 @@ export async function fetchHimawariLatest(band: HimawariBand = 'INFRARED_FULL'):
       const data: HimawariLatest = {
         date: new Date(json.date),
         source: json.source || 'nict',
+        sliderTime: json.sliderTime,
         jmaBand: json.jmaBand,
         hhmm: json.hhmm,
       }
