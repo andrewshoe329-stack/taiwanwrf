@@ -113,7 +113,6 @@ def fetch_ecmwf_wave(lat: float = KEELUNG_LAT, lon: float = KEELUNG_LON,
     return _fetch_json_shared(url, label=label)
 
 
-_norm_utc = norm_utc  # kept for any external callers
 
 
 def process_ecmwf_wave(raw: dict) -> tuple[dict, list[dict]]:
@@ -121,6 +120,7 @@ def process_ecmwf_wave(raw: dict) -> tuple[dict, list[dict]]:
     h     = raw.get("hourly", {})
     times = h.get("time", [])
     if not times:
+        log.warning("Wave API response contains no hourly data")
         return {}, []
 
     def col(k):
@@ -152,7 +152,7 @@ def process_ecmwf_wave(raw: dict) -> tuple[dict, list[dict]]:
             wh_val = safe(swh, i)
 
         records.append({
-            "valid_utc":           _norm_utc(t),
+            "valid_utc":           norm_utc(t),
             "wave_height":         r2(wh_val),
             "wave_direction":      r2(safe(wd,  i)),
             "wave_period":         r2(safe(wp,  i)),
@@ -167,7 +167,7 @@ def process_ecmwf_wave(raw: dict) -> tuple[dict, list[dict]]:
     init_raw = times[0] if times else ""
     meta = {
         "model_id":  "ECMWF-WAM",
-        "init_utc":  _norm_utc(init_raw) if init_raw else None,
+        "init_utc":  norm_utc(init_raw) if init_raw else None,
         "source":    "marine-api.open-meteo.com",
         "latitude":  raw.get("latitude"),
         "longitude": raw.get("longitude"),

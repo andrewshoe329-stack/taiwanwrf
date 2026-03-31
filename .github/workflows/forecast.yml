@@ -31,7 +31,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ~/.cache/pip
-          key: pip-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+          key: pip-${{ runner.os }}-py3.11-${{ hashFiles('requirements.txt') }}
 
       - name: Install dependencies
         run: |
@@ -86,62 +86,50 @@ jobs:
           python firebase_storage.py download-accuracy-log \
             --output accuracy_log.json 2>/dev/null || true
 
-      # ── Fetch all data sources ────────────────────────────────────────────
+      # ── Fetch all data sources (parallelized) ─────────────────────────────
 
-      - name: Fetch ECMWF forecast
-        id: ecmwf
+      - name: Fetch forecasts in parallel (ECMWF, wave, tide, CWA, grids)
         continue-on-error: true
-        timeout-minutes: 10
-        run: |
-          python ecmwf_fetch.py --output ecmwf_keelung.json
-
-      - name: Fetch wave forecast
-        id: wave
-        continue-on-error: true
-        timeout-minutes: 10
-        run: |
-          python wave_fetch.py --output wave_keelung.json
-
-      - name: Predict tides
-        timeout-minutes: 2
-        run: python tide_predict.py --output tide_keelung.json --days 7
-
-      - name: Fetch CWA observations
-        continue-on-error: true
-        timeout-minutes: 3
+        timeout-minutes: 15
         env:
           CWA_OPENDATA_KEY: ${{ secrets.CWA_OPENDATA_KEY }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
+          mkdir -p frontend/public/data
+
+          # Launch independent fetches in parallel
+          python ecmwf_fetch.py --output ecmwf_keelung.json &
+          PID_ECMWF=$!
+          python wave_fetch.py --output wave_keelung.json &
+          PID_WAVE=$!
+          python tide_predict.py --output tide_keelung.json --days 7 &
+          PID_TIDE=$!
+          python wind_grid_fetch.py --output-dir frontend/public/data &
+          PID_WGRID=$!
+          python wave_grid_fetch.py --output-dir frontend/public/data &
+          PID_WAVEGRID=$!
+          python current_grid_fetch.py --output-dir frontend/public/data &
+          PID_CGRID=$!
           if [ -n "$CWA_OPENDATA_KEY" ]; then
-            python cwa_fetch.py --output cwa_obs.json
+            python cwa_fetch.py --output cwa_obs.json &
+            PID_CWA=$!
           fi
 
-      - name: Fetch ensemble models
+          # Wait for all fetches (allow individual failures)
+          wait $PID_ECMWF || echo "::warning::ECMWF fetch failed"
+          wait $PID_WAVE || echo "::warning::Wave fetch failed"
+          wait $PID_TIDE || echo "::warning::Tide prediction failed"
+          wait $PID_WGRID || echo "::warning::Wind grid fetch failed"
+          wait $PID_WAVEGRID || echo "::warning::Wave grid fetch failed"
+          wait $PID_CGRID || echo "::warning::Current grid fetch failed"
+          [ -n "${PID_CWA:-}" ] && (wait $PID_CWA || echo "::warning::CWA fetch failed")
+          true  # Don't fail the step
+
+      - name: Fetch ensemble models (depends on ECMWF)
         continue-on-error: true
         timeout-minutes: 10
         run: |
           ECMWF_ARG=""; [ -f ecmwf_keelung.json ] && ECMWF_ARG="--ecmwf-json ecmwf_keelung.json"
           python ensemble_fetch.py $ECMWF_ARG --output ensemble_keelung.json
-
-      - name: Fetch wind grids (ECMWF, GFS)
-        continue-on-error: true
-        timeout-minutes: 10
-        run: |
-          mkdir -p frontend/public/data
-          python wind_grid_fetch.py --output-dir frontend/public/data
-
-      - name: Fetch wave grid
-        continue-on-error: true
-        timeout-minutes: 10
-        run: |
-          python wave_grid_fetch.py --output-dir frontend/public/data
-
-      - name: Fetch current grid
-        continue-on-error: true
-        timeout-minutes: 10
-        run: |
-          python current_grid_fetch.py --output-dir frontend/public/data
 
       - name: Check critical data availability
         run: |

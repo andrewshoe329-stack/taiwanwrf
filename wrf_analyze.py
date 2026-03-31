@@ -439,6 +439,9 @@ def extract_forecast(rundir: Path) -> tuple[dict, list[dict]]:
                 rec['precip_mm_6h'] = round(rec['precip_mm'] - prev_precip_mm, 2)
             else:
                 # Model resets accumulation — treat as-is
+                log.warning("Precip accumulation reset at F%03d (%.2f < prev %.2f); "
+                            "using raw value as 6h estimate",
+                            fh, rec['precip_mm'], prev_precip_mm)
                 rec['precip_mm_6h'] = rec['precip_mm']
         else:
             rec['precip_mm_6h'] = rec.get('precip_mm')
@@ -2405,7 +2408,7 @@ def main() -> None:
 
     # ── MOS-lite bias correction (optional) ─────────────────────────────────────
     bias_log = None
-    if args.accuracy_log and Path(args.accuracy_log).exists():
+    if args.accuracy_log:
         bias_log = load_json_file(args.accuracy_log, "accuracy log (bias)")
     records, bias_corrections = _apply_bias_correction(records, bias_log)
     if bias_corrections:
@@ -2413,7 +2416,7 @@ def main() -> None:
 
     # ── Load previous summary ─────────────────────────────────────────────────
     prev_records = []
-    if args.prev_json and Path(args.prev_json).exists():
+    if args.prev_json:
         prev_data = load_json_file(args.prev_json, "previous summary")
         if prev_data:
             prev_records = prev_data.get('records', [])
@@ -2457,7 +2460,7 @@ def main() -> None:
 
     # ── Load ECMWF comparison data ────────────────────────────────────────────
     ecmwf_records = []
-    if args.ecmwf_json and Path(args.ecmwf_json).exists():
+    if args.ecmwf_json:
         ecmwf_data = load_json_file(args.ecmwf_json, "ECMWF JSON")
         if ecmwf_data:
             ecmwf_records = ecmwf_data.get('records', [])
@@ -2466,7 +2469,7 @@ def main() -> None:
 
     # ── Load wave data ────────────────────────────────────────────────────────
     wave_data = None
-    if args.wave_json and Path(args.wave_json).exists():
+    if args.wave_json:
         wave_data = load_json_file(args.wave_json, "wave JSON")
         if wave_data:
             ecmwf_wave_recs = len((wave_data.get('ecmwf_wave') or {}).get('records', []))
@@ -2476,7 +2479,7 @@ def main() -> None:
 
     # ── Load tide data ──────────────────────────────────────────────────────
     tide_data = None
-    if args.tide_json and Path(args.tide_json).exists():
+    if args.tide_json:
         tide_data = load_json_file(args.tide_json, "tide JSON")
         if tide_data:
             n_extrema = len(tide_data.get('extrema', []))
@@ -2491,7 +2494,7 @@ def main() -> None:
 
     # ── Load ensemble data (optional) ─────────────────────────────────────────
     ensemble_data = None
-    if args.ensemble_json and Path(args.ensemble_json).exists():
+    if args.ensemble_json:
         ensemble_data = load_json_file(args.ensemble_json, "ensemble JSON")
         if ensemble_data:
             n_models = len(ensemble_data.get('models', {}))
@@ -2506,7 +2509,7 @@ def main() -> None:
 
     # ── Load CWA observations (optional) ──────────────────────────────────────
     cwa_obs = None
-    if args.cwa_obs and Path(args.cwa_obs).exists():
+    if args.cwa_obs:
         cwa_obs = load_json_file(args.cwa_obs, "CWA observations")
         if cwa_obs:
             has_station = bool(cwa_obs.get('station'))
@@ -2533,8 +2536,11 @@ def main() -> None:
 
         # Load AI summary fragment if provided
         ai_html = ''
-        if args.ai_summary and Path(args.ai_summary).exists():
-            ai_html = Path(args.ai_summary).read_text(encoding='utf-8')
+        if args.ai_summary:
+            try:
+                ai_html = Path(args.ai_summary).read_text(encoding='utf-8')
+            except FileNotFoundError:
+                log.warning("AI summary file not found: %s", args.ai_summary)
 
         # Dashboard (index.html)
         dashboard = render_dashboard_page(fctx, ai_summary_html=ai_html,

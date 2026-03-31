@@ -101,7 +101,6 @@ def fetch_gfs_gust_vis_json(lat: float = KEELUNG_LAT,
 
 # ── Process ───────────────────────────────────────────────────────────────────
 
-_norm_utc = norm_utc  # local alias for backward compatibility
 
 
 def process(raw: dict, raw_fill: dict | None = None) -> tuple[dict, list]:
@@ -122,6 +121,7 @@ def process(raw: dict, raw_fill: dict | None = None) -> tuple[dict, list]:
     h = raw.get("hourly", {})
     times = h.get("time", [])
     if not times:
+        log.warning("ECMWF API response contains no hourly data")
         return {}, []
 
     def col(key):
@@ -149,7 +149,7 @@ def process(raw: dict, raw_fill: dict | None = None) -> tuple[dict, list]:
         fg  = fh.get("windgusts_10m", [])
         fv  = fh.get("visibility", [])
         for j, ft_entry in enumerate(ft):
-            key = _norm_utc(ft_entry)
+            key = norm_utc(ft_entry)
             fill_gust_by_time[key] = fg[j] if fg and j < len(fg) else None
             fill_vis_by_time[key]  = (round(fv[j] / 1000, 1)
                                       if fv and j < len(fv) and fv[j] is not None
@@ -180,7 +180,7 @@ def process(raw: dict, raw_fill: dict | None = None) -> tuple[dict, list]:
                            if safe(gust, j) is not None]
         gust_val = max(gust_vals_window) if gust_vals_window else None
 
-        norm_t   = _norm_utc(t)
+        norm_t   = norm_utc(t)
         if gust_val is None and norm_t in fill_gust_by_time:
             gust_val = fill_gust_by_time[norm_t]
         if vis_km is None and norm_t in fill_vis_by_time:
@@ -206,7 +206,7 @@ def process(raw: dict, raw_fill: dict | None = None) -> tuple[dict, list]:
     init_raw = _times[0] if _times else ""
     meta = {
         "model_id":  "ECMWF-IFS-0.25",
-        "init_utc":  _norm_utc(init_raw) if init_raw else None,
+        "init_utc":  norm_utc(init_raw) if init_raw else None,
         "source":    "open-meteo.com",
         "latitude":  raw.get("latitude"),
         "longitude": raw.get("longitude"),

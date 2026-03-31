@@ -38,15 +38,15 @@ log = logging.getLogger(__name__)
 # ── Thresholds ────────────────────────────────────────────────────────────────
 
 THRESHOLDS = {
-    'gale_wind_kt':     34,   # Beaufort 8+ gale warning
-    'strong_wind_kt':   22,   # Beaufort 6+ small craft advisory
-    'heavy_rain_mm_6h': 15,   # Heavy rain threshold per 6h
-    'high_seas_m':      2.5,  # Rough seas threshold
-    'dangerous_seas_m': 3.5,  # Dangerous seas threshold
-    'good_surf_m':      0.6,  # Surfable swell minimum
-    'firing_surf_m':    1.5,  # Excellent surf conditions
-    'light_wind_kt':    10,   # Good sailing lower bound
-    'sail_max_gust_kt': 30,   # Sailing no-go gust
+    'gale_wind_kt':     34,   # Beaufort 8 (34-40kt) — WMO gale warning level
+    'strong_wind_kt':   22,   # Beaufort 6 (22-27kt) — WMO small craft advisory
+    'heavy_rain_mm_6h': 15,   # CWA heavy rain advisory (~15mm/hr, ≈ 80-90mm/6h severe)
+    'high_seas_m':      2.5,  # CWA rough sea advisory for coastal waters
+    'dangerous_seas_m': 3.5,  # CWA dangerous sea warning for coastal waters
+    'good_surf_m':      0.6,  # Surfable swell minimum (local consensus)
+    'firing_surf_m':    1.5,  # Excellent surf conditions (local consensus)
+    'light_wind_kt':    10,   # Good sailing lower bound (Beaufort 3)
+    'sail_max_gust_kt': 30,   # Sailing no-go gust (Beaufort 7)
 }
 
 
