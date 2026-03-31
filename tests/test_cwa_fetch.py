@@ -32,7 +32,7 @@ MOCK_STATION_RESPONSE = {
                 "AirTemperature": {"value": "22.5"},
                 "WindSpeed": {"value": "3.2"},
                 "WindDirection": {"value": "225"},
-                "WindGust": {"value": "5.1"},
+                "GustInfo": {"PeakGustSpeed": "5.1"},
                 "AirPressure": {"value": "1013.2"},
                 "RelativeHumidity": {"value": "78"},
                 "Now": {"value": "0.0"},

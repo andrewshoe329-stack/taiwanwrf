@@ -161,8 +161,21 @@ def _parse_station_obs(stn: dict) -> dict | None:
             return None
 
     wind_ms = _val("WindSpeed")
-    gust_ms = _val("WindGust", "GustSpeed")
     wind_dir_deg = _val("WindDirection")
+
+    # Gust: CWA nests as GustInfo.PeakGustSpeed (not flat WindGust)
+    gust_info = obs.get("GustInfo")
+    gust_raw = (gust_info.get("PeakGustSpeed") if isinstance(gust_info, dict)
+                else None)
+    if isinstance(gust_raw, dict):
+        gust_raw = gust_raw.get("value") or gust_raw.get("Value")
+    if gust_raw in (None, "", "-99", -99):
+        gust_ms = None
+    else:
+        try:
+            gust_ms = float(gust_raw)
+        except (ValueError, TypeError):
+            gust_ms = None
 
     wind_kt = round(wind_ms * 1.94384, 1) if wind_ms is not None else None
     gust_kt = round(gust_ms * 1.94384, 1) if gust_ms is not None else None
@@ -297,6 +310,8 @@ def _parse_buoy_station(stn: dict) -> dict | None:
         "max_wave_height_m": _val("MaximumWaveHeight"),
         "peak_period_s": _val("PeakWavePeriod"),
         "water_temp_c": _val("SeaTemperature"),
+        "wind_speed_ms": _val("WindSpeed"),
+        "wind_dir": _val("WindDirection"),
     }
 
 

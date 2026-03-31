@@ -14,6 +14,13 @@
 
 const CWA_BASE = 'https://opendata.cwa.gov.tw/api/v1/rest/datastore'
 
+/** Parse a CWA value, filtering sentinels (-99) and non-numeric strings. */
+function cwaFloat(v) {
+  if (v == null || v === 'None' || v === '' || v === '-99' || v === '-99.0') return undefined
+  const n = parseFloat(v)
+  return isNaN(n) || n <= -99 ? undefined : n
+}
+
 // Stations to query — only northern Taiwan, keeps payload small
 const MARINE_STATIONS = [
   'C4B01',  // 基隆 tide
@@ -90,48 +97,30 @@ function parseMarineObs(data) {
     }
 
     // Tide data
-    const tideH = we.TideHeight
-    if (tideH != null && tideH !== 'None' && tideH !== '') {
-      entry.tide_height_m = parseFloat(tideH)
-    }
+    const tideH = cwaFloat(we.TideHeight)
+    if (tideH != null) entry.tide_height_m = tideH
     if (we.TideLevel) entry.tide_level = we.TideLevel
 
     // Wave data
-    if (we.WaveHeight != null && we.WaveHeight !== 'None') {
-      entry.wave_height_m = parseFloat(we.WaveHeight)
-    }
-    if (we.WavePeriod != null && we.WavePeriod !== 'None') {
-      entry.wave_period_s = parseFloat(we.WavePeriod)
-    }
-    if (we.WaveDirection != null && we.WaveDirection !== 'None') {
-      entry.wave_dir = parseFloat(we.WaveDirection)
-    }
+    const wh = cwaFloat(we.WaveHeight); if (wh != null) entry.wave_height_m = wh
+    const wp = cwaFloat(we.WavePeriod); if (wp != null) entry.wave_period_s = wp
+    const wd = cwaFloat(we.WaveDirection); if (wd != null) entry.wave_dir = wd
 
     // Sea temperature
-    if (we.SeaTemperature != null && we.SeaTemperature !== 'None') {
-      entry.sea_temp_c = parseFloat(we.SeaTemperature)
-    }
+    const st = cwaFloat(we.SeaTemperature); if (st != null) entry.sea_temp_c = st
 
     // Wind (from buoys/some tide stations)
     const anemometer = we.PrimaryAnemometer
     if (anemometer && typeof anemometer === 'object') {
-      if (anemometer.WindSpeed != null && anemometer.WindSpeed !== 'None') {
-        entry.wind_speed_ms = parseFloat(anemometer.WindSpeed)
-      }
-      if (anemometer.WindDirection != null && anemometer.WindDirection !== 'None') {
-        entry.wind_dir = parseFloat(anemometer.WindDirection)
-      }
+      const ws = cwaFloat(anemometer.WindSpeed); if (ws != null) entry.wind_speed_ms = ws
+      const wdir = cwaFloat(anemometer.WindDirection); if (wdir != null) entry.wind_dir = wdir
     }
 
     // Sea currents (nested under SeaCurrents object, like PrimaryAnemometer)
     const currents = we.SeaCurrents
     if (currents && typeof currents === 'object') {
-      if (currents.CurrentSpeed != null && currents.CurrentSpeed !== 'None') {
-        entry.current_speed_ms = parseFloat(currents.CurrentSpeed)
-      }
-      if (currents.CurrentDirection != null && currents.CurrentDirection !== 'None') {
-        entry.current_dir = parseFloat(currents.CurrentDirection)
-      }
+      const cs = cwaFloat(currents.CurrentSpeed); if (cs != null) entry.current_speed_ms = cs
+      const cd = cwaFloat(currents.CurrentDirection); if (cd != null) entry.current_dir = cd
     }
 
     result[id] = entry
