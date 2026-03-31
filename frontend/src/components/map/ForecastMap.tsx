@@ -10,8 +10,8 @@ import type { SpotRating, WaveGrid, CurrentGrid } from '@/lib/types'
 import { TileCache, tilesInView, zoomForSpan } from '@/lib/tile-loader'
 import { fetchRainViewerMaps, latestRadarPath, tileUrl } from '@/lib/rainviewer'
 import type { RainViewerFrame } from '@/lib/rainviewer'
-import { fetchHimawariLatest, formatHimawariTime, himawariTilesForBounds, himawariTileUrl, himawariTileBounds, himawariZoomForSpan, resolveHimawariBand } from '@/lib/himawari'
-import type { HimawariBandMode } from '@/lib/himawari'
+import { fetchHimawariLatest, formatHimawariTime, himawariTilesForBounds, himawariTileUrl, himawariTileBounds, himawariZoomForSpan, resolveHimawariBand, jmaRegionalUrl, JMA_SE2_BOUNDS } from '@/lib/himawari'
+import type { HimawariBandMode, HimawariLatest } from '@/lib/himawari'
 
 type MapLayer = 'wind' | 'waves' | 'currents' | 'radar' | 'satellite'
 
@@ -524,6 +524,7 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
   const [himawariTime, setHimawariTime] = useState<string | null>(null)
   const [himawariBandMode, setHimawariBandMode] = useState<HimawariBandMode>('auto')
   const [himawariActiveBand, setHimawariActiveBand] = useState<string>('IR')
+  const himawariLatestRef = useRef<HimawariLatest | null>(null)
 
   // Fetch tile data when radar or satellite layer is active
   useEffect(() => {
@@ -574,33 +575,49 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
           // Himawari satellite
           const band = resolveHimawariBand(himawariBandMode)
           setHimawariActiveBand(band === 'D531106' ? 'VIS' : 'IR')
-          const date = await fetchHimawariLatest(band)
-          const timeStr = formatHimawariTime(date)
-          setHimawariTime(timeStr)
+          const latest = await fetchHimawariLatest(band)
+          himawariLatestRef.current = latest
+          const { date, source } = latest
           setTileError(false)
           const ageMin = (Date.now() - date.getTime()) / 60000
           setTileStale(ageMin > 30)
           setTileTimestamp(date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
 
-          const b = boundsRef.current
-          const zoom = himawariZoomForSpan(b.east - b.west)
-          const tiles = himawariTilesForBounds(b.west, b.south, b.east, b.north, zoom)
           const cache = tileCacheRef.current
           const imageMap = new Map<string, HTMLImageElement>()
           const geoBounds = new Map<string, { west: number; east: number; north: number; south: number }>()
 
-          await Promise.all(tiles.map(async (t) => {
-            const url = himawariTileUrl(band, zoom, t.x, t.y, timeStr)
-            const key = `${zoom}/${t.x}/${t.y}`
+          if (source === 'jma' && latest.jmaBand && latest.hhmm) {
+            // JMA MSC fallback: single regional image
+            const url = jmaRegionalUrl(latest.jmaBand, latest.hhmm, band)
+            setHimawariTime(latest.hhmm)
             try {
               const img = await cache.load(url)
-              imageMap.set(key, img)
-              const gb = himawariTileBounds(t.x, t.y, zoom)
-              if (gb) geoBounds.set(key, gb)
+              imageMap.set('0/0/0', img)
+              geoBounds.set('0/0/0', JMA_SE2_BOUNDS)
             } catch { /* skip */ }
-          }))
+            particlesRef.current?.setTileOverlay('satellite', imageMap, 1, geoBounds)
+          } else {
+            // NICT tile-based approach
+            const timeStr = formatHimawariTime(date)
+            setHimawariTime(timeStr)
+            const b = boundsRef.current
+            const zoom = himawariZoomForSpan(b.east - b.west)
+            const tiles = himawariTilesForBounds(b.west, b.south, b.east, b.north, zoom)
 
-          particlesRef.current?.setTileOverlay('satellite', imageMap, zoom, geoBounds)
+            await Promise.all(tiles.map(async (t) => {
+              const url = himawariTileUrl(band, zoom, t.x, t.y, timeStr)
+              const key = `${zoom}/${t.x}/${t.y}`
+              try {
+                const img = await cache.load(url)
+                imageMap.set(key, img)
+                const gb = himawariTileBounds(t.x, t.y, zoom)
+                if (gb) geoBounds.set(key, gb)
+              } catch { /* skip */ }
+            }))
+
+            particlesRef.current?.setTileOverlay('satellite', imageMap, zoom, geoBounds)
+          }
         }
       } catch (err) {
         console.warn(`[ForecastMap] ${layer} fetch failed:`, err)
@@ -643,25 +660,42 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
         }))
         if (!cancelled) particlesRef.current?.setTileOverlay('radar', imageMap, zoom)
       } else {
-        const band = resolveHimawariBand(himawariBandMode)
-        const zoom = himawariZoomForSpan(b.east - b.west)
-        const tiles = himawariTilesForBounds(b.west, b.south, b.east, b.north, zoom)
-        const timeStr = himawariTime!
+        const latest = himawariLatestRef.current
         const imageMap = new Map<string, HTMLImageElement>()
         const geoBounds = new Map<string, { west: number; east: number; north: number; south: number }>()
-        await Promise.all(tiles.map(async (t) => {
-          const url = himawariTileUrl(band, zoom, t.x, t.y, timeStr)
-          const key = `${zoom}/${t.x}/${t.y}`
+
+        if (latest?.source === 'jma' && latest.jmaBand && latest.hhmm) {
+          // JMA: single regional image, no zoom/pan reload needed (covers full region)
+          const band = resolveHimawariBand(himawariBandMode)
+          const url = jmaRegionalUrl(latest.jmaBand, latest.hhmm, band)
           try {
             const img = await cache.load(url)
             if (!cancelled) {
-              imageMap.set(key, img)
-              const gb = himawariTileBounds(t.x, t.y, zoom)
-              if (gb) geoBounds.set(key, gb)
+              imageMap.set('0/0/0', img)
+              geoBounds.set('0/0/0', JMA_SE2_BOUNDS)
             }
           } catch { /* skip */ }
-        }))
-        if (!cancelled) particlesRef.current?.setTileOverlay('satellite', imageMap, zoom, geoBounds)
+          if (!cancelled) particlesRef.current?.setTileOverlay('satellite', imageMap, 1, geoBounds)
+        } else {
+          // NICT tiles
+          const band = resolveHimawariBand(himawariBandMode)
+          const zoom = himawariZoomForSpan(b.east - b.west)
+          const tiles = himawariTilesForBounds(b.west, b.south, b.east, b.north, zoom)
+          const timeStr = himawariTime!
+          await Promise.all(tiles.map(async (t) => {
+            const url = himawariTileUrl(band, zoom, t.x, t.y, timeStr)
+            const key = `${zoom}/${t.x}/${t.y}`
+            try {
+              const img = await cache.load(url)
+              if (!cancelled) {
+                imageMap.set(key, img)
+                const gb = himawariTileBounds(t.x, t.y, zoom)
+                if (gb) geoBounds.set(key, gb)
+              }
+            } catch { /* skip */ }
+          }))
+          if (!cancelled) particlesRef.current?.setTileOverlay('satellite', imageMap, zoom, geoBounds)
+        }
       }
     }, 150)
 
