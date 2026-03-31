@@ -430,7 +430,9 @@ def _compute_wave_accuracy(wave_forecast: list, wave_obs_raw: dict) -> dict | No
                or rec.get('swell_wave_direction') or rec.get('sw_dir'))
         owd = obs.get('wd')
         if fwd is not None and owd is not None:
-            wd_errors.append(_circular_diff(fwd, owd))
+            wd_err = _circular_diff(fwd, owd)
+            if wd_err is not None:
+                wd_errors.append(wd_err)
 
     if not hs_errors:
         return None

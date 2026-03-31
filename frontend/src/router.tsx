@@ -2,7 +2,17 @@ import React, { lazy, Suspense } from 'react'
 import { createBrowserRouter, Navigate, useParams } from 'react-router-dom'
 import { App } from './App'
 
-const NowPage = lazy(() => import('./pages/NowPage').then(m => ({ default: m.NowPage })))
+const NowPage = lazy(() =>
+  import('./pages/NowPage').then(m => ({ default: m.NowPage }))
+    .catch(() => {
+      // Retry once after a brief delay (handles CDN propagation / stale SW cache)
+      return new Promise<{ default: typeof import('./pages/NowPage')['NowPage'] }>(resolve =>
+        setTimeout(() => resolve(
+          import('./pages/NowPage').then(m => ({ default: m.NowPage }))
+        ), 1500)
+      )
+    })
+)
 
 /** Redirect /spots/:id → /?loc=:id */
 function SpotRedirect() {
@@ -32,7 +42,8 @@ class LazyErrorBoundary extends React.Component<
   }
 
   handleRetry = () => {
-    this.setState({ hasError: false })
+    // Full reload to clear stale chunks from SW cache
+    window.location.reload()
   }
 
   render() {

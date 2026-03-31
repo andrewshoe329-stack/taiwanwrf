@@ -44,21 +44,18 @@ function CustomTooltip({ active, payload }: TooltipContentProps) {
 }
 
 export function TideChart({ predictions, extrema, timeRange, selectedMs }: TideChartProps) {
-  if (!predictions?.length) return null
   const mobile = useIsMobile()
 
-  const filtered = filterByTimeRange(predictions, timeRange, 'time_utc')
-  const sampled = downsampleTide(filtered, 100)
-
-  const chartData: ChartRow[] = sampled.map(p => ({
-    timeMs: new Date(p.time_utc).getTime(),
-    timeLabel: toCSTLabel(p.time_utc),
-    height: p.height_m,
-  }))
-
-  const nowMs = selectedMs
-  const domain = timeDomain(timeRange) ?? (['dataMin', 'dataMax'] as const)
-  const ticks = timeTicks(timeRange, chartData, mobile)
+  const chartData: ChartRow[] = useMemo(() => {
+    if (!predictions?.length) return []
+    const filtered = filterByTimeRange(predictions, timeRange, 'time_utc')
+    const sampled = downsampleTide(filtered, 100)
+    return sampled.map(p => ({
+      timeMs: new Date(p.time_utc).getTime(),
+      timeLabel: toCSTLabel(p.time_utc),
+      height: p.height_m,
+    }))
+  }, [predictions, timeRange])
 
   const visibleExtrema = useMemo(() => {
     const visible = extrema.filter(e => {
@@ -77,7 +74,13 @@ export function TideChart({ predictions, extrema, timeRange, selectedMs }: TideC
       if (ms - prev >= minGapMs) thinned.push(e)
     }
     return thinned
-  }, [extrema, chartData])
+  }, [extrema, chartData, mobile])
+
+  if (!predictions?.length) return null
+
+  const nowMs = selectedMs
+  const domain = timeDomain(timeRange) ?? (['dataMin', 'dataMax'] as const)
+  const ticks = timeTicks(timeRange, chartData, mobile)
 
   return (
     <ResponsiveContainer width="100%" height={chartHeight(mobile)}>

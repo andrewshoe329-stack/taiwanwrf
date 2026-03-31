@@ -403,19 +403,9 @@ def build_user_prompt(wrf: dict, ecmwf: dict | None, wave: dict | None,
             'GFS': 'GFS',
             'JMA': 'JMA', 'ECMWF': 'ECMWF',
         }
-        for model_key, label in MODEL_LABELS.items():
-            recs = []
-            if model_key in models:
-                recs = models[model_key].get('records', [])[:4]
-            if not recs:
-                continue
-            avgs: dict[str, float] = {}
-            for var in ('wind_kt', 'temp_c', 'gust_kt'):
-                vals = [r.get(var) for r in recs if r.get(var) is not None]
-                if vals:
-                    avgs[var] = round(sum(vals) / len(vals), 1)
-            if avgs:
-                model_avgs[label] = avgs
+        # Note: ensemble_fetch.py stores only meta + record_count per model
+        # (raw records are used for spread stats then discarded from JSON).
+        # Per-model averages are not available in the output file.
 
         if spread or model_avgs:
             spread_lines = ["Multi-model ensemble spread (GFS/JMA/ECMWF):"]

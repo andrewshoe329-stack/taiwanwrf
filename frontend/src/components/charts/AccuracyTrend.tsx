@@ -50,7 +50,7 @@ export function AccuracyTrend({ entries, compact = false }: AccuracyTrendProps) 
   if (!entries || entries.length < 2) return null
 
   // Compute summary stats
-  const latest = entries[0]
+  const latest = entries[entries.length - 1]
   const windBias = latest?.wind_bias_kt
   const tempBias = latest?.temp_bias_c
 

@@ -147,6 +147,22 @@ export function NowPage() {
     return <LoadingSpinner />
   }
 
+  if (data.error) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <div className="text-center space-y-3">
+          <p className="text-[var(--color-text-muted)] text-sm">{data.error}</p>
+          <button
+            onClick={data.reload}
+            className="px-4 py-2 rounded-lg bg-[var(--color-accent)]/20 text-[var(--color-accent)] text-xs hover:bg-[var(--color-accent)]/30 transition-colors"
+          >
+            {t('common.retry', 'Retry')}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   const isSpotSelected = locationId != null && locationId !== 'keelung'
 
   // nowMs for tide sparkline in spot detail
