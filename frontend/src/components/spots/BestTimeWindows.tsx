@@ -14,7 +14,7 @@ const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const DAY_NAMES_ZH = ['日', '一', '二', '三', '四', '五', '六']
 
 export function BestTimeWindows({ spotForecast }: BestTimeWindowsProps) {
-  const { i18n, t } = useTranslation()
+  const { i18n } = useTranslation()
   const lang = i18n.language?.startsWith('zh') ? 'zh' : 'en'
   const bt = spotForecast.best_times
   if (!bt || bt.length === 0) return null
