@@ -51,6 +51,7 @@ export class WindParticleSystem {
   private tileImages = new Map<string, HTMLImageElement>()
   private tileOverlayZoom = 0
   private tileOverlayAlpha = 0.7
+  private tileGeoBounds = new Map<string, { west: number; east: number; north: number; south: number }>()
   private animId: number | null = null
   private running = false
   private offscreen: HTMLCanvasElement | null = null
@@ -180,10 +181,16 @@ export class WindParticleSystem {
   }
 
   /** Set tile overlay mode (radar/satellite) and tile images */
-  setTileOverlay(mode: 'radar' | 'satellite' | null, images: Map<string, HTMLImageElement>, zoom = 0) {
+  setTileOverlay(
+    mode: 'radar' | 'satellite' | null,
+    images: Map<string, HTMLImageElement>,
+    zoom = 0,
+    geoBounds?: Map<string, { west: number; east: number; north: number; south: number }>
+  ) {
     this.tileOverlayMode = mode
     this.tileImages = images
     this.tileOverlayZoom = zoom
+    this.tileGeoBounds = geoBounds ?? new Map()
   }
 
   /** Update the map viewport bounds (call on map move/zoom) */
@@ -480,25 +487,36 @@ export class WindParticleSystem {
 
   /** Draw tile overlay (radar or satellite) on the canvas */
   private drawTileOverlay(ctx: CanvasRenderingContext2D, w: number, h: number) {
-    if (!this.tileImages.size || !this.tileOverlayZoom) return
-
-    const { west, east, south, north } = this.bounds
-    const zoom = this.tileOverlayZoom
-    const tiles = tilesInView(west, south, east, north, zoom)
+    if (!this.tileImages.size) return
 
     ctx.save()
     ctx.globalAlpha = this.tileOverlayAlpha
 
-    for (const tile of tiles) {
-      const key = `${zoom}/${tile.x}/${tile.y}`
-      const img = this.tileImages.get(key)
-      if (!img) continue
+    if (this.tileGeoBounds.size > 0) {
+      // Himawari mode: tiles have explicit geographic bounds (geostationary projection)
+      for (const [key, img] of this.tileImages) {
+        const gb = this.tileGeoBounds.get(key)
+        if (!gb) continue
+        const [x1, y1] = this.project(gb.west, gb.north, w, h)
+        const [x2, y2] = this.project(gb.east, gb.south, w, h)
+        ctx.drawImage(img, x1, y1, x2 - x1, y2 - y1)
+      }
+    } else if (this.tileOverlayZoom) {
+      // XYZ/Mercator mode: compute bounds from tile coordinates (radar)
+      const { west, east, south, north } = this.bounds
+      const zoom = this.tileOverlayZoom
+      const tiles = tilesInView(west, south, east, north, zoom)
 
-      const tb = tileBounds(tile.x, tile.y, zoom)
-      const [x1, y1] = this.project(tb.west, tb.north, w, h)
-      const [x2, y2] = this.project(tb.east, tb.south, w, h)
+      for (const tile of tiles) {
+        const key = `${zoom}/${tile.x}/${tile.y}`
+        const img = this.tileImages.get(key)
+        if (!img) continue
 
-      ctx.drawImage(img, x1, y1, x2 - x1, y2 - y1)
+        const tb = tileBounds(tile.x, tile.y, zoom)
+        const [x1, y1] = this.project(tb.west, tb.north, w, h)
+        const [x2, y2] = this.project(tb.east, tb.south, w, h)
+        ctx.drawImage(img, x1, y1, x2 - x1, y2 - y1)
+      }
     }
 
     ctx.restore()

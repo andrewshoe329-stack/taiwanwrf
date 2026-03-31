@@ -54,12 +54,6 @@ export function latestRadarPath(maps: RainViewerMaps): RainViewerFrame | null {
   return past?.length ? past[past.length - 1] : null
 }
 
-/** Get the latest satellite tile path */
-export function latestSatellitePath(maps: RainViewerMaps): RainViewerFrame | null {
-  const ir = maps.satellite?.infrared
-  return ir?.length ? ir[ir.length - 1] : null
-}
-
 /**
  * Build a tile URL for a given frame and tile coordinates.
  * colorScheme: 1 = original, 2 = universal blue, 4 = dark sky, 8 = TITAN
@@ -74,13 +68,4 @@ export function tileUrl(
   const color = opts.colorScheme ?? 2  // universal blue (good on dark bg)
   const smooth = opts.smooth ?? 1
   return `https://tilecache.rainviewer.com${frame.path}/${size}/${z}/${x}/${y}/${color}/${smooth}_1.png`
-}
-
-/** Build a satellite tile URL */
-export function satelliteTileUrl(
-  frame: RainViewerFrame,
-  z: number, x: number, y: number,
-  size: 256 | 512 = 256
-): string {
-  return `https://tilecache.rainviewer.com${frame.path}/${size}/${z}/${x}/${y}/0/0_1.png`
 }

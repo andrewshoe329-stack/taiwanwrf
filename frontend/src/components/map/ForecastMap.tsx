@@ -8,8 +8,9 @@ import { useModel, type WindModel } from '@/hooks/useModel'
 import { useForecastData } from '@/hooks/useForecastData'
 import type { SpotRating, WaveGrid, CurrentGrid } from '@/lib/types'
 import { TileCache, tilesInView, zoomForSpan } from '@/lib/tile-loader'
-import { fetchRainViewerMaps, latestRadarPath, latestSatellitePath, tileUrl, satelliteTileUrl } from '@/lib/rainviewer'
+import { fetchRainViewerMaps, latestRadarPath, tileUrl } from '@/lib/rainviewer'
 import type { RainViewerFrame } from '@/lib/rainviewer'
+import { fetchHimawariLatest, formatHimawariTime, himawariTilesForBounds, himawariTileUrl, himawariTileBounds, himawariZoomForSpan } from '@/lib/himawari'
 
 type MapLayer = 'wind' | 'waves' | 'currents' | 'radar' | 'satellite'
 
@@ -31,8 +32,8 @@ const MODEL_LABELS: Record<WindModel, string> = {
 const MIN_LON_SPAN = 0.8   // max zoom in — prevents Mercator distortion and blocky grid cells
 const MAX_LON_SPAN = TAIWAN_BBOX.lon_max - TAIWAN_BBOX.lon_min  // max zoom out = initial view
 
-// RainViewer max zoom levels (higher causes "zoom not supported" errors)
-const RAINVIEWER_MAX_ZOOM: Record<string, number> = { radar: 6, satellite: 4 }
+// RainViewer max zoom level (higher causes "zoom not supported" errors)
+const RAINVIEWER_MAX_ZOOM: Record<string, number> = { radar: 6 }
 
 // Pin label colors: muted by default, brighter when selected
 const PIN_COLOR_DEFAULT = '#9ca3af'
@@ -516,13 +517,16 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
     }
   }, [layer, index, data.keelung])
 
-  // Fetch RainViewer metadata when radar/satellite layer is active
+  // Himawari satellite state
+  const [himawariTime, setHimawariTime] = useState<string | null>(null)
+
+  // Fetch tile data when radar or satellite layer is active
   useEffect(() => {
     const isLive = layer === 'radar' || layer === 'satellite'
     if (!isLive) {
-      // Clear tile overlay when switching away
       particlesRef.current?.setTileOverlay(null, new Map())
       setTileFrame(null)
+      setHimawariTime(null)
       setTileTimestamp('')
       setTileStale(false)
       setTileError(false)
@@ -535,46 +539,70 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
 
     const loadTiles = async () => {
       try {
-        const maps = await fetchRainViewerMaps()
-        const frame = layer === 'radar'
-          ? latestRadarPath(maps)
-          : latestSatellitePath(maps)
-        if (!frame) { setTileError(true); particlesRef.current?.setTileOverlay(null, new Map()); return }
+        if (layer === 'radar') {
+          // RainViewer radar
+          const maps = await fetchRainViewerMaps()
+          const frame = latestRadarPath(maps)
+          if (!frame) { setTileError(true); particlesRef.current?.setTileOverlay(null, new Map()); return }
 
-        setTileFrame(frame)
-        setTileError(false)
-        const ageMin = (Date.now() - frame.time * 1000) / 60000
-        setTileStale(ageMin > 30)
-        const d = new Date(frame.time * 1000)
-        setTileTimestamp(d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
+          setTileFrame(frame)
+          setTileError(false)
+          const ageMin = (Date.now() - frame.time * 1000) / 60000
+          setTileStale(ageMin > 30)
+          setTileTimestamp(new Date(frame.time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
 
-        // Load tiles for current viewport
-        const b = boundsRef.current
-        const zoom = zoomForSpan(b.east - b.west, RAINVIEWER_MAX_ZOOM[layer] ?? 6)
-        const tiles = tilesInView(b.west, b.south, b.east, b.north, zoom)
-        const cache = tileCacheRef.current
-        const imageMap = new Map<string, HTMLImageElement>()
+          const b = boundsRef.current
+          const zoom = zoomForSpan(b.east - b.west, RAINVIEWER_MAX_ZOOM['radar'] ?? 6)
+          const tiles = tilesInView(b.west, b.south, b.east, b.north, zoom)
+          const cache = tileCacheRef.current
+          const imageMap = new Map<string, HTMLImageElement>()
 
-        await Promise.all(tiles.map(async (t) => {
-          const url = layer === 'radar'
-            ? tileUrl(frame, zoom, t.x, t.y)
-            : satelliteTileUrl(frame, zoom, t.x, t.y)
-          try {
-            const img = await cache.load(url)
-            imageMap.set(`${zoom}/${t.x}/${t.y}`, img)
-          } catch { /* skip failed tiles */ }
-        }))
+          await Promise.all(tiles.map(async (t) => {
+            try {
+              const img = await cache.load(tileUrl(frame, zoom, t.x, t.y))
+              imageMap.set(`${zoom}/${t.x}/${t.y}`, img)
+            } catch { /* skip */ }
+          }))
 
-        particlesRef.current?.setTileOverlay(layer, imageMap, zoom)
+          particlesRef.current?.setTileOverlay('radar', imageMap, zoom)
+        } else {
+          // Himawari satellite
+          const date = await fetchHimawariLatest()
+          const timeStr = formatHimawariTime(date)
+          setHimawariTime(timeStr)
+          setTileError(false)
+          const ageMin = (Date.now() - date.getTime()) / 60000
+          setTileStale(ageMin > 30)
+          setTileTimestamp(date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
+
+          const b = boundsRef.current
+          const zoom = himawariZoomForSpan(b.east - b.west)
+          const tiles = himawariTilesForBounds(b.west, b.south, b.east, b.north, zoom)
+          const cache = tileCacheRef.current
+          const imageMap = new Map<string, HTMLImageElement>()
+          const geoBounds = new Map<string, { west: number; east: number; north: number; south: number }>()
+
+          await Promise.all(tiles.map(async (t) => {
+            const url = himawariTileUrl('INFRARED_FULL', zoom, t.x, t.y, timeStr)
+            const key = `${zoom}/${t.x}/${t.y}`
+            try {
+              const img = await cache.load(url)
+              imageMap.set(key, img)
+              const gb = himawariTileBounds(t.x, t.y, zoom)
+              if (gb) geoBounds.set(key, gb)
+            } catch { /* skip */ }
+          }))
+
+          particlesRef.current?.setTileOverlay('satellite', imageMap, zoom, geoBounds)
+        }
       } catch (err) {
-        console.warn('[ForecastMap] RainViewer fetch failed:', err)
+        console.warn(`[ForecastMap] ${layer} fetch failed:`, err)
         setTileError(true)
         particlesRef.current?.setTileOverlay(null, new Map())
       }
     }
 
     loadTiles()
-    // Auto-refresh every 5 minutes
     rainviewerIntervalRef.current = setInterval(loadTiles, 5 * 60 * 1000)
     return () => {
       if (rainviewerIntervalRef.current) {
@@ -587,35 +615,51 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
   // Reload tiles on zoom/pan when in radar/satellite mode (debounced)
   useEffect(() => {
     if (layer !== 'radar' && layer !== 'satellite') return
-    if (!tileFrame) return
+    if (layer === 'radar' && !tileFrame) return
+    if (layer === 'satellite' && !himawariTime) return
 
     let cancelled = false
     const timer = setTimeout(async () => {
       const b = boundsRef.current
-      const maxZ = RAINVIEWER_MAX_ZOOM[layer] ?? 6
-      const zoom = zoomForSpan(b.east - b.west, maxZ)
-      const tiles = tilesInView(b.west, b.south, b.east, b.north, zoom)
       const cache = tileCacheRef.current
-      const frame = tileFrame
 
-      const imageMap = new Map<string, HTMLImageElement>()
-      await Promise.all(tiles.map(async (t) => {
-        const url = layer === 'radar'
-          ? tileUrl(frame, zoom, t.x, t.y)
-          : satelliteTileUrl(frame, zoom, t.x, t.y)
-        try {
-          const img = await cache.load(url)
-          if (!cancelled) imageMap.set(`${zoom}/${t.x}/${t.y}`, img)
-        } catch { /* skip */ }
-      }))
-      if (!cancelled) {
-        particlesRef.current?.setTileOverlay(layer, imageMap, zoom)
+      if (layer === 'radar') {
+        const zoom = zoomForSpan(b.east - b.west, RAINVIEWER_MAX_ZOOM['radar'] ?? 6)
+        const tiles = tilesInView(b.west, b.south, b.east, b.north, zoom)
+        const frame = tileFrame!
+        const imageMap = new Map<string, HTMLImageElement>()
+        await Promise.all(tiles.map(async (t) => {
+          try {
+            const img = await cache.load(tileUrl(frame, zoom, t.x, t.y))
+            if (!cancelled) imageMap.set(`${zoom}/${t.x}/${t.y}`, img)
+          } catch { /* skip */ }
+        }))
+        if (!cancelled) particlesRef.current?.setTileOverlay('radar', imageMap, zoom)
+      } else {
+        const zoom = himawariZoomForSpan(b.east - b.west)
+        const tiles = himawariTilesForBounds(b.west, b.south, b.east, b.north, zoom)
+        const timeStr = himawariTime!
+        const imageMap = new Map<string, HTMLImageElement>()
+        const geoBounds = new Map<string, { west: number; east: number; north: number; south: number }>()
+        await Promise.all(tiles.map(async (t) => {
+          const url = himawariTileUrl('INFRARED_FULL', zoom, t.x, t.y, timeStr)
+          const key = `${zoom}/${t.x}/${t.y}`
+          try {
+            const img = await cache.load(url)
+            if (!cancelled) {
+              imageMap.set(key, img)
+              const gb = himawariTileBounds(t.x, t.y, zoom)
+              if (gb) geoBounds.set(key, gb)
+            }
+          } catch { /* skip */ }
+        }))
+        if (!cancelled) particlesRef.current?.setTileOverlay('satellite', imageMap, zoom, geoBounds)
       }
-    }, 150) // debounce 150ms after zoom/pan settles
+    }, 150)
 
     return () => { cancelled = true; clearTimeout(timer) }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [layer, tileFrame, boundsVersion])
+  }, [layer, tileFrame, himawariTime, boundsVersion])
 
   return (
     <div className="relative w-full h-full" style={{ background: '#000000' }}>
@@ -748,7 +792,7 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
       {/* Satellite status badge */}
       {layer === 'satellite' && (
         <div className={`absolute bottom-3 left-3 z-20 backdrop-blur-sm bg-[var(--color-bg-elevated)]/80 border rounded-md px-2 py-1.5 ${tileStale ? 'border-amber-500/50' : tileError ? 'border-red-500/50' : 'border-[var(--color-border)]'}`}>
-          <p className="text-[8px] text-[var(--color-text-muted)] uppercase tracking-wider mb-0.5">{t('map.ir_satellite')}</p>
+          <p className="text-[8px] text-[var(--color-text-muted)] uppercase tracking-wider mb-0.5">Himawari IR</p>
           {tileError ? (
             <p className="text-[10px] text-red-400">{t('common.unavailable')}</p>
           ) : tileTimestamp ? (
