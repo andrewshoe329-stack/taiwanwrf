@@ -147,7 +147,17 @@ function parseWeatherObs(data) {
     const id = stn.StationId || stn.stationId
     if (!id) continue
 
-    const obs = stn.WeatherElement || stn.weatherElement || {}
+    // WeatherElement can be an object or an array of {ElementName, ElementValue}
+    let obs = stn.WeatherElement || stn.weatherElement || {}
+    if (Array.isArray(obs)) {
+      const converted = {}
+      for (const el of obs) {
+        const name = el.ElementName || el.elementName
+        const val = el.ElementValue ?? el.elementValue ?? el.Value ?? el.value
+        if (name) converted[name] = val
+      }
+      obs = converted
+    }
     const obsTime = stn.ObsTime?.DateTime || stn.obsTime?.dateTime
 
     const entry = {
@@ -164,34 +174,37 @@ function parseWeatherObs(data) {
       entry.temp_c = parseFloat(temp)
     }
 
-    // Wind
+    // Wind — handle both object {value: "3.2"} and plain number/string formats
     const ws = obs.WindSpeed
-    if (ws != null && typeof ws === 'object') {
-      const v = parseFloat(ws.value ?? ws.Value ?? ws)
+    if (ws != null) {
+      const v = parseFloat(typeof ws === 'object' ? (ws.value ?? ws.Value ?? ws) : ws)
       if (!isNaN(v)) entry.wind_kt = v * 1.94384 // m/s → kt
     }
     const wd = obs.WindDirection
-    if (wd != null && typeof wd === 'object') {
-      entry.wind_dir = parseFloat(wd.value ?? wd.Value ?? wd)
+    if (wd != null) {
+      const v = parseFloat(typeof wd === 'object' ? (wd.value ?? wd.Value ?? wd) : wd)
+      if (!isNaN(v)) entry.wind_dir = v
     }
 
     // Gust
     const gust = obs.GustInfo?.PeakGustSpeed
-    if (gust != null && typeof gust === 'object') {
-      const v = parseFloat(gust.value ?? gust.Value ?? gust)
+    if (gust != null) {
+      const v = parseFloat(typeof gust === 'object' ? (gust.value ?? gust.Value ?? gust) : gust)
       if (!isNaN(v)) entry.gust_kt = v * 1.94384
     }
 
     // Pressure
     const pres = obs.AirPressure
-    if (pres != null && typeof pres === 'object') {
-      entry.pressure_hpa = parseFloat(pres.value ?? pres.Value ?? pres)
+    if (pres != null) {
+      const v = parseFloat(typeof pres === 'object' ? (pres.value ?? pres.Value ?? pres) : pres)
+      if (!isNaN(v)) entry.pressure_hpa = v
     }
 
     // Humidity
     const rh = obs.RelativeHumidity
-    if (rh != null && typeof rh === 'object') {
-      entry.humidity_pct = parseFloat(rh.value ?? rh.Value ?? rh)
+    if (rh != null) {
+      const v = parseFloat(typeof rh === 'object' ? (rh.value ?? rh.Value ?? rh) : rh)
+      if (!isNaN(v)) entry.humidity_pct = v
     }
 
     // Visibility (from O-A0003-001 10-min obs)
@@ -327,6 +340,15 @@ function buildSpotObs(marineObs, weatherObs) {
         wind_dir: buoy.wind_dir,
         current_speed_ms: buoy.current_speed_ms,
         current_dir: buoy.current_dir,
+      }
+    }
+
+    // If buoy has no wind, try tide station's anemometer (many tide stations report wind)
+    if (entry.buoy && entry.buoy.wind_kt == null) {
+      const ts = marineObs[mapping.tide]
+      if (ts?.wind_speed_ms != null) {
+        entry.buoy.wind_kt = Math.round(ts.wind_speed_ms * 1.94384 * 10) / 10
+        entry.buoy.wind_dir = ts.wind_dir
       }
     }
 
