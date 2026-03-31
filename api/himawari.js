@@ -19,7 +19,9 @@
 
 const NICT_BASE = 'https://himawari8-dl.nict.go.jp/himawari8/img'
 const SLIDER_BASE = 'https://rammb-slider.cira.colostate.edu/data'
-const JMA_BASE = 'https://www.data.jma.go.jp/mscweb/data/himawari/img/se2'
+// jp = Japan area (~20-50°N, 118-150°E) — higher res than se2 for Taiwan
+const JMA_BASE_JP = 'https://www.data.jma.go.jp/mscweb/data/himawari/img/jpn'
+const JMA_BASE_SE2 = 'https://www.data.jma.go.jp/mscweb/data/himawari/img/se2'
 const VALID_BANDS = ['INFRARED_FULL', 'D531106']
 const VALID_ZOOMS = [1, 2, 4, 8, 16, 20]
 
@@ -86,24 +88,26 @@ export default async function handler(req, res) {
       }
     } catch { /* fall through */ }
 
-    // 3. Try JMA MSC
+    // 3. Try JMA MSC — jp (Japan area, higher res) first, then se2 (SE Asia)
     const now = new Date()
     const avail = new Date(now.getTime() - 50 * 60 * 1000)
     const mm = Math.floor(avail.getUTCMinutes() / 10) * 10
     avail.setUTCMinutes(mm, 0, 0)
     const jmaBand = NICT_TO_JMA[band] || 'b13'
     const hhmm = String(avail.getUTCHours()).padStart(2, '0') + String(mm).padStart(2, '0')
-    try {
-      const jmaUrl = `${JMA_BASE}/se2_${jmaBand}_${hhmm}.jpg`
-      const resp = await fetch(jmaUrl, {
-        method: 'HEAD', signal: AbortSignal.timeout(5000), headers: FETCH_HEADERS,
-      })
-      if (resp.ok) {
-        res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=300')
-        res.setHeader('Access-Control-Allow-Origin', '*')
-        return res.status(200).json({ date: avail.toISOString(), band, source: 'jma', jmaBand, hhmm })
-      }
-    } catch { /* fall through */ }
+    for (const [base, sector] of [[JMA_BASE_JP, 'jpn'], [JMA_BASE_SE2, 'se2']]) {
+      try {
+        const jmaUrl = `${base}/${sector}_${jmaBand}_${hhmm}.jpg`
+        const resp = await fetch(jmaUrl, {
+          method: 'HEAD', signal: AbortSignal.timeout(4000), headers: FETCH_HEADERS,
+        })
+        if (resp.ok) {
+          res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=300')
+          res.setHeader('Access-Control-Allow-Origin', '*')
+          return res.status(200).json({ date: avail.toISOString(), band, source: 'jma', jmaBand, hhmm, jmaSector: sector })
+        }
+      } catch { /* try next */ }
+    }
 
     return res.status(502).json({ error: 'All satellite sources unavailable (NICT, SLIDER, JMA)' })
   }
@@ -168,11 +172,13 @@ export default async function handler(req, res) {
 
   if (q === 'regional') {
     const jmaBand = req.query.jmaBand || NICT_TO_JMA[band] || 'b13'
+    const sector = req.query.sector || 'jpn'
     const hhmm = req.query.hhmm
     if (!hhmm || !/^\d{4}$/.test(hhmm)) {
       return res.status(400).json({ error: 'Invalid hhmm parameter' })
     }
-    const jmaUrl = `${JMA_BASE}/se2_${jmaBand}_${hhmm}.jpg`
+    const jmaBase = sector === 'se2' ? JMA_BASE_SE2 : JMA_BASE_JP
+    const jmaUrl = `${jmaBase}/${sector}_${jmaBand}_${hhmm}.jpg`
     try {
       const resp = await fetch(jmaUrl, {
         signal: AbortSignal.timeout(15000),
