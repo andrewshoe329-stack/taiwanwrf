@@ -17,6 +17,7 @@ const CWA_BASE = 'https://opendata.cwa.gov.tw/api/v1/rest/datastore'
 /** Parse a CWA value, filtering sentinels (-99) and non-numeric strings. */
 function cwaFloat(v) {
   if (v == null || v === 'None' || v === '' || v === '-99' || v === '-99.0') return undefined
+  if (typeof v === 'object') v = v.value ?? v.Value ?? v
   const n = parseFloat(v)
   return isNaN(n) || n <= -99 ? undefined : n
 }
@@ -159,46 +160,13 @@ function parseWeatherObs(data) {
       obs_time: obsTime,
     }
 
-    // Temperature
-    const temp = obs.AirTemperature
-    if (temp != null && typeof temp === 'object') {
-      entry.temp_c = parseFloat(temp.value ?? temp.Value ?? temp)
-    } else if (temp != null) {
-      entry.temp_c = parseFloat(temp)
-    }
-
-    // Wind — handle both object {value: "3.2"} and plain number/string formats
-    const ws = obs.WindSpeed
-    if (ws != null) {
-      const v = parseFloat(typeof ws === 'object' ? (ws.value ?? ws.Value ?? ws) : ws)
-      if (!isNaN(v)) entry.wind_kt = v * 1.94384 // m/s → kt
-    }
-    const wd = obs.WindDirection
-    if (wd != null) {
-      const v = parseFloat(typeof wd === 'object' ? (wd.value ?? wd.Value ?? wd) : wd)
-      if (!isNaN(v)) entry.wind_dir = v
-    }
-
-    // Gust
-    const gust = obs.GustInfo?.PeakGustSpeed
-    if (gust != null) {
-      const v = parseFloat(typeof gust === 'object' ? (gust.value ?? gust.Value ?? gust) : gust)
-      if (!isNaN(v)) entry.gust_kt = v * 1.94384
-    }
-
-    // Pressure
-    const pres = obs.AirPressure
-    if (pres != null) {
-      const v = parseFloat(typeof pres === 'object' ? (pres.value ?? pres.Value ?? pres) : pres)
-      if (!isNaN(v)) entry.pressure_hpa = v
-    }
-
-    // Humidity
-    const rh = obs.RelativeHumidity
-    if (rh != null) {
-      const v = parseFloat(typeof rh === 'object' ? (rh.value ?? rh.Value ?? rh) : rh)
-      if (!isNaN(v)) entry.humidity_pct = v
-    }
+    // All fields use cwaFloat() to unwrap CWA object/plain formats AND filter -99 sentinels
+    const temp = cwaFloat(obs.AirTemperature); if (temp != null) entry.temp_c = temp
+    const ws = cwaFloat(obs.WindSpeed); if (ws != null) entry.wind_kt = ws * 1.94384
+    const wd = cwaFloat(obs.WindDirection); if (wd != null) entry.wind_dir = wd
+    const gust = cwaFloat(obs.GustInfo?.PeakGustSpeed); if (gust != null) entry.gust_kt = gust * 1.94384
+    const pres = cwaFloat(obs.AirPressure); if (pres != null) entry.pressure_hpa = pres
+    const rh = cwaFloat(obs.RelativeHumidity); if (rh != null) entry.humidity_pct = rh
 
     // Visibility (from O-A0003-001 10-min obs)
     const vis = obs.VisibilityDescription
