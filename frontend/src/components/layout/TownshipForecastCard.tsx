@@ -39,7 +39,7 @@ export function TownshipForecastCard({ cwaObs, locationId }: TownshipForecastCar
   const county = SPOT_COUNTY[locationId ?? 'keelung'] ?? '基隆市'
 
   // Try township_forecasts (3-day) first, then township_forecasts_week
-  const forecasts = (cwaObs as Record<string, unknown>)?.township_forecasts as
+  const forecasts = (cwaObs as unknown as Record<string, unknown>)?.township_forecasts as
     Record<string, { location?: string; elements?: Record<string, unknown[]> }> | undefined
   const weekForecasts = cwaObs?.township_forecasts_week
 

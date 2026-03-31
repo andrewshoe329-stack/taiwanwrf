@@ -49,8 +49,8 @@ export function SwellWindowFinder({ spots, onSelectSpot }: SwellWindowFinderProp
         const db = sf.daily_best?.find(b => b.date === w.date)
         windows.push({
           spotId: sf.spot.id,
-          spotName: sf.spot.name,
-          spotNameZh: sf.spot.name_zh ?? sf.spot.name,
+          spotName: sf.spot.name.en,
+          spotNameZh: sf.spot.name.zh ?? sf.spot.name.en,
           date: w.date,
           dayName: DAY_NAMES[d.getDay()],
           dayNameZh: DAY_NAMES_ZH[d.getDay()],

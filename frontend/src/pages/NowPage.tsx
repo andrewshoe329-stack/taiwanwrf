@@ -63,7 +63,9 @@ export function NowPage() {
     if (alertsFired.current || data.loading) return
     const records = data.keelung?.records
     const waveRecs = data.wave?.ecmwf_wave?.records
-    const surfRatings = data.surf?.spots?.flatMap(s => s.ratings) ?? []
+    const surfRatings = (data.surf?.spots?.flatMap(s => s.ratings) ?? []).map(r => ({
+      valid_utc: r.valid_utc, score: r.score ?? undefined, rating: r.rating ?? undefined,
+    }))
     if (records?.length) {
       alertsFired.current = true
       checkAlerts(records, waveRecs ?? [], surfRatings)
