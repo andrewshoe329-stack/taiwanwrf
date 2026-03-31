@@ -38,16 +38,16 @@ const WEATHER_STATIONS = [
   'C0U880', // 北關 (Daxi area)
 ].join(',')
 
-// Spot → nearest stations mapping
+// Spot → nearest stations mapping (weather_alt: fallback stations for wind)
 const SPOT_STATIONS = {
-  keelung:     { weather: '466940', tide: 'C4B01',  buoy: '46694A' },
-  jinshan:     { weather: 'C0A940', tide: 'C4A03',  buoy: 'C6AH2'  },
-  greenbay:    { weather: 'C0AJ20', tide: 'C4B01',  buoy: '46694A' },
-  fulong:      { weather: 'C2A880', tide: 'C4A05',  buoy: '46694A' },
-  daxi:        { weather: 'C0UA80', tide: 'C4U02',  buoy: '46708A' },
-  doublelions: { weather: 'C0U860', tide: 'C4U02',  buoy: '46708A' },
-  wushih:      { weather: 'C0U860', tide: 'C4U02',  buoy: '46708A' },
-  chousui:     { weather: 'C0U860', tide: 'C4U02',  buoy: '46708A' },
+  keelung:     { weather: '466940', weather_alt: ['C0B050'],                   tide: 'C4B01',  buoy: '46694A' },
+  jinshan:     { weather: 'C0A940', weather_alt: ['C0AJ20', '466940'],         tide: 'C4A03',  buoy: 'C6AH2'  },
+  greenbay:    { weather: 'C0AJ20', weather_alt: ['C0B050', '466940'],         tide: 'C4B01',  buoy: '46694A' },
+  fulong:      { weather: 'C2A880', weather_alt: ['C0AJ20', 'C0U880'],         tide: 'C4A05',  buoy: '46694A' },
+  daxi:        { weather: 'C0UA80', weather_alt: ['C0U880', 'C0U860'],         tide: 'C4U02',  buoy: '46708A' },
+  doublelions: { weather: 'C0U860', weather_alt: ['C0U880', 'C0UA80'],         tide: 'C4U02',  buoy: '46708A' },
+  wushih:      { weather: 'C0U860', weather_alt: ['C0U880', 'C0UA80'],         tide: 'C4U02',  buoy: '46708A' },
+  chousui:     { weather: 'C0U860', weather_alt: ['C0U880', 'C0UA80'],         tide: 'C4U02',  buoy: '46708A' },
 }
 
 async function fetchCwa(endpoint, params) {
@@ -147,7 +147,17 @@ function parseWeatherObs(data) {
     const id = stn.StationId || stn.stationId
     if (!id) continue
 
-    const obs = stn.WeatherElement || stn.weatherElement || {}
+    // WeatherElement can be an object or an array of {ElementName, ElementValue}
+    let obs = stn.WeatherElement || stn.weatherElement || {}
+    if (Array.isArray(obs)) {
+      const converted = {}
+      for (const el of obs) {
+        const name = el.ElementName || el.elementName
+        const val = el.ElementValue ?? el.elementValue ?? el.Value ?? el.value
+        if (name) converted[name] = val
+      }
+      obs = converted
+    }
     const obsTime = stn.ObsTime?.DateTime || stn.obsTime?.dateTime
 
     const entry = {
@@ -164,34 +174,37 @@ function parseWeatherObs(data) {
       entry.temp_c = parseFloat(temp)
     }
 
-    // Wind
+    // Wind — handle both object {value: "3.2"} and plain number/string formats
     const ws = obs.WindSpeed
-    if (ws != null && typeof ws === 'object') {
-      const v = parseFloat(ws.value ?? ws.Value ?? ws)
+    if (ws != null) {
+      const v = parseFloat(typeof ws === 'object' ? (ws.value ?? ws.Value ?? ws) : ws)
       if (!isNaN(v)) entry.wind_kt = v * 1.94384 // m/s → kt
     }
     const wd = obs.WindDirection
-    if (wd != null && typeof wd === 'object') {
-      entry.wind_dir = parseFloat(wd.value ?? wd.Value ?? wd)
+    if (wd != null) {
+      const v = parseFloat(typeof wd === 'object' ? (wd.value ?? wd.Value ?? wd) : wd)
+      if (!isNaN(v)) entry.wind_dir = v
     }
 
     // Gust
     const gust = obs.GustInfo?.PeakGustSpeed
-    if (gust != null && typeof gust === 'object') {
-      const v = parseFloat(gust.value ?? gust.Value ?? gust)
+    if (gust != null) {
+      const v = parseFloat(typeof gust === 'object' ? (gust.value ?? gust.Value ?? gust) : gust)
       if (!isNaN(v)) entry.gust_kt = v * 1.94384
     }
 
     // Pressure
     const pres = obs.AirPressure
-    if (pres != null && typeof pres === 'object') {
-      entry.pressure_hpa = parseFloat(pres.value ?? pres.Value ?? pres)
+    if (pres != null) {
+      const v = parseFloat(typeof pres === 'object' ? (pres.value ?? pres.Value ?? pres) : pres)
+      if (!isNaN(v)) entry.pressure_hpa = v
     }
 
     // Humidity
     const rh = obs.RelativeHumidity
-    if (rh != null && typeof rh === 'object') {
-      entry.humidity_pct = parseFloat(rh.value ?? rh.Value ?? rh)
+    if (rh != null) {
+      const v = parseFloat(typeof rh === 'object' ? (rh.value ?? rh.Value ?? rh) : rh)
+      if (!isNaN(v)) entry.humidity_pct = v
     }
 
     // Visibility (from O-A0003-001 10-min obs)
@@ -233,7 +246,7 @@ function buildSpotObs(marineObs, weatherObs) {
   for (const [spotId, mapping] of Object.entries(SPOT_STATIONS)) {
     const entry = {}
 
-    // Weather station
+    // Weather station — try primary, then fallbacks for wind
     const ws = weatherObs[mapping.weather]
     if (ws) {
       entry.station = {
@@ -250,6 +263,48 @@ function buildSpotObs(marineObs, weatherObs) {
         uv_index: ws.uv_index,
       }
     }
+
+    // If primary station has no wind, try fallback stations
+    if (entry.station?.wind_kt == null && mapping.weather_alt) {
+      for (const altId of mapping.weather_alt) {
+        const alt = weatherObs[altId]
+        if (alt?.wind_kt != null) {
+          entry.station = entry.station || {
+            station_id: alt.station_id,
+            station_name: alt.station_name,
+            obs_time: alt.obs_time,
+          }
+          entry.station.wind_kt = Math.round(alt.wind_kt * 10) / 10
+          entry.station.wind_dir = alt.wind_dir
+          if (alt.gust_kt != null) entry.station.gust_kt = Math.round(alt.gust_kt * 10) / 10
+          entry.station.wind_source = altId
+          break
+        }
+      }
+    }
+
+    // If no station at all, create one from the best fallback that has data
+    if (!entry.station && mapping.weather_alt) {
+      for (const altId of mapping.weather_alt) {
+        const alt = weatherObs[altId]
+        if (alt) {
+          entry.station = {
+            station_id: alt.station_id,
+            station_name: alt.station_name,
+            obs_time: alt.obs_time,
+            temp_c: alt.temp_c,
+            wind_kt: alt.wind_kt != null ? Math.round(alt.wind_kt * 10) / 10 : undefined,
+            wind_dir: alt.wind_dir,
+            gust_kt: alt.gust_kt != null ? Math.round(alt.gust_kt * 10) / 10 : undefined,
+            pressure_hpa: alt.pressure_hpa,
+            humidity_pct: alt.humidity_pct,
+            wind_source: altId,
+          }
+          break
+        }
+      }
+    }
+
     // Inherit visibility/UV from Keelung if local station doesn't have it
     if (entry.station && entry.station.visibility_km == null) {
       const kl = weatherObs['466940']
@@ -288,6 +343,15 @@ function buildSpotObs(marineObs, weatherObs) {
       }
     }
 
+    // If buoy has no wind, try tide station's anemometer (many tide stations report wind)
+    if (entry.buoy && entry.buoy.wind_kt == null) {
+      const ts = marineObs[mapping.tide]
+      if (ts?.wind_speed_ms != null) {
+        entry.buoy.wind_kt = Math.round(ts.wind_speed_ms * 1.94384 * 10) / 10
+        entry.buoy.wind_dir = ts.wind_dir
+      }
+    }
+
     if (Object.keys(entry).length > 0) {
       spots[spotId] = entry
     }
@@ -312,7 +376,6 @@ export default async function handler(req, res) {
       }),
       fetchCwa('O-A0001-001', {
         StationId: WEATHER_STATIONS,
-        WeatherElement: 'AirTemperature,WindSpeed,WindDirection,GustInfo,AirPressure,RelativeHumidity',
       }),
       fetchCwa('O-A0003-001', {
         StationId: '466940',
