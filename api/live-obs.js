@@ -376,7 +376,6 @@ export default async function handler(req, res) {
       }),
       fetchCwa('O-A0001-001', {
         StationId: WEATHER_STATIONS,
-        WeatherElement: 'AirTemperature,WindSpeed,WindDirection,GustInfo,AirPressure,RelativeHumidity',
       }),
       fetchCwa('O-A0003-001', {
         StationId: '466940',
