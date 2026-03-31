@@ -591,9 +591,6 @@ export function NowPage() {
         </div>
       )}
 
-      {/* Weather warnings */}
-      <WeatherWarnings />
-
       {/* CWA Township Forecast */}
       <TownshipForecastCard cwaObs={data.cwa_obs} locationId={locationId} />
 
