@@ -52,8 +52,8 @@ Removed redundant `.exists()` checks before `load_json_file()` calls (which alre
 **B2. Silent data loss in WRF download thread pool** — FIXED
 Added failure counter in taiwan_wrf_download.py. Pipeline aborts if >30% of forecast hours fail.
 
-**B3. Precipitation accumulation reset warning** — FIXED
-Added `log.warning()` when precip accumulation decreases (model reset). File: wrf_analyze.py.
+**B3. Precipitation accumulation reset** — FIXED
+When precip accumulation resets (model restart), 6h precip is now set to `None` instead of using the raw value. Log warning added. File: wrf_analyze.py (both single-point and all-spots paths).
 
 ### High — FIXED
 
@@ -63,14 +63,19 @@ Added `log.warning()` to ecmwf_fetch.py and wave_fetch.py `process()` when API r
 **B5. Circular wind direction NaN guard** — FIXED
 `_circular_diff()` in accuracy_track.py now returns None for non-finite inputs. Callers filter None results.
 
+**B6. GRIB2 file TOCTOU** — FIXED
+Replaced `.exists()` + `.stat()` with try/except `FileNotFoundError` in `read_point()`.
+
+**B7. Wave fetch empty response guard** — FIXED
+`wave_fetch.py` now exits non-zero if ECMWF WAM returns no records after processing.
+
+**B8. Shared `run_parallel()` utility** — FIXED
+Added `config.run_parallel()` for standardized thread pool execution with failure tracking and threshold-based abort.
+
 ### Medium — OPEN
 
-**B6. Precip units heuristic fragile** — OPEN
+**B9. Precip units heuristic fragile** — OPEN
 wrf_analyze.py uses magnitude heuristic to detect metres vs mm. Heavy rain events (>500mm/6h) could be misidentified.
-- **Effort:** 30min
-
-**B7. Inconsistent thread pool error handling** — OPEN
-Some thread pools log+continue, others don't check results.
 - **Effort:** 30min
 
 ---
@@ -86,9 +91,8 @@ Added `python -m pytest tests/ -v --tb=short` step to wrf.yml workflow.
 **C3. Pip cache key includes Python version** — FIXED
 Cache key changed to `pip-${{ runner.os }}-py3.11-${{ hashFiles('requirements.txt') }}`.
 
-**C4. Frontend tests** — OPEN
-No vitest/jest configured. Consider adding unit tests for forecast-utils.ts, wind-particles.ts.
-- **Effort:** 3h
+**C4. Frontend tests** — FIXED
+Vitest configured with 50 tests covering forecast-utils.ts (degToCompass, windType, sailDecision, surfDecision, groupByDay, etc.).
 
 ---
 
@@ -98,11 +102,16 @@ No vitest/jest configured. Consider adding unit tests for forecast-utils.ts, win
 ErrorBoundary component wraps app in main.tsx. Shows reload button on crash.
 
 **F2. Security headers** — FIXED
-vercel.json now includes Strict-Transport-Security, Permissions-Policy.
+vercel.json now includes Strict-Transport-Security, Permissions-Policy, Content-Security-Policy.
 
-**F3. NowPage.tsx is too large (~500 lines)** — OPEN
-renderLiveObs defined inline, recreated every render. Consider extracting to separate component.
-- **Effort:** 2h
+**F3. NowPage.tsx decomposition** — FIXED
+Extracted 4 components: LiveObsCard, SpotDetail, KeelungDetail, EnsembleAccuracyPills. NowPage reduced from ~725 to ~440 lines.
+
+**F4. useLiveObs retry/backoff** — FIXED
+Exponential backoff on consecutive failures: 5m → 10m → 20m (capped). Resets on success.
+
+**F5. Wave map legend** — FIXED
+Color ramp legend (0-3+m) drawn in bottom-left corner when wave heatmap mode is active.
 
 ---
 
@@ -124,9 +133,8 @@ wrf_analyze.py GRIB2 processing catches (KeyError, ValueError, TypeError, OSErro
 
 ### High Value
 
-**9. Wave map legend** — OPEN
-The wave heatmap has no legend. Add color ramp (0-3m) in bottom-left when wave mode active.
-- **Effort:** 1h
+**9. Wave map legend** — FIXED
+Color ramp legend (0-3+m) rendered on canvas in wave heatmap mode.
 
 **10. Show specialized CWA warnings per spot** — OPEN
 Display township-level rain/heat/cold warnings as colored badges on map and in spot detail.
@@ -152,10 +160,8 @@ Alternative to Recharts tooltip sync: show all values at selected timestep below
 
 ## Priority Order (remaining work)
 
-1. Fix P1-3 (Keelung current display)
-2. Fix P1-5 (specialized warning UI)
-3. Add wave map legend
-4. Show accuracy by horizon
-5. Extract NowPage.tsx components (F3)
-6. Add frontend tests (C4)
-7. Narrow GRIB2 exception catches (Q3)
+1. Fix P1-5 (specialized warning UI)
+2. Show accuracy by horizon
+3. Add precipitation spread display
+4. Narrow GRIB2 exception catches (Q3)
+5. ForecastMap.tsx decomposition (877 lines — extract layer renderers)

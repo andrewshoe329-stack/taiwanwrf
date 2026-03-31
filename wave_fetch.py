@@ -401,6 +401,9 @@ def main():
         log.error("ECMWF WAM fetch failed — cannot continue.")
         sys.exit(1)
     ecmwf_meta, ecmwf_recs = process_ecmwf_wave(ecmwf_raw)
+    if not ecmwf_recs:
+        log.error("ECMWF WAM: no records extracted from API response.")
+        sys.exit(1)
     log.info("ECMWF WAM: %d 6-hourly records", len(ecmwf_recs))
 
     result = {

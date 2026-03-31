@@ -191,11 +191,12 @@ def read_point(grib_path: Path, lat: float, lon: float) -> dict[str, float]:
     Returns a dict of raw values keyed by output_key.
     Grid geometry (lat/lon arrays) is cached so it's only computed once per file.
     """
-    if not grib_path.exists():
+    try:
+        if grib_path.stat().st_size == 0:
+            log.warning("GRIB2 file is empty: %s", grib_path)
+            return {}
+    except FileNotFoundError:
         log.warning("GRIB2 file does not exist: %s", grib_path)
-        return {}
-    if grib_path.stat().st_size == 0:
-        log.warning("GRIB2 file is empty: %s", grib_path)
         return {}
     import eccodes as ec
 
@@ -438,11 +439,11 @@ def extract_forecast(rundir: Path) -> tuple[dict, list[dict]]:
             elif rec['precip_mm'] >= prev_precip_mm:
                 rec['precip_mm_6h'] = round(rec['precip_mm'] - prev_precip_mm, 2)
             else:
-                # Model resets accumulation — treat as-is
+                # Model resets accumulation — cannot compute delta
                 log.warning("Precip accumulation reset at F%03d (%.2f < prev %.2f); "
-                            "using raw value as 6h estimate",
+                            "setting 6h precip to None",
                             fh, rec['precip_mm'], prev_precip_mm)
-                rec['precip_mm_6h'] = rec['precip_mm']
+                rec['precip_mm_6h'] = None
         else:
             rec['precip_mm_6h'] = rec.get('precip_mm')
 
@@ -525,7 +526,8 @@ def extract_all_spots(rundir: Path) -> dict:
                 elif rec['precip_mm'] >= prev_precip[spot_id]:
                     rec['precip_mm_6h'] = round(rec['precip_mm'] - prev_precip[spot_id], 2)
                 else:
-                    rec['precip_mm_6h'] = rec['precip_mm']
+                    # Model resets accumulation — cannot compute delta
+                    rec['precip_mm_6h'] = None
             else:
                 rec['precip_mm_6h'] = rec.get('precip_mm')
 

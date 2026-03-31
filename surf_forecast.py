@@ -29,6 +29,8 @@ from tide_predict import (predict_height, predict_height_anchored,
 
 # CWA official tide forecast extrema — loaded at startup from cwa_obs.json
 # when available.  Used by _tide_height() for anchored interpolation.
+# Threading safety: these are write-once in main() BEFORE ThreadPoolExecutor
+# starts, then read-only from worker threads.  Safe under CPython's GIL.
 _CWA_TIDE_EXTREMA: list[dict] | None = None
 
 # Per-station tide forecast extrema — keyed by station name (e.g. "基隆", "蘇澳")

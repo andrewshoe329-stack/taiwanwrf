@@ -7,6 +7,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 # ── Design system theme tokens ────────────────────────────────────────────────
@@ -440,3 +441,50 @@ def load_json_file(path: str, label: str = "") -> dict | list | None:
     except (OSError, json.JSONDecodeError, ValueError) as e:
         log.warning("Could not load %s: %s", label or path, e)
         return None
+
+
+def run_parallel(fn, items, *, max_workers: int = 4,
+                 max_fail_pct: float = 30.0,
+                 label: str = "parallel tasks"):
+    """Run ``fn(item)`` in parallel for each item, with failure tracking.
+
+    Returns a list of (item, result) tuples for successful calls.
+    Logs a warning for each failed item. Raises RuntimeError if more than
+    ``max_fail_pct`` percent of items fail.
+
+    Args:
+        fn: Callable taking a single item and returning a result.
+        items: Iterable of items to process.
+        max_workers: Maximum number of concurrent threads.
+        max_fail_pct: Abort threshold — raise if failure rate exceeds this %.
+        label: Human-readable label for log messages.
+    """
+    log = logging.getLogger(__name__)
+    items = list(items)
+    if not items:
+        return []
+
+    results = []
+    failed = []
+
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        futures = {pool.submit(fn, item): item for item in items}
+        for future in as_completed(futures):
+            item = futures[future]
+            try:
+                results.append((item, future.result()))
+            except Exception as exc:
+                failed.append((item, exc))
+                log.warning("%s: item %s failed: %s", label, item, exc)
+
+    if failed:
+        fail_pct = len(failed) / len(items) * 100
+        log.warning("%s: %d/%d failed (%.0f%%)",
+                    label, len(failed), len(items), fail_pct)
+        if fail_pct > max_fail_pct:
+            raise RuntimeError(
+                f"{label}: {len(failed)}/{len(items)} failed "
+                f"({fail_pct:.0f}%% > {max_fail_pct:.0f}%% threshold)"
+            )
+
+    return results
