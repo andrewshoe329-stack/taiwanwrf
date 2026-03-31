@@ -89,10 +89,9 @@ interface TickProps {
 }
 
 export function MultiLineTick(props: TickProps) {
-  const { x = 0, y = 0, payload, index = 0, ticks } = props
+  const { x = 0, y = 0, payload, index = 0 } = props
   if (payload?.value == null) return null
 
-  // Numeric axis: value is ms timestamp
   const ms = typeof payload.value === 'number' ? payload.value : Number(payload.value)
   if (isNaN(ms)) return null
 
@@ -104,18 +103,9 @@ export function MultiLineTick(props: TickProps) {
   const dd = d.getUTCDate()
   const hh = String(d.getUTCHours()).padStart(2, '0')
 
-  const dayKey = `${dayName} ${mm}/${dd}`
-
-  // Determine whether to show day header by comparing to previous tick
-  let showDate = index === 0
-  if (!showDate && Array.isArray(ticks) && index > 0) {
-    const prev = ticks[index - 1]
-    const prevMs = typeof prev === 'number' ? prev : prev?.value ?? 0
-    const pd = new Date(prevMs)
-    pd.setUTCHours(pd.getUTCHours() + 8)
-    const prevKey = `${DAY_NAMES[pd.getUTCDay()]} ${pd.getUTCMonth() + 1}/${pd.getUTCDate()}`
-    showDate = dayKey !== prevKey
-  }
+  // Show day label at midnight CST (00h) or on the first tick
+  const isMidnight = d.getUTCHours() === 0
+  const showDate = index === 0 || isMidnight
 
   return (
     <g transform={`translate(${x},${y})`}>
@@ -124,19 +114,19 @@ export function MultiLineTick(props: TickProps) {
           dy={10}
           textAnchor="middle"
           fill="var(--color-text-secondary)"
-          fontSize={10}
+          fontSize={9}
           fontWeight={500}
         >
-          {dayKey}
+          {dayName} {mm}/{dd}
         </text>
       )}
       <text
-        dy={showDate ? 22 : 10}
+        dy={showDate ? 21 : 10}
         textAnchor="middle"
         fill="var(--color-text-muted)"
         fontSize={9}
       >
-        {hh}:00
+        {hh}h
       </text>
     </g>
   )
