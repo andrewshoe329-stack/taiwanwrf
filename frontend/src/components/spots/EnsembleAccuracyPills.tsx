@@ -30,11 +30,20 @@ export function EnsembleAccuracyPills({ ensemble, accuracy }: EnsembleAccuracyPi
               {accuracy[0].wave?.hs_mae_m != null && ` · ±${accuracy[0].wave.hs_mae_m.toFixed(1)}m wave`}
             </span>
           )}
-          {accuracy?.[0]?.by_horizon?.['0-24h']?.wind_mae_kt != null && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
-              24h: ±{accuracy[0].by_horizon['0-24h'].wind_mae_kt.toFixed(1)}kt
-            </span>
-          )}
+          {accuracy?.[0]?.by_horizon && (() => {
+            const horizons = ['0-24h', '24-48h', '48-72h'] as const
+            const labels = ['24h', '48h', '72h']
+            return horizons.map((h, i) => {
+              const wind = accuracy![0].by_horizon?.[h]?.wind_mae_kt
+              if (wind == null) return null
+              const temp = accuracy![0].by_horizon?.[h]?.temp_mae_c
+              return (
+                <span key={h} className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
+                  {labels[i]}: ±{wind.toFixed(1)}kt{temp != null && ` ±${temp.toFixed(1)}°C`}
+                </span>
+              )
+            })
+          })()}
           {ensemble?.spread?.precip_spread_mm != null && ensemble.spread.precip_spread_mm > 1 && (
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
               Rain spread ±{ensemble.spread.precip_spread_mm.toFixed(1)}mm

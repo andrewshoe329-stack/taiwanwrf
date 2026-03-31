@@ -8,6 +8,7 @@ import { LiveObsCard } from '@/components/spots/LiveObsCard'
 import { EnsembleAccuracyPills } from '@/components/spots/EnsembleAccuracyPills'
 import { TideSparkline } from '@/components/charts/TideSparkline'
 import { degToCompass, windType } from '@/lib/forecast-utils'
+import { SPOT_COUNTY } from '@/lib/constants'
 import type { SpotInfo, SpotRating, SpotForecast, TidePrediction, TideExtremum, EnsembleData, AccuracyEntry, CwaObs } from '@/lib/types'
 
 function InfoPill({ label, value }: { label: string; value?: string }) {
@@ -119,12 +120,17 @@ export function SpotDetail({
         {currentRating?.wind_dir != null && spotInfo.facing && (
           <InfoPill label={t('common.wind')} value={windType(currentRating.wind_dir, spotInfo.facing)} />
         )}
-        {cwaObs?.specialized_warnings?.map((w, i) => (
+        {cwaObs?.specialized_warnings
+          ?.filter(w => {
+            const county = SPOT_COUNTY[spotInfo.id]
+            return !county || !w.area || w.area.includes(county)
+          })
+          .map((w, i) => (
           <span key={i} className={`text-[10px] px-1.5 py-0.5 rounded ${
             w.type === 'rain' ? 'bg-blue-500/20 text-blue-400' :
             w.type === 'heat' ? 'bg-red-500/20 text-red-400' :
             'bg-cyan-500/20 text-cyan-400'
-          }`}>
+          }`} title={w.headline || w.description || undefined}>
             {w.severity_level || w.event || w.type}
           </span>
         ))}

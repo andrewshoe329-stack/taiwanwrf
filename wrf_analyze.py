@@ -242,7 +242,9 @@ def read_point(grib_path: Path, lat: float, lon: float) -> dict[str, float]:
                                     if len(vals2) != ni2 * nj2:
                                         raise ValueError(f"Values array size {len(vals2)} != {ni2}*{nj2}")
                                     raw[out_key] = float(vals2.reshape(nj2, ni2)[jj, ii])
-                        except (KeyError, ValueError, TypeError, OSError) as e:
+                        except KeyError as e:
+                            log.debug("paramId key not found: %s", e)
+                        except (ValueError, TypeError, OSError) as e:
                             log.warning("paramId fallback failed: %s", e)
                     continue
 
@@ -312,8 +314,12 @@ def read_point(grib_path: Path, lat: float, lon: float) -> dict[str, float]:
 
                 raw[matched_key] = val
 
-            except (KeyError, ValueError, TypeError, OSError) as e:
-                log.warning("Skipping GRIB message in read_point: %s", e)
+            except KeyError as e:
+                log.debug("GRIB key not found: %s", e)
+            except (ValueError, TypeError) as e:
+                log.warning("GRIB decode error in read_point: %s", e)
+            except OSError as e:
+                log.warning("GRIB I/O error in read_point: %s", e)
             finally:
                 ec.codes_release(msg)
 
@@ -618,8 +624,10 @@ def extract_wind_grid(rundir: Path, meta: dict) -> dict | None:
                                 'lon_max': float(lons.max()),
                             }
 
-                except (KeyError, ValueError, TypeError, OSError):
-                    pass
+                except KeyError:
+                    pass  # expected: not all messages have u/v wind
+                except (ValueError, TypeError, OSError) as e:
+                    log.debug("Wind grid extraction skipped for message: %s", e)
                 finally:
                     ec.codes_release(msg)
 
