@@ -1,5 +1,5 @@
 // Service Worker for Taiwan WRF Forecast PWA
-const CACHE_NAME = 'tw-forecast-v5'
+const CACHE_NAME = 'tw-forecast-v6'
 const PRECACHE_URLS = ['/', '/manifest.json', '/icon.svg']
 
 // ── Install: precache app shell ─────────────────────────────────────────────
@@ -62,12 +62,9 @@ function cacheFirstWithExpiry(request, maxAgeMs) {
   return caches.match(request).then((cached) => {
     if (cached) {
       const dateHeader = cached.headers.get('date')
-      if (dateHeader) {
-        const age = Date.now() - new Date(dateHeader).getTime()
-        if (age < maxAgeMs) return cached
-      } else {
-        return cached
-      }
+      const age = dateHeader ? Date.now() - new Date(dateHeader).getTime() : Infinity
+      if (age < maxAgeMs) return cached
+      // Expired or no date header (opaque) — refetch, but keep as fallback
     }
     return fetch(request).then((response) => {
       // Cache opaque responses for cross-origin fonts
@@ -109,9 +106,9 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // Fonts and external resources: cache-first with 7-day expiry
+  // Fonts: cache-first with 7-day expiry
   if (
-    url.hostname !== self.location.hostname ||
+    url.hostname !== self.location.hostname &&
     url.pathname.match(/\.(woff2?|ttf|otf|eot)$/)
   ) {
     const sevenDays = 7 * 24 * 60 * 60 * 1000

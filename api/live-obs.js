@@ -123,12 +123,15 @@ function parseMarineObs(data) {
       }
     }
 
-    // Sea currents
-    if (we.CurrentSpeed != null && we.CurrentSpeed !== 'None') {
-      entry.current_speed_ms = parseFloat(we.CurrentSpeed)
-    }
-    if (we.CurrentDirection != null && we.CurrentDirection !== 'None') {
-      entry.current_dir = parseFloat(we.CurrentDirection)
+    // Sea currents (nested under SeaCurrents object, like PrimaryAnemometer)
+    const currents = we.SeaCurrents
+    if (currents && typeof currents === 'object') {
+      if (currents.CurrentSpeed != null && currents.CurrentSpeed !== 'None') {
+        entry.current_speed_ms = parseFloat(currents.CurrentSpeed)
+      }
+      if (currents.CurrentDirection != null && currents.CurrentDirection !== 'None') {
+        entry.current_dir = parseFloat(currents.CurrentDirection)
+      }
     }
 
     result[id] = entry
