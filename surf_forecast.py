@@ -196,43 +196,72 @@ def _facing_deg(facing: str) -> float:
     return math.degrees(math.atan2(sx, cx)) % 360
 
 
+def _swell_cos2(sw_dir: float, opt_dirs: list[str]) -> float:
+    """Compute cos²(min angular difference to optimal swell directions).
+
+    Returns a value in [0, 1]:
+      - 1.0 when swell direction exactly matches an optimal direction
+      - 0.5 at 45° off from nearest optimal
+      - 0.0 at 90° or more off from nearest optimal
+    """
+    if not opt_dirs:
+        return 0.5  # no preference defined — neutral
+    min_angle = min(deg_diff(sw_dir, DIR_DEG[d]) for d in opt_dirs)
+    if min_angle >= 90.0:
+        return 0.0
+    return math.cos(math.radians(min_angle)) ** 2
+
+
 def _swell_dir_score(sw_dir: float | None, spot: dict) -> float:
-    """Score swell direction using cos²(swell_angle - beach_facing) weighting.
+    """Score swell direction using cos²(min_angle_to_optimal) weighting.
 
-    Returns a continuous score in [0, 4]:
-      - Swell hitting the beach head-on (from the facing direction): 4.0
-      - 45° offset from facing: ~2.0
-      - Parallel or from behind: 0.0
+    Computes the minimum angular difference between the incoming swell
+    direction and each of the spot's optimal swell directions, then applies
+    cos² to get a 0-1 quality factor mapped to a 0-4 point range:
 
-    The opt_swell list provides a bonus: swells from optimal directions get
-    the full cos² score, while other directions that still face the beach
-    are scaled to 75% max.
+      cos² >= 0.75  → 4 pts  (within ~30° of optimal)
+      cos² >= 0.50  → 3 pts  (within ~45° of optimal)
+      cos² >= 0.25  → 2 pts  (within ~60° of optimal)
+      cos² >  0     → 1 pt   (within ~90° of optimal)
+      cos² == 0     → 0 pts  (perpendicular or worse)
+
+    Returns a float in [0, 4].
     """
     if sw_dir is None:
         return 1.0  # unknown — same as old 'unknown' bucket
 
-    facing = _facing_deg(spot.get('facing', 'N'))
-    # Exposure angle: how directly the swell hits the beach face
-    diff = math.radians(sw_dir - facing)
-    cos_val = math.cos(diff)
-
-    if cos_val <= 0:
-        # Swell from behind the beach — cannot reach the shore
-        return 0.0
-
-    cos2 = cos_val ** 2  # 1.0 head-on, 0.5 at 45°, 0 at 90°
-
-    # Check if swell is from an optimal direction
     opt_dirs = spot.get('opt_swell', [])
-    if opt_dirs:
-        min_diff_opt = min(deg_diff(sw_dir, DIR_DEG[d]) for d in opt_dirs)
-        is_optimal = min_diff_opt <= 45.0  # within 45° of any optimal dir
-    else:
-        is_optimal = True
+    cos2 = _swell_cos2(sw_dir, opt_dirs)
 
-    # Optimal directions get full cos² score; non-optimal get 75% max
-    scale = 1.0 if is_optimal else 0.75
-    return round(4.0 * cos2 * scale, 1)
+    if cos2 >= 0.75:
+        return 4.0
+    if cos2 >= 0.50:
+        return 3.0
+    if cos2 >= 0.25:
+        return 2.0
+    if cos2 > 0:
+        return 1.0
+    return 0.0
+
+
+def _swell_quality(sw_dir: float | None, opt_dirs: list[str]) -> str:
+    """Classify swell direction quality using cos² of angle to optimal.
+
+    Returns 'good', 'ok', 'poor', or 'unknown' — backward-compatible with
+    the old dir_quality() interface but uses cos²-based thresholds:
+
+      cos² >= 0.75  → 'good'   (within ~30° of optimal)
+      cos² >= 0.25  → 'ok'     (within ~60° of optimal)
+      cos² <  0.25  → 'poor'   (>60° from any optimal direction)
+    """
+    if sw_dir is None or not opt_dirs:
+        return 'unknown'
+    cos2 = _swell_cos2(sw_dir, opt_dirs)
+    if cos2 >= 0.75:
+        return 'good'
+    if cos2 >= 0.25:
+        return 'ok'
+    return 'poor'
 
 
 def dir_quality(actual_deg: float | None, optimal_dirs: list[str]) -> str:
@@ -734,7 +763,7 @@ def best_time_for_day(day_recs: list[dict], spot: dict) -> dict[str, object] | N
 
     # Wind quality at best time
     wq = dir_quality(best_rec.get('w_dir'), spot['opt_wind'])
-    sq = dir_quality(best_rec.get('sw_dir'), spot['opt_swell'])
+    sq = _swell_quality(best_rec.get('sw_dir'), spot['opt_swell'])
 
     return {
         'score': best_score,
@@ -1693,7 +1722,7 @@ def _render_spot_detail(sd: dict, best_rating: int = 0) -> str:
         w_dir  = r.get('w_dir')
         gust   = r.get('gust')
 
-        sq = dir_quality(sw_dir, spot['opt_swell'])
+        sq = _swell_quality(sw_dir, spot['opt_swell'])
         wq = dir_quality(w_dir,  spot['opt_wind'])
         sw_dir_str = f'{compass(sw_dir)}'
         if sq == 'good': sw_dir_str = f'<b class="c-good">{sw_dir_str}✓</b>'

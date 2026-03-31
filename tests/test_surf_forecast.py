@@ -7,7 +7,7 @@ from surf_forecast import (
     deg_diff, compass, dir_quality, _safe_get, _score_timestep,
     day_rating, sail_day_rating, _recommend, generate_planner_json,
     best_time_for_day, classify_tide, tide_score,
-    _facing_deg, _swell_dir_score,
+    _facing_deg, _swell_dir_score, _swell_quality, _swell_cos2,
     SPOTS, MIN_SWELL_HEIGHT_M, MAX_SWELL_HEIGHT_M, MAX_WIND_KT,
     LIGHT_WIND_KT, ONSHORE_WIND_KT,
 )
@@ -116,29 +116,32 @@ class TestFacingDeg:
 # ── _swell_dir_score ─────────────────────────────────────────────────────────
 
 class TestSwellDirScore:
-    E_SPOT = next(s for s in SPOTS if s['id'] == 'wushih')  # facing E
+    E_SPOT = next(s for s in SPOTS if s['id'] == 'wushih')  # facing E, opt_swell ['E','SE','SSE']
     NE_SPOT = next(s for s in SPOTS if s['id'] == 'jinshan')  # facing NE
 
     def test_head_on_optimal_gives_max(self):
-        """Swell from facing direction and in opt_swell → 4.0."""
-        # Wushih faces E, opt_swell includes E
+        """Swell matching an optimal direction exactly → 4.0."""
+        # Wushih opt_swell includes E (90°)
         score = _swell_dir_score(90, self.E_SPOT)
         assert score == 4.0
 
-    def test_45_off_gives_about_half(self):
-        """45° offset → cos²(45°) = 0.5 → ~2.0."""
-        # Wushih faces E (90°), swell from NE (45°) — 45° diff
+    def test_45_off_optimal_gives_3(self):
+        """45° off nearest optimal → cos²(45°) = 0.5 → 3 pts."""
+        # Wushih opt_swell: E=90°, SE=135°, SSE=157°
+        # Swell from NE (45°): nearest opt is E (90°), diff = 45° → cos² = 0.5
         score = _swell_dir_score(45, self.E_SPOT)
-        assert 1.5 <= score <= 2.5
+        assert score == 3.0
 
-    def test_perpendicular_gives_zero(self):
-        """90° offset → cos²(90°) = 0 → 0.0."""
-        # Wushih faces E (90°), swell from N (0°) — 90° off
+    def test_far_from_optimal_gives_zero(self):
+        """90°+ from all optimal dirs → cos² ≈ 0 → 0 pts."""
+        # Wushih opt_swell: E=90°, SE=135°, SSE=157°
+        # Swell from N (0°): nearest opt is E (90°), diff = 90° → cos² = 0
         score = _swell_dir_score(0, self.E_SPOT)
         assert score == 0.0
 
-    def test_behind_beach_gives_zero(self):
-        """Swell from behind (W for E-facing) → 0."""
+    def test_opposite_optimal_gives_zero(self):
+        """Swell from opposite side of optimal → 0."""
+        # Wushih opt_swell: E=90°, nearest to W(270°) is E at 180° → cos² = 0
         score = _swell_dir_score(270, self.E_SPOT)
         assert score == 0.0
 
@@ -146,22 +149,60 @@ class TestSwellDirScore:
         score = _swell_dir_score(None, self.E_SPOT)
         assert score == 1.0
 
-    def test_non_optimal_reduced(self):
-        """Swell from a direction that faces the beach but is NOT in opt_swell
-        should score less than the same angle from an optimal direction."""
-        # Wushih faces E, opt_swell = ['E', 'SE', 'SSE']
-        # NNE (22°) faces the beach (diff=68°) but is NOT in opt_swell
-        score_non_opt = _swell_dir_score(22, self.E_SPOT)
-        # ENE (67°) is closer to E and more in line
-        score_opt = _swell_dir_score(90, self.E_SPOT)  # dead-on optimal
-        assert score_opt > score_non_opt
+    def test_near_optimal_scores_higher(self):
+        """Swell closer to an optimal direction should score higher."""
+        # Wushih opt_swell: E=90°, SE=135°, SSE=157°
+        # NNE (22°): 68° from E → cos²(68°) ≈ 0.14 → 1 pt
+        score_far = _swell_dir_score(22, self.E_SPOT)
+        # E (90°): 0° from E → cos²(0°) = 1.0 → 4 pts
+        score_close = _swell_dir_score(90, self.E_SPOT)
+        assert score_close > score_far
 
-    def test_continuous_scoring(self):
-        """Scores should decrease continuously as angle increases from facing."""
-        scores = [_swell_dir_score(90 + offset, self.E_SPOT) for offset in range(0, 91, 15)]
-        # Should be monotonically non-increasing
+    def test_scores_decrease_away_from_optimal(self):
+        """Scores should not increase as we move away from ALL optimal dirs."""
+        # Move from W (270°) towards N (360/0°) — all are far from E/SE/SSE
+        # At 270°: dist to E = 180°. At 315°: dist to E = 135°. At 0°: dist to E = 90°.
+        # So moving 270→0° actually gets closer to E, scores may increase.
+        # Instead test: move from E (90°) towards W (270°) along the non-optimal side
+        # 90° → 0 from E; 60° → 30 from E; 30° → 60 from E; 0° → 90 from E
+        scores = [_swell_dir_score(90 - offset, self.E_SPOT) for offset in [0, 30, 60, 90]]
         for i in range(len(scores) - 1):
-            assert scores[i] >= scores[i + 1], f"Score at offset {i*15}° should be >= offset {(i+1)*15}°"
+            assert scores[i] >= scores[i + 1], (
+                f"Score at {90 - i*30}° should be >= {90 - (i+1)*30}°")
+
+    def test_cos2_exact_match(self):
+        """cos² helper returns 1.0 for exact optimal match."""
+        assert _swell_cos2(90, ['E']) == 1.0
+
+    def test_cos2_90_off(self):
+        """cos² helper returns 0.0 at 90° from optimal."""
+        assert _swell_cos2(0, ['E']) == 0.0
+
+    def test_cos2_45_off(self):
+        """cos² helper returns ~0.5 at 45° from optimal."""
+        import math
+        val = _swell_cos2(45, ['E'])
+        assert abs(val - 0.5) < 0.01
+
+
+class TestSwellQuality:
+    def test_exact_match_good(self):
+        assert _swell_quality(180, ['S']) == 'good'
+
+    def test_30_off_ok(self):
+        # 30° from S → cos²(30°) ≈ 0.75 — exactly at boundary → good
+        assert _swell_quality(210, ['S']) in ('good', 'ok')
+
+    def test_far_off_poor(self):
+        # N (0°) vs S (180°) → 180° diff → cos² = 0 → poor
+        assert _swell_quality(0, ['S']) == 'poor'
+
+    def test_none_unknown(self):
+        assert _swell_quality(None, ['S']) == 'unknown'
+
+    def test_multi_optimal(self):
+        # 45° (NE) with opt ['N', 'NE', 'E'] → exact match to NE → good
+        assert _swell_quality(45, ['N', 'NE', 'E']) == 'good'
 
 
 # ── day_rating ───────────────────────────────────────────────────────────────

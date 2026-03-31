@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SPOTS, HARBOURS } from '@/lib/constants'
 import { useForecastData } from '@/hooks/useForecastData'
@@ -56,6 +56,19 @@ export function NowPage() {
   const [aiExpanded, setAiExpanded] = useState(false)
   const [scoreTooltipOpen, setScoreTooltipOpen] = useState(false)
   const [alertsOpen, setAlertsOpen] = useState(false)
+  const alertsFired = useRef(false)
+
+  // Fire browser notifications when forecast data loads (once per session)
+  useEffect(() => {
+    if (alertsFired.current || data.loading) return
+    const records = data.keelung?.records
+    const waveRecs = data.wave?.ecmwf_wave?.records
+    const surfRatings = data.surf?.spots?.flatMap(s => s.ratings) ?? []
+    if (records?.length) {
+      alertsFired.current = true
+      checkAlerts(records, waveRecs ?? [], surfRatings)
+    }
+  }, [data.loading, data.keelung, data.wave, data.surf])
 
   // Location-specific forecast data
   const locationForecast: SpotForecast | null = useMemo(() => {
