@@ -150,12 +150,108 @@ export function NowPage() {
 
   const isSpotSelected = locationId != null && locationId !== 'keelung'
 
+  // Forecast time label for selected timestep (CST)
+  const forecastTimeLabel = useMemo(() => {
+    const rec = chartRecords?.[index]
+    if (!rec?.valid_utc) return ''
+    const d = new Date(rec.valid_utc)
+    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Taipei' })
+  }, [chartRecords, index])
+
+  // Shared live obs renderer — returns grid items or null
+  const renderLiveObs = (spotId: string) => {
+    const live = liveObs.data?.spots?.[spotId]
+    const stale = spotId === 'keelung'
+      ? (data.cwa_obs?.spot_obs?.keelung ?? data.cwa_obs)
+      : data.cwa_obs?.spot_obs?.[spotId]
+    const stn = live?.station ?? stale?.station
+    const buoy = live?.buoy ?? stale?.buoy
+    const tide = live?.tide
+    if (!stn && !buoy && !tide) return null
+    const waterTemp = tide?.sea_temp_c ?? live?.buoy?.sea_temp_c ?? stale?.buoy?.water_temp_c
+    const items: { label: string; value: string; accent?: boolean }[] = []
+    if (stn?.temp_c != null) items.push({ label: t('live.temp'), value: `${stn.temp_c.toFixed(1)}°C` })
+    { const wKt = stn?.wind_kt ?? buoy?.wind_kt; const wDir = stn?.wind_dir ?? buoy?.wind_dir; if (wKt != null) items.push({ label: t('live.wind'), value: `${wKt.toFixed(0)}${stn?.gust_kt ? `G${stn.gust_kt.toFixed(0)}` : ''}kt ${wDir != null ? degToCompass(wDir) : ''}` }) }
+    if (stn?.pressure_hpa != null) items.push({ label: t('live.pressure'), value: `${stn.pressure_hpa.toFixed(0)} hPa` })
+    if (tide?.tide_height_m != null) { const tl = tide.tide_level ? (TIDE_LEVEL_MAP[tide.tide_level]?.[lang] ?? tide.tide_level) : ''; items.push({ label: t('live.tide'), value: `${tide.tide_height_m.toFixed(2)}m${tl ? ` ${tl}` : ''}` }) }
+    if (buoy?.wave_height_m != null) items.push({ label: t('live.waves'), value: `${buoy.wave_height_m.toFixed(1)}m${buoy.wave_period_s ? ` ${buoy.wave_period_s.toFixed(0)}s` : ''}` })
+    if (waterTemp != null) items.push({ label: t('live.water_temp'), value: `${waterTemp.toFixed(1)}°C` })
+    if (live?.station?.visibility_km != null && live.station.visibility_km < 10) items.push({ label: t('live.visibility'), value: `${live.station.visibility_km.toFixed(1)}km` })
+    if (live?.station?.uv_index != null && live.station.uv_index > 0) items.push({ label: 'UV', value: `${live.station.uv_index.toFixed(0)}`, accent: live.station.uv_index >= 6 })
+    if (live?.buoy?.current_speed_ms != null && live.buoy.current_speed_ms > 0.1) items.push({ label: t('common.current') || 'Current', value: `${(live.buoy.current_speed_ms * 1.94384).toFixed(1)}kt ${live.buoy.current_dir != null ? degToCompass(live.buoy.current_dir) : ''}` })
+    if (!items.length) return null
+    const obsTime = live?.station?.obs_time ?? stale?.station?.obs_time
+    const timeStr = obsTime ? new Date(obsTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Taipei' }) : ''
+    return (
+      <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-2">
+        <div className="flex items-center gap-1.5 mb-1.5">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+          </span>
+          <span className="text-[8px] uppercase tracking-wider font-semibold text-emerald-400">
+            {t('live.title')}{timeStr && ` · ${timeStr}`}
+          </span>
+        </div>
+        <div className="grid grid-cols-3 gap-x-2 gap-y-1.5">
+          {items.map((item, i) => (
+            <div key={i} className="text-center">
+              <p className="text-[8px] uppercase tracking-wider text-[var(--color-text-dim)]">{item.label}</p>
+              <p className={`text-[11px] font-medium tabular-nums leading-tight ${item.accent ? 'text-orange-400' : 'text-[var(--color-text-secondary)]'}`}>{item.value}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  // Shared ensemble + accuracy pills
+  const renderEnsembleAccuracy = () => (
+    <>
+      {data.ensemble?.spread && (
+        <div className="flex flex-wrap gap-1.5">
+          {(() => {
+            const ws = data.ensemble.spread.wind_spread_kt ?? 99
+            const level = ws < 5 ? 'high' : ws < 10 ? 'moderate' : 'low'
+            const stars = level === 'high' ? '★★★' : level === 'moderate' ? '★★☆' : '★☆☆'
+            const color = level === 'high' ? 'text-green-400' : level === 'moderate' ? 'text-yellow-400' : 'text-red-400'
+            return (
+              <span className={`text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] ${color}`}>
+                {t('models_page.ensemble_confidence') ?? 'Confidence'} {stars}
+              </span>
+            )
+          })()}
+          {data.accuracy?.[0] && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
+              ±{data.accuracy[0].wind_mae_kt?.toFixed(1) ?? '?'}kt wind · ±{data.accuracy[0].temp_mae_c?.toFixed(1) ?? '?'}°C temp
+              {data.accuracy[0].wave?.hs_mae_m != null && ` · ±${data.accuracy[0].wave.hs_mae_m.toFixed(1)}m wave`}
+            </span>
+          )}
+          {data.accuracy?.[0]?.by_horizon?.['0-24h']?.wind_mae_kt != null && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
+              24h: ±{data.accuracy[0].by_horizon['0-24h'].wind_mae_kt.toFixed(1)}kt
+            </span>
+          )}
+          {data.ensemble?.spread?.precip_spread_mm != null && data.ensemble.spread.precip_spread_mm > 1 && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
+              Rain spread ±{data.ensemble.spread.precip_spread_mm.toFixed(1)}mm
+            </span>
+          )}
+        </div>
+      )}
+      {data.accuracy && data.accuracy.length >= 2 && (
+        <AccuracyTrend entries={data.accuracy} compact />
+      )}
+    </>
+  )
+
   /* ── Spot / harbour detail panel ──────────────────────────────────── */
   const locationDetail = (
     <>
       {/* Selected spot detail */}
       {isSpotSelected && spotInfo && (
         <section className="space-y-3 md:px-3 py-3">
+          {/* 1. Spot header */}
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
               {spotInfo.name[lang]}
@@ -164,7 +260,6 @@ export function NowPage() {
               </span>
             </h2>
             <div className="flex items-center gap-1.5">
-              {/* Rating badge with score breakdown tooltip */}
               {currentRating?.rating && (
                 <div className="relative">
                   <button
@@ -197,9 +292,49 @@ export function NowPage() {
             </div>
           </div>
 
-          {/* Swell compass + data cells (desktop only — on mobile, shown below timeline) */}
+          {/* 2. LIVE observations — prominent, first data section */}
+          {renderLiveObs(spotInfo.id)}
+
+          {/* 3. Info pills + webcams — compact reference */}
+          <div className="flex flex-wrap gap-1.5">
+            <InfoPill label={t('spots.facing')} value={spotInfo.facing} />
+            <InfoPill label={t('spots.optimal_wind')} value={spotInfo.opt_wind.join(', ')} />
+            {currentRating?.wind_dir != null && spotInfo.facing && (
+              <InfoPill label={t('common.wind')} value={windType(currentRating.wind_dir, spotInfo.facing)} />
+            )}
+            {data.cwa_obs?.specialized_warnings?.map((w, i) => (
+              <span key={i} className={`text-[10px] px-1.5 py-0.5 rounded ${
+                w.type === 'rain' ? 'bg-blue-500/20 text-blue-400' :
+                w.type === 'heat' ? 'bg-red-500/20 text-red-400' :
+                'bg-cyan-500/20 text-cyan-400'
+              }`}>
+                {w.severity_level || w.event || w.type}
+              </span>
+            ))}
+            {spotInfo.webcams?.map((cam, i) => (
+              <a
+                key={i}
+                href={cam.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M23 7l-7 5 7 5V7z" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                </svg>
+                {cam.label}
+              </a>
+            ))}
+          </div>
+
+          {/* 4. FORECAST section — labeled with selected time (desktop only) */}
           {!mobile && currentRating && (
             <div className="space-y-2">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[8px] uppercase tracking-wider font-semibold text-blue-400">
+                  {t('common.forecast') || 'Forecast'}{forecastTimeLabel && ` · ${forecastTimeLabel} CST`}
+                </span>
+              </div>
               <div className="flex justify-center">
                 <SwellCompass
                   facing={spotInfo.facing}
@@ -242,122 +377,19 @@ export function NowPage() {
                     : undefined}
                 />
               )}
-              {/* Best time windows */}
               {locationForecast && <BestTimeWindows spotForecast={locationForecast} />}
             </div>
           )}
 
-          {/* Info pills + wind type + warnings */}
-          <div className="flex flex-wrap gap-1.5">
-            <InfoPill label={t('spots.facing')} value={spotInfo.facing} />
-            <InfoPill label={t('spots.optimal_wind')} value={spotInfo.opt_wind.join(', ')} />
-            {currentRating?.wind_dir != null && spotInfo.facing && (
-              <InfoPill label={t('common.wind')} value={windType(currentRating.wind_dir, spotInfo.facing)} />
-            )}
-            {data.cwa_obs?.specialized_warnings?.map((w, i) => (
-              <span key={i} className={`text-[10px] px-1.5 py-0.5 rounded ${
-                w.type === 'rain' ? 'bg-blue-500/20 text-blue-400' :
-                w.type === 'heat' ? 'bg-red-500/20 text-red-400' :
-                'bg-cyan-500/20 text-cyan-400'
-              }`}>
-                {w.severity_level || w.event || w.type}
-              </span>
-            ))}
-            {spotInfo.webcams?.map((cam, i) => (
-              <a
-                key={i}
-                href={cam.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
-              >
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M23 7l-7 5 7 5V7z" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-                </svg>
-                {cam.label}
-              </a>
-            ))}
-          </div>
-
-          {/* CWA real-time observations (live from serverless, or fallback to deploy-time) */}
-          {(() => {
-            const live = liveObs.data?.spots?.[spotInfo.id]
-            const stale = data.cwa_obs?.spot_obs?.[spotInfo.id]
-            const stn = live?.station ?? stale?.station
-            const buoy = live?.buoy ?? stale?.buoy
-            const tide = live?.tide
-            if (!stn && !buoy && !tide) return null
-            const waterTemp = tide?.sea_temp_c ?? live?.buoy?.sea_temp_c ?? stale?.buoy?.water_temp_c
-            const items: { label: string; value: string; accent?: boolean }[] = []
-            if (stn?.temp_c != null) items.push({ label: t('live.temp'), value: `${stn.temp_c.toFixed(1)}°C` })
-            { const wKt = stn?.wind_kt ?? buoy?.wind_kt; const wDir = stn?.wind_dir ?? buoy?.wind_dir; if (wKt != null) items.push({ label: t('live.wind'), value: `${wKt.toFixed(0)}${stn?.gust_kt ? `G${stn.gust_kt.toFixed(0)}` : ''}kt ${wDir != null ? degToCompass(wDir) : ''}` }) }
-            if (stn?.pressure_hpa != null) items.push({ label: t('live.pressure'), value: `${stn.pressure_hpa.toFixed(0)} hPa` })
-            if (tide?.tide_height_m != null) { const tl = tide.tide_level ? (TIDE_LEVEL_MAP[tide.tide_level]?.[lang] ?? tide.tide_level) : ''; items.push({ label: t('live.tide'), value: `${tide.tide_height_m.toFixed(2)}m${tl ? ` ${tl}` : ''}` }) }
-            if (buoy?.wave_height_m != null) items.push({ label: t('live.waves'), value: `${buoy.wave_height_m.toFixed(1)}m${buoy.wave_period_s ? ` ${buoy.wave_period_s.toFixed(0)}s` : ''}` })
-            if (waterTemp != null) items.push({ label: t('live.water_temp'), value: `${waterTemp.toFixed(1)}°C` })
-            if (live?.station?.visibility_km != null && live.station.visibility_km < 10) items.push({ label: t('live.visibility'), value: `${live.station.visibility_km.toFixed(1)}km` })
-            if (live?.station?.uv_index != null && live.station.uv_index > 0) items.push({ label: 'UV', value: `${live.station.uv_index.toFixed(0)}`, accent: live.station.uv_index >= 6 })
-            if (live?.buoy?.current_speed_ms != null && live.buoy.current_speed_ms > 0.1) items.push({ label: t('common.current') || 'Current', value: `${(live.buoy.current_speed_ms * 1.94384).toFixed(1)}kt ${live.buoy.current_dir != null ? degToCompass(live.buoy.current_dir) : ''}` })
-            if (!items.length) return null
-            return (
-              <div className="mt-2 rounded-lg bg-[var(--color-bg-elevated)]/50 border border-[var(--color-border)] p-2">
-                <div className="grid grid-cols-3 gap-x-2 gap-y-1.5">
-                  {items.map((item, i) => (
-                    <div key={i} className="text-center">
-                      <p className="text-[8px] uppercase tracking-wider text-[var(--color-text-dim)]">{item.label}</p>
-                      <p className={`text-[11px] font-medium tabular-nums leading-tight ${item.accent ? 'text-orange-400' : 'text-[var(--color-text-secondary)]'}`}>{item.value}</p>
-                    </div>
-                  ))}
-                </div>
-                {liveObs.data && (
-                  <p className="text-[8px] text-[var(--color-text-dim)] mt-1.5 text-center">{t('live.title')}</p>
-                )}
-              </div>
-            )
-          })()}
-
-          {/* Ensemble confidence + accuracy */}
-          {data.ensemble?.spread && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {(() => {
-                const ws = data.ensemble.spread.wind_spread_kt ?? 99
-                const level = ws < 5 ? 'high' : ws < 10 ? 'moderate' : 'low'
-                const stars = level === 'high' ? '★★★' : level === 'moderate' ? '★★☆' : '★☆☆'
-                const color = level === 'high' ? 'text-green-400' : level === 'moderate' ? 'text-yellow-400' : 'text-red-400'
-                return (
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] ${color}`}>
-                    {t('models_page.ensemble_confidence') ?? 'Confidence'} {stars}
-                  </span>
-                )
-              })()}
-              {data.accuracy?.[0] && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
-                  ±{data.accuracy[0].wind_mae_kt?.toFixed(1) ?? '?'}kt wind · ±{data.accuracy[0].temp_mae_c?.toFixed(1) ?? '?'}°C temp
-                  {data.accuracy[0].wave?.hs_mae_m != null && ` · ±${data.accuracy[0].wave.hs_mae_m.toFixed(1)}m wave`}
-                </span>
-              )}
-              {data.accuracy?.[0]?.by_horizon?.['0-24h']?.wind_mae_kt != null && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
-                  24h: ±{data.accuracy[0].by_horizon['0-24h'].wind_mae_kt.toFixed(1)}kt
-                </span>
-              )}
-              {data.ensemble?.spread?.precip_spread_mm != null && data.ensemble.spread.precip_spread_mm > 1 && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
-                  Rain spread ±{data.ensemble.spread.precip_spread_mm.toFixed(1)}mm
-                </span>
-              )}
-            </div>
-          )}
-          {/* Accuracy trend sparkline */}
-          {data.accuracy && data.accuracy.length >= 2 && (
-            <AccuracyTrend entries={data.accuracy} compact />
-          )}
+          {/* 5. Ensemble + accuracy */}
+          {renderEnsembleAccuracy()}
         </section>
       )}
 
       {/* Harbour selected */}
       {locationId === 'keelung' && (
         <section className="md:px-3 py-3 space-y-3">
+          {/* 1. Header */}
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
               {t('harbour.keelung')}
@@ -376,7 +408,10 @@ export function NowPage() {
             </div>
           </div>
 
-          {/* Webcam links for Keelung */}
+          {/* 2. LIVE observations — prominent */}
+          {renderLiveObs('keelung')}
+
+          {/* 3. Webcam links */}
           {HARBOURS[0]?.webcams && (
             <div className="flex flex-wrap gap-1.5">
               {HARBOURS[0].webcams.map((cam, i) => (
@@ -396,79 +431,8 @@ export function NowPage() {
             </div>
           )}
 
-          {/* Live observations for Keelung */}
-          {(() => {
-            const live = liveObs.data?.spots?.keelung
-            const stale = data.cwa_obs?.spot_obs?.keelung ?? data.cwa_obs
-            const stn = live?.station ?? stale?.station
-            const tide = live?.tide
-            const buoy = live?.buoy ?? stale?.buoy
-            if (!stn && !buoy && !tide) return null
-            const waterTemp = tide?.sea_temp_c ?? live?.buoy?.sea_temp_c ?? stale?.buoy?.water_temp_c
-            const items: { label: string; value: string; accent?: boolean }[] = []
-            if (stn?.temp_c != null) items.push({ label: t('live.temp'), value: `${stn.temp_c.toFixed(1)}°C` })
-            { const wKt = stn?.wind_kt ?? buoy?.wind_kt; const wDir = stn?.wind_dir ?? buoy?.wind_dir; if (wKt != null) items.push({ label: t('live.wind'), value: `${wKt.toFixed(0)}${stn?.gust_kt ? `G${stn.gust_kt.toFixed(0)}` : ''}kt ${wDir != null ? degToCompass(wDir) : ''}` }) }
-            if (stn?.pressure_hpa != null) items.push({ label: t('live.pressure'), value: `${stn.pressure_hpa.toFixed(0)} hPa` })
-            if (tide?.tide_height_m != null) { const tl = tide.tide_level ? (TIDE_LEVEL_MAP[tide.tide_level]?.[lang] ?? tide.tide_level) : ''; items.push({ label: t('live.tide'), value: `${tide.tide_height_m.toFixed(2)}m${tl ? ` ${tl}` : ''}` }) }
-            if (buoy?.wave_height_m != null) items.push({ label: t('live.waves'), value: `${buoy.wave_height_m.toFixed(1)}m${buoy.wave_period_s ? ` ${buoy.wave_period_s.toFixed(0)}s` : ''}` })
-            if (waterTemp != null) items.push({ label: t('live.water_temp'), value: `${waterTemp.toFixed(1)}°C` })
-            if (live?.station?.visibility_km != null && live.station.visibility_km < 10) items.push({ label: t('live.visibility'), value: `${live.station.visibility_km.toFixed(1)}km` })
-            if (live?.station?.uv_index != null && live.station.uv_index > 0) items.push({ label: 'UV', value: `${live.station.uv_index.toFixed(0)}`, accent: live.station.uv_index >= 6 })
-            if (live?.buoy?.current_speed_ms != null && live.buoy.current_speed_ms > 0.1) items.push({ label: t('common.current'), value: `${(live.buoy.current_speed_ms * 1.94384).toFixed(1)}kt ${live.buoy.current_dir != null ? degToCompass(live.buoy.current_dir) : ''}` })
-            if (!items.length) return null
-            return (
-              <div className="mt-2 rounded-lg bg-[var(--color-bg-elevated)]/50 border border-[var(--color-border)] p-2">
-                <div className="grid grid-cols-3 gap-x-2 gap-y-1.5">
-                  {items.map((item, i) => (
-                    <div key={i} className="text-center">
-                      <p className="text-[8px] uppercase tracking-wider text-[var(--color-text-dim)]">{item.label}</p>
-                      <p className={`text-[11px] font-medium tabular-nums leading-tight ${item.accent ? 'text-orange-400' : 'text-[var(--color-text-secondary)]'}`}>{item.value}</p>
-                    </div>
-                  ))}
-                </div>
-                {liveObs.data && (
-                  <p className="text-[8px] text-[var(--color-text-dim)] mt-1.5 text-center">{t('live.title')}</p>
-                )}
-              </div>
-            )
-          })()}
-
-          {/* Ensemble confidence + accuracy */}
-          {data.ensemble?.spread && (
-            <div className="flex flex-wrap gap-1.5">
-              {(() => {
-                const ws = data.ensemble.spread.wind_spread_kt ?? 99
-                const level = ws < 5 ? 'high' : ws < 10 ? 'moderate' : 'low'
-                const stars = level === 'high' ? '★★★' : level === 'moderate' ? '★★☆' : '★☆☆'
-                const color = level === 'high' ? 'text-green-400' : level === 'moderate' ? 'text-yellow-400' : 'text-red-400'
-                return (
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] ${color}`}>
-                    {t('models_page.ensemble_confidence') ?? 'Confidence'} {stars}
-                  </span>
-                )
-              })()}
-              {data.accuracy?.[0] && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
-                  ±{data.accuracy[0].wind_mae_kt?.toFixed(1) ?? '?'}kt wind · ±{data.accuracy[0].temp_mae_c?.toFixed(1) ?? '?'}°C temp
-                  {data.accuracy[0].wave?.hs_mae_m != null && ` · ±${data.accuracy[0].wave.hs_mae_m.toFixed(1)}m wave`}
-                </span>
-              )}
-              {data.accuracy?.[0]?.by_horizon?.['0-24h']?.wind_mae_kt != null && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
-                  24h: ±{data.accuracy[0].by_horizon['0-24h'].wind_mae_kt.toFixed(1)}kt
-                </span>
-              )}
-              {data.ensemble?.spread?.precip_spread_mm != null && data.ensemble.spread.precip_spread_mm > 1 && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
-                  Rain spread ±{data.ensemble.spread.precip_spread_mm.toFixed(1)}mm
-                </span>
-              )}
-            </div>
-          )}
-          {/* Accuracy trend sparkline */}
-          {data.accuracy && data.accuracy.length >= 2 && (
-            <AccuracyTrend entries={data.accuracy} compact />
-          )}
+          {/* 4. Ensemble + accuracy */}
+          {renderEnsembleAccuracy()}
         </section>
       )}
 

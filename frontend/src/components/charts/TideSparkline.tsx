@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { AreaChart, Area, ReferenceLine, ReferenceDot, ResponsiveContainer } from 'recharts'
+import { AreaChart, Area, ReferenceLine, ResponsiveContainer } from 'recharts'
 
 interface TidePoint {
   time_utc: string
@@ -71,7 +71,7 @@ export function TideSparkline({ predictions, extrema, nowMs }: TideSparklineProp
       </div>
       <div style={{ height: 56 }}>
         <ResponsiveContainer width="100%" height={56}>
-          <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
+          <AreaChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: 8 }}>
             <defs>
               <linearGradient id="tideFill" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#60a5fa" stopOpacity={0.3} />
@@ -96,17 +96,6 @@ export function TideSparkline({ predictions, extrema, nowMs }: TideSparklineProp
                 strokeDasharray="2 2"
               />
             )}
-            {extremaLabels.map((e, i) => (
-              <ReferenceDot
-                key={i}
-                x={e.t}
-                y={e.h}
-                r={3}
-                fill={e.type === 'high' ? '#60a5fa' : '#94a3b8'}
-                stroke="none"
-                ifOverflow="extendDomain"
-              />
-            ))}
           </AreaChart>
         </ResponsiveContainer>
       </div>
