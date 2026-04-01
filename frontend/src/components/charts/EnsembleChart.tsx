@@ -13,25 +13,19 @@ import {
 } from './chart-utils'
 
 const MODEL_COLORS: Record<string, string> = {
-  GFS: '#22c55e',
-  ICON: '#f59e0b',
-  JMA: '#8b5cf6',
+  ECMWF: '#60a5fa',  // blue
+  GFS: '#22c55e',    // green
+  ICON: '#f59e0b',   // amber
+  JMA: '#8b5cf6',    // purple
 }
 
-const MODEL_KEYS = ['GFS', 'ICON', 'JMA'] as const
-
-interface EnsembleChartProps {
-  ensemble: EnsembleData | null
-  timeRange?: TimeRange
-  selectedMs?: number
-}
+// Preferred display order — models only shown if they have data
+const MODEL_ORDER = ['ECMWF', 'GFS', 'ICON', 'JMA'] as const
 
 interface ChartRow {
   timeMs: number
   timeLabel: string
-  GFS?: number
-  ICON?: number
-  JMA?: number
+  [model: string]: number | string | undefined
 }
 
 function CustomTooltip({ active, payload }: TooltipContentProps) {
@@ -51,15 +45,27 @@ function CustomTooltip({ active, payload }: TooltipContentProps) {
   )
 }
 
+interface EnsembleChartProps {
+  ensemble: EnsembleData | null
+  timeRange?: TimeRange
+  selectedMs?: number
+}
+
 export function EnsembleChart({ ensemble, timeRange, selectedMs }: EnsembleChartProps) {
   const mobile = useIsMobile()
 
   if (!ensemble?.models) return null
 
+  // Discover which models have records
+  const availableModels = MODEL_ORDER.filter(k =>
+    ensemble.models[k]?.records?.length,
+  )
+  if (!availableModels.length) return null
+
   // Build a merged timeline from all models
   const timeMap = new Map<number, ChartRow>()
 
-  for (const key of MODEL_KEYS) {
+  for (const key of availableModels) {
     const model = ensemble.models[key]
     if (!model?.records?.length) continue
 
@@ -83,7 +89,7 @@ export function EnsembleChart({ ensemble, timeRange, selectedMs }: EnsembleChart
   const chartData = Array.from(timeMap.values()).sort((a, b) => a.timeMs - b.timeMs)
   if (!chartData.length) return null
 
-  const activeModels = MODEL_KEYS.filter(k =>
+  const activeModels = availableModels.filter(k =>
     chartData.some(row => row[k] != null),
   )
   if (!activeModels.length) return null
@@ -128,7 +134,7 @@ export function EnsembleChart({ ensemble, timeRange, selectedMs }: EnsembleChart
               key={key}
               dataKey={key}
               name={key}
-              stroke={MODEL_COLORS[key]}
+              stroke={MODEL_COLORS[key] ?? '#888'}
               strokeWidth={1.5}
               dot={false}
               type="monotone"

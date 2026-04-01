@@ -100,7 +100,7 @@ export function AccuracyTrend({ entries, compact = false }: AccuracyTrendProps) 
     <div>
       <div className="flex items-center justify-between mb-1">
         <p className="text-[9px] uppercase tracking-wider text-[var(--color-text-dim)]">
-          {lang === 'zh' ? '模型準確度 (30天)' : 'Model Accuracy (30 days)'}
+          {lang === 'zh' ? '模型準確度 (近30次)' : 'Forecast Accuracy (last 30 runs)'}
         </p>
         <div className="flex gap-2 text-[8px]">
           {tempBias != null && (
