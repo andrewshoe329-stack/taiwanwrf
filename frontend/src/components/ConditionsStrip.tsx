@@ -12,11 +12,11 @@ function Stat({ label, value, unit, detail }: {
 }) {
   return (
     <div className="text-center">
-      <p className="text-[var(--fs-compact)] text-[var(--color-text-muted)] uppercase tracking-wider">{label}</p>
-      <p className="text-[var(--fs-label)] font-semibold text-[var(--color-text-primary)] tabular-nums leading-tight">
-        {value}<span className="text-[var(--fs-compact)] text-[var(--color-text-muted)] ml-0.5">{unit}</span>
+      <p className="fs-compact text-[var(--color-text-muted)] uppercase tracking-wider">{label}</p>
+      <p className="fs-label font-semibold text-[var(--color-text-primary)] tabular-nums leading-tight">
+        {value}<span className="fs-compact text-[var(--color-text-muted)] ml-0.5">{unit}</span>
       </p>
-      {detail && <p className="text-[var(--fs-compact)] text-[var(--color-text-muted)] leading-tight">{detail}</p>}
+      {detail && <p className="fs-compact text-[var(--color-text-muted)] leading-tight">{detail}</p>}
     </div>
   )
 }

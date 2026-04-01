@@ -73,7 +73,7 @@ export function MapControls({
             aria-pressed={layer === l}
             className={`
               pointer-events-auto
-              ${compact ? 'px-1.5 py-1.5 text-[var(--fs-compact)] min-h-[32px]' : 'px-2 py-1 text-[var(--fs-compact)]'}
+              ${compact ? 'px-1.5 py-1.5 fs-compact min-h-[32px]' : 'px-2 py-1 fs-compact'}
               font-medium transition-all
               ${layer === l
                 ? 'bg-[var(--color-text-primary)] text-[var(--color-bg)]'
@@ -100,7 +100,7 @@ export function MapControls({
             aria-pressed={model === m}
             className={`
               pointer-events-auto
-              ${compact ? 'px-1.5 py-1.5 text-[var(--fs-compact)] min-h-[32px]' : 'px-2 py-1 text-[var(--fs-compact)]'}
+              ${compact ? 'px-1.5 py-1.5 fs-compact min-h-[32px]' : 'px-2 py-1 fs-compact'}
               font-medium rounded-md transition-all
               ${model === m
                 ? 'bg-[var(--color-text-primary)] text-[var(--color-bg)]'
@@ -119,14 +119,14 @@ export function MapControls({
         <button
           onClick={onZoomIn}
           aria-label="Zoom in"
-          className="pointer-events-auto w-7 h-7 flex items-center justify-center rounded-md bg-[var(--color-bg-elevated)]/80 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] backdrop-blur-sm border border-[var(--color-border)] text-[var(--fs-label)] font-bold"
+          className="pointer-events-auto w-7 h-7 flex items-center justify-center rounded-md bg-[var(--color-bg-elevated)]/80 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] backdrop-blur-sm border border-[var(--color-border)] fs-label font-bold"
         >
           +
         </button>
         <button
           onClick={onZoomOut}
           aria-label="Zoom out"
-          className="pointer-events-auto w-7 h-7 flex items-center justify-center rounded-md bg-[var(--color-bg-elevated)]/80 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] backdrop-blur-sm border border-[var(--color-border)] text-[var(--fs-label)] font-bold"
+          className="pointer-events-auto w-7 h-7 flex items-center justify-center rounded-md bg-[var(--color-bg-elevated)]/80 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] backdrop-blur-sm border border-[var(--color-border)] fs-label font-bold"
         >
           −
         </button>
@@ -135,12 +135,12 @@ export function MapControls({
       {/* Wave height legend (only in wave mode) */}
       {layer === 'waves' && (
         <div className="absolute bottom-3 left-3 z-20 pointer-events-none backdrop-blur-sm bg-[var(--color-bg-elevated)]/80 border border-[var(--color-border)] rounded-md px-2 py-1.5">
-          <p className="text-[var(--fs-micro)] text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Wave Height</p>
+          <p className="fs-micro text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Wave Height</p>
           <div className="flex items-center gap-0.5">
             {WAVE_LEGEND.map((s, i) => (
               <div key={i} className="flex flex-col items-center">
                 <div className="w-4 h-2 rounded-sm" style={{ backgroundColor: s.color }} />
-                {s.label && <span className="text-[var(--fs-micro)] text-[var(--color-text-dim)] mt-0.5">{s.label}</span>}
+                {s.label && <span className="fs-micro text-[var(--color-text-dim)] mt-0.5">{s.label}</span>}
               </div>
             ))}
           </div>
@@ -150,9 +150,9 @@ export function MapControls({
       {/* Radar status badge + legend */}
       {layer === 'radar' && (
         <div className={`absolute bottom-3 left-3 z-20 pointer-events-none backdrop-blur-sm bg-[var(--color-bg-elevated)]/80 border rounded-md px-2 py-1.5 ${tileStale ? 'border-amber-500/50' : tileError ? 'border-red-500/50' : 'border-[var(--color-border)]'}`}>
-          <p className="text-[var(--fs-micro)] text-[var(--color-text-muted)] uppercase tracking-wider mb-1">{t('map.radar')}</p>
+          <p className="fs-micro text-[var(--color-text-muted)] uppercase tracking-wider mb-1">{t('map.radar')}</p>
           {tileError ? (
-            <p className="text-[var(--fs-compact)] text-red-400">{t('common.unavailable')}</p>
+            <p className="fs-compact text-red-400">{t('common.unavailable')}</p>
           ) : (
             <>
               <div className="flex items-center gap-0.5 mb-1">
@@ -166,12 +166,12 @@ export function MapControls({
                 ].map((s, i) => (
                   <div key={i} className="flex flex-col items-center">
                     <div className="w-3 h-1.5 rounded-sm" style={{ backgroundColor: s.color }} />
-                    {s.label && <span className="text-[var(--fs-micro)] text-[var(--color-text-dim)] mt-0.5">{s.label}</span>}
+                    {s.label && <span className="fs-micro text-[var(--color-text-dim)] mt-0.5">{s.label}</span>}
                   </div>
                 ))}
               </div>
               {tileTimestamp && (
-                <p className={`text-[var(--fs-compact)] ${tileStale ? 'text-amber-400' : 'text-[var(--color-text-dim)]'}`}>
+                <p className={`fs-compact ${tileStale ? 'text-amber-400' : 'text-[var(--color-text-dim)]'}`}>
                   {tileTimestamp}{tileStale ? ` (${t('common.stale')})` : ''}
                 </p>
               )}
@@ -183,7 +183,7 @@ export function MapControls({
       {/* Satellite status badge + band toggle */}
       {layer === 'satellite' && (
         <div className={`absolute bottom-3 left-3 z-20 pointer-events-none backdrop-blur-sm bg-[var(--color-bg-elevated)]/80 border rounded-md px-2 py-1.5 ${tileStale ? 'border-amber-500/50' : tileError ? 'border-red-500/50' : 'border-[var(--color-border)]'}`}>
-          <p className="text-[var(--fs-micro)] text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Himawari {himawariActiveBand}</p>
+          <p className="fs-micro text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Himawari {himawariActiveBand}</p>
           <div className="flex gap-0.5 mb-1">
             {([['auto', 'Auto'], ['ir', 'IR'], ['vis', 'VIS']] as const).map(([mode, label]) => (
               <button
@@ -191,7 +191,7 @@ export function MapControls({
                 onClick={() => handleBandChange(mode)}
                 aria-label={`Satellite band: ${label}`}
                 aria-pressed={himawariBandMode === mode}
-                className={`pointer-events-auto px-1.5 py-0.5 text-[var(--fs-micro)] font-medium rounded transition-all ${
+                className={`pointer-events-auto px-1.5 py-0.5 fs-micro font-medium rounded transition-all ${
                   himawariBandMode === mode
                     ? 'bg-[var(--color-text-primary)] text-[var(--color-bg)]'
                     : 'bg-[var(--color-bg)]/50 text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
@@ -202,13 +202,13 @@ export function MapControls({
             ))}
           </div>
           {tileError ? (
-            <p className="text-[var(--fs-compact)] text-red-400">{t('common.unavailable')}</p>
+            <p className="fs-compact text-red-400">{t('common.unavailable')}</p>
           ) : tileTimestamp ? (
-            <p className={`text-[var(--fs-compact)] ${tileStale ? 'text-amber-400' : 'text-[var(--color-text-dim)]'}`}>
+            <p className={`fs-compact ${tileStale ? 'text-amber-400' : 'text-[var(--color-text-dim)]'}`}>
               {tileTimestamp}{tileStale ? ` (${t('common.stale')})` : ''}
             </p>
           ) : (
-            <p className="text-[var(--fs-compact)] text-[var(--color-text-dim)]">{t('common.loading_short')}</p>
+            <p className="fs-compact text-[var(--color-text-dim)]">{t('common.loading_short')}</p>
           )}
         </div>
       )}

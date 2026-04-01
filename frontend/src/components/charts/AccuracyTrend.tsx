@@ -60,7 +60,7 @@ export function AccuracyTrend({ entries, compact = false }: AccuracyTrendProps) 
       <div className="mt-1">
         <button
           onClick={() => setExpanded(!expanded)}
-          className="flex items-center gap-1 text-[var(--fs-micro)] text-[var(--color-text-dim)] hover:text-[var(--color-text-muted)] transition-colors"
+          className="flex items-center gap-1 fs-micro text-[var(--color-text-dim)] hover:text-[var(--color-text-muted)] transition-colors"
         >
           <span>{expanded ? '▼' : '▶'}</span>
           <span>{lang === 'zh' ? '準確度趨勢' : 'Accuracy trend'}</span>
@@ -99,10 +99,10 @@ export function AccuracyTrend({ entries, compact = false }: AccuracyTrendProps) 
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <p className="text-[var(--fs-compact)] uppercase tracking-wider text-[var(--color-text-dim)]">
+        <p className="fs-compact uppercase tracking-wider text-[var(--color-text-dim)]">
           {lang === 'zh' ? '模型準確度 (近30次)' : 'Forecast Accuracy (last 30 runs)'}
         </p>
-        <div className="flex gap-2 text-[var(--fs-micro)]">
+        <div className="flex gap-2 fs-micro">
           {tempBias != null && (
             <span className="text-orange-400">
               {lang === 'zh' ? '溫度偏差' : 'Temp bias'} {tempBias > 0 ? '+' : ''}{tempBias.toFixed(1)}°C
@@ -121,7 +121,7 @@ export function AccuracyTrend({ entries, compact = false }: AccuracyTrendProps) 
           <button
             key={h}
             onClick={() => setHorizon(h)}
-            className={`text-[var(--fs-micro)] px-1.5 py-0.5 rounded transition-colors ${
+            className={`fs-micro px-1.5 py-0.5 rounded transition-colors ${
               horizon === h
                 ? 'bg-[var(--color-text-muted)]/20 text-[var(--color-text-primary)]'
                 : 'text-[var(--color-text-dim)] hover:text-[var(--color-text-muted)]'

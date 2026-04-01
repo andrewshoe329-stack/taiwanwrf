@@ -24,7 +24,7 @@ export function BestTimeWindows({ spotForecast }: BestTimeWindowsProps) {
 
   return (
     <div className="mt-1.5 mb-1">
-      <p className="text-[var(--fs-micro)] uppercase tracking-widest text-[var(--color-text-dim)] mb-1">
+      <p className="fs-micro uppercase tracking-widest text-[var(--color-text-dim)] mb-1">
         {lang === 'zh' ? '最佳時段' : 'Best Windows'}
       </p>
       <div className="space-y-0.5">
@@ -32,13 +32,13 @@ export function BestTimeWindows({ spotForecast }: BestTimeWindowsProps) {
           const d = new Date(w.date + 'T00:00:00')
           const dayName = lang === 'zh' ? DAY_NAMES_ZH[d.getDay()] : DAY_NAMES[d.getDay()]
           return (
-            <div key={i} className="flex items-center gap-1.5 text-[var(--fs-compact)]">
+            <div key={i} className="flex items-center gap-1.5 fs-compact">
               <span className="text-[var(--color-text-muted)] w-6 font-medium">{dayName}</span>
               <span className="text-[var(--color-text-secondary)] font-mono tabular-nums">
                 {w.start_cst}–{w.end_cst}
               </span>
               <span
-                className="text-[var(--fs-compact)] font-medium capitalize px-1 rounded"
+                className="fs-compact font-medium capitalize px-1 rounded"
                 style={{
                   color: RATING_COLORS[w.rating] ?? '#6b7280',
                   backgroundColor: (RATING_COLORS[w.rating] ?? '#6b7280') + '20',

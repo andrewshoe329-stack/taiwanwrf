@@ -45,15 +45,15 @@ export function LiveObsCard({ spotId }: { spotId: string }) {
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
           <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
         </span>
-        <span className="text-[var(--fs-micro)] uppercase tracking-wider font-semibold text-emerald-400">
+        <span className="fs-micro uppercase tracking-wider font-semibold text-emerald-400">
           {t('live.title')}{timeStr && ` · ${timeStr}`}
         </span>
       </div>
       <div className="grid grid-cols-3 gap-x-2 gap-y-1.5">
         {items.map((item, i) => (
           <div key={i} className="text-center">
-            <p className="text-[var(--fs-micro)] uppercase tracking-wider text-[var(--color-text-dim)]">{item.label}</p>
-            <p className={`text-[var(--fs-compact)] font-medium tabular-nums leading-tight ${item.accent ? 'text-orange-400' : 'text-[var(--color-text-secondary)]'}`}>{item.value}</p>
+            <p className="fs-micro uppercase tracking-wider text-[var(--color-text-dim)]">{item.label}</p>
+            <p className={`fs-compact font-medium tabular-nums leading-tight ${item.accent ? 'text-orange-400' : 'text-[var(--color-text-secondary)]'}`}>{item.value}</p>
           </div>
         ))}
       </div>

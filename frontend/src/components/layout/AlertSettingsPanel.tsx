@@ -132,7 +132,7 @@ export function AlertSettingsPanel({ open, onClose }: AlertSettingsPanelProps) {
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)]">
-          <h3 className="text-[var(--fs-label)] font-semibold text-[var(--color-text-primary)]">
+          <h3 className="fs-label font-semibold text-[var(--color-text-primary)]">
             {lang === 'zh' ? '警報設定' : 'Alert Settings'}
           </h3>
           <button onClick={onClose} className="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]">
@@ -145,13 +145,13 @@ export function AlertSettingsPanel({ open, onClose }: AlertSettingsPanelProps) {
         <div className="px-4 py-3 space-y-3">
           {/* Enable toggle */}
           <div className="flex items-center justify-between">
-            <span className="text-[var(--fs-body)] text-[var(--color-text-secondary)]">
+            <span className="fs-body text-[var(--color-text-secondary)]">
               {lang === 'zh' ? '瀏覽器通知' : 'Browser notifications'}
             </span>
             {permState === 'unsupported' ? (
-              <span className="text-[var(--fs-compact)] text-[var(--color-text-dim)]">Not supported</span>
+              <span className="fs-compact text-[var(--color-text-dim)]">Not supported</span>
             ) : permState === 'denied' ? (
-              <span className="text-[var(--fs-compact)] text-red-400">Blocked in browser settings</span>
+              <span className="fs-compact text-red-400">Blocked in browser settings</span>
             ) : prefs.enabled ? (
               <button
                 onClick={() => updatePref('enabled', false)}
@@ -171,7 +171,7 @@ export function AlertSettingsPanel({ open, onClose }: AlertSettingsPanelProps) {
 
           {prefs.enabled && (
             <>
-              <p className="text-[var(--fs-compact)] text-[var(--color-text-dim)]">
+              <p className="fs-compact text-[var(--color-text-dim)]">
                 {lang === 'zh'
                   ? '當未來24小時預報超過以下門檻時通知'
                   : 'Notify when 24h forecast exceeds thresholds:'}
@@ -218,7 +218,7 @@ export function AlertSettingsPanel({ open, onClose }: AlertSettingsPanelProps) {
 
           {/* LINE / Telegram info */}
           <div className="border-t border-[var(--color-border)] pt-2">
-            <p className="text-[var(--fs-compact)] text-[var(--color-text-dim)] leading-relaxed">
+            <p className="fs-compact text-[var(--color-text-dim)] leading-relaxed">
               {lang === 'zh'
                 ? 'LINE / Telegram 推播通知由後端排程發送，需在伺服器設定。'
                 : 'LINE / Telegram push alerts are sent by the backend pipeline. Configure via server environment variables.'}
@@ -236,7 +236,7 @@ function ThresholdRow({ label, value, unit, min, max, step, onChange }: {
 }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[var(--fs-compact)] text-[var(--color-text-muted)] w-16 shrink-0">{label}</span>
+      <span className="fs-compact text-[var(--color-text-muted)] w-16 shrink-0">{label}</span>
       <input
         type="range"
         min={min}
@@ -246,7 +246,7 @@ function ThresholdRow({ label, value, unit, min, max, step, onChange }: {
         onChange={e => onChange(Number(e.target.value))}
         className="flex-1 h-1 accent-blue-500"
       />
-      <span className="text-[var(--fs-compact)] text-[var(--color-text-secondary)] tabular-nums w-12 text-right">
+      <span className="fs-compact text-[var(--color-text-secondary)] tabular-nums w-12 text-right">
         {value}{unit}
       </span>
     </div>

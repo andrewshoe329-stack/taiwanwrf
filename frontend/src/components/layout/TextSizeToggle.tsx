@@ -19,7 +19,7 @@ export function TextSizeToggle() {
   return (
     <button
       onClick={cycle}
-      className="h-7 px-2 text-[var(--fs-body)] font-medium text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
+      className="h-7 px-2 fs-body font-medium text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
       aria-label={`Text size: ${preset}`}
       title={`Text size: ${preset}`}
     >
