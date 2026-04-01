@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { WindModel } from '@/hooks/useModel'
 import type { HimawariBandMode } from '@/lib/himawari'
+import { useMobileLandscape } from '@/hooks/useIsMobile'
 
 export type MapLayer = 'wind' | 'waves' | 'currents' | 'radar' | 'satellite'
 
@@ -54,6 +55,7 @@ export function MapControls({
   onHimawariBandChange,
 }: MapControlsProps) {
   const { t } = useTranslation()
+  const compact = useMobileLandscape()
 
   const handleBandChange = useCallback((mode: HimawariBandMode) => {
     onHimawariBandChange(mode)
@@ -61,8 +63,8 @@ export function MapControls({
 
   return (
     <>
-      {/* Layer toggle */}
-      <div className="absolute top-3 left-3 z-20 flex gap-0.5 rounded-md overflow-hidden border border-[var(--color-border)] backdrop-blur-sm">
+      {/* Layer toggle — pointer-events-none on container so clicks pass through to canvas labels */}
+      <div className="absolute top-2 left-2 z-20 pointer-events-none flex gap-0.5 rounded-md overflow-hidden border border-[var(--color-border)] backdrop-blur-sm">
         {(['wind', 'waves', 'currents', 'radar', 'satellite'] as MapLayer[]).map(l => (
           <button
             key={l}
@@ -70,7 +72,9 @@ export function MapControls({
             aria-label={`Show ${l} layer`}
             aria-pressed={layer === l}
             className={`
-              px-2 py-1 text-[10px] font-medium transition-all
+              pointer-events-auto
+              ${compact ? 'px-1.5 py-1.5 text-[9px] min-h-[32px]' : 'px-2 py-1 text-[10px]'}
+              font-medium transition-all
               ${layer === l
                 ? 'bg-[var(--color-text-primary)] text-[var(--color-bg)]'
                 : 'bg-[var(--color-bg-elevated)]/80 text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
@@ -83,7 +87,7 @@ export function MapControls({
       </div>
 
       {/* Model switcher (only visible in wind mode) — below layers on small screens, top-right on md+ */}
-      <div className={`absolute z-20 flex gap-1 top-11 left-3 md:top-3 md:left-auto md:right-3 ${layer !== 'wind' ? 'hidden' : ''}`}>
+      <div className={`absolute z-20 pointer-events-none flex gap-1 top-11 left-2 md:top-3 md:left-auto md:right-3 ${layer !== 'wind' ? 'hidden' : ''}`}>
         {(['wrf', 'ecmwf', 'gfs'] as WindModel[]).map(m => (
           <button
             key={m}
@@ -91,7 +95,9 @@ export function MapControls({
             aria-label={`Select ${MODEL_LABELS[m]} model`}
             aria-pressed={model === m}
             className={`
-              px-2 py-1 text-[10px] font-medium rounded-md transition-all
+              pointer-events-auto
+              ${compact ? 'px-1.5 py-1.5 text-[9px] min-h-[32px]' : 'px-2 py-1 text-[10px]'}
+              font-medium rounded-md transition-all
               ${model === m
                 ? 'bg-[var(--color-text-primary)] text-[var(--color-bg)]'
                 : 'bg-[var(--color-bg-elevated)]/80 text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
@@ -105,18 +111,18 @@ export function MapControls({
       </div>
 
       {/* Zoom controls */}
-      <div className="absolute top-14 right-3 z-20 flex flex-col gap-1">
+      <div className="absolute top-14 right-3 z-20 pointer-events-none flex flex-col gap-1">
         <button
           onClick={onZoomIn}
           aria-label="Zoom in"
-          className="w-7 h-7 flex items-center justify-center rounded-md bg-[var(--color-bg-elevated)]/80 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] backdrop-blur-sm border border-[var(--color-border)] text-sm font-bold"
+          className="pointer-events-auto w-7 h-7 flex items-center justify-center rounded-md bg-[var(--color-bg-elevated)]/80 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] backdrop-blur-sm border border-[var(--color-border)] text-sm font-bold"
         >
           +
         </button>
         <button
           onClick={onZoomOut}
           aria-label="Zoom out"
-          className="w-7 h-7 flex items-center justify-center rounded-md bg-[var(--color-bg-elevated)]/80 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] backdrop-blur-sm border border-[var(--color-border)] text-sm font-bold"
+          className="pointer-events-auto w-7 h-7 flex items-center justify-center rounded-md bg-[var(--color-bg-elevated)]/80 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] backdrop-blur-sm border border-[var(--color-border)] text-sm font-bold"
         >
           −
         </button>
@@ -124,7 +130,7 @@ export function MapControls({
 
       {/* Wave height legend (only in wave mode) */}
       {layer === 'waves' && (
-        <div className="absolute bottom-3 left-3 z-20 backdrop-blur-sm bg-[var(--color-bg-elevated)]/80 border border-[var(--color-border)] rounded-md px-2 py-1.5">
+        <div className="absolute bottom-3 left-3 z-20 pointer-events-none backdrop-blur-sm bg-[var(--color-bg-elevated)]/80 border border-[var(--color-border)] rounded-md px-2 py-1.5">
           <p className="text-[8px] text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Wave Height</p>
           <div className="flex items-center gap-0.5">
             {WAVE_LEGEND.map((s, i) => (
@@ -139,7 +145,7 @@ export function MapControls({
 
       {/* Radar status badge + legend */}
       {layer === 'radar' && (
-        <div className={`absolute bottom-3 left-3 z-20 backdrop-blur-sm bg-[var(--color-bg-elevated)]/80 border rounded-md px-2 py-1.5 ${tileStale ? 'border-amber-500/50' : tileError ? 'border-red-500/50' : 'border-[var(--color-border)]'}`}>
+        <div className={`absolute bottom-3 left-3 z-20 pointer-events-none backdrop-blur-sm bg-[var(--color-bg-elevated)]/80 border rounded-md px-2 py-1.5 ${tileStale ? 'border-amber-500/50' : tileError ? 'border-red-500/50' : 'border-[var(--color-border)]'}`}>
           <p className="text-[8px] text-[var(--color-text-muted)] uppercase tracking-wider mb-1">{t('map.radar')}</p>
           {tileError ? (
             <p className="text-[10px] text-red-400">{t('common.unavailable')}</p>
@@ -172,7 +178,7 @@ export function MapControls({
 
       {/* Satellite status badge + band toggle */}
       {layer === 'satellite' && (
-        <div className={`absolute bottom-3 left-3 z-20 backdrop-blur-sm bg-[var(--color-bg-elevated)]/80 border rounded-md px-2 py-1.5 ${tileStale ? 'border-amber-500/50' : tileError ? 'border-red-500/50' : 'border-[var(--color-border)]'}`}>
+        <div className={`absolute bottom-3 left-3 z-20 pointer-events-none backdrop-blur-sm bg-[var(--color-bg-elevated)]/80 border rounded-md px-2 py-1.5 ${tileStale ? 'border-amber-500/50' : tileError ? 'border-red-500/50' : 'border-[var(--color-border)]'}`}>
           <p className="text-[8px] text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Himawari {himawariActiveBand}</p>
           <div className="flex gap-0.5 mb-1">
             {([['auto', 'Auto'], ['ir', 'IR'], ['vis', 'VIS']] as const).map(([mode, label]) => (
@@ -181,7 +187,7 @@ export function MapControls({
                 onClick={() => handleBandChange(mode)}
                 aria-label={`Satellite band: ${label}`}
                 aria-pressed={himawariBandMode === mode}
-                className={`px-1.5 py-0.5 text-[8px] font-medium rounded transition-all ${
+                className={`pointer-events-auto px-1.5 py-0.5 text-[8px] font-medium rounded transition-all ${
                   himawariBandMode === mode
                     ? 'bg-[var(--color-text-primary)] text-[var(--color-bg)]'
                     : 'bg-[var(--color-bg)]/50 text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'

@@ -83,6 +83,9 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
   const pinchRef = useRef<{ startDist: number; startBounds: typeof boundsRef.current } | null>(null)
   // Tap detection: track mousedown/touchstart position
   const tapStartRef = useRef<{ x: number; y: number } | null>(null)
+  // Ref-ify callback + language to avoid stale closures in event handlers
+  const onSelectLocationRef = useRef(onSelectLocation)
+  const langRef = useRef(i18n.language)
 
   const { index } = useTimeline()
   const { grid, model, setModel } = useModel()
@@ -150,7 +153,12 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
 
   useEffect(() => {
     particlesRef.current?.setLang(i18n.language.startsWith('zh') ? 'zh' : 'en')
+    langRef.current = i18n.language
   }, [i18n.language])
+
+  useEffect(() => {
+    onSelectLocationRef.current = onSelectLocation
+  }, [onSelectLocation])
 
   /** Hit-test labels at canvas position (dot + text bounding box) */
   const hitTestLabel = useCallback((canvasX: number, canvasY: number): MapLabel | null => {
@@ -158,7 +166,7 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
     const dotRadius = 24
     const textOffsetX = 9
     const fontSize = 11
-    const charWidth = 7 // approximate average character width at 11px
+    const lang = langRef.current?.startsWith('zh') ? 'zh' : 'en'
     let closest: MapLabel | null = null
     let closestDist = Infinity
 
@@ -174,8 +182,10 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
         continue
       }
 
-      // Check text bounding box
-      const textLen = (label.text?.length ?? 0) * charWidth
+      // Check text bounding box (CJK characters are wider)
+      const displayText = (lang === 'zh' && label.textZh) ? label.textZh : (label.text ?? '')
+      const charWidth = /[\u4e00-\u9fff]/.test(displayText) ? 11 : 7
+      const textLen = displayText.length * charWidth
       const textLeft = lx + textOffsetX
       const textRight = textLeft + textLen
       const textTop = ly - fontSize / 2 - 4
@@ -367,7 +377,7 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
 
     const handleMouseUp = (e: MouseEvent) => {
       // Tap detection: if movement < 6px, treat as click
-      if (tapStartRef.current && onSelectLocation) {
+      if (tapStartRef.current && onSelectLocationRef.current) {
         const dx = e.clientX - tapStartRef.current.x
         const dy = e.clientY - tapStartRef.current.y
         if (Math.sqrt(dx * dx + dy * dy) < 6) {
@@ -376,7 +386,7 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
           const cy = e.clientY - rect.top
           const hit = hitTestLabel(cx, cy)
           if (hit?.id) {
-            onSelectLocation(hit.id)
+            onSelectLocationRef.current(hit.id)
           }
         }
       }
@@ -448,7 +458,7 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
 
     const handleTouchEnd = (e: TouchEvent) => {
       // Tap detection for touch
-      if (tapStartRef.current && onSelectLocation && e.changedTouches.length > 0) {
+      if (tapStartRef.current && onSelectLocationRef.current && e.changedTouches.length > 0) {
         const touch = e.changedTouches[0]
         const dx = touch.clientX - tapStartRef.current.x
         const dy = touch.clientY - tapStartRef.current.y
@@ -458,7 +468,7 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
           const cy = touch.clientY - rect.top
           const hit = hitTestLabel(cx, cy)
           if (hit?.id) {
-            onSelectLocation(hit.id)
+            onSelectLocationRef.current(hit.id)
           }
         }
       }
@@ -472,6 +482,10 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
     ps.start()
     canvas.style.cursor = 'grab'
 
+    // Use ResizeObserver instead of window resize for reliable container tracking
+    const resizeObserver = new ResizeObserver(() => syncSize())
+    resizeObserver.observe(container)
+
     canvas.addEventListener('wheel', handleWheel, { passive: false })
     canvas.addEventListener('mousedown', handleMouseDown)
     window.addEventListener('mousemove', handleMouseMove)
@@ -479,9 +493,9 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
     canvas.addEventListener('touchstart', handleTouchStart, { passive: false })
     canvas.addEventListener('touchmove', handleTouchMove, { passive: false })
     canvas.addEventListener('touchend', handleTouchEnd)
-    window.addEventListener('resize', syncSize)
 
     return () => {
+      resizeObserver.disconnect()
       canvas.removeEventListener('wheel', handleWheel)
       canvas.removeEventListener('mousedown', handleMouseDown)
       window.removeEventListener('mousemove', handleMouseMove)
@@ -489,7 +503,6 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
       canvas.removeEventListener('touchstart', handleTouchStart)
       canvas.removeEventListener('touchmove', handleTouchMove)
       canvas.removeEventListener('touchend', handleTouchEnd)
-      window.removeEventListener('resize', syncSize)
       ps.stop()
       ps.clear()
       container.removeChild(canvas)
