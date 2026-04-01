@@ -14,6 +14,33 @@
 
 const CWA_BASE = 'https://opendata.cwa.gov.tw/api/v1/rest/datastore'
 
+// ── Simple in-memory rate limiting ──────────────────────────────────────────
+// Token bucket per IP — prevents abuse while allowing normal polling.
+// Note: edge cache (s-maxage=300) handles most dedup; this catches bursts.
+const RATE_LIMIT_WINDOW_MS = 60_000  // 1 minute
+const RATE_LIMIT_MAX = 20            // max requests per window per IP
+const ipBuckets = new Map()
+
+function checkRateLimit(ip) {
+  const now = Date.now()
+  const bucket = ipBuckets.get(ip)
+  if (!bucket || now - bucket.start > RATE_LIMIT_WINDOW_MS) {
+    ipBuckets.set(ip, { start: now, count: 1 })
+    return true
+  }
+  bucket.count++
+  if (bucket.count > RATE_LIMIT_MAX) return false
+  return true
+}
+
+// Periodic cleanup to prevent memory leaks (every 5 min)
+setInterval(() => {
+  const cutoff = Date.now() - RATE_LIMIT_WINDOW_MS * 2
+  for (const [ip, bucket] of ipBuckets) {
+    if (bucket.start < cutoff) ipBuckets.delete(ip)
+  }
+}, 300_000)
+
 /** Parse a CWA value, filtering sentinels (-99) and non-numeric strings. */
 function cwaFloat(v) {
   if (v == null || v === 'None' || v === '' || v === '-99' || v === '-99.0') return undefined
@@ -321,6 +348,13 @@ function buildSpotObs(marineObs, weatherObs) {
 }
 
 export default async function handler(req, res) {
+  // Rate limit check
+  const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown'
+  if (!checkRateLimit(clientIp)) {
+    res.setHeader('Retry-After', '60')
+    return res.status(429).json({ error: 'Too many requests' })
+  }
+
   if (!process.env.CWA_OPENDATA_KEY) {
     return res.status(503).json({ error: 'CWA API key not configured' })
   }

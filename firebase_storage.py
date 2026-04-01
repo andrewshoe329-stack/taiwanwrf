@@ -170,6 +170,77 @@ def upload_accuracy_log(entries: list) -> None:
         write_document(_ACCURACY_ENTRIES, doc_id, entry)
 
 
+# ── Pipeline health metrics ──────────────────────────────────────────────────
+
+def record_pipeline_health(run_id: str, metrics: dict) -> None:
+    """Store pipeline run health metrics in Firestore.
+
+    Args:
+        run_id: GitHub Actions run ID or 'local' for local runs.
+        metrics: Dict of step outcomes (e.g. {'ecmwf': True, 'wave': False}).
+    """
+    from datetime import datetime, timezone
+    doc = {
+        'run_utc': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S+00:00'),
+        **metrics,
+    }
+    write_document('pipeline_health', run_id, doc)
+
+
+def archive_daily_summary(summary: dict, wave: dict | None = None) -> None:
+    """Archive daily max/min/avg for key weather variables to Firestore.
+
+    Designed to be called once per forecast cycle; uses the first valid_utc
+    date as the document ID so only the latest cycle's data is kept per day.
+    """
+    records = summary.get('records', [])
+    if not records:
+        return
+
+    date_str = records[0].get('valid_utc', '')[:10]  # YYYY-MM-DD
+    if not date_str:
+        return
+
+    def _stats(values):
+        if not values:
+            return None, None, None
+        return round(min(values), 1), round(max(values), 1), round(sum(values) / len(values), 1)
+
+    temps = [r['temp_c'] for r in records if r.get('temp_c') is not None]
+    winds = [r['wind_kt'] for r in records if r.get('wind_kt') is not None]
+    gusts = [r['gust_kt'] for r in records if r.get('gust_kt') is not None]
+    precips = [r.get('precip_mm_6h', 0) or 0 for r in records]
+    pressures = [r['mslp_hpa'] for r in records if r.get('mslp_hpa') is not None]
+
+    t_min, t_max, t_avg = _stats(temps)
+    _, w_max, w_avg = _stats(winds)
+    _, g_max, _ = _stats(gusts)
+    p_min, p_max, _ = _stats(pressures)
+
+    doc: dict = {
+        'date': date_str,
+        'temp_min_c': t_min,
+        'temp_max_c': t_max,
+        'temp_avg_c': t_avg,
+        'wind_max_kt': w_max,
+        'wind_avg_kt': w_avg,
+        'gust_max_kt': g_max,
+        'precip_total_mm': round(sum(precips), 1),
+        'pressure_min_hpa': p_min,
+        'pressure_max_hpa': p_max,
+    }
+
+    # Wave data from wave_keelung.json
+    if wave:
+        wave_recs = wave.get('ecmwf_wave', {}).get('records', [])
+        wave_hs = [r['wave_height'] for r in wave_recs if r.get('wave_height') is not None]
+        if wave_hs:
+            doc['wave_max_m'] = round(max(wave_hs), 1)
+            doc['wave_avg_m'] = round(sum(wave_hs) / len(wave_hs), 1)
+
+    write_document('daily_archive', date_str, doc)
+
+
 # ── Cloud Storage for GRIB2 archives ─────────────────────────────────────────
 
 def _get_bucket():

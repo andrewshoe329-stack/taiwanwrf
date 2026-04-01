@@ -7,7 +7,7 @@ import { ShareButton } from '@/components/layout/ShareButton'
 import { LiveObsCard } from '@/components/spots/LiveObsCard'
 import { EnsembleAccuracyPills } from '@/components/spots/EnsembleAccuracyPills'
 import { TideSparkline } from '@/components/charts/TideSparkline'
-import { degToCompass, windType } from '@/lib/forecast-utils'
+import { degToCompass, windType, seaComfortStars, seaComfortLabel } from '@/lib/forecast-utils'
 import { SPOT_COUNTY } from '@/lib/constants'
 import type { SpotInfo, SpotRating, SpotForecast, TidePrediction, TideExtremum, EnsembleData, AccuracyEntry, CwaObs } from '@/lib/types'
 
@@ -134,6 +134,11 @@ export function SpotDetail({
             {w.severity_level || w.event || w.type}
           </span>
         ))}
+        {currentRating?.squall_risk && (
+          <span className="fs-compact px-1.5 py-0.5 rounded bg-red-500/30 text-red-300 font-semibold animate-pulse">
+            Squall Risk
+          </span>
+        )}
         {spotInfo.webcams?.map((cam, i) => (
           <a
             key={i}
@@ -190,6 +195,14 @@ export function SpotDetail({
               value={`${currentRating.tide_height?.toFixed(2) ?? '--'}`}
               unit="m"
             />
+            {currentRating.sea_comfort != null && (
+              <DataCell
+                label={t('common.sea_state')}
+                value={seaComfortStars(currentRating.sea_comfort)}
+                unit=""
+                sub={seaComfortLabel(currentRating.sea_comfort) ?? undefined}
+              />
+            )}
           </div>
           {tidePredictions.length > 0 && (
             <TideSparkline

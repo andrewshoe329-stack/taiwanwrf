@@ -17,7 +17,10 @@ import html as html_mod
 
 from config import (KEELUNG_LAT, KEELUNG_LON, SPOT_COORDS,
                      deg_to_compass, setup_logging, sail_rating,
-                     sunrise_sunset, is_daylight)
+                     sunrise_sunset, is_daylight, MS_TO_KT,
+                     MIN_SWELL_HEIGHT_M, MAX_SWELL_HEIGHT_M,
+                     MAX_SURF_WIND_KT, LIGHT_WIND_KT,
+                     ONSHORE_WIND_KT, STRONG_SURF_WIND_KT)
 from config import fetch_json as _config_fetch_json
 
 # Build coordinate lookup from shared SPOT_COORDS (single source of truth)
@@ -159,13 +162,12 @@ def _safe_get(lst: list | None, idx: int) -> object | None:
     """Return lst[idx] if in bounds, else None."""
     return lst[idx] if lst and 0 <= idx < len(lst) else None
 
-# ── Rating thresholds ─────────────────────────────────────────────────────
-MIN_SWELL_HEIGHT_M = 0.25   # below this → flat
-MAX_SWELL_HEIGHT_M = 4.5    # above this → dangerous
-MAX_WIND_KT        = 32     # above this → too windy
-LIGHT_WIND_KT      = 10     # below this → light wind bonus
-ONSHORE_WIND_KT    = 22     # above this → surf score penalty
-STRONG_WIND_KT     = 25     # above this → strong wind penalty
+# ── Rating thresholds (imported from config.py) ──────────────────────────
+# MIN_SWELL_HEIGHT_M, MAX_SWELL_HEIGHT_M, MAX_SURF_WIND_KT, LIGHT_WIND_KT,
+# ONSHORE_WIND_KT, STRONG_SURF_WIND_KT are imported above.
+# Local aliases for backward compatibility in scoring functions:
+MAX_WIND_KT  = MAX_SURF_WIND_KT
+STRONG_WIND_KT = STRONG_SURF_WIND_KT
 
 # ── Direction helpers ──────────────────────────────────────────────────────
 DIR_DEG = {

@@ -47,6 +47,28 @@ from pathlib import Path
 from config import KEELUNG_LAT, KEELUNG_LON, deg_to_compass, norm_utc, setup_logging
 from config import fetch_json as _fetch_json_shared
 
+
+def _sea_comfort(hs: float | None, tp: float | None) -> tuple[float | None, int | None]:
+    """Compute wave steepness and sea-state comfort rating (1-5 stars).
+
+    Steepness = Hs / (1.56 × Tp²).  Lower steepness = longer, gentler swells.
+    Returns (steepness, comfort) or (None, None) if data is missing.
+    """
+    if not hs or not tp or tp <= 0:
+        return None, None
+    steepness = hs / (1.56 * tp * tp)
+    if steepness < 1 / 40:
+        comfort = 5   # smooth
+    elif steepness < 1 / 25:
+        comfort = 4   # slight
+    elif steepness < 1 / 15:
+        comfort = 3   # moderate
+    elif steepness < 1 / 10:
+        comfort = 2   # rough
+    else:
+        comfort = 1   # very rough
+    return round(steepness, 5), comfort
+
 log = logging.getLogger(__name__)
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -163,6 +185,11 @@ def process_ecmwf_wave(raw: dict) -> tuple[dict, list[dict]]:
             "swell_wave_direction":r2(safe(swd, i)),
             "swell_wave_period":   r2(safe(swp, i)),
         })
+        # Add sea-state comfort index (B8)
+        rec = records[-1]
+        steepness, comfort = _sea_comfort(rec['wave_height'], rec['wave_period'])
+        rec['wave_steepness'] = steepness
+        rec['sea_comfort'] = comfort
 
     init_raw = times[0] if times else ""
     meta = {
@@ -364,6 +391,11 @@ def extract_cwa_wave_forecast(model_id: str, run_info: dict,
         ]:
             v = raw.get(key)
             rec[key] = round(v, 2) if v is not None else None
+
+        # Sea-state comfort index (B8)
+        steepness, comfort = _sea_comfort(rec['wave_height'], rec['wave_period'])
+        rec['wave_steepness'] = steepness
+        rec['sea_comfort'] = comfort
 
         records.append(rec)
 

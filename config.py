@@ -111,14 +111,73 @@ THEME = {
 }
 
 
-def setup_logging(level: int = logging.INFO) -> None:
-    """Configure root logger for CLI scripts."""
-    logging.basicConfig(
-        format="%(asctime)s %(levelname)-7s %(name)s: %(message)s",
-        datefmt="%H:%M:%S",
-        level=level,
-    )
-    logging.getLogger().setLevel(level)
+# ── Unit conversion constants ────────────────────────────────────────────────
+MS_TO_KT = 1.94384   # m/s → knots  (exact: 3600/1852)
+
+# ── Thresholds (single source of truth) ──────────────────────────────────────
+# Imported by notify.py, surf_forecast.py, and used by sail_rating() below.
+# Each value cites WMO, CWA, or local consensus.
+GALE_WIND_KT       = 34    # Beaufort 8 — WMO gale warning
+STRONG_WIND_KT     = 22    # Beaufort 6 — WMO small craft advisory
+HEAVY_RAIN_MM_6H   = 15    # CWA heavy rain advisory
+HIGH_SEAS_M        = 2.5   # CWA rough sea advisory for coastal waters
+DANGEROUS_SEAS_M   = 3.5   # CWA dangerous sea warning for coastal waters
+GOOD_SURF_M        = 0.6   # Surfable swell minimum (local consensus)
+FIRING_SURF_M      = 1.5   # Excellent surf conditions (local consensus)
+LIGHT_WIND_KT      = 10    # Good sailing lower bound (Beaufort 3)
+SAIL_MAX_GUST_KT   = 30    # Sailing no-go gust (Beaufort 7)
+# Surf scoring thresholds
+MIN_SWELL_HEIGHT_M = 0.25  # Below → flat
+MAX_SWELL_HEIGHT_M = 4.5   # Above → dangerous
+MAX_SURF_WIND_KT   = 32    # Above → too windy for surfing
+ONSHORE_WIND_KT    = 22    # Above → surf score penalty for onshore wind
+STRONG_SURF_WIND_KT = 25   # Above → additional strong wind penalty
+# Squall detection (B7)
+SQUALL_GUST_FACTOR     = 1.8   # gust/sustained ratio indicating gusty/squall
+SQUALL_CAPE_THRESHOLD  = 1000  # J/kg — moderate instability
+SQUALL_PRESSURE_DROP   = 3.0   # hPa over 3 hours
+
+
+class _JsonFormatter(logging.Formatter):
+    """Structured JSON log formatter for pipeline observability."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        entry: dict = {
+            'ts': self.formatTime(record, '%Y-%m-%dT%H:%M:%S'),
+            'level': record.levelname,
+            'logger': record.name,
+            'msg': record.getMessage(),
+        }
+        if record.exc_info and record.exc_info[1]:
+            entry['exc'] = self.formatException(record.exc_info)
+        # Pass-through extra structured fields
+        for k in ('event', 'source', 'records', 'elapsed_s', 'error_type'):
+            if hasattr(record, k):
+                entry[k] = getattr(record, k)
+        return json.dumps(entry, ensure_ascii=False)
+
+
+def setup_logging(level: int = logging.INFO, *,
+                  json_format: bool = False) -> None:
+    """Configure root logger for CLI scripts.
+
+    Args:
+        level: Logging level (default INFO).
+        json_format: If True, emit structured JSON lines to stderr
+                     instead of human-readable text (useful in CI/CD).
+    """
+    if json_format:
+        handler = logging.StreamHandler()
+        handler.setFormatter(_JsonFormatter())
+        logging.root.handlers = [handler]
+        logging.root.setLevel(level)
+    else:
+        logging.basicConfig(
+            format="%(asctime)s %(levelname)-7s %(name)s: %(message)s",
+            datefmt="%H:%M:%S",
+            level=level,
+        )
+        logging.getLogger().setLevel(level)
 
 
 # Keelung harbour target point (WRF grid extraction, ECMWF/wave API queries)
@@ -377,15 +436,15 @@ def sail_rating(
     if total_rain is None:
         total_rain = 0.0
     no_go = (
-        (max_gust is not None and max_gust >= 34) or
+        (max_gust is not None and max_gust >= GALE_WIND_KT) or
         (max_wind is not None and max_wind >= 28) or
-        (max_hs   is not None and max_hs   >= 2.5)
+        (max_hs   is not None and max_hs   >= HIGH_SEAS_M)
     )
     marginal = (
-        (max_gust is not None and max_gust >= 22) or
+        (max_gust is not None and max_gust >= STRONG_WIND_KT) or
         (max_wind is not None and max_wind >= 17) or
-        (max_hs   is not None and max_hs   >= 1.5) or
-        total_rain >= 15
+        (max_hs   is not None and max_hs   >= FIRING_SURF_M) or
+        total_rain >= HEAVY_RAIN_MM_6H
     )
     base = {
         'max_w': max_wind, 'max_g': max_gust, 'max_hs': max_hs,
@@ -508,3 +567,82 @@ def run_parallel(fn, items, *, max_workers: int = 4,
             )
 
     return results
+
+
+# ── Open-Meteo 6-hourly aggregation ────────────────────────────────────────
+
+def aggregate_hourly_to_6h(raw: dict, *, model_id: str = "ECMWF-IFS",
+                           source: str = "open-meteo.com") -> tuple[dict, list]:
+    """Convert an Open-Meteo hourly JSON response to 6-hourly forecast records.
+
+    This is the shared implementation used by ecmwf_fetch and ensemble_fetch
+    (and potentially other Open-Meteo consumers) to avoid code duplication.
+
+    For instantaneous variables (temperature, wind, pressure, cloud, visibility)
+    we sample at the 6-hourly timestamps.  For precipitation we sum the 6 hourly
+    values ending at each 6h timestamp.
+
+    Returns (meta dict, list of record dicts).
+    """
+    from datetime import datetime, timezone
+
+    h = raw.get("hourly", {})
+    times = h.get("time", [])
+    if not times:
+        return {}, []
+
+    def col(key):
+        return h.get(key, [])
+
+    temp   = col("temperature_2m")
+    wspd   = col("windspeed_10m")
+    wdir   = col("winddirection_10m")
+    gust   = col("windgusts_10m")
+    precip = col("precipitation")
+    cloud  = col("cloudcover")
+    mslp   = col("pressure_msl")
+    vis    = col("visibility")
+    cape   = col("cape")
+
+    def safe(arr, i):
+        return arr[i] if arr and 0 <= i < len(arr) else None
+
+    records = []
+    for i, t in enumerate(times):
+        dt = datetime.fromisoformat(t if len(t) >= 19 else t + ':00').replace(tzinfo=timezone.utc)
+        if dt.hour % 6 != 0:
+            continue
+
+        # Precipitation: sum 6h window [i-5 .. i] inclusive
+        window_start = max(0, i - 5)
+        precip_6h = sum((safe(precip, j) or 0.0) for j in range(window_start, i + 1))
+
+        # Visibility: metres → km
+        vis_val = safe(vis, i)
+        vis_km = round(vis_val / 1000, 1) if vis_val is not None else None
+
+        # Gust: max within the 6h window
+        gust_vals = [safe(gust, j) for j in range(window_start, i + 1)
+                     if safe(gust, j) is not None]
+        gust_val = max(gust_vals) if gust_vals else None
+
+        records.append({
+            "valid_utc":    norm_utc(t),
+            "temp_c":       safe(temp, i),
+            "wind_kt":      safe(wspd, i),
+            "wind_dir":     safe(wdir, i),
+            "gust_kt":      gust_val,
+            "mslp_hpa":     safe(mslp, i),
+            "precip_mm_6h": round(precip_6h, 2),
+            "cloud_pct":    safe(cloud, i),
+            "vis_km":       vis_km,
+            "cape":         safe(cape, i),
+        })
+
+    init_raw = times[0] if times else ""
+    meta = {
+        "model_id":  model_id,
+        "init_utc":  norm_utc(init_raw) if init_raw else None,
+        "source":    source,
+    }
+    return meta, records

@@ -274,6 +274,8 @@ export function ratingsToForecastRecords(ratings: SpotRating[]): ForecastRecord[
     precip_mm_6h: r.precip_mm_6h,
     cloud_pct: r.cloud_pct,
     cape: r.cape,
+    gust_factor: r.gust_factor,
+    squall_risk: r.squall_risk,
   }))
 }
 
@@ -285,6 +287,7 @@ export function ratingsToWaveRecords(ratings: SpotRating[]): WaveRecord[] {
     swell_wave_height: r.swell_height,
     swell_wave_direction: r.swell_dir,
     swell_wave_period: r.swell_period,
+    sea_comfort: r.sea_comfort,
   }))
 }
 
@@ -345,4 +348,42 @@ export function getLocationAccuracy(
     return forModel[forModel.length - 1] ?? null
   }
   return forLocation[forLocation.length - 1] ?? null
+}
+
+// ── B7: Gust factor helpers ─────────────────────────────────────────────────
+
+/** Return label for elevated gust factor (null if normal). */
+export function gustFactorLabel(gf: number | undefined): string | null {
+  if (gf == null) return null
+  if (gf >= 2.0) return 'Extreme gusts'
+  if (gf >= 1.5) return 'Gusty'
+  return null
+}
+
+/** Tailwind color class for gust factor severity. */
+export function gustFactorColor(gf: number | undefined): string {
+  if (gf == null) return ''
+  if (gf >= 2.0) return 'text-red-400'
+  if (gf >= 1.5) return 'text-orange-400'
+  return 'text-[var(--color-text-muted)]'
+}
+
+// ── B8: Sea state comfort helpers ───────────────────────────────────────────
+
+const STAR_FILLED = '\u2605'
+const STAR_EMPTY = '\u2606'
+
+/** Sea comfort rating as stars (e.g. "★★★☆☆"). */
+export function seaComfortStars(comfort: number | undefined): string {
+  if (comfort == null) return '--'
+  return STAR_FILLED.repeat(comfort) + STAR_EMPTY.repeat(5 - comfort)
+}
+
+/** Human-readable sea comfort label. */
+export function seaComfortLabel(comfort: number | undefined): string | null {
+  if (comfort == null) return null
+  const labels: Record<number, string> = {
+    5: 'Smooth', 4: 'Slight', 3: 'Moderate', 2: 'Rough', 1: 'Very rough',
+  }
+  return labels[comfort] ?? null
 }

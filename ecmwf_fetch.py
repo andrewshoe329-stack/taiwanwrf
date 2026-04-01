@@ -24,7 +24,7 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from config import KEELUNG_LAT, KEELUNG_LON, norm_utc, setup_logging
+from config import KEELUNG_LAT, KEELUNG_LON, norm_utc, setup_logging, aggregate_hourly_to_6h
 from config import fetch_json as _fetch_json_shared
 
 log = logging.getLogger(__name__)
@@ -107,43 +107,27 @@ def process(raw: dict, raw_fill: dict | None = None) -> tuple[dict, list]:
     """
     Convert Open-Meteo hourly response to 6-hourly records.
 
-    For variables measured instantaneously (temperature, wind, pressure, cloud,
-    visibility) we sample at the 6-hourly timestamps.
-
-    For precipitation we sum the 6 hourly values *ending* at each 6h timestamp
-    to match the WRF 'precip_mm_6h' convention.
+    Delegates core aggregation to ``aggregate_hourly_to_6h`` in config.py,
+    then applies GFS backfill for null gust_kt and vis_km values.
 
     raw_fill: optional secondary Open-Meteo response (e.g. GFS) used to backfill
               null gust_kt and vis_km values that ECMWF IFS may not publish.
 
     Returns (meta dict, list of record dicts).
     """
-    h = raw.get("hourly", {})
-    times = h.get("time", [])
-    if not times:
+    meta, records = aggregate_hourly_to_6h(raw, model_id="ECMWF-IFS-0.25")
+    if not records:
         log.warning("ECMWF API response contains no hourly data")
         return {}, []
 
-    def col(key):
-        return h.get(key, [])
+    # Add lat/lon to meta (ECMWF-specific)
+    meta["latitude"] = raw.get("latitude")
+    meta["longitude"] = raw.get("longitude")
 
-    temp   = col("temperature_2m")
-    wspd   = col("windspeed_10m")
-    wdir   = col("winddirection_10m")
-    gust   = col("windgusts_10m")
-    precip = col("precipitation")
-    cloud  = col("cloudcover")
-    mslp   = col("pressure_msl")
-    vis    = col("visibility")
-    cape   = col("cape")
-
-    def safe(arr, i):
-        return arr[i] if arr and 0 <= i < len(arr) else None
-
-    # Build lookup index for GFS fill data keyed by normalised time string
-    fill_gust_by_time: dict[str, float | None] = {}
-    fill_vis_by_time:  dict[str, float | None] = {}
+    # GFS backfill: fill null gust_kt and vis_km from secondary model
     if raw_fill:
+        fill_gust_by_time: dict[str, float | None] = {}
+        fill_vis_by_time:  dict[str, float | None] = {}
         fh  = raw_fill.get("hourly", {})
         ft  = fh.get("time", [])
         fg  = fh.get("windgusts_10m", [])
@@ -155,62 +139,13 @@ def process(raw: dict, raw_fill: dict | None = None) -> tuple[dict, list]:
                                       if fv and j < len(fv) and fv[j] is not None
                                       else None)
 
-    records = []
-    for i, t in enumerate(times):
-        dt = datetime.fromisoformat(t if len(t) >= 19 else t + ':00').replace(tzinfo=timezone.utc)
-        if dt.hour % 6 != 0:
-            continue
+        for rec in records:
+            vt = rec["valid_utc"]
+            if rec.get("gust_kt") is None and vt in fill_gust_by_time:
+                rec["gust_kt"] = fill_gust_by_time[vt]
+            if rec.get("vis_km") is None and vt in fill_vis_by_time:
+                rec["vis_km"] = fill_vis_by_time[vt]
 
-        # Precipitation: sum hours [i-5 .. i] inclusive (6-hour window).
-        # Sum the preceding 6 hourly precipitation values.  For early forecast
-        # hours with fewer than 6 values, use the actual sum (no scaling up).
-        window_start = max(0, i - 5)
-        precip_6h = sum(
-            (safe(precip, j) or 0.0)
-            for j in range(window_start, i + 1)
-        )
-
-        # Visibility: metres → km
-        vis_val = safe(vis, i)
-        vis_km  = round(vis_val / 1000, 1) if vis_val is not None else None
-
-        # Gust: take the max within the 6h window (not just the snapshot)
-        # This captures peak gusts that may occur between 6-hourly timestamps.
-        gust_vals_window = [safe(gust, j) for j in range(window_start, i + 1)
-                           if safe(gust, j) is not None]
-        gust_val = max(gust_vals_window) if gust_vals_window else None
-
-        norm_t   = norm_utc(t)
-        if gust_val is None and norm_t in fill_gust_by_time:
-            gust_val = fill_gust_by_time[norm_t]
-        if vis_km is None and norm_t in fill_vis_by_time:
-            vis_km = fill_vis_by_time[norm_t]
-
-        records.append({
-            "valid_utc":    norm_t,
-            "temp_c":       safe(temp,   i),
-            "wind_kt":      safe(wspd,   i),
-            "wind_dir":     safe(wdir,   i),
-            "gust_kt":      gust_val,
-            "mslp_hpa":     safe(mslp,   i),
-            "precip_mm_6h": round(precip_6h, 2),
-            "cloud_pct":    safe(cloud,  i),
-            "vis_km":       vis_km,
-            "cape":         safe(cape,   i),
-        })
-
-    # ECMWF init time: use the first hourly timestamp (model cycle start).
-    # Note: current/current_weather.time is the observation time, not the
-    # model init time, so we don't use it.
-    _times = raw.get("hourly", {}).get("time", [])
-    init_raw = _times[0] if _times else ""
-    meta = {
-        "model_id":  "ECMWF-IFS-0.25",
-        "init_utc":  norm_utc(init_raw) if init_raw else None,
-        "source":    "open-meteo.com",
-        "latitude":  raw.get("latitude"),
-        "longitude": raw.get("longitude"),
-    }
     return meta, records
 
 

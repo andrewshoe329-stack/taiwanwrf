@@ -18,6 +18,8 @@ export interface ForecastRecord {
   cloud_pct?: number
   vis_km?: number
   cape?: number
+  gust_factor?: number
+  squall_risk?: boolean
 }
 
 export interface ForecastData {
@@ -36,6 +38,8 @@ export interface WaveRecord {
   wind_wave_height?: number
   wind_wave_direction?: number
   wind_wave_period?: number
+  wave_steepness?: number
+  sea_comfort?: number
 }
 
 export interface WaveData {
@@ -224,6 +228,9 @@ export interface SpotRating {
   cloud_pct?: number
   cape?: number
   tide_height?: number
+  gust_factor?: number
+  squall_risk?: boolean
+  sea_comfort?: number
   score_breakdown?: {
     swell_dir: number
     wind_dir: number
@@ -271,4 +278,21 @@ export interface HarbourInfo {
   lat: number
   lon: number
   webcams?: Array<{ label: string; url: string }>
+}
+
+// ── Historical archive (B9) ────────────────────────────────────────────────
+
+export interface DailyArchive {
+  date: string
+  temp_min_c?: number
+  temp_max_c?: number
+  temp_avg_c?: number
+  wind_max_kt?: number
+  wind_avg_kt?: number
+  gust_max_kt?: number
+  wave_max_m?: number
+  wave_avg_m?: number
+  precip_total_mm?: number
+  pressure_min_hpa?: number
+  pressure_max_hpa?: number
 }

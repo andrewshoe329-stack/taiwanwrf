@@ -218,7 +218,13 @@
     "unavailable": "Unavailable",
     "loading_short": "Loading...",
     "stale": "stale",
-    "spot_comparison": "Spot Comparison"
+    "spot_comparison": "Spot Comparison",
+    "sea_state": "Sea State",
+    "sea_comfort_smooth": "Smooth",
+    "sea_comfort_slight": "Slight",
+    "sea_comfort_moderate": "Moderate",
+    "sea_comfort_rough": "Rough",
+    "sea_comfort_very_rough": "Very Rough"
   },
   "map": {
     "wind": "Wind",
@@ -230,6 +236,20 @@
     "radar_heavy": "Heavy",
     "ir_satellite": "IR Satellite",
     "currents": "Currents"
+  },
+  "history": {
+    "title": "Historical Conditions",
+    "date": "Date",
+    "temp_range": "Temp",
+    "avg_temp": "Avg Temp",
+    "max_wind": "Max Wind",
+    "avg_wind": "Avg Wind",
+    "max_wave": "Max Wave",
+    "avg_wave": "Avg Wave",
+    "total_precip": "Total Rain"
+  },
+  "alerts": {
+    "squall_risk": "Squall Risk"
   },
   "units": {
     "kt": "kt",

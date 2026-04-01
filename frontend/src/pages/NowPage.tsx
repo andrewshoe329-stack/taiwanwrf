@@ -200,6 +200,12 @@ export function NowPage() {
         <KeelungDetail
           ensemble={data.ensemble}
           accuracy={data.accuracy}
+          cwaObs={data.cwa_obs}
+          waveRec={(() => {
+            const recs = data.wave?.ecmwf_wave?.records
+            if (!recs?.length) return null
+            return recs[Math.min(index, recs.length - 1)] ?? null
+          })()}
           onDeselect={() => setLocationId(null)}
         />
       )}

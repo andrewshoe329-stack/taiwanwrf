@@ -13,6 +13,9 @@ const NowPage = lazy(() =>
       )
     })
 )
+const HistoryPage = lazy(() =>
+  import('./pages/HistoryPage').then(m => ({ default: m.HistoryPage }))
+)
 
 /** Redirect /spots/:id → /?loc=:id */
 function SpotRedirect() {
@@ -99,6 +102,16 @@ export const router = createBrowserRouter([
       { path: 'spots/:id', element: <SpotRedirect /> },
       { path: 'harbours', element: <Navigate to="/?loc=keelung" replace /> },
       { path: 'models', element: <Navigate to="/" replace /> },
+      {
+        path: 'history',
+        element: (
+          <LazyErrorBoundary>
+            <Suspense fallback={<LazyFallback />}>
+              <HistoryPage />
+            </Suspense>
+          </LazyErrorBoundary>
+        ),
+      },
     ],
   },
 ])
