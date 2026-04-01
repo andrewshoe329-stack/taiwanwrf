@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
 /** Browser-side alert thresholds stored in localStorage */
@@ -122,11 +122,40 @@ export function AlertSettingsPanel({ open, onClose }: AlertSettingsPanelProps) {
     if (granted) updatePref('enabled', true)
   }
 
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  // Focus trap + Escape to close
+  useEffect(() => {
+    if (!open) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { onClose(); return }
+      if (e.key !== 'Tab' || !panelRef.current) return
+      const focusable = panelRef.current.querySelectorAll<HTMLElement>(
+        'button, input, [tabindex]:not([tabindex="-1"])'
+      )
+      if (focusable.length === 0) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault(); last.focus()
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault(); first.focus()
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    // Focus first focusable element
+    const timer = setTimeout(() => {
+      panelRef.current?.querySelectorAll<HTMLElement>('button, input')[0]?.focus()
+    }, 50)
+    return () => { document.removeEventListener('keydown', handleKeyDown); clearTimeout(timer) }
+  }, [open, onClose])
+
   if (!open) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
       <div
+        ref={panelRef}
         className="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl w-[320px] max-w-[90vw] shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
@@ -244,7 +273,7 @@ function ThresholdRow({ label, value, unit, min, max, step, onChange }: {
         step={step}
         value={value}
         onChange={e => onChange(Number(e.target.value))}
-        className="flex-1 h-1 accent-blue-500"
+        className="flex-1 h-2 accent-blue-500 cursor-pointer"
       />
       <span className="fs-compact text-[var(--color-text-secondary)] tabular-nums w-12 text-right">
         {value}{unit}

@@ -258,7 +258,7 @@ export function NowPage() {
             <div className="flex-1 min-w-0"><TimelineScrubber records={chartRecords} /></div>
             <button
               onClick={() => setAlertsOpen(true)}
-              className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] transition-colors"
+              className="shrink-0 w-7 h-7 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] transition-colors"
               aria-label="Alert settings"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -410,7 +410,7 @@ export function NowPage() {
               <div className="flex-1 min-w-0"><TimelineScrubber records={chartRecords} /></div>
               <button
                 onClick={() => setAlertsOpen(true)}
-                className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] transition-colors"
+                className="shrink-0 w-7 h-7 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] transition-colors"
                 aria-label="Alert settings"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -453,7 +453,7 @@ export function NowPage() {
             <div className="flex-1 min-w-0"><TimelineScrubber records={chartRecords} /></div>
             <button
               onClick={() => setAlertsOpen(true)}
-              className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] transition-colors"
+              className="shrink-0 w-7 h-7 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] transition-colors"
               aria-label="Alert settings"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -497,7 +497,7 @@ export function NowPage() {
               <div className="flex-1 min-w-0"><TimelineScrubber records={chartRecords} /></div>
               <button
                 onClick={() => setAlertsOpen(true)}
-                className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]"
+                className="shrink-0 w-6 h-6 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]"
                 aria-label="Alert settings"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

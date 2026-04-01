@@ -17,7 +17,7 @@ export function Header() {
           <button
             onClick={reload}
             disabled={loading}
-            className="w-6 h-6 flex items-center justify-center rounded-full text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-elevated)] transition-colors disabled:opacity-30"
+            className="w-6 h-6 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-elevated)] transition-colors disabled:opacity-30"
             aria-label="Refresh data"
           >
             <svg
