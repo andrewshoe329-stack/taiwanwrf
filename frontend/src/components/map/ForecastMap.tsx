@@ -152,20 +152,41 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
     particlesRef.current?.setLang(i18n.language.startsWith('zh') ? 'zh' : 'en')
   }, [i18n.language])
 
-  /** Hit-test labels at canvas position, return label if within radius */
+  /** Hit-test labels at canvas position (dot + text bounding box) */
   const hitTestLabel = useCallback((canvasX: number, canvasY: number): MapLabel | null => {
     if (!particlesRef.current) return null
-    const hitRadius = 24
+    const dotRadius = 24
+    const textOffsetX = 9
+    const fontSize = 11
+    const charWidth = 7 // approximate average character width at 11px
     let closest: MapLabel | null = null
-    let closestDist = hitRadius
+    let closestDist = Infinity
 
     for (const label of ALL_LABELS) {
       if (label.type === 'city') continue // cities not selectable
       const [lx, ly] = particlesRef.current.projectPoint(label.lon, label.lat)
+
+      // Check dot radius
       const dist = Math.sqrt((canvasX - lx) ** 2 + (canvasY - ly) ** 2)
-      if (dist < closestDist) {
+      if (dist < dotRadius && dist < closestDist) {
         closestDist = dist
         closest = label
+        continue
+      }
+
+      // Check text bounding box
+      const textLen = (label.text?.length ?? 0) * charWidth
+      const textLeft = lx + textOffsetX
+      const textRight = textLeft + textLen
+      const textTop = ly - fontSize / 2 - 4
+      const textBottom = ly + fontSize / 2 + 4
+      if (canvasX >= textLeft && canvasX <= textRight &&
+          canvasY >= textTop && canvasY <= textBottom) {
+        const textDist = Math.abs(canvasY - ly) // prefer vertically centered
+        if (textDist < closestDist) {
+          closestDist = textDist
+          closest = label
+        }
       }
     }
     return closest
@@ -337,7 +358,11 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
         return
       }
 
-      canvas.style.cursor = 'grab'
+      // Show pointer cursor when hovering over a clickable label
+      const rect = canvas.getBoundingClientRect()
+      const cx = e.clientX - rect.left
+      const cy = e.clientY - rect.top
+      canvas.style.cursor = hitTestLabel(cx, cy) ? 'pointer' : 'grab'
     }
 
     const handleMouseUp = (e: MouseEvent) => {
