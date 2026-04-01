@@ -10,7 +10,7 @@ export function Header() {
   return (
     <header className="shrink-0 z-50 border-b border-[var(--color-border)] bg-[var(--color-bg)] pwa-header">
       <div className="flex items-center justify-between h-9 px-3 max-w-screen-xl mx-auto">
-        <span className="text-[var(--fs-body)] font-semibold tracking-tight text-[var(--color-text-primary)]">
+        <span className="fs-body font-semibold tracking-tight text-[var(--color-text-primary)]">
           {t('app.title')}
         </span>
         <div className="flex items-center gap-2">

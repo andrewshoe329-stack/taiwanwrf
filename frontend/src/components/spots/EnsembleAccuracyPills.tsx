@@ -30,7 +30,7 @@ export function EnsembleAccuracyPills({ ensemble, accuracy }: EnsembleAccuracyPi
             const label = lang === 'zh' ? '模型共識' : 'Model consensus'
             return (
               <span
-                className={`text-[var(--fs-compact)] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] ${color}`}
+                className={`fs-compact px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] ${color}`}
                 aria-label={`${label}: ${level}`}
               >
                 {label} {stars}
@@ -38,7 +38,7 @@ export function EnsembleAccuracyPills({ ensemble, accuracy }: EnsembleAccuracyPi
             )
           })()}
           {latest && (
-            <span className="text-[var(--fs-compact)] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
+            <span className="fs-compact px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
               ±{latest.wind_mae_kt?.toFixed(1) ?? '?'}kt wind · ±{latest.temp_mae_c?.toFixed(1) ?? '?'}°C temp
               {latest.wave?.hs_mae_m != null && ` · ±${latest.wave.hs_mae_m.toFixed(1)}m wave`}
             </span>
@@ -50,14 +50,14 @@ export function EnsembleAccuracyPills({ ensemble, accuracy }: EnsembleAccuracyPi
               if (wind == null) return null
               const temp = latest.by_horizon?.[h]?.temp_mae_c
               return (
-                <span key={h} className="text-[var(--fs-compact)] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
+                <span key={h} className="fs-compact px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
                   {h}: ±{wind.toFixed(1)}kt{temp != null && ` ±${temp.toFixed(1)}°C`}
                 </span>
               )
             })
           })()}
           {ensemble?.spread?.precip_spread_mm != null && ensemble.spread.precip_spread_mm > 1 && (
-            <span className="text-[var(--fs-compact)] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
+            <span className="fs-compact px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
               {lang === 'zh' ? '降雨差異' : 'Rain spread'} ±{ensemble.spread.precip_spread_mm.toFixed(1)}mm
             </span>
           )}

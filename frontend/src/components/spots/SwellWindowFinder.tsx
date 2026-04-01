@@ -72,7 +72,7 @@ export function SwellWindowFinder({ spots, onSelectSpot }: SwellWindowFinderProp
 
   return (
     <section className="md:px-3 py-2">
-      <p className="text-[var(--fs-compact)] uppercase tracking-widest text-[var(--color-text-dim)] mb-1.5 px-1">
+      <p className="fs-compact uppercase tracking-widest text-[var(--color-text-dim)] mb-1.5 px-1">
         {lang === 'zh' ? '本週最佳浪況' : 'Best Sessions This Week'}
       </p>
       <div className="space-y-0.5">
@@ -82,18 +82,18 @@ export function SwellWindowFinder({ spots, onSelectSpot }: SwellWindowFinderProp
             onClick={() => onSelectSpot(w.spotId)}
             className="w-full flex items-center gap-1.5 px-1.5 py-1 rounded-md text-left hover:bg-[var(--color-bg-elevated)]/60 transition-colors"
           >
-            <span className="text-[var(--fs-compact)] text-[var(--color-text-dim)] w-3 font-mono">{i + 1}</span>
-            <span className="text-[var(--fs-compact)] text-[var(--color-text-muted)] w-6 font-medium">
+            <span className="fs-compact text-[var(--color-text-dim)] w-3 font-mono">{i + 1}</span>
+            <span className="fs-compact text-[var(--color-text-muted)] w-6 font-medium">
               {lang === 'zh' ? w.dayNameZh : w.dayName}
             </span>
-            <span className="text-[var(--fs-compact)] text-[var(--color-text-secondary)] flex-1 truncate">
+            <span className="fs-compact text-[var(--color-text-secondary)] flex-1 truncate">
               {lang === 'zh' ? w.spotNameZh : w.spotName}
             </span>
-            <span className="text-[var(--fs-compact)] text-[var(--color-text-dim)] font-mono tabular-nums">
+            <span className="fs-compact text-[var(--color-text-dim)] font-mono tabular-nums">
               {w.startCst}–{w.endCst}
             </span>
             <span
-              className="text-[var(--fs-micro)] font-medium capitalize px-1 rounded min-w-[40px] text-center"
+              className="fs-micro font-medium capitalize px-1 rounded min-w-[40px] text-center"
               style={{
                 color: RATING_COLORS[w.rating] ?? '#6b7280',
                 backgroundColor: (RATING_COLORS[w.rating] ?? '#6b7280') + '20',

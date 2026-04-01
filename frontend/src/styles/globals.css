@@ -70,6 +70,12 @@
   --fs-label: 14px;
 }
 
+/* Utility classes — avoid Tailwind text-[var()] ambiguity (color vs font-size) */
+.fs-micro { font-size: var(--fs-micro); }
+.fs-compact { font-size: var(--fs-compact); }
+.fs-body { font-size: var(--fs-body); }
+.fs-label { font-size: var(--fs-label); }
+
 /* ── Base styles ──────────────────────────────────────────────────────────── */
 body {
   margin: 0;

@@ -65,32 +65,32 @@ export function TownshipForecastCard({ cwaObs, locationId }: TownshipForecastCar
         className="w-full flex items-center justify-between text-left"
       >
         <div className="flex items-center gap-1.5">
-          <span className="text-[var(--fs-micro)] uppercase tracking-wider text-[var(--color-text-dim)]">
+          <span className="fs-micro uppercase tracking-wider text-[var(--color-text-dim)]">
             {lang === 'zh' ? 'CWA 預報' : 'CWA Forecast'}
           </span>
-          <span className="text-[var(--fs-compact)] text-[var(--color-text-muted)]">{countyLabel}</span>
+          <span className="fs-compact text-[var(--color-text-muted)]">{countyLabel}</span>
         </div>
         <div className="flex items-center gap-2">
           {minT && maxT && (
-            <span className="text-[var(--fs-compact)] text-[var(--color-text-secondary)] font-mono tabular-nums">
+            <span className="fs-compact text-[var(--color-text-secondary)] font-mono tabular-nums">
               {minT}–{maxT}°C
             </span>
           )}
           {pop && (
-            <span className="text-[var(--fs-compact)] text-blue-400 font-mono tabular-nums">
+            <span className="fs-compact text-blue-400 font-mono tabular-nums">
               {pop}%
             </span>
           )}
-          <span className="text-[var(--fs-micro)] text-[var(--color-text-dim)]">{expanded ? '▲' : '▼'}</span>
+          <span className="fs-micro text-[var(--color-text-dim)]">{expanded ? '▲' : '▼'}</span>
         </div>
       </button>
 
       {expanded && (
         <div className="mt-1.5 space-y-1">
           {wx && (
-            <p className="text-[var(--fs-compact)] text-[var(--color-text-secondary)] leading-relaxed">{wx}</p>
+            <p className="fs-compact text-[var(--color-text-secondary)] leading-relaxed">{wx}</p>
           )}
-          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[var(--fs-compact)] text-[var(--color-text-dim)]">
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5 fs-compact text-[var(--color-text-dim)]">
             {minT && maxT && <span>{lang === 'zh' ? '溫度' : 'Temp'}: {minT}–{maxT}°C</span>}
             {pop && <span>{lang === 'zh' ? '降雨' : 'Rain'}: {pop}%</span>}
             {wind && <span>{lang === 'zh' ? '風速' : 'Wind'}: {wind}</span>}

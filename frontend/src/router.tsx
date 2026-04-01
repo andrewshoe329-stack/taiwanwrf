@@ -66,10 +66,10 @@ class LazyErrorBoundary extends React.Component<
       }
       return (
         <div className="flex flex-col items-center justify-center h-[50vh] gap-4">
-          <p className="text-[var(--color-text-muted)] text-[var(--fs-label)]">Failed to load page.</p>
+          <p className="text-[var(--color-text-muted)] fs-label">Failed to load page.</p>
           <button
             onClick={this.handleRetry}
-            className="px-4 py-2 text-[var(--fs-label)] rounded-md bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border border-[var(--color-border)] hover:bg-[var(--color-border)] transition-colors"
+            className="px-4 py-2 fs-label rounded-md bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border border-[var(--color-border)] hover:bg-[var(--color-border)] transition-colors"
           >
             Retry
           </button>

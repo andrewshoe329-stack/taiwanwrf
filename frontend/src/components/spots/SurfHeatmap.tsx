@@ -64,8 +64,8 @@ export function SurfHeatmap({ spots, filter, onSelectSpot }: SurfHeatmapProps) {
 
   return (
     <div className="mb-5 overflow-x-auto relative" style={{ scrollbarWidth: 'none' }}>
-      <p className="text-[var(--fs-compact)] text-[var(--color-text-dim)] text-right mb-1 md:hidden">{t('common.scroll_for_more')}</p>
-      <table className="w-full border-collapse text-[var(--fs-body)]" style={{ minWidth: dates.length * 64 + 100 }}>
+      <p className="fs-compact text-[var(--color-text-dim)] text-right mb-1 md:hidden">{t('common.scroll_for_more')}</p>
+      <table className="w-full border-collapse fs-body" style={{ minWidth: dates.length * 64 + 100 }}>
         <thead>
           <tr>
             <th className="text-left py-2 pr-3 text-[var(--color-text-muted)] font-normal sticky left-0 bg-[var(--color-bg)] z-10">
@@ -74,7 +74,7 @@ export function SurfHeatmap({ spots, filter, onSelectSpot }: SurfHeatmapProps) {
             {dates.map(date => (
               <th key={date} className="text-center py-2 px-1 font-normal" style={{ minWidth: 56 }}>
                 <div className="text-[var(--color-text-secondary)] font-medium">{formatDayHeader(date)}</div>
-                <div className="text-[var(--color-text-dim)] text-[var(--fs-compact)]">{formatDateSub(date)}</div>
+                <div className="text-[var(--color-text-dim)] fs-compact">{formatDateSub(date)}</div>
               </th>
             ))}
           </tr>
@@ -86,7 +86,7 @@ export function SurfHeatmap({ spots, filter, onSelectSpot }: SurfHeatmapProps) {
                 {onSelectSpot ? (
                   <button
                     onClick={() => onSelectSpot(sf.spot.id)}
-                    className="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors whitespace-nowrap bg-transparent border-none cursor-pointer p-0 text-left text-[var(--fs-body)]"
+                    className="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors whitespace-nowrap bg-transparent border-none cursor-pointer p-0 text-left fs-body"
                   >
                     {sf.spot.name[lang]}
                   </button>
