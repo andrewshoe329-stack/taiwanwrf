@@ -11,12 +11,12 @@ function Stat({ label, value, unit, detail }: {
   label: string; value: string; unit: string; detail?: string
 }) {
   return (
-    <div className="text-center">
-      <p className="fs-compact text-[var(--color-text-muted)] uppercase tracking-wider">{label}</p>
-      <p className="fs-label font-semibold text-[var(--color-text-primary)] tabular-nums leading-tight">
-        {value}<span className="fs-compact text-[var(--color-text-muted)] ml-0.5">{unit}</span>
+    <div className="text-center min-w-0">
+      <p className="fs-micro text-[var(--color-text-muted)] uppercase tracking-wide truncate">{label}</p>
+      <p className="fs-body font-semibold text-[var(--color-text-primary)] tabular-nums leading-tight">
+        {value}<span className="fs-micro text-[var(--color-text-muted)] ml-0.5">{unit}</span>
       </p>
-      {detail && <p className="fs-compact text-[var(--color-text-muted)] leading-tight">{detail}</p>}
+      {detail && <p className="fs-micro text-[var(--color-text-muted)] leading-tight truncate">{detail}</p>}
     </div>
   )
 }
@@ -80,7 +80,7 @@ export function ConditionsStrip() {
     const liveSpot = locationId ? liveObs.data?.spots?.[locationId] : null
     const waterTemp = liveSpot?.tide?.sea_temp_c ?? liveSpot?.buoy?.sea_temp_c
     return (
-      <div className="grid grid-cols-5 gap-1 py-1.5 min-w-[300px]">
+      <div className="grid grid-cols-5 gap-1 py-1.5">
         <Stat
           label={t('common.wave_height')}
           value={waveH?.toFixed(1) ?? '--'}
