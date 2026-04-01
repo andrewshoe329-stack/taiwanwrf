@@ -123,7 +123,7 @@ export function SwellCompass({ facing, optSwell, swellDir, swellHeight, size }: 
       ))}
 
       {/* Direction labels — hide intercardinals on small compass to prevent overlap */}
-      {DIRECTIONS.filter(dir => (size ?? 200) >= 100 || dir.length === 1).map((dir, i) => {
+      {DIRECTIONS.filter(dir => (size ?? 200) >= 100 || dir.length === 1).map(dir => {
         const idx = DIRECTIONS.indexOf(dir)
         const angle = idx * 45
         const rad = ((angle - 90) * Math.PI) / 180
