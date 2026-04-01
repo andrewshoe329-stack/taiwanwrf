@@ -5,7 +5,7 @@ import { useForecastData } from '@/hooks/useForecastData'
 import { useTimeline } from '@/hooks/useTimeline'
 import { useModel } from '@/hooks/useModel'
 import { useLocation } from '@/hooks/useLocation'
-import { useIsMobile, useMobileLandscape } from '@/hooks/useIsMobile'
+import { useIsMobile, useIsTabletPortrait, useMobileLandscape } from '@/hooks/useIsMobile'
 import { TimelineScrubber } from '@/components/timeline/TimelineScrubber'
 import { WeatherWarnings } from '@/components/layout/WeatherWarnings'
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner'
@@ -43,6 +43,7 @@ export function NowPage() {
   const { model } = useModel()
   const { locationId, setLocationId } = useLocation()
   const mobile = useIsMobile()
+  const tabletPortrait = useIsTabletPortrait()
   const mobileLandscape = useMobileLandscape()
 
   const [aiExpanded, setAiExpanded] = useState(false)
@@ -379,17 +380,17 @@ export function NowPage() {
     </div>
   )
 
-  /* ── Desktop: 3-column layout ──────────────────────────────────────── */
-  if (!mobile) {
+  /* ── Desktop: 3-column layout (≥1080px) ────────────────────────────── */
+  if (!mobile && !tabletPortrait) {
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full max-w-[1600px] mx-auto">
         {/* Full-width weather warnings banner */}
         <div className="shrink-0">
           <WeatherWarnings />
         </div>
         <div className="flex flex-1 min-h-0">
         {/* Left column: location detail + AI summary */}
-        <div className="w-[260px] min-w-[240px] shrink-0 border-r border-[var(--color-border)] flex flex-col overflow-y-auto">
+        <div className="w-[20%] min-w-[240px] max-w-[320px] shrink-0 border-r border-[var(--color-border)] flex flex-col overflow-y-auto">
           <div className="px-1 py-2">
             {locationDetail}
           </div>
@@ -398,7 +399,7 @@ export function NowPage() {
         {/* Center column: map + timeline + conditions */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Map takes most of the space */}
-          <div className="relative flex-1 min-h-[300px]">
+          <div className="relative flex-1 min-h-[300px] max-h-[800px]">
             <Suspense fallback={<div className="w-full h-full bg-black" />}>
               <ForecastMap selectedId={locationId} onSelectLocation={setLocationId} />
             </Suspense>
@@ -423,9 +424,54 @@ export function NowPage() {
         </div>
 
         {/* Right column: compact charts */}
-        <div className="w-[300px] min-w-[260px] shrink-0 border-l border-[var(--color-border)] overflow-y-auto px-2 py-1.5">
+        <div className="w-[24%] min-w-[260px] max-w-[380px] shrink-0 border-l border-[var(--color-border)] overflow-y-auto px-2 py-1.5">
           {chartsPanel(true)}
         </div>
+        </div>
+        <AlertSettingsPanel open={alertsOpen} onClose={() => setAlertsOpen(false)} />
+      </div>
+    )
+  }
+
+  /* ── Tablet portrait: map top, 2-col data below (768-1079px) ───────── */
+  if (tabletPortrait) {
+    return (
+      <div className="flex flex-col h-full">
+        {/* Full-width weather warnings banner */}
+        <div className="shrink-0">
+          <WeatherWarnings />
+        </div>
+        {/* Map section */}
+        <div className="h-[50vh] min-h-[280px] max-h-[500px] relative shrink-0">
+          <Suspense fallback={<div className="w-full h-full bg-black" />}>
+            <ForecastMap selectedId={locationId} onSelectLocation={setLocationId} />
+          </Suspense>
+        </div>
+        {/* Timeline + conditions */}
+        <div className="shrink-0 border-t border-[var(--color-border)] px-3">
+          <div className="flex items-center gap-1">
+            <div className="flex-1 min-w-0"><TimelineScrubber records={chartRecords} /></div>
+            <button
+              onClick={() => setAlertsOpen(true)}
+              className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] transition-colors"
+              aria-label="Alert settings"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+              </svg>
+            </button>
+          </div>
+          <ConditionsStrip />
+        </div>
+        {/* Two-column data: detail left, charts right */}
+        <div className="flex flex-1 min-h-0 border-t border-[var(--color-border)]">
+          <div className="w-1/2 overflow-y-auto border-r border-[var(--color-border)] px-2 py-2">
+            {locationDetail}
+          </div>
+          <div className="w-1/2 overflow-y-auto px-2 py-1.5">
+            {chartsPanel(true)}
+          </div>
         </div>
         <AlertSettingsPanel open={alertsOpen} onClose={() => setAlertsOpen(false)} />
       </div>
