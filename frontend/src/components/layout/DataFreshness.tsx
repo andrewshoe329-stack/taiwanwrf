@@ -20,9 +20,11 @@ export function DataFreshness() {
   else timeStr = t('common.updated_ago', { time: `${Math.floor(ageHours / 24)}d` })
 
   const isStale = ageHours >= 12
+  const isVeryStale = ageHours >= 24
 
   return (
-    <span className={`fs-compact tabular-nums ${isStale ? 'text-[var(--color-danger)]' : 'text-[var(--color-text-dim)]'}`}>
+    <span className={`fs-compact tabular-nums ${isStale ? 'text-[var(--color-danger)]' : 'text-[var(--color-text-dim)]'} ${isVeryStale ? 'animate-pulse' : ''}`}>
+      {isStale && <span className="mr-0.5" aria-hidden="true">{'\u26A0'}</span>}
       {timeStr}
       {data.keelung?.meta?.model_id && (
         <span className="ml-1.5">{data.keelung.meta.model_id}</span>

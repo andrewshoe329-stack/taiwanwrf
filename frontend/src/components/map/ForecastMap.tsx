@@ -163,7 +163,8 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
   /** Hit-test labels at canvas position (dot + text bounding box) */
   const hitTestLabel = useCallback((canvasX: number, canvasY: number): MapLabel | null => {
     if (!particlesRef.current) return null
-    const dotRadius = 24
+    const dpr = window.devicePixelRatio ?? 1
+    const dotRadius = Math.max(24, 24 * dpr)
     const textOffsetX = 9
     const fontSize = (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fs-compact')) || 10) + 1
     const lang = langRef.current?.startsWith('zh') ? 'zh' : 'en'
