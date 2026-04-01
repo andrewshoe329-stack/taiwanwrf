@@ -39,7 +39,7 @@ export function WeatherWarnings() {
                 : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
             }`}
           >
-            <span className="text-base shrink-0 mt-0.5">{'\u26A0'}</span>
+            <span className="fs-body shrink-0 mt-0.5">{'\u26A0'}</span>
             <div className="flex-1 min-w-0">
               <p className="fs-body font-medium">
                 {wType}{wArea ? ` \u2014 ${wArea}` : ''}

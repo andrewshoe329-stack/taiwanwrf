@@ -723,9 +723,10 @@ export class WindParticleSystem {
 
         // Label text
         const offsetX = (label.type === 'harbour' ? 10 : label.type === 'city' ? 8 : (isSelected ? 10 : 9)) * dpr
-        const fontSize = label.type === 'city' ? 10 * dpr
-          : isSelected ? 12 * dpr
-          : 11 * dpr
+        const baseFontSize = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fs-compact')) || 10
+        const fontSize = label.type === 'city' ? baseFontSize * dpr
+          : isSelected ? (baseFontSize + 2) * dpr
+          : (baseFontSize + 1) * dpr
         ctx.font = `${isSelected && label.type !== 'city' ? 'bold ' : ''}${fontSize}px Inter, system-ui, sans-serif`
         ctx.fillStyle = label.type === 'harbour' ? '#d0d0d0'
           : label.type === 'city' ? '#999'

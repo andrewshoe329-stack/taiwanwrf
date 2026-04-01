@@ -136,7 +136,7 @@ export function SwellCompass({ facing, optSwell, swellDir, swellHeight, size }: 
             textAnchor="middle"
             dominantBaseline="central"
             fill="var(--color-text-muted)"
-            fontSize="9"
+            fontSize="var(--fs-micro)"
             fontWeight={dir === 'N' ? '600' : '400'}
           >
             {dir}

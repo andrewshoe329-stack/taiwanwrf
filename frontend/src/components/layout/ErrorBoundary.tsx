@@ -28,7 +28,7 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="h-[100dvh] flex items-center justify-center bg-[var(--color-bg)]">
           <div className="text-center space-y-4 max-w-sm px-6">
-            <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">
+            <h1 className="fs-label font-semibold text-[var(--color-text-primary)]">
               Something went wrong
             </h1>
             <p className="fs-label text-[var(--color-text-muted)]">
