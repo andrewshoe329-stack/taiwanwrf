@@ -1,5 +1,5 @@
 {
-  "discovered_utc": "2026-03-24T03:08:23+00:00",
+  "discovered_utc": "2026-04-01T01:19:13+00:00",
   "spots": {
     "keelung": {
       "station_id": "C0B050",
@@ -9,13 +9,13 @@
       "buoy_name": "基隆",
       "buoy_dist_km": 4.8
     },
-    "fulong": {
-      "station_id": "C2A880",
-      "station_name": "福隆",
-      "station_dist_km": 0.6,
-      "buoy_id": "C6W08",
-      "buoy_name": "頭城",
-      "buoy_dist_km": 5.9
+    "jinshan": {
+      "station_id": "C0A940",
+      "station_name": "金山",
+      "station_dist_km": 1.8,
+      "buoy_id": "46708A",
+      "buoy_name": "富貴角",
+      "buoy_dist_km": 12.3
     },
     "greenbay": {
       "station_id": "C0AJ20",
@@ -25,45 +25,45 @@
       "buoy_name": "基隆",
       "buoy_dist_km": 6.4
     },
-    "jinshan": {
-      "station_id": "C0A940",
-      "station_name": "金山",
-      "station_dist_km": 1.4,
-      "buoy_id": "46708A",
-      "buoy_name": "富貴角",
-      "buoy_dist_km": 12.9
-    },
-    "daxi": {
-      "station_id": "C0U750",
-      "station_name": "龜山島",
-      "station_dist_km": 3.3,
+    "fulong": {
+      "station_id": "C2A880",
+      "station_name": "福隆",
+      "station_dist_km": 0.6,
       "buoy_id": "C6W08",
       "buoy_name": "頭城",
-      "buoy_dist_km": 10.9
+      "buoy_dist_km": 5.9
     },
-    "wushih": {
-      "station_id": "C0U750",
-      "station_name": "龜山島",
+    "daxi": {
+      "station_id": "C0UA80",
+      "station_name": "大溪漁港",
+      "station_dist_km": 1.5,
+      "buoy_id": "C6W08",
+      "buoy_name": "頭城",
+      "buoy_dist_km": 5.5
+    },
+    "doublelions": {
+      "station_id": "C0U860",
+      "station_name": "頭城",
       "station_dist_km": 3.2,
       "buoy_id": "C6W08",
       "buoy_name": "頭城",
-      "buoy_dist_km": 11.8
+      "buoy_dist_km": 13.1
     },
-    "doublelions": {
-      "station_id": "C0U750",
-      "station_name": "龜山島",
-      "station_dist_km": 2.8,
+    "wushih": {
+      "station_id": "C0U860",
+      "station_name": "頭城",
+      "station_dist_km": 2.3,
       "buoy_id": "C6W08",
       "buoy_name": "頭城",
-      "buoy_dist_km": 13.5
+      "buoy_dist_km": 13.9
     },
     "chousui": {
-      "station_id": "C0U750",
-      "station_name": "龜山島",
-      "station_dist_km": 5.3,
+      "station_id": "C0U860",
+      "station_name": "頭城",
+      "station_dist_km": 1.6,
       "buoy_id": "C6W08",
       "buoy_name": "頭城",
-      "buoy_dist_km": 16.6
+      "buoy_dist_km": 15.3
     }
   },
   "all_stations": [
@@ -5309,9 +5309,9 @@
     },
     {
       "buoy_id": "C4D01",
-      "buoy_name": "成功潮位",
-      "lat": 24.234,
-      "lon": 121.543
+      "buoy_name": "C4D01",
+      "lat": null,
+      "lon": null
     },
     {
       "buoy_id": "C4B03",
@@ -5519,9 +5519,9 @@
     },
     {
       "buoy_id": "C4C01",
-      "buoy_name": "花蓮潮位",
-      "lat": 24.594,
-      "lon": 121.857
+      "buoy_name": "C4C01",
+      "lat": null,
+      "lon": null
     },
     {
       "buoy_id": "C6F01",
@@ -5591,9 +5591,9 @@
     },
     {
       "buoy_id": "46699A",
-      "buoy_name": "花蓮",
-      "lat": 24.634,
-      "lon": 121.553
+      "buoy_name": "46699A",
+      "lat": null,
+      "lon": null
     },
     {
       "buoy_id": "OAC003",
@@ -5650,14 +5650,14 @@
       "lon": null
     },
     {
-      "buoy_id": "C4Q03",
-      "buoy_name": "C4Q03",
+      "buoy_id": "C4S01",
+      "buoy_name": "C4S01",
       "lat": null,
       "lon": null
     },
     {
-      "buoy_id": "C4S01",
-      "buoy_name": "C4S01",
+      "buoy_id": "C4Q03",
+      "buoy_name": "C4Q03",
       "lat": null,
       "lon": null
     },
