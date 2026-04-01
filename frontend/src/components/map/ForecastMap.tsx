@@ -165,7 +165,7 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
     if (!particlesRef.current) return null
     const dotRadius = 24
     const textOffsetX = 9
-    const fontSize = 11
+    const fontSize = (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fs-compact')) || 10) + 1
     const lang = langRef.current?.startsWith('zh') ? 'zh' : 'en'
     let closest: MapLabel | null = null
     let closestDist = Infinity

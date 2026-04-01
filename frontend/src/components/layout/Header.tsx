@@ -1,24 +1,11 @@
-import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useForecastData } from '@/hooks/useForecastData'
 import { LanguageToggle } from './LanguageToggle'
 import { TextSizeToggle } from './TextSizeToggle'
 
-function useViewportDebug() {
-  const [size, setSize] = useState('')
-  useEffect(() => {
-    const update = () => setSize(`${window.innerWidth}×${window.innerHeight}`)
-    update()
-    window.addEventListener('resize', update)
-    return () => window.removeEventListener('resize', update)
-  }, [])
-  return size
-}
-
 export function Header() {
   const { t } = useTranslation()
   const { reload, loading } = useForecastData()
-  const vpSize = useViewportDebug()
 
   return (
     <header className="shrink-0 z-50 border-b border-[var(--color-border)] bg-[var(--color-bg)] pwa-header">
@@ -27,7 +14,6 @@ export function Header() {
           {t('app.title')}
         </span>
         <div className="flex items-center gap-2">
-          <span className="fs-micro text-[var(--color-text-dim)] tabular-nums">{vpSize}</span>
           <button
             onClick={reload}
             disabled={loading}
