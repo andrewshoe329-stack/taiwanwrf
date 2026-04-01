@@ -29,24 +29,30 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from config import setup_logging
+from config import (
+    setup_logging,
+    GALE_WIND_KT, STRONG_WIND_KT, HEAVY_RAIN_MM_6H,
+    HIGH_SEAS_M, DANGEROUS_SEAS_M, GOOD_SURF_M, FIRING_SURF_M,
+    LIGHT_WIND_KT, SAIL_MAX_GUST_KT,
+    SQUALL_GUST_FACTOR, SQUALL_CAPE_THRESHOLD,
+)
 from i18n import T_str
 
 log = logging.getLogger(__name__)
 
 
-# ── Thresholds ────────────────────────────────────────────────────────────────
+# ── Thresholds (sourced from config.py, kept as dict for backward compat) ────
 
 THRESHOLDS = {
-    'gale_wind_kt':     34,   # Beaufort 8 (34-40kt) — WMO gale warning level
-    'strong_wind_kt':   22,   # Beaufort 6 (22-27kt) — WMO small craft advisory
-    'heavy_rain_mm_6h': 15,   # CWA heavy rain advisory (~15mm/hr, ≈ 80-90mm/6h severe)
-    'high_seas_m':      2.5,  # CWA rough sea advisory for coastal waters
-    'dangerous_seas_m': 3.5,  # CWA dangerous sea warning for coastal waters
-    'good_surf_m':      0.6,  # Surfable swell minimum (local consensus)
-    'firing_surf_m':    1.5,  # Excellent surf conditions (local consensus)
-    'light_wind_kt':    10,   # Good sailing lower bound (Beaufort 3)
-    'sail_max_gust_kt': 30,   # Sailing no-go gust (Beaufort 7)
+    'gale_wind_kt':     GALE_WIND_KT,
+    'strong_wind_kt':   STRONG_WIND_KT,
+    'heavy_rain_mm_6h': HEAVY_RAIN_MM_6H,
+    'high_seas_m':      HIGH_SEAS_M,
+    'dangerous_seas_m': DANGEROUS_SEAS_M,
+    'good_surf_m':      GOOD_SURF_M,
+    'firing_surf_m':    FIRING_SURF_M,
+    'light_wind_kt':    LIGHT_WIND_KT,
+    'sail_max_gust_kt': SAIL_MAX_GUST_KT,
 }
 
 
@@ -99,6 +105,22 @@ def check_alerts(wrf_data: dict, wave_data: dict | None = None) -> list[dict]:
                 'message': f'Heavy rain: {rain:.1f}mm/6h at {time_str}',
                 'valid_utc': vt,
                 'value': rain,
+            })
+
+        # Squall risk (B7): gust factor + CAPE indicates thunderstorm gusts
+        gf = rec.get('gust_factor')
+        cape_val = rec.get('cape')
+        if rec.get('squall_risk') or (
+            gf is not None and gf > SQUALL_GUST_FACTOR
+            and cape_val is not None and cape_val > SQUALL_CAPE_THRESHOLD
+        ):
+            alerts.append({
+                'type': 'squall_risk',
+                'severity': 'danger',
+                'message': (f'Squall risk: GF {gf:.1f}×, CAPE {cape_val:.0f} J/kg '
+                            f'at {time_str}'),
+                'valid_utc': vt,
+                'value': gf,
             })
 
     # Wave alerts

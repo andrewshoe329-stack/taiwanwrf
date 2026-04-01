@@ -18,6 +18,10 @@ import {
   ratingsToTidePredictions,
   gfsToForecastRecords,
   getLocationAccuracy,
+  gustFactorLabel,
+  gustFactorColor,
+  seaComfortStars,
+  seaComfortLabel,
 } from '../forecast-utils'
 import type { SpotRating, GfsRecord, AccuracyEntry } from '../types'
 
@@ -349,5 +353,103 @@ describe('getLocationAccuracy', () => {
     ] as unknown as AccuracyEntry[]
     const result = getLocationAccuracy(log, 'keelung')
     expect(result?.temp_mae_c).toBe(1.2)
+  })
+})
+
+// ── B7: gustFactorLabel / gustFactorColor ──────────────────────────────────
+
+describe('gustFactorLabel', () => {
+  it('returns null for undefined', () => {
+    expect(gustFactorLabel(undefined)).toBeNull()
+  })
+
+  it('returns null for normal gust factor', () => {
+    expect(gustFactorLabel(1.2)).toBeNull()
+  })
+
+  it('returns Gusty for moderate gust factor', () => {
+    expect(gustFactorLabel(1.6)).toBe('Gusty')
+  })
+
+  it('returns Extreme gusts for high gust factor', () => {
+    expect(gustFactorLabel(2.5)).toBe('Extreme gusts')
+  })
+})
+
+describe('gustFactorColor', () => {
+  it('returns empty for undefined', () => {
+    expect(gustFactorColor(undefined)).toBe('')
+  })
+
+  it('returns muted for normal', () => {
+    expect(gustFactorColor(1.2)).toContain('muted')
+  })
+
+  it('returns orange for moderate', () => {
+    expect(gustFactorColor(1.6)).toContain('orange')
+  })
+
+  it('returns red for extreme', () => {
+    expect(gustFactorColor(2.1)).toContain('red')
+  })
+})
+
+// ── B8: seaComfortStars / seaComfortLabel ──────────────────────────────────
+
+describe('seaComfortStars', () => {
+  it('returns -- for undefined', () => {
+    expect(seaComfortStars(undefined)).toBe('--')
+  })
+
+  it('returns 5 filled stars for comfort 5', () => {
+    const result = seaComfortStars(5)
+    expect(result).toBe('\u2605\u2605\u2605\u2605\u2605')
+  })
+
+  it('returns 1 filled + 4 empty for comfort 1', () => {
+    const result = seaComfortStars(1)
+    expect(result).toBe('\u2605\u2606\u2606\u2606\u2606')
+  })
+
+  it('returns 3 filled + 2 empty for comfort 3', () => {
+    const result = seaComfortStars(3)
+    expect(result).toBe('\u2605\u2605\u2605\u2606\u2606')
+  })
+})
+
+describe('seaComfortLabel', () => {
+  it('returns null for undefined', () => {
+    expect(seaComfortLabel(undefined)).toBeNull()
+  })
+
+  it('returns Smooth for comfort 5', () => {
+    expect(seaComfortLabel(5)).toBe('Smooth')
+  })
+
+  it('returns Rough for comfort 2', () => {
+    expect(seaComfortLabel(2)).toBe('Rough')
+  })
+
+  it('returns Very rough for comfort 1', () => {
+    expect(seaComfortLabel(1)).toBe('Very rough')
+  })
+
+  it('returns null for unknown comfort level', () => {
+    expect(seaComfortLabel(0)).toBeNull()
+  })
+})
+
+// ── ratingsToForecastRecords: gust_factor/squall_risk passthrough ─────────
+
+describe('ratingsToForecastRecords passthrough', () => {
+  it('includes gust_factor and squall_risk', () => {
+    const ratings: SpotRating[] = [{
+      valid_utc: '2025-01-01T00:00:00+00:00',
+      score: 5, rating: 'marginal', spot_id: 'test',
+      gust_factor: 1.8, squall_risk: true,
+    }]
+    const result = ratingsToForecastRecords(ratings)
+    expect(result[0].gust_factor).toBe(1.8)
+    expect(result[0].squall_risk).toBe(true)
   })
 })

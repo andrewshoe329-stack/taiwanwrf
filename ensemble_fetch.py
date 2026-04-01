@@ -27,7 +27,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from config import KEELUNG_LAT, KEELUNG_LON, norm_utc, setup_logging
+from config import KEELUNG_LAT, KEELUNG_LON, norm_utc, setup_logging, aggregate_hourly_to_6h
 from config import fetch_json as _fetch_json_shared
 
 log = logging.getLogger(__name__)
@@ -91,66 +91,10 @@ def fetch_model(model_key: str, lat: float = KEELUNG_LAT,
 def process_model(raw: dict, model_key: str) -> tuple[dict, list]:
     """Convert Open-Meteo hourly response to 6-hourly records.
 
-    Mirrors ecmwf_fetch.process() logic but with configurable model ID.
+    Delegates to shared ``aggregate_hourly_to_6h`` in config.py.
     """
     cfg = MODEL_CONFIGS[model_key]
-    h = raw.get("hourly", {})
-    times = h.get("time", [])
-    if not times:
-        return {}, []
-
-    def col(key):
-        return h.get(key, [])
-
-    temp   = col("temperature_2m")
-    wspd   = col("windspeed_10m")
-    wdir   = col("winddirection_10m")
-    gust   = col("windgusts_10m")
-    precip = col("precipitation")
-    cloud  = col("cloudcover")
-    mslp   = col("pressure_msl")
-    vis    = col("visibility")
-    cape   = col("cape")
-
-    def safe(arr, i):
-        return arr[i] if arr and 0 <= i < len(arr) else None
-
-    records = []
-    for i, t in enumerate(times):
-        dt = datetime.fromisoformat(t if len(t) >= 19 else t + ':00').replace(tzinfo=timezone.utc)
-        if dt.hour % 6 != 0:
-            continue
-
-        # Precipitation: sum 6h window (no scaling for early partial windows)
-        window_start = max(0, i - 5)
-        precip_6h = sum((safe(precip, j) or 0.0) for j in range(window_start, i + 1))
-
-        # Visibility: metres → km
-        vis_val = safe(vis, i)
-        vis_km = round(vis_val / 1000, 1) if vis_val is not None else None
-
-        norm_t = norm_utc(t)
-        records.append({
-            "valid_utc":    norm_t,
-            "temp_c":       safe(temp, i),
-            "wind_kt":      safe(wspd, i),
-            "wind_dir":     safe(wdir, i),
-            "gust_kt":      safe(gust, i),
-            "mslp_hpa":     safe(mslp, i),
-            "precip_mm_6h": round(precip_6h, 2),
-            "cloud_pct":    safe(cloud, i),
-            "vis_km":       vis_km,
-            "cape":         safe(cape, i),
-        })
-
-    _times = raw.get("hourly", {}).get("time", [])
-    init_raw = _times[0] if _times else ""
-    meta = {
-        "model_id":  cfg["id"],
-        "init_utc":  norm_utc(init_raw) if init_raw else None,
-        "source":    "open-meteo.com",
-    }
-    return meta, records
+    return aggregate_hourly_to_6h(raw, model_id=cfg["id"])
 
 
 # ── Ensemble stats ────────────────────────────────────────────────────────────

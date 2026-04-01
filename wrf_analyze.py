@@ -35,7 +35,9 @@ from datetime import datetime, timedelta, timezone
 
 import numpy as np
 
-from config import KEELUNG_LAT, KEELUNG_LON, COMPASS_NAMES, deg_to_compass, setup_logging, sail_rating, load_json_file, norm_utc
+from config import (KEELUNG_LAT, KEELUNG_LON, COMPASS_NAMES, deg_to_compass,
+                     setup_logging, sail_rating, load_json_file, norm_utc,
+                     MS_TO_KT, SQUALL_GUST_FACTOR, SQUALL_CAPE_THRESHOLD)
 from tide_predict import predict_height
 from i18n import T, T_str, bilingual
 from html_template import render_page
@@ -103,16 +105,18 @@ PARAMID_VARS: dict[int, str] = {
 # Maps raw key → (display unit, conversion function)
 DERIVED = {
     'temp_c':    ('°C',  lambda d: d['temp_k'] - 273.15),
-    'wind_kt':   ('kt',  lambda d: math.sqrt(d['u10']**2 + d['v10']**2) * 1.94384),
+    'wind_kt':   ('kt',  lambda d: math.sqrt(d['u10']**2 + d['v10']**2) * MS_TO_KT),
     'wind_dir':  ('°',   lambda d: (270 - math.degrees(math.atan2(d['v10'], d['u10']))) % 360
-                                   if math.sqrt(d['u10']**2 + d['v10']**2) * 1.94384 >= 0.5 else None),
+                                   if math.sqrt(d['u10']**2 + d['v10']**2) * MS_TO_KT >= 0.5 else None),
     'mslp_hpa':  ('hPa', lambda d: d['mslp_pa'] / 100),
     'precip_mm': ('mm',  lambda d: d['precip_raw']),   # units normalised in read_point()
     'cloud_pct': ('%',   lambda d: d['cloud_raw'] * 100
                                    if d['cloud_raw'] <= 1.001 else d['cloud_raw']),
     'vis_km':    ('km',  lambda d: d['vis_m'] / 1000),
-    'gust_kt':   ('kt',  lambda d: d['gust_ms'] * 1.94384),
+    'gust_kt':   ('kt',  lambda d: d['gust_ms'] * MS_TO_KT),
     'cape':      ('J/kg',lambda d: d['cape']),
+    'gust_factor': ('×', lambda d: (d['gust_ms'] * MS_TO_KT)
+                                    / max(0.5, math.sqrt(d['u10']**2 + d['v10']**2) * MS_TO_KT)),
 }
 
 # Maps each DERIVED key to the raw keys it needs present before computing
@@ -126,6 +130,7 @@ _NEEDED_RAW_KEYS: dict[str, list[str]] = {
     'vis_km':    ['vis_m'],
     'gust_kt':   ['gust_ms'],
     'cape':      ['cape'],
+    'gust_factor': ['gust_ms', 'u10', 'v10'],
 }
 
 # Unicode arrows showing the direction the wind is blowing TOWARD
@@ -305,10 +310,13 @@ def read_point(grib_path: Path, lat: float, lon: float) -> dict[str, float]:
                         # Units key unavailable: fall back to a conservative
                         # heuristic — only convert if value looks like metres.
                         # A 6h accumulated precip in metres is typically 0–0.5;
-                        # the same in mm is 0–500.  Values < 0.5 are ambiguous,
-                        # so only convert when the value is clearly sub-mm scale.
+                        # the same in mm is 0–500.  The old threshold of 0.5
+                        # incorrectly converted real 0.3mm drizzle (×1000).
+                        # Use 0.01 (=10mm) — values this small in mm are very
+                        # rare for 6h accumulation, so they're almost certainly
+                        # in metres.
                         log.warning("GRIB2 units key unavailable for precip; using magnitude heuristic")
-                        if 0 < val < 0.5:
+                        if 0 < val < 0.01:
                             log.info("Precip value %.6f looks like metres, converting to mm", val)
                             val *= 1000.0
 
@@ -458,6 +466,29 @@ def extract_forecast(rundir: Path) -> tuple[dict, list[dict]]:
         records.append(rec)
 
     records.sort(key=lambda r: r['fh'])
+
+    # ── Squall risk detection ─────────────────────────────────────────────
+    # Flag timesteps where gust factor, CAPE, and rapid pressure drops
+    # combine to indicate squall potential.
+    for i, rec in enumerate(records):
+        gf = rec.get('gust_factor')
+        cape_val = rec.get('cape')
+        mslp = rec.get('mslp_hpa')
+        # Check 3h pressure drop (look back ~2 records at 6h intervals,
+        # or 1 record if steps are 3h apart)
+        pressure_drop = 0.0
+        if mslp is not None and i >= 1:
+            for j in range(max(0, i - 2), i):
+                prev_mslp = records[j].get('mslp_hpa')
+                if prev_mslp is not None:
+                    pressure_drop = max(pressure_drop, prev_mslp - mslp)
+
+        rec['squall_risk'] = bool(
+            gf is not None and gf > SQUALL_GUST_FACTOR
+            and cape_val is not None and cape_val > SQUALL_CAPE_THRESHOLD
+            and pressure_drop > SQUALL_PRESSURE_DROP
+        )
+
     return meta, records
 
 

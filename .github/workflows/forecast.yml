@@ -133,9 +133,12 @@ jobs:
 
       - name: Check critical data availability
         run: |
-          if [ ! -f ecmwf_keelung.json ] && [ ! -f wave_keelung.json ]; then
-            echo "::warning::Both ECMWF and wave data are missing — forecast quality will be degraded"
+          if [ ! -f ecmwf_keelung.json ]; then
+            echo "::error::ECMWF data missing — cannot generate meaningful forecast"
+            exit 1
           fi
+          [ ! -f wave_keelung.json ] && echo "::warning::Wave data missing — forecast will lack wave info"
+          true
 
       # ── Generate surf forecast ────────────────────────────────────────────
 
@@ -178,6 +181,13 @@ jobs:
             echo "::warning::No WRF summary — skipping AI forecast"
           fi
 
+      - name: Ensure AI summary exists
+        run: |
+          if [ ! -f ai_summary.json ]; then
+            echo '{"generated_utc":"","sections":{},"full_text":{"en":"AI summary unavailable for this cycle.","zh":"本次無 AI 摘要。"}}' > ai_summary.json
+            echo "::warning::AI summary missing — using placeholder"
+          fi
+
       # ── Alerts & accuracy tracking ───────────────────────────────────────
 
       - name: Send forecast alerts
@@ -217,6 +227,36 @@ jobs:
             python firebase_storage.py upload-accuracy-log \
               --input accuracy_log.json
           fi
+
+      - name: Archive daily summary
+        continue-on-error: true
+        timeout-minutes: 2
+        run: |
+          python -c "
+          from firebase_storage import archive_daily_summary
+          from config import load_json_file
+          s = load_json_file('keelung_summary_new.json')
+          w = load_json_file('wave_keelung.json')
+          if s: archive_daily_summary(s, w)
+          "
+
+      - name: Record pipeline health
+        if: always()
+        continue-on-error: true
+        timeout-minutes: 1
+        run: |
+          python -c "
+          from firebase_storage import record_pipeline_health
+          import os
+          record_pipeline_health(
+              os.environ.get('GITHUB_RUN_ID', 'local'),
+              {'ecmwf': os.path.exists('ecmwf_keelung.json'),
+               'wave': os.path.exists('wave_keelung.json'),
+               'surf': os.path.exists('surf_frontend.json'),
+               'ai_summary': os.path.exists('ai_summary.json'),
+               'accuracy': os.path.exists('accuracy_log.json')}
+          )
+          "
 
       # ── Upload artifacts for deploy workflow ─────────────────────────────
 

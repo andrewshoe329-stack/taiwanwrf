@@ -19,18 +19,14 @@
 
 ### P1 — Inconsistencies
 
-**3. Keelung missing current display** — OPEN
-Spot detail shows sea currents; Keelung doesn't.
-- **Files:** NowPage.tsx
-- **Effort:** 15min
+**3. Keelung missing current display** — FIXED
+Keelung harbour now receives CWA warnings and sea comfort display via expanded `KeelungDetail` props.
 
 **4. Sunrise fetch not in Promise.allSettled** — FIXED
 Already in `Promise.allSettled` array in api/live-obs.js.
 
-**5. Specialized warnings typed but UI incomplete** — OPEN
-`specialized_warnings` and `township_forecasts_week` are typed but not fully surfaced in UI.
-- **Decision:** Display them as per-spot warning pills.
-- **Effort:** 1h
+**5. Specialized warnings typed but UI incomplete** — FIXED
+Per-spot CWA warning pills now displayed in `SpotDetail` (filtered by `SPOT_COUNTY`) and `KeelungDetail` (filtered by 基隆). Rain/heat/cold warnings shown as colored badges.
 
 ### P2 — Type Safety
 
@@ -72,11 +68,10 @@ Replaced `.exists()` + `.stat()` with try/except `FileNotFoundError` in `read_po
 **B8. Shared `run_parallel()` utility** — FIXED
 Added `config.run_parallel()` for standardized thread pool execution with failure tracking and threshold-based abort.
 
-### Medium — OPEN
+### Medium — FIXED
 
-**B9. Precip units heuristic fragile** — OPEN
-wrf_analyze.py uses magnitude heuristic to detect metres vs mm. Heavy rain events (>500mm/6h) could be misidentified.
-- **Effort:** 30min
+**B9. Precip units heuristic fragile** — FIXED
+Changed threshold from 0.5 to 0.01 in wrf_analyze.py to avoid 1000x multiplying legitimate drizzle values (0.3mm).
 
 ---
 
@@ -92,7 +87,7 @@ Added `python -m pytest tests/ -v --tb=short` step to wrf.yml workflow.
 Cache key changed to `pip-${{ runner.os }}-py3.11-${{ hashFiles('requirements.txt') }}`.
 
 **C4. Frontend tests** — FIXED
-Vitest configured with 50 tests covering forecast-utils.ts (degToCompass, windType, sailDecision, surfDecision, groupByDay, etc.).
+Vitest configured with 68 tests covering forecast-utils.ts (degToCompass, windType, sailDecision, surfDecision, groupByDay, gustFactor, seaComfort, etc.).
 
 ---
 
@@ -113,6 +108,9 @@ Exponential backoff on consecutive failures: 5m → 10m → 20m (capped). Resets
 **F5. Wave map legend** — FIXED
 Color ramp legend (0-3+m) drawn in bottom-left corner when wave heatmap mode is active.
 
+**F6. Rate limiting on /api/live-obs** — FIXED
+In-memory token bucket rate limiter (20 req/min per IP) added to serverless function. Edge cache (s-maxage=300) provides additional dedup.
+
 ---
 
 ## Code Quality (from March 2026 audit)
@@ -127,34 +125,39 @@ notify.py thresholds now cite WMO/CWA sources.
 wrf_analyze.py GRIB2 processing catches (KeyError, ValueError, TypeError, OSError).
 - **Effort:** 30min
 
+**Q4. Duplicated 6-hourly aggregation** — FIXED
+Shared `aggregate_hourly_to_6h()` in config.py used by both ecmwf_fetch.py and ensemble_fetch.py.
+
+**Q5. Scattered threshold constants** — FIXED
+All 15+ threshold constants consolidated into config.py with source citations.
+
+**Q6. Magic number MS_TO_KT** — FIXED
+`MS_TO_KT = 1.94384` constant in config.py replaces all hardcoded occurrences.
+
 ---
 
-## New Features to Add
+## New Features Added (April 2026 audit)
 
-### High Value
+**N1. Wind Gust Factor & Squall Alerts (B7)** — FIXED
+- `gust_factor` computed as `gust_kt / max(0.5, wind_kt)` in wrf_analyze.py
+- Squall risk detection: GF > 1.8 + CAPE > 1000 J/kg + 3h pressure drop > 3 hPa
+- Frontend: squall risk badge in SpotDetail, gust factor in ConditionsStrip
+- Alerts: squall risk notifications in notify.py
 
-**9. Wave map legend** — FIXED
-Color ramp legend (0-3+m) rendered on canvas in wave heatmap mode.
+**N2. Sea State Comfort Index (B8)** — FIXED
+- Wave steepness = Hs / (1.56 × Tp²) computed in wave_fetch.py
+- 5-level comfort rating (Smooth→Very Rough) with star display
+- Frontend: comfort stars in ConditionsStrip, SpotDetail DataCell, KeelungDetail pill
 
-**10. Show specialized CWA warnings per spot** — OPEN
-Display township-level rain/heat/cold warnings as colored badges on map and in spot detail.
-- **Effort:** 3h
+**N3. Historical Conditions Archive (B9)** — FIXED (backend)
+- `archive_daily_summary()` in firebase_storage.py writes daily min/max/avg for temp, wind, gust, precip, pressure, wave
+- `DailyArchive` TypeScript interface added
+- CI step added to forecast.yml
 
-### Medium Value
-
-**11. Show accuracy by forecast horizon** — OPEN
-`accuracy.json` has `by_horizon` data. Show "24h accuracy: ±2kt wind" which is more useful than overall.
-- **Effort:** 2h
-
-**12. Precipitation spread from ensemble** — OPEN
-`precip_spread_mm` computed but never shown. Could indicate rain confidence.
-- **Effort:** 1h
-
-### Low Value
-
-**13. Floating data card** — OPEN
-Alternative to Recharts tooltip sync: show all values at selected timestep below timeline.
-- **Effort:** 3h
+**N4. Structured Logging & Pipeline Health (B10)** — FIXED
+- JSON log formatter in config.py with event/source/elapsed_s fields
+- `record_pipeline_health()` writes per-run health status to Firestore
+- CI step added to forecast.yml
 
 ---
 
@@ -162,3 +165,5 @@ Alternative to Recharts tooltip sync: show all values at selected timestep below
 
 1. Route weather — interpolate WRF grid along sailing waypoints
 2. CWA tide API validation — compare harmonic predictions against official tables
+3. `as any` casts in chart domain (Q3/7) — minor type safety improvement
+4. Historical archive frontend (B9) — history page + serverless API

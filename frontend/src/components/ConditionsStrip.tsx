@@ -5,7 +5,7 @@ import { useTimeline } from '@/hooks/useTimeline'
 import { useModel } from '@/hooks/useModel'
 import { useLocation } from '@/hooks/useLocation'
 import { useLiveObsContext } from '@/App'
-import { degToCompass, getModelRecords, getLocationForecast } from '@/lib/forecast-utils'
+import { degToCompass, getModelRecords, getLocationForecast, seaComfortStars } from '@/lib/forecast-utils'
 
 function Stat({ label, value, unit, detail }: {
   label: string; value: string; unit: string; detail?: string
@@ -85,6 +85,7 @@ export function ConditionsStrip() {
           label={t('common.wave_height')}
           value={waveH?.toFixed(1) ?? '--'}
           unit="m"
+          detail={spotRating?.sea_comfort ? seaComfortStars(spotRating.sea_comfort) : undefined}
         />
         <Stat
           label={t('live.water_temp')}
@@ -122,7 +123,10 @@ export function ConditionsStrip() {
         label={t('common.wind')}
         value={rec.wind_kt?.toFixed(0) ?? '--'}
         unit="kt"
-        detail={rec.wind_dir != null ? degToCompass(rec.wind_dir) + (rec.gust_kt ? ` G${rec.gust_kt.toFixed(0)}` : '') : undefined}
+        detail={[
+          rec.wind_dir != null ? degToCompass(rec.wind_dir) + (rec.gust_kt ? ` G${rec.gust_kt.toFixed(0)}` : '') : '',
+          rec.gust_factor != null && rec.gust_factor >= 1.5 ? `GF ${rec.gust_factor.toFixed(1)}\u00d7` : '',
+        ].filter(Boolean).join(' \u00b7 ') || undefined}
       />
       <Stat
         label={t('common.swell')}
@@ -134,6 +138,7 @@ export function ConditionsStrip() {
         label={t('common.wave_height')}
         value={waveRec?.wave_height?.toFixed(1) ?? '--'}
         unit="m"
+        detail={waveRec?.sea_comfort ? seaComfortStars(waveRec.sea_comfort) : undefined}
       />
       <Stat
         label={t('common.temp')}

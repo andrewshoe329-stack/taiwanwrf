@@ -218,7 +218,13 @@
     "unavailable": "無法使用",
     "loading_short": "載入中...",
     "stale": "過時",
-    "spot_comparison": "浪點比較"
+    "spot_comparison": "浪點比較",
+    "sea_state": "海況",
+    "sea_comfort_smooth": "平靜",
+    "sea_comfort_slight": "微浪",
+    "sea_comfort_moderate": "中浪",
+    "sea_comfort_rough": "大浪",
+    "sea_comfort_very_rough": "狂浪"
   },
   "map": {
     "wind": "風場",
@@ -230,6 +236,20 @@
     "radar_heavy": "大雨",
     "ir_satellite": "紅外衛星",
     "currents": "海流"
+  },
+  "history": {
+    "title": "歷史條件",
+    "date": "日期",
+    "temp_range": "溫度",
+    "avg_temp": "平均溫度",
+    "max_wind": "最大風速",
+    "avg_wind": "平均風速",
+    "max_wave": "最大浪高",
+    "avg_wave": "平均浪高",
+    "total_precip": "總降水"
+  },
+  "alerts": {
+    "squall_risk": "颮線警戒"
   },
   "units": {
     "kt": "節",

@@ -25,7 +25,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 
 from config import (KEELUNG_LAT, KEELUNG_LON, SPOT_COORDS, SPOT_COUNTY,
-                     SPOT_STATIONS, norm_utc, setup_logging, load_json_file)
+                     SPOT_STATIONS, norm_utc, setup_logging, load_json_file,
+                     MS_TO_KT)
 
 log = logging.getLogger(__name__)
 
@@ -177,8 +178,8 @@ def _parse_station_obs(stn: dict) -> dict | None:
         except (ValueError, TypeError):
             gust_ms = None
 
-    wind_kt = round(wind_ms * 1.94384, 1) if wind_ms is not None else None
-    gust_kt = round(gust_ms * 1.94384, 1) if gust_ms is not None else None
+    wind_kt = round(wind_ms * MS_TO_KT, 1) if wind_ms is not None else None
+    gust_kt = round(gust_ms * MS_TO_KT, 1) if gust_ms is not None else None
 
     return {
         "station_id": station_id,
