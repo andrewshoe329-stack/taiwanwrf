@@ -52,6 +52,8 @@ terminology natural to Taiwan's water sports community (e.g. 浪況, 湧浪, 離
 - Be direct and specific in both languages.
 - Lead with the most actionable info: best day/window, then hazards.
 - Use knots for wind, metres for waves, compass directions (NE, SSW, etc).
+- sea_comfort is a 1-5 star rating (5=smooth/gentle swells, 1=very rough/steep chop). \
+Mention sea state comfort when relevant for sailing or surfing.
 - Mention specific spot names when one stands out. Use both English and \
 Chinese names (e.g. "Fulong 福隆").
 - If conditions change significantly mid-week, highlight the transition.
@@ -388,6 +390,7 @@ def build_user_prompt(wrf: dict, ecmwf: dict | None, wave: dict | None,
                         'valid_utc', 'wave_height', 'wave_period',
                         'wave_direction', 'swell_wave_height',
                         'swell_wave_period', 'swell_wave_direction',
+                        'sea_comfort',
                     ) if k in r and r[k] is not None
                 })
             parts.append(f"ECMWF WAM waves at Keelung (6-hourly):\n{json.dumps(slim, indent=None)}")
