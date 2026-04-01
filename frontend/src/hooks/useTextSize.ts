@@ -1,14 +1,13 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
 
-export type TextSizePreset = 'small' | 'default' | 'large' | 'xlarge'
+export type TextSizePreset = 'default' | 'large' | 'xlarge'
 
 const STORAGE_KEY = 'tw-forecast-text-size'
 
 const MULTIPLIERS: Record<TextSizePreset, number> = {
-  small: 0.9,
   default: 1.0,
-  large: 1.15,
-  xlarge: 1.3,
+  large: 1.3,
+  xlarge: 1.6,
 }
 
 const BASE_SIZES = {

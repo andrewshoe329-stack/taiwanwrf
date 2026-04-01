@@ -1,8 +1,7 @@
 import { useTextSize, type TextSizePreset } from '@/hooks/useTextSize'
 
-const PRESETS: TextSizePreset[] = ['small', 'default', 'large', 'xlarge']
+const PRESETS: TextSizePreset[] = ['default', 'large', 'xlarge']
 const LABELS: Record<TextSizePreset, string> = {
-  small: 'A⁻',
   default: 'A',
   large: 'A⁺',
   xlarge: 'A⁺⁺',

@@ -30,7 +30,7 @@ function CustomTooltip({ active, payload }: TooltipContentProps) {
   return (
     <div style={{
       background: '#0a0a0a', border: '1px solid #1a1a1a',
-      borderRadius: 8, padding: '8px 12px', fontSize: 'var(--fs-body)',
+      borderRadius: 8, padding: '8px 12px', fontSize: 'var(--fs-compact)',
     }}>
       <p style={{ color: '#666666', marginBottom: 4 }}>{(payload[0]?.payload as ChartRow)?.timeLabel}</p>
       {payload.map((p, i) => (
@@ -139,7 +139,7 @@ function PeriodTooltip({ active, payload }: TooltipContentProps) {
   return (
     <div style={{
       background: '#0a0a0a', border: '1px solid #1a1a1a',
-      borderRadius: 8, padding: '8px 12px', fontSize: 'var(--fs-body)',
+      borderRadius: 8, padding: '8px 12px', fontSize: 'var(--fs-compact)',
     }}>
       <p style={{ color: '#666666', marginBottom: 4 }}>{(payload[0]?.payload as PeriodRow)?.timeLabel}</p>
       {payload.map((p, i) => (

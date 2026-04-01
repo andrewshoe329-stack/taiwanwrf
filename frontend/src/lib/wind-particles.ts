@@ -589,28 +589,11 @@ export class WindParticleSystem {
     this.animId = requestAnimationFrame(this.loop)
   }
 
-  /** Compute aspect-ratio-preserving viewport within the canvas.
-   *  Converts lon span to radians so it's in the same unit system as Mercator y. */
+  /** Map viewport — fills the full canvas (no pillarbox/letterbox).
+   *  At the scale of northern Taiwan (1.5° × 1.0°) the non-conformal
+   *  stretch is negligible and avoids black bars on wide/tall canvases. */
   private computeViewport(w: number, h: number): { ox: number; oy: number; vw: number; vh: number } {
-    const { west, east, south, north } = this.bounds
-    const lonSpanRad = (east - west) * Math.PI / 180  // degrees → radians
-    const mercYFn = (l: number) => Math.log(Math.tan(Math.PI / 4 + (l * Math.PI / 180) / 2))
-    const mercSpan = mercYFn(north) - mercYFn(south)
-    if (mercSpan === 0 || lonSpanRad === 0) return { ox: 0, oy: 0, vw: w, vh: h }
-
-    const idealAspect = lonSpanRad / mercSpan  // ~2.7 for the Taiwan bbox
-    const canvasAspect = w / h
-    let vw: number, vh: number, ox: number, oy: number
-    if (canvasAspect > idealAspect) {
-      // Canvas wider than ideal: pillarbox (bars left/right)
-      vh = h; vw = h * idealAspect
-      ox = (w - vw) / 2; oy = 0
-    } else {
-      // Canvas taller than ideal: letterbox (bars top/bottom)
-      vw = w; vh = w / idealAspect
-      ox = 0; oy = (h - vh) / 2
-    }
-    return { ox, oy, vw, vh }
+    return { ox: 0, oy: 0, vw: w, vh: h }
   }
 
   /** Convert lon/lat to canvas pixel coordinates using Mercator projection */
