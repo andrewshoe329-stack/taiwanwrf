@@ -5,7 +5,7 @@ import { useForecastData } from '@/hooks/useForecastData'
 import { useTimeline } from '@/hooks/useTimeline'
 import { useModel } from '@/hooks/useModel'
 import { useLocation } from '@/hooks/useLocation'
-import { useIsMobile } from '@/hooks/useIsMobile'
+import { useIsMobile, useMobileLandscape } from '@/hooks/useIsMobile'
 import { TimelineScrubber } from '@/components/timeline/TimelineScrubber'
 import { WeatherWarnings } from '@/components/layout/WeatherWarnings'
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner'
@@ -43,6 +43,7 @@ export function NowPage() {
   const { model } = useModel()
   const { locationId, setLocationId } = useLocation()
   const mobile = useIsMobile()
+  const mobileLandscape = useMobileLandscape()
 
   const [aiExpanded, setAiExpanded] = useState(false)
   const [alertsOpen, setAlertsOpen] = useState(false)
@@ -425,6 +426,49 @@ export function NowPage() {
         <div className="w-[300px] min-w-[260px] shrink-0 border-l border-[var(--color-border)] overflow-y-auto px-2 py-1.5">
           {chartsPanel(true)}
         </div>
+        </div>
+        <AlertSettingsPanel open={alertsOpen} onClose={() => setAlertsOpen(false)} />
+      </div>
+    )
+  }
+
+  /* ── Mobile landscape: map left, scrollable data right ─────────────── */
+  if (mobileLandscape) {
+    return (
+      <div className="flex h-full overflow-hidden">
+        {/* Left: map — 50% width, full height */}
+        <div className="w-1/2 min-w-0 relative shrink-0">
+          <Suspense fallback={<div className="w-full h-full bg-black" />}>
+            <ForecastMap selectedId={locationId} onSelectLocation={setLocationId} />
+          </Suspense>
+        </div>
+
+        {/* Right: scrollable data column */}
+        <div className="w-1/2 flex flex-col min-w-0 border-l border-[var(--color-border)]">
+          {/* Pinned: timeline + conditions */}
+          <div className="shrink-0 border-b border-[var(--color-border)] px-2">
+            <div className="flex items-center gap-1">
+              <div className="flex-1 min-w-0"><TimelineScrubber records={chartRecords} /></div>
+              <button
+                onClick={() => setAlertsOpen(true)}
+                className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]"
+                aria-label="Alert settings"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+              </button>
+            </div>
+            <ConditionsStrip />
+          </div>
+
+          {/* Scrollable: warnings + detail + charts */}
+          <div className="flex-1 overflow-y-auto px-2 py-1">
+            <WeatherWarnings />
+            {locationDetail}
+            {chartsPanel(true)}
+          </div>
         </div>
         <AlertSettingsPanel open={alertsOpen} onClose={() => setAlertsOpen(false)} />
       </div>
