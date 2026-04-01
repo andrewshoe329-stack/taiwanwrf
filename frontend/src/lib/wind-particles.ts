@@ -250,9 +250,10 @@ export class WindParticleSystem {
   }
 
   private randomParticle(): Particle {
+    const { ox, oy, vw, vh } = this.computeViewport(this.canvas.width, this.canvas.height)
     return {
-      x: Math.random() * this.canvas.width,
-      y: Math.random() * this.canvas.height,
+      x: ox + Math.random() * vw,
+      y: oy + Math.random() * vh,
       age: Math.floor(Math.random() * this.maxAge),
       maxAge: this.maxAge + Math.floor(Math.random() * 20 - 10),
     }
@@ -265,13 +266,14 @@ export class WindParticleSystem {
     const { west, east, south, north } = this.bounds
     const w = this.canvas.width  // physical pixels
     const h = this.canvas.height
+    const { ox, oy, vw, vh } = this.computeViewport(w, h)
 
-    // Canvas pixel → geographic coords (inverse Mercator)
-    const lon = west + (px / w) * (east - west)
+    // Canvas pixel → geographic coords (inverse Mercator), accounting for viewport offset
+    const lon = west + ((px - ox) / vw) * (east - west)
     const mercY = (l: number) => Math.log(Math.tan(Math.PI / 4 + (l * Math.PI / 180) / 2))
     const yMin = mercY(south)
     const yMax = mercY(north)
-    const mercLat = yMax - (py / h) * (yMax - yMin)
+    const mercLat = yMax - ((py - oy) / vh) * (yMax - yMin)
     const lat = (2 * Math.atan(Math.exp(mercLat)) - Math.PI / 2) * 180 / Math.PI
 
     // Geographic → grid indices
@@ -430,6 +432,9 @@ export class WindParticleSystem {
     // Current speed factor: currents are ~0.1-1.5 m/s vs wind 1-30 m/s
     const sf = colorMode === 'current' ? this.speedFactor * 2 : this.speedFactor
 
+    // Viewport bounds for particle containment
+    const { ox, oy, vw, vh } = this.computeViewport(w, h)
+
     for (const p of this.particles) {
       const [u, v] = this.sampleWind(p.x, p.y)
       const speed = Math.sqrt(u * u + v * v)
@@ -474,7 +479,7 @@ export class WindParticleSystem {
       p.y = ny
       p.age++
 
-      if (p.age > p.maxAge || p.x < 0 || p.x > w || p.y < 0 || p.y > h) {
+      if (p.age > p.maxAge || p.x < ox || p.x > ox + vw || p.y < oy || p.y > oy + vh) {
         const fresh = this.randomParticle()
         p.x = fresh.x
         p.y = fresh.y
@@ -624,16 +629,40 @@ export class WindParticleSystem {
     this.animId = requestAnimationFrame(this.loop)
   }
 
+  /** Compute aspect-ratio-preserving viewport within the canvas */
+  private computeViewport(w: number, h: number): { ox: number; oy: number; vw: number; vh: number } {
+    const { west, east, south, north } = this.bounds
+    const lonSpan = east - west
+    const mercYFn = (l: number) => Math.log(Math.tan(Math.PI / 4 + (l * Math.PI / 180) / 2))
+    const mercSpan = mercYFn(north) - mercYFn(south)
+    if (mercSpan === 0 || lonSpan === 0) return { ox: 0, oy: 0, vw: w, vh: h }
+
+    const idealAspect = lonSpan / mercSpan
+    const canvasAspect = w / h
+    let vw: number, vh: number, ox: number, oy: number
+    if (canvasAspect > idealAspect) {
+      // Canvas wider than ideal: pillarbox (bars left/right)
+      vh = h; vw = h * idealAspect
+      ox = (w - vw) / 2; oy = 0
+    } else {
+      // Canvas taller than ideal: letterbox (bars top/bottom)
+      vw = w; vh = w / idealAspect
+      ox = 0; oy = (h - vh) / 2
+    }
+    return { ox, oy, vw, vh }
+  }
+
   /** Convert lon/lat to canvas pixel coordinates using Mercator projection */
   private project(lon: number, lat: number, w: number, h: number): [number, number] {
     const { west, east, south, north } = this.bounds
+    const { ox, oy, vw, vh } = this.computeViewport(w, h)
     // X is linear in longitude
-    const x = ((lon - west) / (east - west)) * w
+    const x = ox + ((lon - west) / (east - west)) * vw
     // Y uses Mercator-like scaling (lat → sinh) for correct aspect ratio
     const mercY = (l: number) => Math.log(Math.tan(Math.PI / 4 + (l * Math.PI / 180) / 2))
     const yMin = mercY(south)
     const yMax = mercY(north)
-    const y = ((yMax - mercY(lat)) / (yMax - yMin)) * h
+    const y = oy + ((yMax - mercY(lat)) / (yMax - yMin)) * vh
     return [x, y]
   }
 
