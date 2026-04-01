@@ -19,16 +19,17 @@ export function useIsMobile(): boolean {
   return isMobile
 }
 
-/** True on tablet-sized screens in portrait (768-1079px wide, not landscape-phone). */
+/** True on tablet-sized screens (768-1399px wide, not landscape-phone).
+ *  Covers iPad portrait + landscape, including iPadOS PWA viewports. */
 export function useIsTabletPortrait(): boolean {
   const [is, setIs] = useState(
     () => typeof window !== 'undefined' && window.matchMedia(
-      '(min-width: 768px) and (max-width: 1079px) and (min-height: 500px)',
+      '(min-width: 768px) and (max-width: 1399px) and (pointer: coarse) and (min-height: 500px)',
     ).matches,
   )
 
   useEffect(() => {
-    const mql = window.matchMedia('(min-width: 768px) and (max-width: 1079px) and (min-height: 500px)')
+    const mql = window.matchMedia('(min-width: 768px) and (max-width: 1399px) and (pointer: coarse) and (min-height: 500px)')
     const handler = (e: MediaQueryListEvent) => setIs(e.matches)
     mql.addEventListener('change', handler)
     setIs(mql.matches)
