@@ -38,8 +38,11 @@ export function App() {
           <ModelContext.Provider value={modelState}>
             <LocationContext.Provider value={locationState}>
               <div className="h-[100dvh] flex flex-col bg-[var(--color-bg)] pwa-safe-lr">
+                <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:top-2 focus:left-2 focus:px-3 focus:py-1.5 focus:rounded-lg focus:bg-[var(--color-accent)] focus:text-black focus:fs-body focus:font-medium">
+                  Skip to content
+                </a>
                 <Header />
-                <main className="flex-1 min-h-0">
+                <main id="main-content" className="flex-1 min-h-0">
                   <Outlet />
                 </main>
               </div>

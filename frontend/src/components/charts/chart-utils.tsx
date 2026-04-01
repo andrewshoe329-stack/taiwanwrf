@@ -193,16 +193,32 @@ export function timeDomain(range: TimeRange | undefined): [number, number] | und
 /* ── Responsive chart layout ─────────────────────────────────────────── */
 
 export const YAXIS_WIDTH = 44
+export function yAxisWidth(mobile: boolean) { return mobile ? 36 : 44 }
+
+/** Shared tooltip content style — uses CSS vars for theme consistency */
+export const TOOLTIP_STYLE: React.CSSProperties = {
+  background: 'var(--color-bg-card)',
+  border: '1px solid var(--color-border)',
+  borderRadius: 8,
+  padding: '8px 12px',
+  fontSize: 'var(--fs-compact)',
+}
+
+/** Shared tooltip time label style */
+export const TOOLTIP_LABEL_STYLE: React.CSSProperties = {
+  color: 'var(--color-text-muted)',
+  marginBottom: 4,
+}
 
 export function chartMargin(mobile: boolean, dualAxis: boolean) {
   if (mobile) {
-    return { top: 4, right: 8, bottom: 2, left: -8 }
+    return { top: 4, right: 8, bottom: 2, left: -4 }
   }
   return {
     top: 4,
     right: dualAxis ? 8 : 12,
     bottom: 4,
-    left: -8,
+    left: -4,
   }
 }
 

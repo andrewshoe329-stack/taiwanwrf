@@ -80,7 +80,7 @@ export function ConditionsStrip() {
     const liveSpot = locationId ? liveObs.data?.spots?.[locationId] : null
     const waterTemp = liveSpot?.tide?.sea_temp_c ?? liveSpot?.buoy?.sea_temp_c
     return (
-      <div className="grid grid-cols-5 gap-1 py-1.5">
+      <div className="grid grid-cols-5 gap-1 py-1.5 min-w-[300px]">
         <Stat
           label={t('common.wave_height')}
           value={waveH?.toFixed(1) ?? '--'}
@@ -117,7 +117,7 @@ export function ConditionsStrip() {
   const precip = rec.precip_mm_6h
 
   return (
-    <div className="grid grid-cols-5 gap-1 py-1.5">
+    <div className="grid grid-cols-5 gap-1 py-1.5 min-w-[300px]">
       <Stat
         label={t('common.wind')}
         value={rec.wind_kt?.toFixed(0) ?? '--'}

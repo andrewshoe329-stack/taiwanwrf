@@ -85,19 +85,21 @@ export function TownshipForecastCard({ cwaObs, locationId }: TownshipForecastCar
         </div>
       </button>
 
-      {expanded && (
-        <div className="mt-1.5 space-y-1">
-          {wx && (
-            <p className="fs-compact text-[var(--color-text-secondary)] leading-relaxed">{wx}</p>
-          )}
-          <div className="flex flex-wrap gap-x-3 gap-y-0.5 fs-compact text-[var(--color-text-dim)]">
-            {minT && maxT && <span>{lang === 'zh' ? '溫度' : 'Temp'}: {minT}–{maxT}°C</span>}
-            {pop && <span>{lang === 'zh' ? '降雨' : 'Rain'}: {pop}%</span>}
-            {wind && <span>{lang === 'zh' ? '風速' : 'Wind'}: {wind}</span>}
-            {ci && <span>{lang === 'zh' ? '舒適度' : 'Comfort'}: {ci}</span>}
+      <div className={`grid transition-[grid-template-rows] duration-300 ${expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+        <div className="overflow-hidden">
+          <div className="mt-1.5 space-y-1">
+            {wx && (
+              <p className="fs-compact text-[var(--color-text-secondary)] leading-relaxed">{wx}</p>
+            )}
+            <div className="flex flex-wrap gap-x-3 gap-y-0.5 fs-compact text-[var(--color-text-dim)]">
+              {minT && maxT && <span>{lang === 'zh' ? '溫度' : 'Temp'}: {minT}–{maxT}°C</span>}
+              {pop && <span>{lang === 'zh' ? '降雨' : 'Rain'}: {pop}%</span>}
+              {wind && <span>{lang === 'zh' ? '風速' : 'Wind'}: {wind}</span>}
+              {ci && <span>{lang === 'zh' ? '舒適度' : 'Comfort'}: {ci}</span>}
+            </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }

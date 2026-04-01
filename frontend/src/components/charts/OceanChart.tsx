@@ -8,7 +8,7 @@ import { useIsMobile } from '@/hooks/useIsMobile'
 import {
   toCSTLabel, MultiLineTick, timeTicks, timeDomain,
   filterByTimeRange,
-  chartMargin, xAxisHeight, YAXIS_WIDTH, NOW_LABEL,
+  chartMargin, xAxisHeight, yAxisWidth, NOW_LABEL, TOOLTIP_STYLE, TOOLTIP_LABEL_STYLE,
   type TimeRange,
 } from './chart-utils'
 
@@ -30,11 +30,8 @@ interface ChartRow {
 function OceanTooltip({ active, payload }: TooltipContentProps) {
   if (!active || !payload?.length) return null
   return (
-    <div style={{
-      background: '#0a0a0a', border: '1px solid #1a1a1a',
-      borderRadius: 8, padding: '8px 12px', fontSize: 'var(--fs-compact)',
-    }}>
-      <p style={{ color: '#666666', marginBottom: 4 }}>{(payload[0]?.payload as ChartRow)?.timeLabel}</p>
+    <div style={TOOLTIP_STYLE}>
+      <p style={TOOLTIP_LABEL_STYLE}>{(payload[0]?.payload as ChartRow)?.timeLabel}</p>
       {payload.map((p, i) => (
         <p key={i} style={{ color: p.color, margin: 0 }}>
           {p.name}: {typeof p.value === 'number' ? p.value.toFixed(1) : '--'}
@@ -84,7 +81,7 @@ export function OceanChart({ records, timeRange, selectedMs }: OceanChartProps) 
           tick={{ fill: 'var(--color-text-muted)', fontSize: 'var(--fs-compact)' }}
           stroke="var(--color-border)"
           unit=" m"
-          width={YAXIS_WIDTH}
+          width={yAxisWidth(mobile)}
         />
         {/* Right axis: period */}
         <YAxis
@@ -96,7 +93,7 @@ export function OceanChart({ records, timeRange, selectedMs }: OceanChartProps) 
           width={36}
           domain={[0, 'auto']}
         />
-        <Tooltip content={OceanTooltip} />
+        <Tooltip content={OceanTooltip} allowEscapeViewBox={{ x: false, y: false }} />
         <Area
           yAxisId="height"
           dataKey="swell"

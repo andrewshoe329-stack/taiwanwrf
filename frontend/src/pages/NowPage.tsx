@@ -236,13 +236,15 @@ export function NowPage() {
               <path d="M2 4 L6 8 L10 4" />
             </svg>
           </button>
-          {aiExpanded && (
-            <div className="px-4 pb-4 space-y-2 fs-label text-[var(--color-text-secondary)] leading-relaxed">
-              <p>{data.summary.wind[lang]}</p>
-              <p>{data.summary.waves[lang]}</p>
-              <p>{data.summary.outlook[lang]}</p>
+          <div className={`grid transition-[grid-template-rows] duration-300 ${aiExpanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+            <div className="overflow-hidden">
+              <div className="px-4 pb-4 space-y-2 fs-body text-[var(--color-text-secondary)] leading-relaxed">
+                <p>{data.summary.wind[lang]}</p>
+                <p>{data.summary.waves[lang]}</p>
+                <p>{data.summary.outlook[lang]}</p>
+              </div>
             </div>
-          )}
+          </div>
         </div>
       )}
     </>
@@ -258,7 +260,7 @@ export function NowPage() {
             <div className="flex-1 min-w-0"><TimelineScrubber records={chartRecords} /></div>
             <button
               onClick={() => setAlertsOpen(true)}
-              className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] transition-colors"
+              className="shrink-0 w-7 h-7 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] transition-colors"
               aria-label="Alert settings"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -410,7 +412,7 @@ export function NowPage() {
               <div className="flex-1 min-w-0"><TimelineScrubber records={chartRecords} /></div>
               <button
                 onClick={() => setAlertsOpen(true)}
-                className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] transition-colors"
+                className="shrink-0 w-7 h-7 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] transition-colors"
                 aria-label="Alert settings"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -453,7 +455,7 @@ export function NowPage() {
             <div className="flex-1 min-w-0"><TimelineScrubber records={chartRecords} /></div>
             <button
               onClick={() => setAlertsOpen(true)}
-              className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] transition-colors"
+              className="shrink-0 w-7 h-7 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] transition-colors"
               aria-label="Alert settings"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -465,7 +467,7 @@ export function NowPage() {
           <ConditionsStrip />
         </div>
         {/* Two-column data: detail left, charts right */}
-        <div className="flex flex-1 min-h-0 border-t border-[var(--color-border)]">
+        <div className="flex flex-1 min-h-0 border-t border-[var(--color-border)] gap-1">
           <div className="w-1/2 overflow-y-auto border-r border-[var(--color-border)] px-2 py-2">
             {locationDetail}
           </div>
@@ -497,7 +499,7 @@ export function NowPage() {
               <div className="flex-1 min-w-0"><TimelineScrubber records={chartRecords} /></div>
               <button
                 onClick={() => setAlertsOpen(true)}
-                className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]"
+                className="shrink-0 w-6 h-6 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]"
                 aria-label="Alert settings"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

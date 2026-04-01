@@ -60,6 +60,16 @@ export function TimelineScrubber({ records: externalRecords }: TimelineScrubberP
     window.addEventListener('pointerup', onUp)
   }, [total, setIndex])
 
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (total === 0) return
+    switch (e.key) {
+      case 'ArrowLeft':  e.preventDefault(); setIndex(Math.max(0, index - 1)); break
+      case 'ArrowRight': e.preventDefault(); setIndex(Math.min(total - 1, index + 1)); break
+      case 'Home':       e.preventDefault(); setIndex(0); break
+      case 'End':        e.preventDefault(); setIndex(total - 1); break
+    }
+  }, [index, total, setIndex])
+
   const currentRecord = records[index]
   const progress = total > 1 ? index / (total - 1) : 0
 
@@ -82,7 +92,7 @@ export function TimelineScrubber({ records: externalRecords }: TimelineScrubberP
       <div className="flex items-center gap-2 mb-1">
         <button
           onClick={toggle}
-          className="w-7 h-7 flex items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors shrink-0"
+          className="w-7 h-7 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors shrink-0"
           aria-label={playing ? 'Pause' : 'Play'}
         >
           {playing ? (
@@ -125,8 +135,9 @@ export function TimelineScrubber({ records: externalRecords }: TimelineScrubberP
         aria-valuenow={index}
         aria-valuetext={currentRecord?.valid_utc ? `${formatDate(currentRecord.valid_utc)} ${formatTime(currentRecord.valid_utc)} CST` : undefined}
         tabIndex={0}
-        className="relative h-6 flex items-center cursor-pointer touch-none"
+        className="relative h-8 flex items-center cursor-pointer touch-none"
         onPointerDown={handlePointerDown}
+        onKeyDown={handleKeyDown}
       >
         {/* Background rail */}
         <div className="absolute left-0 right-0 h-[3px] rounded-full bg-[var(--color-border)]" />
@@ -148,7 +159,7 @@ export function TimelineScrubber({ records: externalRecords }: TimelineScrubberP
 
         {/* Thumb */}
         <div
-          className="absolute w-4 h-4 rounded-full bg-[var(--color-text-primary)] border-2 border-[var(--color-bg)] shadow-sm transition-[left] duration-75"
+          className="absolute w-5 h-5 md:w-4 md:h-4 rounded-full bg-[var(--color-text-primary)] border-2 border-[var(--color-bg)] shadow-sm transition-[left] duration-75 hover:scale-110 active:scale-125"
           style={{ left: `${progress * 100}%`, transform: 'translateX(-50%)' }}
         />
       </div>

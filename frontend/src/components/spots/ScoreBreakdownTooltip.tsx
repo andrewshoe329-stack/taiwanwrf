@@ -28,7 +28,7 @@ export function ScoreBreakdownTooltip({ rating, onClose }: ScoreBreakdownTooltip
 
   return (
     <div
-      className="absolute z-50 w-48 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-lg p-2"
+      className="absolute z-50 w-48 max-w-[85vw] rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-lg p-2"
       onClick={e => e.stopPropagation()}
     >
       {/* Header */}

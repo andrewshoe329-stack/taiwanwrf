@@ -8,7 +8,7 @@ import { useIsMobile } from '@/hooks/useIsMobile'
 import {
   toCSTLabel, MultiLineTick, timeTicks, timeDomain,
   filterByTimeRange,
-  chartMargin, chartHeightCompact, xAxisHeight, YAXIS_WIDTH, NOW_LABEL,
+  chartMargin, chartHeightCompact, xAxisHeight, yAxisWidth, NOW_LABEL, TOOLTIP_STYLE, TOOLTIP_LABEL_STYLE,
   type TimeRange,
 } from './chart-utils'
 
@@ -33,11 +33,8 @@ interface PressureRow {
 function TempTooltip({ active, payload }: TooltipContentProps) {
   if (!active || !payload?.length) return null
   return (
-    <div style={{
-      background: '#0a0a0a', border: '1px solid #1a1a1a',
-      borderRadius: 8, padding: '8px 12px', fontSize: 'var(--fs-compact)',
-    }}>
-      <p style={{ color: '#666666', marginBottom: 4 }}>{(payload[0]?.payload as TempRow)?.timeLabel}</p>
+    <div style={TOOLTIP_STYLE}>
+      <p style={TOOLTIP_LABEL_STYLE}>{(payload[0]?.payload as TempRow)?.timeLabel}</p>
       {payload.map((p, i) => (
         <p key={i} style={{ color: p.color, margin: 0 }}>
           Temp: {typeof p.value === 'number' ? p.value.toFixed(1) : '--'} °C
@@ -50,11 +47,8 @@ function TempTooltip({ active, payload }: TooltipContentProps) {
 function PressureTooltip({ active, payload }: TooltipContentProps) {
   if (!active || !payload?.length) return null
   return (
-    <div style={{
-      background: '#0a0a0a', border: '1px solid #1a1a1a',
-      borderRadius: 8, padding: '8px 12px', fontSize: 'var(--fs-compact)',
-    }}>
-      <p style={{ color: '#666666', marginBottom: 4 }}>{(payload[0]?.payload as PressureRow)?.timeLabel}</p>
+    <div style={TOOLTIP_STYLE}>
+      <p style={TOOLTIP_LABEL_STYLE}>{(payload[0]?.payload as PressureRow)?.timeLabel}</p>
       {payload.map((p, i) => (
         <p key={i} style={{ color: p.color, margin: 0 }}>
           Pressure: {typeof p.value === 'number' ? p.value.toFixed(1) : '--'} hPa
@@ -98,10 +92,10 @@ export function TempChart({ records, timeRange, selectedMs }: ChartProps) {
           tick={{ fill: 'var(--color-text-muted)', fontSize: 'var(--fs-compact)' }}
           stroke="var(--color-border)"
           unit="°C"
-          width={YAXIS_WIDTH}
+          width={yAxisWidth(mobile)}
           domain={['auto', 'auto']}
         />
-        <Tooltip content={TempTooltip} />
+        <Tooltip content={TempTooltip} allowEscapeViewBox={{ x: false, y: false }} />
         <Line
           dataKey="temp"
           name="Temp"
@@ -159,10 +153,10 @@ export function PressureChart({ records, timeRange, selectedMs }: ChartProps) {
           tick={{ fill: 'var(--color-text-muted)', fontSize: 'var(--fs-compact)' }}
           stroke="var(--color-border)"
           unit=" hPa"
-          width={YAXIS_WIDTH}
+          width={yAxisWidth(mobile)}
           domain={['auto', 'auto']}
         />
-        <Tooltip content={PressureTooltip} />
+        <Tooltip content={PressureTooltip} allowEscapeViewBox={{ x: false, y: false }} />
         <Line
           dataKey="pressure"
           name="Pressure"
