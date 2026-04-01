@@ -86,8 +86,12 @@ export function MapControls({
         ))}
       </div>
 
-      {/* Model switcher (only visible in wind mode) — below layers on small screens, top-right on md+ */}
-      <div className={`absolute z-20 pointer-events-none flex gap-1 top-11 left-2 md:top-3 md:left-auto md:right-3 ${layer !== 'wind' ? 'hidden' : ''}`}>
+      {/* Model switcher (only visible in wind mode) — below layers on small/landscape, top-right on desktop */}
+      <div className={`absolute z-20 pointer-events-none flex gap-1 ${
+        compact
+          ? 'top-11 left-2'  /* landscape: always stack below layer toggle */
+          : 'top-11 left-2 md:top-3 md:left-auto md:right-3'
+      } ${layer !== 'wind' ? 'hidden' : ''}`}>
         {(['wrf', 'ecmwf', 'gfs'] as WindModel[]).map(m => (
           <button
             key={m}

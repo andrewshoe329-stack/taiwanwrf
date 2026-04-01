@@ -620,7 +620,7 @@ export class WindParticleSystem {
       // Mask out land: fill coastline polygons with background color
       this.fillLandMask(ctx, w, h)
       this.drawCoastline(ctx, w, h)
-      this.drawWaveLegend(ctx, w, h)
+      // Wave legend drawn by MapControls (HTML) — no canvas legend needed
       this.animId = requestAnimationFrame(this.loop)
       return
     }
@@ -629,15 +629,16 @@ export class WindParticleSystem {
     this.animId = requestAnimationFrame(this.loop)
   }
 
-  /** Compute aspect-ratio-preserving viewport within the canvas */
+  /** Compute aspect-ratio-preserving viewport within the canvas.
+   *  Converts lon span to radians so it's in the same unit system as Mercator y. */
   private computeViewport(w: number, h: number): { ox: number; oy: number; vw: number; vh: number } {
     const { west, east, south, north } = this.bounds
-    const lonSpan = east - west
+    const lonSpanRad = (east - west) * Math.PI / 180  // degrees → radians
     const mercYFn = (l: number) => Math.log(Math.tan(Math.PI / 4 + (l * Math.PI / 180) / 2))
     const mercSpan = mercYFn(north) - mercYFn(south)
-    if (mercSpan === 0 || lonSpan === 0) return { ox: 0, oy: 0, vw: w, vh: h }
+    if (mercSpan === 0 || lonSpanRad === 0) return { ox: 0, oy: 0, vw: w, vh: h }
 
-    const idealAspect = lonSpan / mercSpan
+    const idealAspect = lonSpanRad / mercSpan  // ~2.7 for the Taiwan bbox
     const canvasAspect = w / h
     let vw: number, vh: number, ox: number, oy: number
     if (canvasAspect > idealAspect) {
