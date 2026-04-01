@@ -32,7 +32,7 @@ function OceanTooltip({ active, payload }: TooltipContentProps) {
   return (
     <div style={{
       background: '#0a0a0a', border: '1px solid #1a1a1a',
-      borderRadius: 8, padding: '8px 12px', fontSize: 12,
+      borderRadius: 8, padding: '8px 12px', fontSize: 'var(--fs-body)',
     }}>
       <p style={{ color: '#666666', marginBottom: 4 }}>{(payload[0]?.payload as ChartRow)?.timeLabel}</p>
       {payload.map((p, i) => (
@@ -81,7 +81,7 @@ export function OceanChart({ records, timeRange, selectedMs }: OceanChartProps) 
         {/* Left axis: wave height */}
         <YAxis
           yAxisId="height"
-          tick={{ fill: 'var(--color-text-muted)', fontSize: 10 }}
+          tick={{ fill: 'var(--color-text-muted)', fontSize: 'var(--fs-compact)' }}
           stroke="var(--color-border)"
           unit=" m"
           width={YAXIS_WIDTH}
@@ -90,7 +90,7 @@ export function OceanChart({ records, timeRange, selectedMs }: OceanChartProps) 
         <YAxis
           yAxisId="period"
           orientation="right"
-          tick={{ fill: 'var(--color-text-dim)', fontSize: 10 }}
+          tick={{ fill: 'var(--color-text-dim)', fontSize: 'var(--fs-compact)' }}
           stroke="var(--color-border)"
           unit=" s"
           width={36}

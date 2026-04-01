@@ -60,7 +60,7 @@ export function AccuracyTrend({ entries, compact = false }: AccuracyTrendProps) 
       <div className="mt-1">
         <button
           onClick={() => setExpanded(!expanded)}
-          className="flex items-center gap-1 text-[8px] text-[var(--color-text-dim)] hover:text-[var(--color-text-muted)] transition-colors"
+          className="flex items-center gap-1 text-[var(--fs-micro)] text-[var(--color-text-dim)] hover:text-[var(--color-text-muted)] transition-colors"
         >
           <span>{expanded ? '▼' : '▶'}</span>
           <span>{lang === 'zh' ? '準確度趨勢' : 'Accuracy trend'}</span>
@@ -76,10 +76,10 @@ export function AccuracyTrend({ entries, compact = false }: AccuracyTrendProps) 
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
                   <XAxis dataKey="date" tick={false} axisLine={false} />
-                  <YAxis tick={{ fontSize: 8, fill: '#6b7280' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 'var(--fs-micro)', fill: '#6b7280' }} axisLine={false} tickLine={false} />
                   <Tooltip
-                    contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: 6, fontSize: 10 }}
-                    labelStyle={{ color: '#94a3b8', fontSize: 9 }}
+                    contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: 6, fontSize: 'var(--fs-compact)' }}
+                    labelStyle={{ color: '#94a3b8', fontSize: 'var(--fs-compact)' }}
                   />
                   <Line type="monotone" dataKey="wind" stroke="#2dd4bf" strokeWidth={1.5} dot={false} name="Wind MAE (kt)" />
                   <Line type="monotone" dataKey="temp" stroke="#fb923c" strokeWidth={1.5} dot={false} name="Temp MAE (°C)" />
@@ -99,10 +99,10 @@ export function AccuracyTrend({ entries, compact = false }: AccuracyTrendProps) 
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <p className="text-[9px] uppercase tracking-wider text-[var(--color-text-dim)]">
+        <p className="text-[var(--fs-compact)] uppercase tracking-wider text-[var(--color-text-dim)]">
           {lang === 'zh' ? '模型準確度 (近30次)' : 'Forecast Accuracy (last 30 runs)'}
         </p>
-        <div className="flex gap-2 text-[8px]">
+        <div className="flex gap-2 text-[var(--fs-micro)]">
           {tempBias != null && (
             <span className="text-orange-400">
               {lang === 'zh' ? '溫度偏差' : 'Temp bias'} {tempBias > 0 ? '+' : ''}{tempBias.toFixed(1)}°C
@@ -121,7 +121,7 @@ export function AccuracyTrend({ entries, compact = false }: AccuracyTrendProps) 
           <button
             key={h}
             onClick={() => setHorizon(h)}
-            className={`text-[8px] px-1.5 py-0.5 rounded transition-colors ${
+            className={`text-[var(--fs-micro)] px-1.5 py-0.5 rounded transition-colors ${
               horizon === h
                 ? 'bg-[var(--color-text-muted)]/20 text-[var(--color-text-primary)]'
                 : 'text-[var(--color-text-dim)] hover:text-[var(--color-text-muted)]'
@@ -138,15 +138,15 @@ export function AccuracyTrend({ entries, compact = false }: AccuracyTrendProps) 
               <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 16, left: -10 }}>
                 <XAxis
                   dataKey="date"
-                  tick={{ fontSize: 8, fill: '#6b7280' }}
+                  tick={{ fontSize: 'var(--fs-micro)', fill: '#6b7280' }}
                   axisLine={false}
                   tickLine={false}
                   interval={Math.max(0, Math.floor(chartData.length / 6) - 1)}
                 />
-                <YAxis tick={{ fontSize: 8, fill: '#6b7280' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 'var(--fs-micro)', fill: '#6b7280' }} axisLine={false} tickLine={false} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: 6, fontSize: 10 }}
-                  labelStyle={{ color: '#94a3b8', fontSize: 9 }}
+                  contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: 6, fontSize: 'var(--fs-compact)' }}
+                  labelStyle={{ color: '#94a3b8', fontSize: 'var(--fs-compact)' }}
                 />
                 <Line type="monotone" dataKey="wind" stroke="#2dd4bf" strokeWidth={1.5} dot={{ r: 1.5 }} name="Wind MAE (kt)" />
                 <Line type="monotone" dataKey="temp" stroke="#fb923c" strokeWidth={1.5} dot={{ r: 1.5 }} name="Temp MAE (°C)" />

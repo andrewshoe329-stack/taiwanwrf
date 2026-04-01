@@ -160,10 +160,10 @@ export function NowPage() {
     return (
       <div className="flex items-center justify-center h-[60vh]">
         <div className="text-center space-y-3">
-          <p className="text-[var(--color-text-muted)] text-sm">{data.error}</p>
+          <p className="text-[var(--color-text-muted)] text-[var(--fs-label)]">{data.error}</p>
           <button
             onClick={data.reload}
-            className="px-4 py-2 rounded-lg bg-[var(--color-accent)]/20 text-[var(--color-accent)] text-xs hover:bg-[var(--color-accent)]/30 transition-colors"
+            className="px-4 py-2 rounded-lg bg-[var(--color-accent)]/20 text-[var(--color-accent)] text-[var(--fs-body)] hover:bg-[var(--color-accent)]/30 transition-colors"
           >
             {t('common.retry', 'Retry')}
           </button>
@@ -225,7 +225,7 @@ export function NowPage() {
             onClick={() => setAiExpanded(!aiExpanded)}
             className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-[var(--color-bg-elevated)]/50 transition-colors"
           >
-            <span className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)]">
+            <span className="text-[var(--fs-compact)] uppercase tracking-widest text-[var(--color-text-muted)]">
               {t('ai.title')}
             </span>
             <svg
@@ -237,7 +237,7 @@ export function NowPage() {
             </svg>
           </button>
           {aiExpanded && (
-            <div className="px-4 pb-4 space-y-2 text-sm text-[var(--color-text-secondary)] leading-relaxed">
+            <div className="px-4 pb-4 space-y-2 text-[var(--fs-label)] text-[var(--color-text-secondary)] leading-relaxed">
               <p>{data.summary.wind[lang]}</p>
               <p>{data.summary.waves[lang]}</p>
               <p>{data.summary.outlook[lang]}</p>
@@ -549,11 +549,11 @@ function DataCell({ label, value, unit, sub }: {
 }) {
   return (
     <div className="bg-[var(--color-bg-elevated)] rounded-lg px-2 py-1.5 text-center">
-      <p className="text-[9px] text-[var(--color-text-muted)] uppercase tracking-wider">{label}</p>
-      <p className="text-sm font-semibold text-[var(--color-text-primary)] tabular-nums">
-        {value}<span className="text-[10px] text-[var(--color-text-muted)] ml-0.5">{unit}</span>
+      <p className="text-[var(--fs-compact)] text-[var(--color-text-muted)] uppercase tracking-wider">{label}</p>
+      <p className="text-[var(--fs-label)] font-semibold text-[var(--color-text-primary)] tabular-nums">
+        {value}<span className="text-[var(--fs-compact)] text-[var(--color-text-muted)] ml-0.5">{unit}</span>
       </p>
-      {sub && <p className="text-[10px] text-[var(--color-text-dim)]">{sub}</p>}
+      {sub && <p className="text-[var(--fs-compact)] text-[var(--color-text-dim)]">{sub}</p>}
     </div>
   )
 }
@@ -561,7 +561,7 @@ function DataCell({ label, value, unit, sub }: {
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="border-b border-[var(--color-border)] py-2">
-      <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-1 ml-1">
+      <p className="text-[var(--fs-compact)] uppercase tracking-widest text-[var(--color-text-muted)] mb-1 ml-1">
         {title}
       </p>
       {children}

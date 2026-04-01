@@ -50,10 +50,10 @@ export function SpotCompare({ spots, targetUtc, onSelectSpot }: SpotCompareProps
 
   return (
     <div className="space-y-0.5">
-      <p className="text-[9px] uppercase tracking-widest text-[var(--color-text-dim)] mb-1">
+      <p className="text-[var(--fs-compact)] uppercase tracking-widest text-[var(--color-text-dim)] mb-1">
         {t('common.spot_comparison')}
       </p>
-      <table className="w-full text-[10px]">
+      <table className="w-full text-[var(--fs-compact)]">
         <thead>
           <tr className="text-[var(--color-text-dim)]">
             <th className="text-left font-normal pb-1 pr-1">Spot</th>

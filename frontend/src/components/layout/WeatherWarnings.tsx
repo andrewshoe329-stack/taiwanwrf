@@ -41,10 +41,10 @@ export function WeatherWarnings() {
           >
             <span className="text-base shrink-0 mt-0.5">{'\u26A0'}</span>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium">
+              <p className="text-[var(--fs-body)] font-medium">
                 {wType}{wArea ? ` \u2014 ${wArea}` : ''}
               </p>
-              <p className={`text-xs mt-1 leading-relaxed ${
+              <p className={`text-[var(--fs-body)] mt-1 leading-relaxed ${
                 isSevere ? 'text-red-400/80' : 'text-amber-400/80'
               }`}>
                 {wDesc}
@@ -52,7 +52,7 @@ export function WeatherWarnings() {
             </div>
             <button
               onClick={() => setDismissed(prev => new Set(prev).add(w.issued_utc))}
-              className="shrink-0 text-xs opacity-50 hover:opacity-100 transition-opacity"
+              className="shrink-0 text-[var(--fs-body)] opacity-50 hover:opacity-100 transition-opacity"
               aria-label={isZh ? '關閉' : 'Dismiss'}
             >
               {'\u2715'}

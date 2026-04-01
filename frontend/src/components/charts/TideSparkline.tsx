@@ -60,10 +60,10 @@ export function TideSparkline({ predictions, extrema, nowMs }: TideSparklineProp
   return (
     <div className="w-full rounded-md border border-white/10 overflow-hidden">
       <div className="flex items-center justify-between px-2 pt-1">
-        <span className="text-[8px] uppercase tracking-wider text-[var(--color-text-dim)]">Tide 24h</span>
+        <span className="text-[var(--fs-micro)] uppercase tracking-wider text-[var(--color-text-dim)]">Tide 24h</span>
         <div className="flex gap-2">
           {extremaLabels.map((e, i) => (
-            <span key={i} className={`text-[8px] font-medium ${e.type === 'high' ? 'text-blue-400' : 'text-slate-400'}`}>
+            <span key={i} className={`text-[var(--fs-micro)] font-medium ${e.type === 'high' ? 'text-blue-400' : 'text-slate-400'}`}>
               {e.label} {e.h.toFixed(1)}m
             </span>
           ))}

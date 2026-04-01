@@ -13,7 +13,7 @@ import type { SpotInfo, SpotRating, SpotForecast, TidePrediction, TideExtremum, 
 
 function InfoPill({ label, value }: { label: string; value?: string }) {
   return (
-    <span className="inline-flex items-center gap-1 text-[10px] border border-[var(--color-border)] rounded-full px-2.5 py-0.5 text-[var(--color-text-muted)]">
+    <span className="inline-flex items-center gap-1 text-[var(--fs-compact)] border border-[var(--color-border)] rounded-full px-2.5 py-0.5 text-[var(--color-text-muted)]">
       <span>{label}</span>
       {value && <span className="text-[var(--color-text-secondary)]">{value}</span>}
     </span>
@@ -25,11 +25,11 @@ function DataCell({ label, value, unit, sub }: {
 }) {
   return (
     <div className="bg-[var(--color-bg-elevated)] rounded-lg px-2 py-1.5 text-center">
-      <p className="text-[9px] text-[var(--color-text-muted)] uppercase tracking-wider">{label}</p>
-      <p className="text-sm font-semibold text-[var(--color-text-primary)] tabular-nums">
-        {value}<span className="text-[10px] text-[var(--color-text-muted)] ml-0.5">{unit}</span>
+      <p className="text-[var(--fs-compact)] text-[var(--color-text-muted)] uppercase tracking-wider">{label}</p>
+      <p className="text-[var(--fs-label)] font-semibold text-[var(--color-text-primary)] tabular-nums">
+        {value}<span className="text-[var(--fs-compact)] text-[var(--color-text-muted)] ml-0.5">{unit}</span>
       </p>
-      {sub && <p className="text-[10px] text-[var(--color-text-dim)]">{sub}</p>}
+      {sub && <p className="text-[var(--fs-compact)] text-[var(--color-text-dim)]">{sub}</p>}
     </div>
   )
 }
@@ -71,9 +71,9 @@ export function SpotDetail({
     <section className="space-y-3 md:px-3 py-3">
       {/* 1. Spot header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
+        <h2 className="text-[var(--fs-label)] font-semibold text-[var(--color-text-primary)]">
           {spotInfo.name[lang]}
-          <span className="text-[var(--color-text-muted)] ml-1.5 text-xs font-normal">
+          <span className="text-[var(--color-text-muted)] ml-1.5 text-[var(--fs-body)] font-normal">
             {spotInfo.name[lang === 'en' ? 'zh' : 'en']}
           </span>
         </h2>
@@ -82,7 +82,7 @@ export function SpotDetail({
             <div className="relative">
               <button
                 onClick={() => setScoreTooltipOpen(!scoreTooltipOpen)}
-                className="text-[10px] font-medium capitalize px-1.5 py-0.5 rounded"
+                className="text-[var(--fs-compact)] font-medium capitalize px-1.5 py-0.5 rounded"
                 style={{
                   color: { firing: '#f97316', great: '#22c55e', good: '#4ade80', marginal: '#facc15', poor: '#ef4444', flat: '#6b7280', dangerous: '#dc2626' }[currentRating.rating] ?? '#6b7280',
                   backgroundColor: ({ firing: '#f97316', great: '#22c55e', good: '#4ade80', marginal: '#facc15', poor: '#ef4444', flat: '#6b7280', dangerous: '#dc2626' }[currentRating.rating] ?? '#6b7280') + '20',
@@ -126,7 +126,7 @@ export function SpotDetail({
             return !county || !w.area || w.area.includes(county)
           })
           .map((w, i) => (
-          <span key={i} className={`text-[10px] px-1.5 py-0.5 rounded ${
+          <span key={i} className={`text-[var(--fs-compact)] px-1.5 py-0.5 rounded ${
             w.type === 'rain' ? 'bg-blue-500/20 text-blue-400' :
             w.type === 'heat' ? 'bg-red-500/20 text-red-400' :
             'bg-cyan-500/20 text-cyan-400'
@@ -140,7 +140,7 @@ export function SpotDetail({
             href={cam.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
+            className="inline-flex items-center gap-1 text-[var(--fs-compact)] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
           >
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M23 7l-7 5 7 5V7z" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
@@ -154,7 +154,7 @@ export function SpotDetail({
       {!mobile && currentRating && (
         <div className="space-y-2">
           <div className="flex items-center gap-1.5">
-            <span className="text-[8px] uppercase tracking-wider font-semibold text-blue-400">
+            <span className="text-[var(--fs-micro)] uppercase tracking-wider font-semibold text-blue-400">
               {t('common.forecast') || 'Forecast'}{forecastTimeLabel && ` · ${forecastTimeLabel} CST`}
             </span>
           </div>

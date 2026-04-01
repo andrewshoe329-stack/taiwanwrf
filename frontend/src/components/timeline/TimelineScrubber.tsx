@@ -99,14 +99,14 @@ export function TimelineScrubber({ records: externalRecords }: TimelineScrubberP
 
         <div className="flex-1 min-w-0 text-center">
           {currentRecord?.valid_utc ? (
-            <span className="text-xs font-medium text-[var(--color-text-primary)]">
+            <span className="text-[var(--fs-body)] font-medium text-[var(--color-text-primary)]">
               {formatDate(currentRecord.valid_utc)}{' '}
               <span className="text-[var(--color-text-secondary)]">
                 {formatTime(currentRecord.valid_utc)} {t('timeline.cst')}
               </span>
             </span>
           ) : (
-            <span className="text-xs text-[var(--color-text-muted)]">{t('common.no_data')}</span>
+            <span className="text-[var(--fs-body)] text-[var(--color-text-muted)]">{t('common.no_data')}</span>
           )}
         </div>
 
