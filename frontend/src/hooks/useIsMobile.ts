@@ -19,6 +19,25 @@ export function useIsMobile(): boolean {
   return isMobile
 }
 
+/** True on tablet-sized screens in portrait (768-1079px wide, not landscape-phone). */
+export function useIsTabletPortrait(): boolean {
+  const [is, setIs] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(
+      '(min-width: 768px) and (max-width: 1079px) and (min-height: 500px)',
+    ).matches,
+  )
+
+  useEffect(() => {
+    const mql = window.matchMedia('(min-width: 768px) and (max-width: 1079px) and (min-height: 500px)')
+    const handler = (e: MediaQueryListEvent) => setIs(e.matches)
+    mql.addEventListener('change', handler)
+    setIs(mql.matches)
+    return () => mql.removeEventListener('change', handler)
+  }, [])
+
+  return is
+}
+
 /** True when the device is in landscape with limited height (phone landscape). */
 export function useMobileLandscape(): boolean {
   const [isLandscape, setIsLandscape] = useState(

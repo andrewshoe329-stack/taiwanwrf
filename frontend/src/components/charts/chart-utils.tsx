@@ -114,7 +114,7 @@ export function MultiLineTick(props: TickProps) {
           dy={10}
           textAnchor="middle"
           fill="var(--color-text-secondary)"
-          fontSize={9}
+          fontSize="var(--fs-compact)"
           fontWeight={500}
         >
           {dayName} {mm}/{dd}
@@ -124,7 +124,7 @@ export function MultiLineTick(props: TickProps) {
         dy={showDate ? 21 : 10}
         textAnchor="middle"
         fill="var(--color-text-muted)"
-        fontSize={9}
+        fontSize="var(--fs-compact)"
       >
         {hh}h
       </text>
@@ -222,7 +222,7 @@ export function xAxisHeight(mobile: boolean) {
 export const NOW_LABEL = {
   value: '',
   fill: 'var(--color-text-muted)',
-  fontSize: 10,
+  fontSize: 'var(--fs-compact)',
   position: 'insideTopRight' as const,
   offset: 4,
 }

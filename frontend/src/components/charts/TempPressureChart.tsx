@@ -35,7 +35,7 @@ function TempTooltip({ active, payload }: TooltipContentProps) {
   return (
     <div style={{
       background: '#0a0a0a', border: '1px solid #1a1a1a',
-      borderRadius: 8, padding: '8px 12px', fontSize: 12,
+      borderRadius: 8, padding: '8px 12px', fontSize: 'var(--fs-body)',
     }}>
       <p style={{ color: '#666666', marginBottom: 4 }}>{(payload[0]?.payload as TempRow)?.timeLabel}</p>
       {payload.map((p, i) => (
@@ -52,7 +52,7 @@ function PressureTooltip({ active, payload }: TooltipContentProps) {
   return (
     <div style={{
       background: '#0a0a0a', border: '1px solid #1a1a1a',
-      borderRadius: 8, padding: '8px 12px', fontSize: 12,
+      borderRadius: 8, padding: '8px 12px', fontSize: 'var(--fs-body)',
     }}>
       <p style={{ color: '#666666', marginBottom: 4 }}>{(payload[0]?.payload as PressureRow)?.timeLabel}</p>
       {payload.map((p, i) => (
@@ -95,7 +95,7 @@ export function TempChart({ records, timeRange, selectedMs }: ChartProps) {
           height={xAxisHeight(mobile)}
         />
         <YAxis
-          tick={{ fill: 'var(--color-text-muted)', fontSize: 10 }}
+          tick={{ fill: 'var(--color-text-muted)', fontSize: 'var(--fs-compact)' }}
           stroke="var(--color-border)"
           unit="°C"
           width={YAXIS_WIDTH}
@@ -156,7 +156,7 @@ export function PressureChart({ records, timeRange, selectedMs }: ChartProps) {
           height={xAxisHeight(mobile)}
         />
         <YAxis
-          tick={{ fill: 'var(--color-text-muted)', fontSize: 10 }}
+          tick={{ fill: 'var(--color-text-muted)', fontSize: 'var(--fs-compact)' }}
           stroke="var(--color-border)"
           unit=" hPa"
           width={YAXIS_WIDTH}

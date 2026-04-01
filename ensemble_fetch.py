@@ -50,8 +50,9 @@ HOURLY_VARS = ",".join([
 
 # Models to fetch (excluding ECMWF which comes from ecmwf_fetch.py)
 MODEL_CONFIGS = {
-    "gfs_global":  {"id": "GFS-Global",  "om_model": "gfs_global"},
-    "jma_gsm":     {"id": "JMA-GSM",     "om_model": "jma_gsm"},
+    "gfs_global":    {"id": "GFS-Global",    "om_model": "gfs_global"},
+    "icon_global":   {"id": "ICON-Global",   "om_model": "icon_global"},
+    "jma_gsm":       {"id": "JMA-GSM",       "om_model": "jma_gsm"},
 }
 
 # Variables to compute ensemble stats for
@@ -207,7 +208,7 @@ def _fetch_ensemble_for_point(lat: float, lon: float, label: str,
                                ecmwf_recs: list | None = None) -> dict | None:
     """Fetch all ensemble models for one point, compute stats, return output dict."""
     results: dict[str, dict | None] = {}
-    with ThreadPoolExecutor(max_workers=2) as pool:
+    with ThreadPoolExecutor(max_workers=3) as pool:
         futures = {
             pool.submit(fetch_model, key, lat, lon, label): key
             for key in MODEL_CONFIGS
@@ -221,7 +222,11 @@ def _fetch_ensemble_for_point(lat: float, lon: float, label: str,
                 results[key] = None
 
     # Map API model keys to human-readable names
-    API_TO_HUMAN = {"gfs_global": "GFS", "jma_gsm": "JMA"}
+    API_TO_HUMAN = {
+        "gfs_global": "GFS",
+        "icon_global": "ICON",
+        "jma_gsm": "JMA",
+    }
 
     models_data: dict = {}
     all_model_records: dict[str, list[dict]] = {}
@@ -232,15 +237,19 @@ def _fetch_ensemble_for_point(lat: float, lon: float, label: str,
         if not records:
             continue
         human_key = API_TO_HUMAN.get(model_key, model_key)
-        # Store meta + record count only (records used for stats then discarded)
         models_data[human_key] = {
             "meta": meta,
-            "record_count": len(records),
+            "records": records,
         }
         all_model_records[human_key] = records
 
+    # Include ECMWF in models output + ensemble stats when available
     if ecmwf_recs:
         all_model_records["ECMWF"] = ecmwf_recs
+        models_data["ECMWF"] = {
+            "meta": {"model_id": "ECMWF-IFS", "source": "ecmwf_keelung.json"},
+            "records": ecmwf_recs,
+        }
 
     if not all_model_records:
         return None

@@ -62,6 +62,14 @@
   --color-icon-model-bg: #151515;
 }
 
+/* ── Text size tiers (mutated by useTextSize hook) ───────────────────────── */
+:root {
+  --fs-micro: 8px;
+  --fs-compact: 10px;
+  --fs-body: 12px;
+  --fs-label: 14px;
+}
+
 /* ── Base styles ──────────────────────────────────────────────────────────── */
 body {
   margin: 0;

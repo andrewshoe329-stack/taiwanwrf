@@ -6,6 +6,7 @@ import { TimelineContext, useTimelineProvider } from '@/hooks/useTimeline'
 import { ModelContext, useModelProvider } from '@/hooks/useModel'
 import { LocationContext, useLocationProvider } from '@/hooks/useLocation'
 import { useLiveObs, type LiveObsData } from '@/hooks/useLiveObs'
+import { TextSizeContext, useTextSizeProvider } from '@/hooks/useTextSize'
 
 interface LiveObsContextValue {
   data: LiveObsData | null
@@ -27,8 +28,10 @@ export function App() {
   const modelState = useModelProvider()
   const locationState = useLocationProvider()
   const liveObs = useLiveObs()
+  const textSize = useTextSizeProvider()
 
   return (
+    <TextSizeContext.Provider value={textSize}>
     <ForecastDataContext.Provider value={forecastData}>
       <LiveObsContext.Provider value={liveObs}>
         <TimelineContext.Provider value={timeline}>
@@ -45,5 +48,6 @@ export function App() {
         </TimelineContext.Provider>
       </LiveObsContext.Provider>
     </ForecastDataContext.Provider>
+    </TextSizeContext.Provider>
   )
 }

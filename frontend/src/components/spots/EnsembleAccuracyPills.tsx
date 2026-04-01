@@ -7,8 +7,17 @@ interface EnsembleAccuracyPillsProps {
   accuracy: AccuracyEntry[] | null
 }
 
+/** Get the most recent accuracy entry (by init_utc). */
+function latestAccuracy(entries: AccuracyEntry[] | null): AccuracyEntry | null {
+  if (!entries?.length) return null
+  return entries.reduce((a, b) => (a.init_utc > b.init_utc ? a : b))
+}
+
 export function EnsembleAccuracyPills({ ensemble, accuracy }: EnsembleAccuracyPillsProps) {
-  const { t } = useTranslation()
+  const { i18n } = useTranslation()
+  const lang = i18n.language?.startsWith('zh') ? 'zh' : 'en'
+  const latest = latestAccuracy(accuracy)
+
   return (
     <>
       {ensemble?.spread && (
@@ -18,35 +27,38 @@ export function EnsembleAccuracyPills({ ensemble, accuracy }: EnsembleAccuracyPi
             const level = ws < 5 ? 'high' : ws < 10 ? 'moderate' : 'low'
             const stars = level === 'high' ? '★★★' : level === 'moderate' ? '★★☆' : '★☆☆'
             const color = level === 'high' ? 'text-green-400' : level === 'moderate' ? 'text-yellow-400' : 'text-red-400'
+            const label = lang === 'zh' ? '模型共識' : 'Model consensus'
             return (
-              <span className={`text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] ${color}`}>
-                {t('models_page.ensemble_confidence') ?? 'Confidence'} {stars}
+              <span
+                className={`text-[var(--fs-compact)] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] ${color}`}
+                aria-label={`${label}: ${level}`}
+              >
+                {label} {stars}
               </span>
             )
           })()}
-          {accuracy?.[0] && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
-              ±{accuracy[0].wind_mae_kt?.toFixed(1) ?? '?'}kt wind · ±{accuracy[0].temp_mae_c?.toFixed(1) ?? '?'}°C temp
-              {accuracy[0].wave?.hs_mae_m != null && ` · ±${accuracy[0].wave.hs_mae_m.toFixed(1)}m wave`}
+          {latest && (
+            <span className="text-[var(--fs-compact)] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
+              ±{latest.wind_mae_kt?.toFixed(1) ?? '?'}kt wind · ±{latest.temp_mae_c?.toFixed(1) ?? '?'}°C temp
+              {latest.wave?.hs_mae_m != null && ` · ±${latest.wave.hs_mae_m.toFixed(1)}m wave`}
             </span>
           )}
-          {accuracy?.[0]?.by_horizon && (() => {
+          {latest?.by_horizon && (() => {
             const horizons = ['0-24h', '24-48h', '48-72h'] as const
-            const labels = ['24h', '48h', '72h']
-            return horizons.map((h, i) => {
-              const wind = accuracy![0].by_horizon?.[h]?.wind_mae_kt
+            return horizons.map(h => {
+              const wind = latest.by_horizon?.[h]?.wind_mae_kt
               if (wind == null) return null
-              const temp = accuracy![0].by_horizon?.[h]?.temp_mae_c
+              const temp = latest.by_horizon?.[h]?.temp_mae_c
               return (
-                <span key={h} className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
-                  {labels[i]}: ±{wind.toFixed(1)}kt{temp != null && ` ±${temp.toFixed(1)}°C`}
+                <span key={h} className="text-[var(--fs-compact)] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
+                  {h}: ±{wind.toFixed(1)}kt{temp != null && ` ±${temp.toFixed(1)}°C`}
                 </span>
               )
             })
           })()}
           {ensemble?.spread?.precip_spread_mm != null && ensemble.spread.precip_spread_mm > 1 && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
-              Rain spread ±{ensemble.spread.precip_spread_mm.toFixed(1)}mm
+            <span className="text-[var(--fs-compact)] px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
+              {lang === 'zh' ? '降雨差異' : 'Rain spread'} ±{ensemble.spread.precip_spread_mm.toFixed(1)}mm
             </span>
           )}
         </div>

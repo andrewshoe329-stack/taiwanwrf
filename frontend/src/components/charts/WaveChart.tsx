@@ -30,7 +30,7 @@ function CustomTooltip({ active, payload }: TooltipContentProps) {
   return (
     <div style={{
       background: '#0a0a0a', border: '1px solid #1a1a1a',
-      borderRadius: 8, padding: '8px 12px', fontSize: 12,
+      borderRadius: 8, padding: '8px 12px', fontSize: 'var(--fs-body)',
     }}>
       <p style={{ color: '#666666', marginBottom: 4 }}>{(payload[0]?.payload as ChartRow)?.timeLabel}</p>
       {payload.map((p, i) => (
@@ -75,7 +75,7 @@ export function WaveChart({ records, timeRange }: WaveChartProps) {
           height={xAxisHeight(mobile)}
         />
         <YAxis
-          tick={{ fill: 'var(--color-text-muted)', fontSize: 10 }}
+          tick={{ fill: 'var(--color-text-muted)', fontSize: 'var(--fs-compact)' }}
           stroke="var(--color-border)"
           unit=" m"
           width={YAXIS_WIDTH}
@@ -139,7 +139,7 @@ function PeriodTooltip({ active, payload }: TooltipContentProps) {
   return (
     <div style={{
       background: '#0a0a0a', border: '1px solid #1a1a1a',
-      borderRadius: 8, padding: '8px 12px', fontSize: 12,
+      borderRadius: 8, padding: '8px 12px', fontSize: 'var(--fs-body)',
     }}>
       <p style={{ color: '#666666', marginBottom: 4 }}>{(payload[0]?.payload as PeriodRow)?.timeLabel}</p>
       {payload.map((p, i) => (
@@ -181,7 +181,7 @@ export function WavePeriodChart({ records, timeRange }: WaveChartProps) {
           height={xAxisHeight(mobile)}
         />
         <YAxis
-          tick={{ fill: 'var(--color-text-muted)', fontSize: 10 }}
+          tick={{ fill: 'var(--color-text-muted)', fontSize: 'var(--fs-compact)' }}
           stroke="var(--color-border)"
           unit=" s"
           width={YAXIS_WIDTH}

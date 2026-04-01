@@ -38,11 +38,11 @@ export function ScoreBreakdownTooltip({ rating, onClose }: ScoreBreakdownTooltip
             className="inline-block w-2 h-2 rounded-full"
             style={{ backgroundColor: RATING_COLORS[rating.rating ?? ''] ?? '#6b7280' }}
           />
-          <span className="text-[10px] font-semibold text-[var(--color-text-primary)] capitalize">
+          <span className="text-[var(--fs-compact)] font-semibold text-[var(--color-text-primary)] capitalize">
             {rating.rating}
           </span>
         </div>
-        <span className="text-[10px] font-mono text-[var(--color-text-muted)]">
+        <span className="text-[var(--fs-compact)] font-mono text-[var(--color-text-muted)]">
           {rating.score}/16
         </span>
       </div>
@@ -55,7 +55,7 @@ export function ScoreBreakdownTooltip({ rating, onClose }: ScoreBreakdownTooltip
           const pct = Math.max(0, Math.min(100, (pts / absMax) * 100))
           return (
             <div key={f.key} className="flex items-center gap-1">
-              <span className="text-[8px] text-[var(--color-text-dim)] w-14 truncate">
+              <span className="text-[var(--fs-micro)] text-[var(--color-text-dim)] w-14 truncate">
                 {lang === 'zh' ? f.labelZh : f.label}
               </span>
               <div className="flex-1 h-1.5 bg-[var(--color-bg)]/50 rounded-full overflow-hidden">
@@ -72,7 +72,7 @@ export function ScoreBreakdownTooltip({ rating, onClose }: ScoreBreakdownTooltip
                   />
                 )}
               </div>
-              <span className={`text-[8px] font-mono w-4 text-right ${pts < 0 ? 'text-red-400' : 'text-[var(--color-text-dim)]'}`}>
+              <span className={`text-[var(--fs-micro)] font-mono w-4 text-right ${pts < 0 ? 'text-red-400' : 'text-[var(--color-text-dim)]'}`}>
                 {pts > 0 ? `+${pts}` : pts}
               </span>
             </div>
@@ -83,7 +83,7 @@ export function ScoreBreakdownTooltip({ rating, onClose }: ScoreBreakdownTooltip
       {/* Close on outside click */}
       <button
         onClick={onClose}
-        className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[var(--color-bg)] border border-[var(--color-border)] text-[8px] text-[var(--color-text-muted)] flex items-center justify-center"
+        className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[var(--color-bg)] border border-[var(--color-border)] text-[var(--fs-micro)] text-[var(--color-text-muted)] flex items-center justify-center"
       >
         x
       </button>

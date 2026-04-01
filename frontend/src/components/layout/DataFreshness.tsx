@@ -22,7 +22,7 @@ export function DataFreshness() {
   const isStale = ageHours >= 12
 
   return (
-    <span className={`text-[10px] tabular-nums ${isStale ? 'text-[var(--color-danger)]' : 'text-[var(--color-text-dim)]'}`}>
+    <span className={`text-[var(--fs-compact)] tabular-nums ${isStale ? 'text-[var(--color-danger)]' : 'text-[var(--color-text-dim)]'}`}>
       {timeStr}
       {data.keelung?.meta?.model_id && (
         <span className="ml-1.5">{data.keelung.meta.model_id}</span>
