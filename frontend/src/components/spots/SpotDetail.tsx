@@ -46,6 +46,8 @@ function latestAccuracy(entries: AccuracyEntry[] | null): AccuracyEntry | null {
   return entries.reduce((a, b) => (a.init_utc > b.init_utc ? a : b))
 }
 
+export type DetailSection = 'all' | 'live' | 'no-live' | 'above-timeline' | 'below-timeline'
+
 interface SpotDetailProps {
   spotInfo: SpotInfo
   currentRating: SpotRating | null
@@ -57,6 +59,7 @@ interface SpotDetailProps {
   ensemble: EnsembleData | null
   accuracy: AccuracyEntry[] | null
   cwaObs: CwaObs | null
+  section?: DetailSection
   onDeselect: () => void
 }
 
@@ -71,11 +74,20 @@ export function SpotDetail({
   ensemble,
   accuracy,
   cwaObs,
+  section = 'all',
   onDeselect,
 }: SpotDetailProps) {
   const { t, i18n } = useTranslation()
   const lang = (i18n.language.startsWith('zh') ? 'zh' : 'en') as 'en' | 'zh'
   const [scoreTooltipOpen, setScoreTooltipOpen] = useState(false)
+
+  // Section visibility: 1=header, 2=warnings, 3=live, 4=forecast, 5=spotinfo, 6=accuracy
+  const show = (s: number) =>
+    section === 'all' ||
+    (section === 'live' && s === 3) ||
+    (section === 'no-live' && s !== 3) ||
+    (section === 'above-timeline' && s <= 3) ||
+    (section === 'below-timeline' && s >= 4)
 
   const warnings = cwaObs?.specialized_warnings?.filter(w => {
     const county = SPOT_COUNTY[spotInfo.id]
@@ -89,29 +101,31 @@ export function SpotDetail({
   return (
     <section className="space-y-3 md:px-3 py-3">
       {/* ── 1. Header ────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
-        <h2 className="fs-label font-semibold text-[var(--color-text-primary)]">
-          {spotInfo.name[lang]}
-          <span className="text-[var(--color-text-muted)] ml-1.5 fs-body font-normal">
-            {spotInfo.name[lang === 'en' ? 'zh' : 'en']}
-          </span>
-        </h2>
-        <div className="flex items-center gap-1.5">
-          <ShareButton locationId={spotInfo.id} />
-          <button
-            onClick={onDeselect}
-            className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]"
-            aria-label="Deselect"
-          >
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M1 1 L9 9 M9 1 L1 9" />
-            </svg>
-          </button>
+      {show(1) && (
+        <div className="flex items-center justify-between">
+          <h2 className="fs-label font-semibold text-[var(--color-text-primary)]">
+            {spotInfo.name[lang]}
+            <span className="text-[var(--color-text-muted)] ml-1.5 fs-body font-normal">
+              {spotInfo.name[lang === 'en' ? 'zh' : 'en']}
+            </span>
+          </h2>
+          <div className="flex items-center gap-1.5">
+            <ShareButton locationId={spotInfo.id} />
+            <button
+              onClick={onDeselect}
+              className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]"
+              aria-label="Deselect"
+            >
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M1 1 L9 9 M9 1 L1 9" />
+              </svg>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── 2. Warnings ──────────────────────────────────────────────── */}
-      {hasWarnings && (
+      {show(2) && hasWarnings && (
         <div className="flex flex-wrap gap-1.5">
           {warnings.map((w, i) => (
             <span key={i} className={`fs-compact px-1.5 py-0.5 rounded ${
@@ -131,15 +145,19 @@ export function SpotDetail({
       )}
 
       {/* ── 3. Live conditions ───────────────────────────────────────── */}
-      <LiveObsCard spotId={spotInfo.id} />
-      {currentRating?.wind_dir != null && spotInfo.facing && (
-        <span className="fs-compact text-[var(--color-text-muted)]">
-          {windType(currentRating.wind_dir, spotInfo.facing)}
-        </span>
+      {show(3) && (
+        <>
+          <LiveObsCard spotId={spotInfo.id} />
+          {currentRating?.wind_dir != null && spotInfo.facing && (
+            <span className="fs-compact text-[var(--color-text-muted)]">
+              {windType(currentRating.wind_dir, spotInfo.facing)}
+            </span>
+          )}
+        </>
       )}
 
       {/* ── 4. Forecast ──────────────────────────────────────────────── */}
-      {currentRating && (
+      {show(4) && currentRating && (
         <>
           <SectionDivider label={
             `${t('common.forecast') || 'Forecast'}${forecastTimeLabel ? ` · ${forecastTimeLabel} CST` : ''}`
@@ -222,28 +240,32 @@ export function SpotDetail({
       )}
 
       {/* ── 5. Spot info & webcams ───────────────────────────────────── */}
-      <SectionDivider label={lang === 'zh' ? '浪點資訊' : 'Spot info'} />
-      <div className="flex flex-wrap items-center gap-1.5">
-        <InfoPill label={t('spots.facing')} value={spotInfo.facing} />
-        <InfoPill label={t('spots.optimal_wind')} value={spotInfo.opt_wind.join(', ')} />
-        {spotInfo.webcams?.map((cam, i) => (
-          <a
-            key={i}
-            href={cam.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            title={cam.label}
-            className="w-7 h-7 flex items-center justify-center rounded-full bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M23 7l-7 5 7 5V7z" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-            </svg>
-          </a>
-        ))}
-      </div>
+      {show(5) && (
+        <>
+          <SectionDivider label={lang === 'zh' ? '浪點資訊' : 'Spot info'} />
+          <div className="flex flex-wrap items-center gap-1.5">
+            <InfoPill label={t('spots.facing')} value={spotInfo.facing} />
+            <InfoPill label={t('spots.optimal_wind')} value={spotInfo.opt_wind.join(', ')} />
+            {spotInfo.webcams?.map((cam, i) => (
+              <a
+                key={i}
+                href={cam.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={cam.label}
+                className="w-7 h-7 flex items-center justify-center rounded-full bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M23 7l-7 5 7 5V7z" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                </svg>
+              </a>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* ── 6. Model & accuracy ──────────────────────────────────────── */}
-      {hasAccuracySection && (
+      {show(6) && hasAccuracySection && (
         <>
           <SectionDivider label={lang === 'zh' ? '模型準確度' : 'Model accuracy'} />
           <div className="bg-[var(--color-bg-elevated)]/30 rounded-lg p-2 space-y-2">

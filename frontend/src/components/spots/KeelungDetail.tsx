@@ -5,6 +5,7 @@ import { LiveObsCard } from '@/components/spots/LiveObsCard'
 import { SectionDivider } from '@/components/spots/SectionDivider'
 import { AccuracyTrend } from '@/components/charts/AccuracyTrend'
 import { seaComfortStars, seaComfortLabel } from '@/lib/forecast-utils'
+import type { DetailSection } from '@/components/spots/SpotDetail'
 import type { EnsembleData, AccuracyEntry, CwaObs, WaveRecord } from '@/lib/types'
 
 /** Get the most recent accuracy entry (by init_utc). */
@@ -33,12 +34,21 @@ interface KeelungDetailProps {
   cwaObs?: CwaObs | null
   waveRec?: WaveRecord | null
   forecastTimeLabel?: string
+  section?: DetailSection
   onDeselect: () => void
 }
 
-export function KeelungDetail({ ensemble, accuracy, cwaObs, waveRec, forecastTimeLabel, onDeselect }: KeelungDetailProps) {
+export function KeelungDetail({ ensemble, accuracy, cwaObs, waveRec, forecastTimeLabel, section = 'all', onDeselect }: KeelungDetailProps) {
   const { t, i18n } = useTranslation()
   const lang = (i18n.language.startsWith('zh') ? 'zh' : 'en') as 'en' | 'zh'
+
+  // Section visibility: 1=header, 2=warnings, 3=live, 4=forecast, 5=harbourinfo, 6=accuracy
+  const show = (s: number) =>
+    section === 'all' ||
+    (section === 'live' && s === 3) ||
+    (section === 'no-live' && s !== 3) ||
+    (section === 'above-timeline' && s <= 3) ||
+    (section === 'below-timeline' && s >= 4)
 
   const warnings = cwaObs?.specialized_warnings?.filter(w => !w.area || w.area.includes('基隆')) ?? []
   const latest = latestAccuracy(accuracy)
@@ -47,26 +57,28 @@ export function KeelungDetail({ ensemble, accuracy, cwaObs, waveRec, forecastTim
   return (
     <section className="md:px-3 py-3 space-y-3">
       {/* ── 1. Header ────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
-        <h2 className="fs-label font-semibold text-[var(--color-text-primary)]">
-          {t('harbour.keelung')}
-        </h2>
-        <div className="flex items-center gap-1.5">
-          <ShareButton locationId="keelung" />
-          <button
-            onClick={onDeselect}
-            className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]"
-            aria-label="Deselect"
-          >
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M1 1 L9 9 M9 1 L1 9" />
-            </svg>
-          </button>
+      {show(1) && (
+        <div className="flex items-center justify-between">
+          <h2 className="fs-label font-semibold text-[var(--color-text-primary)]">
+            {t('harbour.keelung')}
+          </h2>
+          <div className="flex items-center gap-1.5">
+            <ShareButton locationId="keelung" />
+            <button
+              onClick={onDeselect}
+              className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]"
+              aria-label="Deselect"
+            >
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M1 1 L9 9 M9 1 L1 9" />
+              </svg>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── 2. Warnings ──────────────────────────────────────────────── */}
-      {warnings.length > 0 && (
+      {show(2) && warnings.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {warnings.map((w, i) => (
             <span key={i} className={`fs-compact px-1.5 py-0.5 rounded ${
@@ -81,10 +93,10 @@ export function KeelungDetail({ ensemble, accuracy, cwaObs, waveRec, forecastTim
       )}
 
       {/* ── 3. Live conditions ───────────────────────────────────────── */}
-      <LiveObsCard spotId="keelung" />
+      {show(3) && <LiveObsCard spotId="keelung" />}
 
       {/* ── 4. Sea state / forecast ──────────────────────────────────── */}
-      {waveRec && (waveRec.wave_height != null || waveRec.sea_comfort != null) && (
+      {show(4) && waveRec && (waveRec.wave_height != null || waveRec.sea_comfort != null) && (
         <>
           <SectionDivider label={
             `${t('common.forecast') || 'Forecast'}${forecastTimeLabel ? ` · ${forecastTimeLabel} CST` : ''}`
@@ -117,7 +129,7 @@ export function KeelungDetail({ ensemble, accuracy, cwaObs, waveRec, forecastTim
       )}
 
       {/* ── 5. Harbour info & webcams ────────────────────────────────── */}
-      {HARBOURS[0]?.webcams?.length ? (
+      {show(5) && HARBOURS[0]?.webcams?.length ? (
         <>
           <SectionDivider label={lang === 'zh' ? '港口資訊' : 'Harbour info'} />
           <div className="flex flex-wrap items-center gap-1.5">
@@ -140,7 +152,7 @@ export function KeelungDetail({ ensemble, accuracy, cwaObs, waveRec, forecastTim
       ) : null}
 
       {/* ── 6. Model & accuracy ──────────────────────────────────────── */}
-      {hasAccuracySection && (
+      {show(6) && hasAccuracySection && (
         <>
           <SectionDivider label={lang === 'zh' ? '模型準確度' : 'Model accuracy'} />
           <div className="bg-[var(--color-bg-elevated)]/30 rounded-lg p-2 space-y-2">
