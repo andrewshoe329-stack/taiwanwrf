@@ -60,6 +60,7 @@ interface SpotDetailProps {
   accuracy: AccuracyEntry[] | null
   cwaObs: CwaObs | null
   section?: DetailSection
+  collapsibleLiveObs?: boolean
   onDeselect: () => void
 }
 
@@ -75,6 +76,7 @@ export function SpotDetail({
   accuracy,
   cwaObs,
   section = 'all',
+  collapsibleLiveObs = false,
   onDeselect,
 }: SpotDetailProps) {
   const { t, i18n } = useTranslation()
@@ -147,7 +149,7 @@ export function SpotDetail({
       {/* ── 3. Live conditions ───────────────────────────────────────── */}
       {show(3) && (
         <>
-          <LiveObsCard spotId={spotInfo.id} />
+          <LiveObsCard spotId={spotInfo.id} collapsible={collapsibleLiveObs} />
           {currentRating?.wind_dir != null && spotInfo.facing && (
             <span className="fs-compact text-[var(--color-text-muted)]">
               {windType(currentRating.wind_dir, spotInfo.facing)}
