@@ -13,6 +13,7 @@ import { ConditionsStrip } from '@/components/ConditionsStrip'
 import { SpotCompare } from '@/components/spots/SpotCompare'
 import { SwellWindowFinder } from '@/components/spots/SwellWindowFinder'
 import { SpotDetail } from '@/components/spots/SpotDetail'
+import type { DetailSection } from '@/components/spots/SpotDetail'
 import { KeelungDetail } from '@/components/spots/KeelungDetail'
 import { TownshipForecastCard } from '@/components/layout/TownshipForecastCard'
 import { AlertSettingsPanel, checkAlerts } from '@/components/layout/AlertSettingsPanel'
@@ -172,7 +173,13 @@ export function NowPage() {
   const isSpotSelected = locationId != null && locationId !== 'keelung'
 
   /* ── Spot / harbour detail panel ──────────────────────────────────── */
-  const locationDetail = (
+  const keelungWaveRec = useMemo(() => {
+    const recs = data.wave?.ecmwf_wave?.records
+    if (!recs?.length) return null
+    return recs[Math.min(index, recs.length - 1)] ?? null
+  }, [data.wave, index])
+
+  const locationDetail = (section?: DetailSection) => (
     <>
       {/* Selected spot detail */}
       {isSpotSelected && spotInfo && (
@@ -187,6 +194,7 @@ export function NowPage() {
           ensemble={data.ensemble}
           accuracy={data.accuracy}
           cwaObs={data.cwa_obs}
+          section={section}
           onDeselect={() => setLocationId(null)}
         />
       )}
@@ -197,18 +205,15 @@ export function NowPage() {
           ensemble={data.ensemble}
           accuracy={data.accuracy}
           cwaObs={data.cwa_obs}
-          waveRec={(() => {
-            const recs = data.wave?.ecmwf_wave?.records
-            if (!recs?.length) return null
-            return recs[Math.min(index, recs.length - 1)] ?? null
-          })()}
+          waveRec={keelungWaveRec}
           forecastTimeLabel={forecastTimeLabel}
+          section={section}
           onDeselect={() => setLocationId(null)}
         />
       )}
 
       {/* Spot comparison (browse mode — no spot selected) */}
-      {!isSpotSelected && locationId !== 'keelung' && data.surf?.spots && (
+      {!isSpotSelected && locationId !== 'keelung' && data.surf?.spots && (!section || section === 'all' || section === 'above-timeline' || section === 'no-live') && (
         <>
           <section className="md:px-3 py-2">
             <SpotCompare
@@ -222,7 +227,7 @@ export function NowPage() {
       )}
 
       {/* AI Summary */}
-      {data.summary && (
+      {data.summary && (!section || section === 'all' || section === 'below-timeline' || section === 'no-live') && (
         <div className="md:mx-3 border border-[var(--color-border)] rounded-xl overflow-hidden">
           <button
             onClick={() => setAiExpanded(!aiExpanded)}
@@ -324,7 +329,7 @@ export function NowPage() {
         {/* Left column: location detail + AI summary */}
         <div className="w-[20%] min-w-[240px] max-w-[320px] shrink-0 border-r border-[var(--color-border)] flex flex-col overflow-y-auto">
           <div className="px-1 py-2">
-            {locationDetail}
+            {locationDetail()}
           </div>
         </div>
 
@@ -399,7 +404,7 @@ export function NowPage() {
         {/* Two-column data: detail left, charts right */}
         <div className="flex flex-1 min-h-0 border-t border-[var(--color-border)] gap-1">
           <div className="w-1/2 overflow-y-auto border-r border-[var(--color-border)] px-2 py-2">
-            {locationDetail}
+            {locationDetail()}
           </div>
           <div className="w-1/2 overflow-y-auto px-2 py-1.5">
             {chartsPanel()}
@@ -410,19 +415,24 @@ export function NowPage() {
     )
   }
 
-  /* ── Mobile landscape: map left, scrollable data right ─────────────── */
+  /* ── Mobile landscape: map+live left, header+timeline+forecast right ── */
   if (mobileLandscape) {
     return (
       <div className="flex h-full overflow-hidden">
-        {/* Left: map — 50% width, full height */}
-        <div className="w-1/2 min-w-0 relative shrink-0">
-          <Suspense fallback={<div className="w-full h-full bg-black" />}>
-            <ForecastMap selectedId={locationId} onSelectLocation={setLocationId} />
-          </Suspense>
+        {/* Left: map (top ~60%) + live obs (bottom) */}
+        <div className="w-[45%] flex flex-col min-w-0 shrink-0">
+          <div className="flex-1 relative min-h-0">
+            <Suspense fallback={<div className="w-full h-full bg-black" />}>
+              <ForecastMap selectedId={locationId} onSelectLocation={setLocationId} />
+            </Suspense>
+          </div>
+          <div className="shrink-0 border-t border-[var(--color-border)] px-2 py-1">
+            {locationDetail('live')}
+          </div>
         </div>
 
-        {/* Right: scrollable data column */}
-        <div className="w-1/2 flex flex-col min-w-0 border-l border-[var(--color-border)]">
+        {/* Right: header + warnings → pinned timeline → scrollable forecast + charts */}
+        <div className="w-[55%] flex flex-col min-w-0 border-l border-[var(--color-border)]">
           {/* Pinned: timeline + conditions */}
           <div className="shrink-0 border-b border-[var(--color-border)] px-2">
             <div className="flex items-center gap-1">
@@ -441,10 +451,10 @@ export function NowPage() {
             <ConditionsStrip />
           </div>
 
-          {/* Scrollable: warnings + detail + charts */}
+          {/* Scrollable: warnings + header + forecast + spot info + accuracy + charts */}
           <div className="flex-1 overflow-y-auto px-2 py-1">
             <WeatherWarnings />
-            {locationDetail}
+            {locationDetail('no-live')}
             {chartsPanel()}
           </div>
         </div>
@@ -453,18 +463,23 @@ export function NowPage() {
     )
   }
 
-  /* ── Mobile: map top (40vh), detail + charts below (scrolls) ───────── */
+  /* ── Mobile portrait: map top (30vh), live above timeline, forecast below ── */
   return (
     <div className="flex flex-col h-full">
       {/* Full-width weather warnings banner */}
       <div className="shrink-0">
         <WeatherWarnings />
       </div>
-      {/* Map section — shorter in landscape to leave room for data */}
-      <div className="h-[40vh] min-h-[200px] max-h-[360px] landscape:h-[30vh] landscape:min-h-[140px] landscape:max-h-[240px] relative shrink-0">
+      {/* Map section — shrunk to leave more room for data */}
+      <div className="h-[30vh] min-h-[180px] max-h-[300px] relative shrink-0">
         <Suspense fallback={<div className="w-full h-full bg-black" />}>
           <ForecastMap selectedId={locationId} onSelectLocation={setLocationId} />
         </Suspense>
+      </div>
+
+      {/* Header + warnings + live obs (time-independent, scrolls away) */}
+      <div className="shrink-0 px-4 pt-1">
+        {locationDetail('above-timeline')}
       </div>
 
       {/* Pinned: timeline + conditions */}
@@ -485,9 +500,9 @@ export function NowPage() {
         <ConditionsStrip />
       </div>
 
-      {/* Scrollable: detail + charts */}
+      {/* Scrollable: forecast + spot info + accuracy + charts (time-dependent) */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-2">
-        {locationDetail}
+        {locationDetail('below-timeline')}
         {chartsPanel()}
       </div>
       <AlertSettingsPanel open={alertsOpen} onClose={() => setAlertsOpen(false)} />
