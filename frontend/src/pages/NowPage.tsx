@@ -10,18 +10,15 @@ import { TimelineScrubber } from '@/components/timeline/TimelineScrubber'
 import { WeatherWarnings } from '@/components/layout/WeatherWarnings'
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner'
 import { ConditionsStrip } from '@/components/ConditionsStrip'
-import { SwellCompass } from '@/components/spots/SwellCompass'
 import { SpotCompare } from '@/components/spots/SpotCompare'
-import { BestTimeWindows } from '@/components/spots/BestTimeWindows'
 import { SwellWindowFinder } from '@/components/spots/SwellWindowFinder'
 import { SpotDetail } from '@/components/spots/SpotDetail'
 import { KeelungDetail } from '@/components/spots/KeelungDetail'
 import { TownshipForecastCard } from '@/components/layout/TownshipForecastCard'
 import { AlertSettingsPanel, checkAlerts } from '@/components/layout/AlertSettingsPanel'
 import { AccuracyTrend } from '@/components/charts/AccuracyTrend'
-import { TideSparkline } from '@/components/charts/TideSparkline'
 import {
-  degToCompass, getModelRecords,
+  getModelRecords,
   ratingsToWaveRecords, ratingsToTidePredictions, getSpotTideExtrema,
 } from '@/lib/forecast-utils'
 import type { TimeRange } from '@/components/charts/chart-utils'
@@ -186,7 +183,6 @@ export function NowPage() {
           tidePredictions={tidePredictions}
           tideExtrema={tideExtrema}
           forecastTimeLabel={forecastTimeLabel}
-          mobile={mobile}
           nowMs={nowMs}
           ensemble={data.ensemble}
           accuracy={data.accuracy}
@@ -206,6 +202,7 @@ export function NowPage() {
             if (!recs?.length) return null
             return recs[Math.min(index, recs.length - 1)] ?? null
           })()}
+          forecastTimeLabel={forecastTimeLabel}
           onDeselect={() => setLocationId(null)}
         />
       )}
@@ -257,80 +254,8 @@ export function NowPage() {
   )
 
   /* ── Charts panel ──────────────────────────────────────────────────── */
-  const chartsPanel = (compact?: boolean) => (
-    <div className={compact ? "space-y-1.5" : "space-y-3"}>
-      {/* Sticky header: timeline + conditions (only in non-compact / mobile) */}
-      {!compact && (
-        <div className="sticky top-0 z-10 bg-[var(--color-bg)] border-b border-[var(--color-border)] -mx-4 px-4 md:-mx-6 md:px-6">
-          <div className="flex items-center gap-1">
-            <div className="flex-1 min-w-0"><TimelineScrubber records={chartRecords} /></div>
-            <button
-              onClick={() => setAlertsOpen(true)}
-              className="shrink-0 w-7 h-7 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] transition-colors"
-              aria-label="Alert settings"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-              </svg>
-            </button>
-          </div>
-          <ConditionsStrip />
-        </div>
-      )}
-
-      {/* Swell compass + data cells (mobile only — placed below timeline for clear connection) */}
-      {!compact && mobile && isSpotSelected && spotInfo && currentRating && (
-        <div className="flex items-start gap-3 px-1">
-          <div className="shrink-0">
-            <SwellCompass
-              facing={spotInfo.facing}
-              optSwell={spotInfo.opt_swell}
-              swellDir={currentRating.swell_dir}
-              swellHeight={currentRating.swell_height}
-              size={120}
-            />
-          </div>
-          <div className="flex-1 min-w-0 space-y-2">
-            <div className="grid grid-cols-2 gap-1.5">
-              <DataCell
-                label={t('common.wind')}
-                value={`${currentRating.wind_kt?.toFixed(0) ?? '--'}`}
-                unit="kt"
-                sub={currentRating.wind_dir != null ? degToCompass(currentRating.wind_dir) : undefined}
-              />
-              <DataCell
-                label={t('common.swell')}
-                value={`${currentRating.swell_height?.toFixed(1) ?? '--'}`}
-                unit="m"
-                sub={currentRating.swell_dir != null ? degToCompass(currentRating.swell_dir) : undefined}
-              />
-              <DataCell
-                label={t('spots.period')}
-                value={`${currentRating.swell_period?.toFixed(0) ?? '--'}`}
-                unit="s"
-              />
-              <DataCell
-                label={t('common.tide')}
-                value={`${currentRating.tide_height?.toFixed(2) ?? '--'}`}
-                unit="m"
-              />
-            </div>
-            {tidePredictions.length > 0 && (
-              <TideSparkline
-                predictions={tidePredictions}
-                extrema={tideExtrema}
-                nowMs={data.keelung?.records?.[index]?.valid_utc
-                  ? new Date(data.keelung.records[index].valid_utc).getTime()
-                  : undefined}
-              />
-            )}
-            {/* Best time windows (mobile) */}
-            {locationForecast && <BestTimeWindows spotForecast={locationForecast} />}
-          </div>
-        </div>
-      )}
-
+  const chartsPanel = () => (
+    <div className="space-y-1.5">
       {/* CWA Township Forecast */}
       <TownshipForecastCard cwaObs={data.cwa_obs} locationId={locationId} />
 
@@ -359,8 +284,7 @@ export function NowPage() {
           </ChartCard>
         )}
 
-        {/* Precip + Temp: side by side on desktop (non-compact), stacked otherwise */}
-        <div className={!compact && !mobile ? 'grid grid-cols-2 gap-3' : 'space-y-1.5'}>
+        <div className="space-y-1.5">
           {chartRecords.length > 0 && (
             <ChartCard title={t('common.precip')}>
               <PrecipChart records={chartRecords} timeRange={timeRange} selectedMs={selectedMs} />
@@ -380,8 +304,8 @@ export function NowPage() {
           </ChartCard>
         )}
 
-        {/* Accuracy trend (full chart) */}
-        {data.accuracy && data.accuracy.length >= 2 && (
+        {/* Accuracy trend — only in browse mode (detail panels have their own) */}
+        {!isSpotSelected && locationId !== 'keelung' && data.accuracy && data.accuracy.length >= 2 && (
           <AccuracyTrend entries={data.accuracy} />
         )}
       </Suspense>
@@ -433,7 +357,7 @@ export function NowPage() {
 
         {/* Right column: compact charts */}
         <div className="w-[24%] min-w-[260px] max-w-[380px] shrink-0 border-l border-[var(--color-border)] overflow-y-auto px-2 py-1.5">
-          {chartsPanel(true)}
+          {chartsPanel()}
         </div>
         </div>
         <AlertSettingsPanel open={alertsOpen} onClose={() => setAlertsOpen(false)} />
@@ -478,7 +402,7 @@ export function NowPage() {
             {locationDetail}
           </div>
           <div className="w-1/2 overflow-y-auto px-2 py-1.5">
-            {chartsPanel(true)}
+            {chartsPanel()}
           </div>
         </div>
         <AlertSettingsPanel open={alertsOpen} onClose={() => setAlertsOpen(false)} />
@@ -521,7 +445,7 @@ export function NowPage() {
           <div className="flex-1 overflow-y-auto px-2 py-1">
             <WeatherWarnings />
             {locationDetail}
-            {chartsPanel(true)}
+            {chartsPanel()}
           </div>
         </div>
         <AlertSettingsPanel open={alertsOpen} onClose={() => setAlertsOpen(false)} />
@@ -531,9 +455,11 @@ export function NowPage() {
 
   /* ── Mobile: map top (40vh), detail + charts below (scrolls) ───────── */
   return (
-    <div className="h-full overflow-y-auto overflow-x-hidden">
+    <div className="flex flex-col h-full">
       {/* Full-width weather warnings banner */}
-      <WeatherWarnings />
+      <div className="shrink-0">
+        <WeatherWarnings />
+      </div>
       {/* Map section — shorter in landscape to leave room for data */}
       <div className="h-[40vh] min-h-[200px] max-h-[360px] landscape:h-[30vh] landscape:min-h-[140px] landscape:max-h-[240px] relative shrink-0">
         <Suspense fallback={<div className="w-full h-full bg-black" />}>
@@ -541,27 +467,30 @@ export function NowPage() {
         </Suspense>
       </div>
 
-      {/* Data section */}
-      <div className="px-4 py-2">
+      {/* Pinned: timeline + conditions */}
+      <div className="shrink-0 border-t border-[var(--color-border)] px-4">
+        <div className="flex items-center gap-1">
+          <div className="flex-1 min-w-0"><TimelineScrubber records={chartRecords} /></div>
+          <button
+            onClick={() => setAlertsOpen(true)}
+            className="shrink-0 w-7 h-7 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full hover:bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] transition-colors"
+            aria-label="Alert settings"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+          </button>
+        </div>
+        <ConditionsStrip />
+      </div>
+
+      {/* Scrollable: detail + charts */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-2">
         {locationDetail}
         {chartsPanel()}
       </div>
       <AlertSettingsPanel open={alertsOpen} onClose={() => setAlertsOpen(false)} />
-    </div>
-  )
-}
-
-
-function DataCell({ label, value, unit, sub }: {
-  label: string; value: string; unit: string; sub?: string
-}) {
-  return (
-    <div className="bg-[var(--color-bg-elevated)] rounded-lg px-2 py-1.5 text-center">
-      <p className="fs-compact text-[var(--color-text-muted)] uppercase tracking-wider">{label}</p>
-      <p className="fs-label font-semibold text-[var(--color-text-primary)] tabular-nums">
-        {value}<span className="fs-compact text-[var(--color-text-muted)] ml-0.5">{unit}</span>
-      </p>
-      {sub && <p className="fs-compact text-[var(--color-text-dim)]">{sub}</p>}
     </div>
   )
 }
