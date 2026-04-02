@@ -30,25 +30,6 @@ from html_template import render_page
 from tide_predict import (predict_height, predict_height_anchored,
                           find_extrema, tide_state)
 
-
-def _sea_comfort(hs: float | None, tp: float | None) -> int | None:
-    """Sea-state comfort rating (1-5 stars) from wave steepness.
-
-    Same formula as wave_fetch._sea_comfort but returns comfort only.
-    """
-    if not hs or not tp or tp <= 0:
-        return None
-    steepness = hs / (1.56 * tp * tp)
-    if steepness < 1 / 40:
-        return 5   # smooth
-    if steepness < 1 / 25:
-        return 4   # slight
-    if steepness < 1 / 15:
-        return 3   # moderate
-    if steepness < 1 / 10:
-        return 2   # rough
-    return 1       # very rough
-
 # CWA official tide forecast extrema — loaded at startup from cwa_obs.json
 # when available.  Used by _tide_height() for anchored interpolation.
 # Threading safety: these are write-once in main() BEFORE ThreadPoolExecutor
@@ -1016,10 +997,6 @@ def generate_frontend_json(all_spot_data: list[dict]) -> dict:
                 'cloud_pct': r.get('cloud_pct'),
                 'cape': r.get('cape'),
             }
-            comfort = _sea_comfort(r.get('hs') or r.get('sw_hs'),
-                                    r.get('tp') or r.get('sw_tp'))
-            if comfort is not None:
-                rating_entry['sea_comfort'] = comfort
             if score_bd is not None:
                 rating_entry['score_breakdown'] = {
                     'swell_dir': score_bd['swell_dir'],
