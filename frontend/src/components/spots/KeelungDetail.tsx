@@ -35,10 +35,11 @@ interface KeelungDetailProps {
   waveRec?: WaveRecord | null
   forecastTimeLabel?: string
   section?: DetailSection
+  collapsibleLiveObs?: boolean
   onDeselect: () => void
 }
 
-export function KeelungDetail({ ensemble, accuracy, cwaObs, waveRec, forecastTimeLabel, section = 'all', onDeselect }: KeelungDetailProps) {
+export function KeelungDetail({ ensemble, accuracy, cwaObs, waveRec, forecastTimeLabel, section = 'all', collapsibleLiveObs = false, onDeselect }: KeelungDetailProps) {
   const { t, i18n } = useTranslation()
   const lang = (i18n.language.startsWith('zh') ? 'zh' : 'en') as 'en' | 'zh'
 
@@ -93,7 +94,7 @@ export function KeelungDetail({ ensemble, accuracy, cwaObs, waveRec, forecastTim
       )}
 
       {/* ── 3. Live conditions ───────────────────────────────────────── */}
-      {show(3) && <LiveObsCard spotId="keelung" />}
+      {show(3) && <LiveObsCard spotId="keelung" collapsible={collapsibleLiveObs} />}
 
       {/* ── 4. Sea state / forecast ──────────────────────────────────── */}
       {show(4) && waveRec && (waveRec.wave_height != null || waveRec.sea_comfort != null) && (
