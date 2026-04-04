@@ -252,7 +252,7 @@ SPOT_TIDE_STATION = {
 }
 
 # All tide station names to fetch from CWA F-A0021-001
-TIDE_STATIONS = list(dict.fromkeys(SPOT_TIDE_STATION.values()))
+TIDE_STATIONS = list(dict.fromkeys(v for v in SPOT_TIDE_STATION.values() if v is not None))
 
 # Spot → nearest CWA tide observation station (O-B0075-001 StationID)
 # DEPRECATED: use SPOT_STATIONS["tide"] instead.  Kept temporarily for
