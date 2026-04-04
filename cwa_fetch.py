@@ -54,12 +54,14 @@ TIDE_FORECAST_ENDPOINT = "F-A0021-001"
 TOWNSHIP_FORECAST_ENDPOINT = "F-D0047-049"
 TOWNSHIP_FORECAST_ENDPOINTS = {
     "基隆市": "F-D0047-049",   # Keelung (existing)
+    "臺北市": "F-D0047-061",   # Taipei
     "新北市": "F-D0047-069",   # New Taipei (Fulong, Green Bay, Jinshan)
     "宜蘭縣": "F-D0047-001",   # Yilan (Daxi, Wushih, Double Lions, Chousui)
 }
 # 1-week versions (12h periods, UV index, comfort index)
 TOWNSHIP_FORECAST_WEEK_ENDPOINTS = {
     "基隆市": "F-D0047-051",
+    "臺北市": "F-D0047-063",
     "新北市": "F-D0047-071",
     "宜蘭縣": "F-D0047-003",
 }
@@ -70,7 +72,7 @@ RAIN_WARNING_ENDPOINT = "W-C0033-003"      # 豪大雨特報
 COLD_WARNING_ENDPOINT = "W-C0033-004"      # 低溫特報
 HEAT_WARNING_ENDPOINT = "W-C0033-005"      # 高溫資訊
 # Counties we care about for warnings
-WARNING_COUNTIES = "基隆市,新北市,宜蘭縣"
+WARNING_COUNTIES = "基隆市,臺北市,新北市,宜蘭縣"
 
 # Keelung station ID (CWA conventional station)
 KEELUNG_STATION_ID = "466940"

@@ -191,6 +191,7 @@ KEELUNG_LON = 121.78782946186699
 
 SPOT_COORDS = [
     {"id": "keelung",     "lat": KEELUNG_LAT, "lon": KEELUNG_LON},
+    {"id": "taipei",      "lat": 25.033, "lon": 121.565},
     # North coast (W→E): Jinshan → Green Bay → Fulong
     {"id": "jinshan",     "lat": 25.241, "lon": 121.633},
     {"id": "greenbay",    "lat": 25.189, "lon": 121.686},
@@ -204,7 +205,8 @@ SPOT_COORDS = [
 
 # Spot → county mapping (for township forecast endpoint selection)
 SPOT_COUNTY = {
-    "keelung": "基隆市", "fulong": "新北市", "greenbay": "新北市",
+    "keelung": "基隆市", "taipei": "臺北市",
+    "fulong": "新北市", "greenbay": "新北市",
     "jinshan": "新北市", "daxi": "宜蘭縣", "wushih": "宜蘭縣",
     "doublelions": "宜蘭縣", "chousui": "宜蘭縣",
 }
@@ -225,6 +227,7 @@ HARBOUR_COORDS = {
 # Spot → region mapping
 SPOT_REGION = {
     "keelung":     "north",
+    "taipei":      "north",
     "fulong":      "north",
     "greenbay":    "north",
     "jinshan":     "north",

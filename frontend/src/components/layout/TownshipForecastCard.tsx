@@ -10,6 +10,7 @@ interface TownshipForecastCardProps {
 // Map spot IDs to their CWA county
 const SPOT_COUNTY: Record<string, string> = {
   keelung: '基隆市',
+  taipei: '臺北市',
   jinshan: '新北市',
   greenbay: '新北市',
   fulong: '新北市',
@@ -21,6 +22,7 @@ const SPOT_COUNTY: Record<string, string> = {
 
 const COUNTY_EN: Record<string, string> = {
   '基隆市': 'Keelung',
+  '臺北市': 'Taipei',
   '新北市': 'New Taipei',
   '宜蘭縣': 'Yilan',
 }

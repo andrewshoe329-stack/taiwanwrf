@@ -195,7 +195,7 @@ export interface CurrentGrid {
 
 export type Region = 'north' | 'northeast'
 
-export type LocationType = 'spot' | 'harbour'
+export type LocationType = 'spot' | 'harbour' | 'city'
 
 export interface SpotInfo {
   id: string
