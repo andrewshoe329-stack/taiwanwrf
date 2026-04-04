@@ -68,6 +68,21 @@ jobs:
           run-id: ${{ steps.find-run.outputs.run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Validate critical data files
+        run: |
+          MISSING=0
+          for f in ecmwf.json wave.json surf.json; do
+            if [ ! -f "frontend/public/data/$f" ]; then
+              echo "::error::Critical data file missing: $f"
+              MISSING=1
+            fi
+          done
+          if [ "$MISSING" = "1" ]; then
+            echo "Available files:"
+            ls -la frontend/public/data/ 2>/dev/null || echo "(directory missing)"
+            exit 1
+          fi
+
       - name: Build React SPA
         timeout-minutes: 10
         run: |

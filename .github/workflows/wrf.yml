@@ -119,23 +119,22 @@ jobs:
             python wrf_analyze.py --rundir "$RUNDIR" --list-vars 2>&1 || true
           fi
 
-      # Fetch just enough data for WRF analysis (Keelung only — no harbours)
-      - name: Fetch ECMWF forecast (Keelung)
+      # Fetch ECMWF + wave + tide in parallel (all independent, Keelung only)
+      - name: Fetch ECMWF, wave, and tides (parallel)
         if: steps.stale_check.outputs.is_new == 'true'
         continue-on-error: true
         timeout-minutes: 5
-        run: python ecmwf_fetch.py --output ecmwf_keelung.json
-
-      - name: Fetch wave forecast (Keelung)
-        if: steps.stale_check.outputs.is_new == 'true'
-        continue-on-error: true
-        timeout-minutes: 5
-        run: python wave_fetch.py --output wave_keelung.json
-
-      - name: Predict tides
-        if: steps.stale_check.outputs.is_new == 'true'
-        timeout-minutes: 2
-        run: python tide_predict.py --output tide_keelung.json --days 7
+        run: |
+          python ecmwf_fetch.py --output ecmwf_keelung.json &
+          PID_ECMWF=$!
+          python wave_fetch.py --output wave_keelung.json &
+          PID_WAVE=$!
+          python tide_predict.py --output tide_keelung.json --days 7 &
+          PID_TIDE=$!
+          wait $PID_ECMWF || echo "::warning::ECMWF fetch failed"
+          wait $PID_WAVE || echo "::warning::Wave fetch failed"
+          wait $PID_TIDE || echo "::warning::Tide prediction failed"
+          true
 
       - name: Analyze Keelung forecast
         if: steps.stale_check.outputs.is_new == 'true'
