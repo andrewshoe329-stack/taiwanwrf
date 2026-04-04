@@ -13,6 +13,7 @@ from config import (
     norm_utc, setup_logging, sail_rating,
     fetch_json, load_json_file,
     SPOT_COORDS, SPOT_COUNTY,
+    SPOT_STATIONS, SPOT_TIDE_STATION, SPOT_TIDE_OBS_STATION,
     sunrise_sunset, is_daylight,
     TAIWAN_BBOX, HARBOUR_COORDS, SPOT_REGION,
 )
@@ -229,6 +230,26 @@ class TestSpotCoords:
         """Every spot in SPOT_COORDS should have a county mapping."""
         for s in SPOT_COORDS:
             assert s['id'] in SPOT_COUNTY, f"{s['id']} missing from SPOT_COUNTY"
+
+    def test_stations_covers_all_spots(self):
+        """Every spot in SPOT_COORDS should have a SPOT_STATIONS entry."""
+        for s in SPOT_COORDS:
+            assert s['id'] in SPOT_STATIONS, f"{s['id']} missing from SPOT_STATIONS"
+
+    def test_tide_station_covers_all_spots(self):
+        """Every spot in SPOT_COORDS should have a SPOT_TIDE_STATION entry."""
+        for s in SPOT_COORDS:
+            assert s['id'] in SPOT_TIDE_STATION, f"{s['id']} missing from SPOT_TIDE_STATION"
+
+    def test_tide_obs_station_covers_all_spots(self):
+        """Every spot in SPOT_COORDS should have a SPOT_TIDE_OBS_STATION entry."""
+        for s in SPOT_COORDS:
+            assert s['id'] in SPOT_TIDE_OBS_STATION, f"{s['id']} missing from SPOT_TIDE_OBS_STATION"
+
+    def test_stations_have_weather(self):
+        """Every SPOT_STATIONS entry must have a weather station."""
+        for sid, info in SPOT_STATIONS.items():
+            assert 'weather' in info, f"{sid} SPOT_STATIONS missing 'weather' key"
 
 
 class TestTaiwanBbox:

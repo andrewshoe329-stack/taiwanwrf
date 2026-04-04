@@ -174,7 +174,7 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
     let closestDist = Infinity
 
     for (const label of ALL_LABELS) {
-      // city labels without an id are not selectable
+      // All labels with an id (spots, harbours, cities) are selectable
       const [lx, ly] = particlesRef.current.projectPoint(label.lon, label.lat)
 
       // Check dot radius

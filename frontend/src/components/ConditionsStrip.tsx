@@ -30,7 +30,7 @@ export function ConditionsStrip() {
   const liveObs = useLiveObsContext()
 
   // Is a surf spot focused? (compass data is visible above, avoid duplication)
-  const isSpotSelected = locationId != null && locationId !== 'keelung'
+  const isSpotSelected = locationId != null && locationId !== 'keelung' && locationId !== 'taipei'
 
   const records = useMemo(() => {
     if (locationId) return getModelRecords(locationId, model, data)

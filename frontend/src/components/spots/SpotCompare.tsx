@@ -32,7 +32,7 @@ export function SpotCompare({ spots, targetUtc, onSelectSpot }: SpotCompareProps
     const targetMs = targetUtc ? new Date(targetUtc).getTime() : Date.now()
 
     return spots
-      .filter(sf => sf.spot.type !== 'harbour')
+      .filter(sf => sf.spot.type !== 'harbour' && sf.spot.type !== 'city')
       .map(sf => {
         // Find closest rating to target time
         let best: SpotRating | null = null

@@ -241,6 +241,7 @@ SPOT_REGION = {
 # Each spot mapped to its closest township tide prediction point.
 SPOT_TIDE_STATION = {
     "keelung":     "基隆市中正區",
+    "taipei":      None,           # inland city, no tide relevance
     "jinshan":     "新北市金山區",
     "greenbay":    "新北市萬里區",
     "fulong":      "新北市貢寮區",
@@ -258,6 +259,7 @@ TIDE_STATIONS = list(dict.fromkeys(SPOT_TIDE_STATION.values()))
 # any downstream code that imports it; will be removed in a future cleanup.
 SPOT_TIDE_OBS_STATION = {
     "keelung":     "C4B01",   # 基隆潮位站
+    "taipei":      None,      # inland city, no tide
     "jinshan":     "C4A03",   # 麟山鼻潮位站
     "greenbay":    "C4B01",   # 基隆 (closest active)
     "fulong":      "C4A05",   # 福隆潮位站 (0.2km!)
@@ -276,6 +278,7 @@ SPOT_TIDE_OBS_STATION = {
 # buoy:         O-B0075-001 wave buoy
 SPOT_STATIONS = {
     "keelung":     {"weather": "466940", "weather_alt": ["C0B050"],            "tide": "C4B01",  "buoy": "46694A"},
+    "taipei":      {"weather": "466920", "weather_alt": ["C0A980"]},  # inland city — no tide/buoy
     "jinshan":     {"weather": "C0A940", "weather_alt": ["C0AJ20", "466940"],  "tide": "C4A03",  "buoy": "C6AH2"},
     "greenbay":    {"weather": "C0AJ20", "weather_alt": ["C0B050", "466940"],  "tide": "C4B01",  "buoy": "46694A"},
     "fulong":      {"weather": "C2A880", "weather_alt": ["C0AJ20", "C0U880"],  "tide": "C4A05",  "buoy": "46694A"},
