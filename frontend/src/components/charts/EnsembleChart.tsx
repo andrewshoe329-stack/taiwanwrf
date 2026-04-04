@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis,
   CartesianGrid, Tooltip, ReferenceLine,
@@ -48,7 +49,7 @@ interface EnsembleChartProps {
   selectedMs?: number
 }
 
-export function EnsembleChart({ ensemble, timeRange, selectedMs }: EnsembleChartProps) {
+export const EnsembleChart = memo(function EnsembleChart({ ensemble, timeRange, selectedMs }: EnsembleChartProps) {
   const mobile = useIsMobile()
 
   if (!ensemble?.models) return null
@@ -152,4 +153,4 @@ export function EnsembleChart({ ensemble, timeRange, selectedMs }: EnsembleChart
       </ResponsiveContainer>
     </div>
   )
-}
+})

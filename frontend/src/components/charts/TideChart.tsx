@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { memo, useMemo } from 'react'
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis,
   CartesianGrid, Tooltip, ReferenceLine,
@@ -40,7 +40,7 @@ function CustomTooltip({ active, payload }: TooltipContentProps) {
   )
 }
 
-export function TideChart({ predictions, extrema, timeRange, selectedMs }: TideChartProps) {
+export const TideChart = memo(function TideChart({ predictions, extrema, timeRange, selectedMs }: TideChartProps) {
   const mobile = useIsMobile()
 
   const chartData: ChartRow[] = useMemo(() => {
@@ -132,4 +132,4 @@ export function TideChart({ predictions, extrema, timeRange, selectedMs }: TideC
       </AreaChart>
     </ResponsiveContainer>
   )
-}
+})

@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import {
   ResponsiveContainer, LineChart, Line, Area, XAxis, YAxis,
   CartesianGrid, Tooltip, ReferenceLine,
@@ -41,7 +42,7 @@ function CustomTooltip({ active, payload }: TooltipContentProps) {
   )
 }
 
-export function WindChart({ records, ecmwfRecords, timeRange, selectedMs }: WindChartProps) {
+export const WindChart = memo(function WindChart({ records, ecmwfRecords, timeRange, selectedMs }: WindChartProps) {
   const mobile = useIsMobile()
   if (!records?.length) return null
 
@@ -126,4 +127,4 @@ export function WindChart({ records, ecmwfRecords, timeRange, selectedMs }: Wind
       </LineChart>
     </ResponsiveContainer>
   )
-}
+})
