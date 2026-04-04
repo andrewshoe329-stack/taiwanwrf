@@ -15,6 +15,12 @@ export const HARBOURS: HarbourInfo[] = [
   { id: 'keelung',   name: { en: 'Keelung',   zh: '基隆' }, lat: 25.14712477291389, lon: 121.78698610321932, webcams: [{ label: '和平島', url: 'https://tw.live/cam/?id=hpdjsyx' }, { label: '八斗子', url: 'https://tw.live/cam/?id=bdzygjsyx' }] },
 ]
 
+// ── Cities ───────────────────────────────────────────────────────────────────
+
+export const CITIES: HarbourInfo[] = [
+  { id: 'taipei', name: { en: 'Taipei', zh: '台北' }, lat: 25.033, lon: 121.565 },
+]
+
 // ── Surf spots ───────────────────────────────────────────────────────────────
 
 export const SPOTS: SpotInfo[] = [
@@ -33,6 +39,7 @@ export const SPOTS: SpotInfo[] = [
 
 export const ALL_LOCATIONS: SpotInfo[] = [
   { id: 'keelung', type: 'harbour', name: { en: 'Keelung Harbour', zh: '基隆港' }, lat: 25.14712477291389, lon: 121.78698610321932, facing: '', region: 'north', opt_wind: [], opt_swell: [] },
+  { id: 'taipei', type: 'city', name: { en: 'Taipei', zh: '台北' }, lat: 25.033, lon: 121.565, facing: '', region: 'north', opt_wind: [], opt_swell: [] },
   ...SPOTS,
 ]
 
@@ -65,6 +72,7 @@ export const SPOT_TIDE_OBS_STATION: Record<string, string> = {
 // Spot → CWA county for filtering specialized warnings
 export const SPOT_COUNTY: Record<string, string> = {
   keelung:     '基隆市',
+  taipei:      '臺北市',
   jinshan:     '新北市',
   greenbay:    '新北市',
   fulong:      '新北市',

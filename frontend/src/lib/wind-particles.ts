@@ -710,10 +710,10 @@ export class WindParticleSystem {
           ctx.stroke()
         } else {
           // Circular dot for spots + cities
-          const dotRadius = (label.type === 'city' ? 3 : isSelected ? 5 : 4) * dpr
+          const dotRadius = (label.type === 'city' ? (isSelected ? 5 : 3) : isSelected ? 5 : 4) * dpr
           ctx.beginPath()
           ctx.arc(x, y, dotRadius, 0, Math.PI * 2)
-          ctx.fillStyle = label.type === 'city' ? '#888'
+          ctx.fillStyle = label.type === 'city' ? (isSelected ? '#ffffff' : '#888')
             : ratingColor ?? '#e0e0e0'
           ctx.fill()
           ctx.strokeStyle = 'rgba(255,255,255,0.8)'
@@ -724,12 +724,12 @@ export class WindParticleSystem {
         // Label text
         const offsetX = (label.type === 'harbour' ? 10 : label.type === 'city' ? 8 : (isSelected ? 10 : 9)) * dpr
         const baseFontSize = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fs-compact')) || 10
-        const fontSize = label.type === 'city' ? baseFontSize * dpr
+        const fontSize = label.type === 'city' ? (isSelected ? (baseFontSize + 2) * dpr : baseFontSize * dpr)
           : isSelected ? (baseFontSize + 2) * dpr
           : (baseFontSize + 1) * dpr
-        ctx.font = `${isSelected && label.type !== 'city' ? 'bold ' : ''}${fontSize}px Inter, system-ui, sans-serif`
+        ctx.font = `${isSelected ? 'bold ' : ''}${fontSize}px Inter, system-ui, sans-serif`
         ctx.fillStyle = label.type === 'harbour' ? '#d0d0d0'
-          : label.type === 'city' ? '#999'
+          : label.type === 'city' ? (isSelected ? '#ffffff' : '#999')
           : isSelected ? '#ffffff'
           : '#f0f0f0'
         ctx.textAlign = 'left'

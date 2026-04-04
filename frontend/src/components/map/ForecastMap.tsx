@@ -1,6 +1,6 @@
 import { useRef, useEffect, useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { TAIWAN_BBOX, SPOTS, HARBOURS, DATA_FILES } from '@/lib/constants'
+import { TAIWAN_BBOX, SPOTS, HARBOURS, CITIES, DATA_FILES } from '@/lib/constants'
 import { WindParticleSystem } from '@/lib/wind-particles'
 import { interpolateWindGrid } from '@/lib/interpolate'
 import { useTimeline } from '@/hooks/useTimeline'
@@ -52,8 +52,10 @@ const ALL_LABELS: MapLabel[] = [
     lon: h.lon, lat: h.lat, text: h.name.en, textZh: h.name.zh,
     type: 'harbour' as const, id: h.id,
   })),
-  { lon: 121.565, lat: 25.033, text: 'Taipei', type: 'city' },
-  { lon: 121.817, lat: 24.760, text: 'Yilan', type: 'city' },
+  ...CITIES.map(c => ({
+    lon: c.lon, lat: c.lat, text: c.name.en, textZh: c.name.zh,
+    type: 'city' as const, id: c.id,
+  })),
 ]
 
 interface ForecastMapProps {
@@ -172,7 +174,7 @@ export function ForecastMap({ selectedId, onSelectLocation }: ForecastMapProps) 
     let closestDist = Infinity
 
     for (const label of ALL_LABELS) {
-      if (label.type === 'city') continue // cities not selectable
+      // city labels without an id are not selectable
       const [lx, ly] = particlesRef.current.projectPoint(label.lon, label.lat)
 
       // Check dot radius

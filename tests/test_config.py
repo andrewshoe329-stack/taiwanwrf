@@ -221,7 +221,7 @@ class TestSpotCoords:
         assert original_ids.issubset(set(SPOT_COUNTY.keys()))
 
     def test_county_values_valid(self):
-        valid = {"基隆市", "新北市", "宜蘭縣"}
+        valid = {"基隆市", "臺北市", "新北市", "宜蘭縣"}
         for county in SPOT_COUNTY.values():
             assert county in valid
 

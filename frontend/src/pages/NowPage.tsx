@@ -15,6 +15,7 @@ import { SwellWindowFinder } from '@/components/spots/SwellWindowFinder'
 import { SpotDetail } from '@/components/spots/SpotDetail'
 import type { DetailSection } from '@/components/spots/SpotDetail'
 import { KeelungDetail } from '@/components/spots/KeelungDetail'
+import { TaipeiDetail } from '@/components/spots/TaipeiDetail'
 import { TownshipForecastCard } from '@/components/layout/TownshipForecastCard'
 import { AlertSettingsPanel, checkAlerts } from '@/components/layout/AlertSettingsPanel'
 import { AccuracyTrend } from '@/components/charts/AccuracyTrend'
@@ -170,7 +171,7 @@ export function NowPage() {
     )
   }
 
-  const isSpotSelected = locationId != null && locationId !== 'keelung'
+  const isSpotSelected = locationId != null && locationId !== 'keelung' && locationId !== 'taipei'
 
   /* ── Spot / harbour detail panel ──────────────────────────────────── */
   const keelungWaveRec = useMemo(() => {
@@ -214,8 +215,19 @@ export function NowPage() {
         />
       )}
 
+      {/* City selected (Taipei) */}
+      {locationId === 'taipei' && (
+        <TaipeiDetail
+          cwaObs={data.cwa_obs}
+          forecastRec={chartRecords?.[index] ?? null}
+          forecastTimeLabel={forecastTimeLabel}
+          section={section}
+          onDeselect={() => setLocationId(null)}
+        />
+      )}
+
       {/* Spot comparison (browse mode — no spot selected) */}
-      {!isSpotSelected && locationId !== 'keelung' && data.surf?.spots && (!section || section === 'all' || section === 'above-timeline' || section === 'no-live') && (
+      {!isSpotSelected && locationId !== 'keelung' && locationId !== 'taipei' && data.surf?.spots && (!section || section === 'all' || section === 'above-timeline' || section === 'no-live') && (
         <>
           <section className="md:px-3 py-2">
             <SpotCompare
@@ -312,7 +324,7 @@ export function NowPage() {
         )}
 
         {/* Accuracy trend — only in browse mode (detail panels have their own) */}
-        {!isSpotSelected && locationId !== 'keelung' && data.accuracy && data.accuracy.length >= 2 && (
+        {!isSpotSelected && locationId !== 'keelung' && locationId !== 'taipei' && data.accuracy && data.accuracy.length >= 2 && (
           <AccuracyTrend entries={data.accuracy} />
         )}
       </Suspense>
