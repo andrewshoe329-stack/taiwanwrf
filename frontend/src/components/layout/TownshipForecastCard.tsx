@@ -65,6 +65,7 @@ export function TownshipForecastCard({ cwaObs, locationId }: TownshipForecastCar
       <button
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between text-left"
+        aria-expanded={expanded}
       >
         <div className="flex items-center gap-1.5">
           <span className="fs-micro uppercase tracking-wider text-[var(--color-text-dim)]">

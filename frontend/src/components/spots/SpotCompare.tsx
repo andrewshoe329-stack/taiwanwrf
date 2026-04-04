@@ -74,7 +74,7 @@ export function SpotCompare({ spots, targetUtc, onSelectSpot }: SpotCompareProps
                 role="button"
                 aria-label={`Select ${spot.name.en}`}
                 tabIndex={0}
-                className="hover:bg-[var(--color-bg-elevated)]/50 cursor-pointer transition-colors"
+                className="hover:bg-[var(--color-bg-elevated)]/50 cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:ring-inset"
                 onClick={() => onSelectSpot?.(spot.id)}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectSpot?.(spot.id) } }}
               >

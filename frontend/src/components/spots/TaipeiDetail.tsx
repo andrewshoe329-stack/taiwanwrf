@@ -27,8 +27,7 @@ interface TaipeiDetailProps {
 }
 
 export function TaipeiDetail({ cwaObs, forecastRec, forecastTimeLabel, section = 'all', onDeselect }: TaipeiDetailProps) {
-  const { t, i18n } = useTranslation()
-  const lang = (i18n.language.startsWith('zh') ? 'zh' : 'en') as 'en' | 'zh'
+  const { t } = useTranslation()
 
   const show = (s: number) =>
     section === 'all' ||
@@ -45,7 +44,7 @@ export function TaipeiDetail({ cwaObs, forecastRec, forecastTimeLabel, section =
       {show(1) && (
         <div className="flex items-center justify-between">
           <h2 className="fs-label font-semibold text-[var(--color-text-primary)]">
-            {lang === 'zh' ? '台北' : 'Taipei'}
+            {t('city.taipei')}
           </h2>
           <div className="flex items-center gap-1.5">
             <ShareButton locationId="taipei" />
@@ -81,7 +80,7 @@ export function TaipeiDetail({ cwaObs, forecastRec, forecastTimeLabel, section =
       {show(3) && forecastRec && (
         <>
           <SectionDivider label={
-            `${lang === 'zh' ? '天氣' : 'Weather'}${forecastTimeLabel ? ` · ${forecastTimeLabel} CST` : ''}`
+            `${t('city.weather')}${forecastTimeLabel ? ` · ${forecastTimeLabel} CST` : ''}`
           } />
           <div className="grid grid-cols-2 gap-1.5">
             {forecastRec.temp_c != null && (
@@ -96,13 +95,13 @@ export function TaipeiDetail({ cwaObs, forecastRec, forecastTimeLabel, section =
               />
             )}
             {forecastRec.gust_kt != null && (
-              <DataCell label={lang === 'zh' ? '陣風' : 'Gust'} value={forecastRec.gust_kt.toFixed(0)} unit="kt" />
+              <DataCell label={t('common.gust')} value={forecastRec.gust_kt.toFixed(0)} unit="kt" />
             )}
             {forecastRec.precip_mm_6h != null && forecastRec.precip_mm_6h > 0 && (
               <DataCell label={t('common.precip')} value={forecastRec.precip_mm_6h.toFixed(1)} unit="mm" />
             )}
             {forecastRec.mslp_hpa != null && (
-              <DataCell label={lang === 'zh' ? '氣壓' : 'Pressure'} value={forecastRec.mslp_hpa.toFixed(0)} unit="hPa" />
+              <DataCell label={t('common.pressure')} value={forecastRec.mslp_hpa.toFixed(0)} unit="hPa" />
             )}
           </div>
         </>
@@ -112,7 +111,7 @@ export function TaipeiDetail({ cwaObs, forecastRec, forecastTimeLabel, section =
       {show(4) && (
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="fs-compact px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-dim)]">
-            {lang === 'zh' ? '城市天氣' : 'City weather'}
+            {t('city.city_weather')}
           </span>
           <span className="fs-compact px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-dim)]">
             25.03°N 121.57°E
