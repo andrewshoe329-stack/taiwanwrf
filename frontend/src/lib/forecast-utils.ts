@@ -238,7 +238,7 @@ export function getModelRecords(
   data: AllForecastData,
 ): ForecastRecord[] {
   if (model === 'wrf') {
-    if (locationId === 'keelung' && data.keelung) {
+    if ((locationId === 'keelung' || locationId === 'taipei') && data.keelung) {
       return data.keelung.records
     }
     if (data.wrf_spots?.locations?.[locationId]) {
@@ -249,7 +249,9 @@ export function getModelRecords(
 
   const sf = getLocationForecast(data, locationId)
   if (!sf) {
-    if (locationId === 'keelung' && model === 'ecmwf' && data.ecmwf) {
+    // Cities and Keelung harbour don't have surf spot forecasts —
+    // fall back to ECMWF point forecast (closest available weather data)
+    if ((locationId === 'keelung' || locationId === 'taipei') && model === 'ecmwf' && data.ecmwf) {
       return data.ecmwf.records
     }
     return []

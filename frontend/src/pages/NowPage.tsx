@@ -110,21 +110,25 @@ export function NowPage() {
     return best
   }, [locationForecast, chartRecords, index])
 
-  // Spot-specific wave records for OceanChart (fall back to Keelung)
+  const isCitySelected = locationId === 'taipei'
+
+  // Spot-specific wave records for OceanChart (fall back to Keelung; skip for cities)
   const waveRecords = useMemo(() => {
+    if (isCitySelected) return []
     if (locationForecast && locationId !== 'keelung') {
       return ratingsToWaveRecords(locationForecast.ratings)
     }
     return data.wave?.ecmwf_wave?.records ?? []
-  }, [locationForecast, locationId, data.wave])
+  }, [locationForecast, locationId, isCitySelected, data.wave])
 
-  // Spot-specific tide predictions for TideChart (fall back to Keelung)
+  // Spot-specific tide predictions for TideChart (fall back to Keelung; skip for cities)
   const tidePredictions = useMemo(() => {
+    if (isCitySelected) return []
     if (locationForecast && locationId !== 'keelung') {
       return ratingsToTidePredictions(locationForecast.ratings)
     }
     return data.tide?.predictions ?? []
-  }, [locationForecast, locationId, data.tide])
+  }, [locationForecast, locationId, isCitySelected, data.tide])
 
   // Tide extrema — per-spot from CWA tide forecast stations, or Keelung default
   const tideExtrema = useMemo(() => {
