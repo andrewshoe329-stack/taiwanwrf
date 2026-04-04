@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { ShareButton } from '@/components/layout/ShareButton'
+import { LiveObsCard } from '@/components/spots/LiveObsCard'
 import { SectionDivider } from '@/components/spots/SectionDivider'
 import type { DetailSection } from '@/components/spots/SpotDetail'
 import type { CwaObs, ForecastRecord } from '@/lib/types'
@@ -75,6 +76,9 @@ export function TaipeiDetail({ cwaObs, forecastRec, forecastTimeLabel, section =
           ))}
         </div>
       )}
+
+      {/* 2b. Live observations */}
+      {show(3) && <LiveObsCard spotId="taipei" />}
 
       {/* 3. Current conditions from forecast */}
       {show(3) && forecastRec && (

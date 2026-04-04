@@ -111,6 +111,41 @@ export function ConditionsStrip() {
     )
   }
 
+  // City mode (Taipei): weather-only strip, no marine data
+  if (locationId === 'taipei') {
+    const precip = rec.precip_mm_6h
+    return (
+      <div className="grid grid-cols-5 gap-1 py-1.5">
+        <Stat
+          label={t('common.wind')}
+          value={rec.wind_kt?.toFixed(0) ?? '--'}
+          unit="kt"
+          detail={rec.wind_dir != null ? degToCompass(rec.wind_dir) + (rec.gust_kt ? ` G${rec.gust_kt.toFixed(0)}` : '') : undefined}
+        />
+        <Stat
+          label={t('common.gust')}
+          value={rec.gust_kt?.toFixed(0) ?? '--'}
+          unit="kt"
+        />
+        <Stat
+          label={t('common.temp')}
+          value={rec.temp_c?.toFixed(0) ?? '--'}
+          unit={'\u00B0C'}
+        />
+        <Stat
+          label={t('common.precip')}
+          value={precip != null && precip > 0 ? precip.toFixed(1) : '--'}
+          unit="mm"
+        />
+        <Stat
+          label={t('common.pressure')}
+          value={rec.mslp_hpa?.toFixed(0) ?? '--'}
+          unit="hPa"
+        />
+      </div>
+    )
+  }
+
   // Default: no spot selected (browse mode or Keelung harbour)
   const swellH = waveRec?.swell_wave_height
   const swellP = waveRec?.swell_wave_period ?? waveRec?.wave_period
