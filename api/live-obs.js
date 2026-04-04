@@ -64,8 +64,10 @@ const MARINE_STATIONS = [
 
 const WEATHER_STATIONS = [
   '466940', // 基隆 (staffed)
+  '466920', // 臺北 (Taipei city)
   'C0A940', // 金山
   'C0AJ20', // 野柳 (Green Bay)
+  'C0A980', // 大屯山 (Taipei alt)
   'C0B050', // 八斗子 (Keelung)
   'C2A880', // 福隆
   'C0UA80', // 大溪漁港 (Daxi)
@@ -77,6 +79,7 @@ const WEATHER_STATIONS = [
 // Source of truth: config.py SPOT_STATIONS — keep in sync when spots change.
 const SPOT_STATIONS = {
   keelung:     { weather: '466940', weather_alt: ['C0B050'],                   tide: 'C4B01',  buoy: '46694A' },
+  taipei:      { weather: '466920', weather_alt: ['C0A980'] },  // inland city — no tide/buoy
   jinshan:     { weather: 'C0A940', weather_alt: ['C0AJ20', '466940'],         tide: 'C4A03',  buoy: 'C6AH2'  },
   greenbay:    { weather: 'C0AJ20', weather_alt: ['C0B050', '466940'],         tide: 'C4B01',  buoy: '46694A' },
   fulong:      { weather: 'C2A880', weather_alt: ['C0AJ20', 'C0U880'],         tide: 'C4A05',  buoy: '46694A' },
