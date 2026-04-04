@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import {
   ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis,
   CartesianGrid, Tooltip, ReferenceLine,
@@ -42,7 +43,7 @@ function OceanTooltip({ active, payload }: TooltipContentProps) {
   )
 }
 
-export function OceanChart({ records, timeRange, selectedMs }: OceanChartProps) {
+export const OceanChart = memo(function OceanChart({ records, timeRange, selectedMs }: OceanChartProps) {
   if (!records?.length) return null
   const mobile = useIsMobile()
 
@@ -152,4 +153,4 @@ export function OceanChart({ records, timeRange, selectedMs }: OceanChartProps) 
       </ComposedChart>
     </ResponsiveContainer>
   )
-}
+})

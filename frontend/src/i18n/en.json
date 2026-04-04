@@ -171,6 +171,11 @@
   "harbour": {
     "keelung": "Keelung"
   },
+  "city": {
+    "taipei": "Taipei",
+    "weather": "Weather",
+    "city_weather": "City weather"
+  },
   "harbours_page": {
     "title": "Harbours",
     "subtitle": "Sailing conditions at Keelung Harbour",

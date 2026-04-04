@@ -171,6 +171,11 @@
   "harbour": {
     "keelung": "基隆"
   },
+  "city": {
+    "taipei": "台北",
+    "weather": "天氣",
+    "city_weather": "城市天氣"
+  },
   "harbours_page": {
     "title": "港口",
     "subtitle": "基隆港帆船條件",

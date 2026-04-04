@@ -153,9 +153,12 @@ export function AlertSettingsPanel({ open, onClose }: AlertSettingsPanelProps) {
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose} role="presentation">
       <div
         ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={lang === 'zh' ? '警報設定' : 'Alert Settings'}
         className="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl w-[320px] max-w-[90vw] shadow-2xl"
         onClick={e => e.stopPropagation()}
       >

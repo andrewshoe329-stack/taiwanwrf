@@ -242,8 +242,8 @@ def main() -> None:
         log.error("No ensemble models available for Keelung")
         sys.exit(1)
 
-    for mk in output.get("models", {}):
-        rc = output["models"][mk].get("record_count", 0)
+    for mk, mdata in output.get("models", {}).items():
+        rc = len(mdata.get("records", []))
         log.info("  %s: %d records", mk, rc)
     log.info("Ensemble spread: %s", output.get("spread", {}))
 

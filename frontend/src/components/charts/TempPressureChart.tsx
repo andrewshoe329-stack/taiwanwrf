@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis,
   CartesianGrid, Tooltip, ReferenceLine,
@@ -59,7 +60,7 @@ function PressureTooltip({ active, payload }: TooltipContentProps) {
 }
 
 /** Temperature chart */
-export function TempChart({ records, timeRange, selectedMs }: ChartProps) {
+export const TempChart = memo(function TempChart({ records, timeRange, selectedMs }: ChartProps) {
   if (!records?.length) return null
   const mobile = useIsMobile()
 
@@ -117,7 +118,7 @@ export function TempChart({ records, timeRange, selectedMs }: ChartProps) {
       </LineChart>
     </ResponsiveContainer>
   )
-}
+})
 
 /** Pressure chart */
 export function PressureChart({ records, timeRange, selectedMs }: ChartProps) {

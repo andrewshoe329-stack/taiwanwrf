@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
   CartesianGrid, Tooltip, ReferenceLine,
@@ -39,7 +40,7 @@ function PrecipTooltip({ active, payload }: TooltipContentProps) {
 }
 
 /** 6-hourly precipitation bar chart. */
-export function PrecipChart({ records, timeRange, selectedMs }: PrecipChartProps) {
+export const PrecipChart = memo(function PrecipChart({ records, timeRange, selectedMs }: PrecipChartProps) {
   if (!records?.length) return null
   const mobile = useIsMobile()
 
@@ -98,4 +99,4 @@ export function PrecipChart({ records, timeRange, selectedMs }: PrecipChartProps
       </BarChart>
     </ResponsiveContainer>
   )
-}
+})

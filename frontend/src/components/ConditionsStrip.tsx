@@ -30,7 +30,7 @@ export function ConditionsStrip() {
   const liveObs = useLiveObsContext()
 
   // Is a surf spot focused? (compass data is visible above, avoid duplication)
-  const isSpotSelected = locationId != null && locationId !== 'keelung'
+  const isSpotSelected = locationId != null && locationId !== 'keelung' && locationId !== 'taipei'
 
   const records = useMemo(() => {
     if (locationId) return getModelRecords(locationId, model, data)
@@ -118,7 +118,7 @@ export function ConditionsStrip() {
   const precip = rec.precip_mm_6h
 
   return (
-    <div className="grid grid-cols-5 gap-1 py-1.5 min-w-[300px]">
+    <div className="grid grid-cols-5 gap-1 py-1.5">
       <Stat
         label={t('common.wind')}
         value={rec.wind_kt?.toFixed(0) ?? '--'}
