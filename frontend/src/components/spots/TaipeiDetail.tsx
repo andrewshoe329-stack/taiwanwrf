@@ -104,9 +104,6 @@ export function TaipeiDetail({ cwaObs, forecastRec, forecastTimeLabel, section =
             {forecastRec.mslp_hpa != null && (
               <DataCell label={lang === 'zh' ? '氣壓' : 'Pressure'} value={forecastRec.mslp_hpa.toFixed(0)} unit="hPa" />
             )}
-            {forecastRec.humidity_pct != null && (
-              <DataCell label={lang === 'zh' ? '濕度' : 'Humidity'} value={forecastRec.humidity_pct.toFixed(0)} unit="%" />
-            )}
           </div>
         </>
       )}
