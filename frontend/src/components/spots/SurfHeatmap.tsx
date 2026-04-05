@@ -31,7 +31,7 @@ function formatDateSub(dateStr: string): string {
 
 export function SurfHeatmap({ spots, filter, onSelectSpot }: SurfHeatmapProps) {
   const { t, i18n } = useTranslation()
-  const lang = i18n.language as 'en' | 'zh'
+  const lang = (i18n.language?.startsWith('zh') ? 'zh' : 'en') as 'en' | 'zh'
 
   const filtered = useMemo(() =>
     (filter === 'all'

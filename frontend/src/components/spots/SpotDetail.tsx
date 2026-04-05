@@ -140,7 +140,7 @@ export function SpotDetail({
           ))}
           {currentRating?.squall_risk && (
             <span className="fs-compact px-1.5 py-0.5 rounded bg-red-500/30 text-red-300 font-semibold animate-pulse">
-              Squall Risk
+              {t('common.squall_risk', 'Squall Risk')}
             </span>
           )}
         </div>

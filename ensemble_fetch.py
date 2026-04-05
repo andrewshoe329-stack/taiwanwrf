@@ -19,8 +19,6 @@ import argparse
 import json
 import logging
 import sys
-import time
-import urllib.error
 import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
