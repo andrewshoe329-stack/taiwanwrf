@@ -171,8 +171,13 @@ export default async function handler(req, res) {
   }
 
   if (q === 'regional') {
+    const VALID_JMA_BANDS = new Set(['b13', 'trm', 'geocolor', 'band_13'])
+    const VALID_SECTORS = new Set(['jpn', 'se2'])
     const jmaBand = req.query.jmaBand || NICT_TO_JMA[band] || 'b13'
     const sector = req.query.sector || 'jpn'
+    if (!VALID_JMA_BANDS.has(jmaBand) || !VALID_SECTORS.has(sector)) {
+      return res.status(400).json({ error: 'Invalid jmaBand or sector parameter' })
+    }
     const hhmm = req.query.hhmm
     if (!hhmm || !/^\d{4}$/.test(hhmm)) {
       return res.status(400).json({ error: 'Invalid hhmm parameter' })
@@ -193,7 +198,7 @@ export default async function handler(req, res) {
       res.setHeader('Content-Type', 'image/jpeg')
       return res.status(200).send(Buffer.from(buffer))
     } catch (err) {
-      return res.status(502).json({ error: 'JMA fetch failed', message: err.message })
+      return res.status(502).json({ error: 'JMA fetch failed' })
     }
   }
 

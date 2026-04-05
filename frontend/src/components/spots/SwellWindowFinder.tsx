@@ -40,7 +40,7 @@ export function SwellWindowFinder({ spots, onSelectSpot }: SwellWindowFinderProp
     const windows: RankedWindow[] = []
 
     for (const sf of spots) {
-      if (!sf.best_times || sf.spot.type === 'harbour') continue
+      if (!sf.best_times || sf.spot.type === 'harbour' || sf.spot.type === 'city') continue
       for (const w of sf.best_times) {
         const order = RATING_ORDER[w.rating] ?? 0
         if (order < 2) continue // skip poor

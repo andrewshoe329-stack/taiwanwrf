@@ -68,6 +68,6 @@ export default async function handler(req, res) {
 
   } catch (err) {
     console.error('history error:', err)
-    return res.status(502).json({ error: 'Failed to fetch history', message: err.message })
+    return res.status(502).json({ error: 'Failed to fetch history' })
   }
 }

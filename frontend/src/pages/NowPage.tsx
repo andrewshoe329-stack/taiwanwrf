@@ -322,7 +322,7 @@ export function NowPage() {
 
         {/* Ensemble model comparison */}
         {data.ensemble?.models && (
-          <ChartCard title="Model Comparison">
+          <ChartCard title={t('common.comparison', 'Model Comparison')}>
             <EnsembleChart ensemble={data.ensemble} timeRange={timeRange} selectedMs={selectedMs} />
           </ChartCard>
         )}

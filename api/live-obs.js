@@ -440,6 +440,6 @@ export default async function handler(req, res) {
 
   } catch (err) {
     console.error('live-obs error:', err)
-    return res.status(502).json({ error: 'CWA fetch failed', message: err.message })
+    return res.status(502).json({ error: 'CWA fetch failed' })
   }
 }
