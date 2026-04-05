@@ -14,6 +14,7 @@ from config import (
     fetch_json, load_json_file,
     SPOT_COORDS, SPOT_COUNTY,
     SPOT_STATIONS, SPOT_TIDE_STATION, SPOT_TIDE_OBS_STATION,
+    TIDE_STATIONS,
     sunrise_sunset, is_daylight,
     TAIWAN_BBOX, HARBOUR_COORDS, SPOT_REGION,
 )
@@ -250,6 +251,25 @@ class TestSpotCoords:
         """Every SPOT_STATIONS entry must have a weather station."""
         for sid, info in SPOT_STATIONS.items():
             assert 'weather' in info, f"{sid} SPOT_STATIONS missing 'weather' key"
+
+
+class TestTaipeiInland:
+    """Taipei is an inland city — no tide station, no buoy."""
+
+    def test_tide_station_is_none(self):
+        assert SPOT_TIDE_STATION['taipei'] is None
+
+    def test_tide_obs_station_is_none(self):
+        assert SPOT_TIDE_OBS_STATION['taipei'] is None
+
+    def test_no_tide_in_stations(self):
+        assert 'tide' not in SPOT_STATIONS['taipei']
+
+    def test_no_buoy_in_stations(self):
+        assert 'buoy' not in SPOT_STATIONS['taipei']
+
+    def test_none_not_in_tide_stations_list(self):
+        assert None not in TIDE_STATIONS
 
 
 class TestTaiwanBbox:

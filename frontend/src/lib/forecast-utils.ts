@@ -218,7 +218,7 @@ export function getBestSpot(
 
   let best: { spotId: string; score: number; rating: string } | null = null
   for (const sf of data.surf.spots) {
-    if (sf.spot.type === 'harbour') continue
+    if (sf.spot.type === 'harbour' || sf.spot.type === 'city') continue
     const first = sf.ratings[0]
     if (!first || first.score == null) continue
     if (!best || first.score > best.score) {

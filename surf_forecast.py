@@ -15,7 +15,7 @@ from datetime import datetime, timezone, timedelta
 
 import html as html_mod
 
-from config import (KEELUNG_LAT, KEELUNG_LON, SPOT_COORDS,
+from config import (KEELUNG_LAT, KEELUNG_LON, SPOT_COORDS, SPOT_REGION,
                      deg_to_compass, setup_logging, sail_rating,
                      sunrise_sunset, is_daylight, MS_TO_KT,
                      MIN_SWELL_HEIGHT_M, MAX_SWELL_HEIGHT_M,
@@ -923,14 +923,6 @@ def generate_planner_json(all_spot_data: list[dict], keelung_records: list = Non
     return {'days': days}
 
 
-# Spot-to-region mapping for the frontend
-_SPOT_REGION = {
-    'keelung': 'north',
-    'fulong': 'north', 'greenbay': 'north', 'jinshan': 'north',
-    'daxi': 'northeast', 'wushih': 'northeast', 'doublelions': 'northeast', 'chousui': 'northeast',
-}
-
-
 def generate_frontend_json(all_spot_data: list[dict]) -> dict:
     """
     Generate JSON in the format expected by the React frontend.
@@ -1073,7 +1065,7 @@ def generate_frontend_json(all_spot_data: list[dict]) -> dict:
                 'lat': spot_entry.get('lat', 0),
                 'lon': spot_entry.get('lon', 0),
                 'facing': spot_entry.get('facing', ''),
-                'region': _SPOT_REGION.get(spot_id, 'north'),
+                'region': SPOT_REGION.get(spot_id, 'north'),
                 'opt_wind': spot_entry.get('opt_wind', []),
                 'opt_swell': spot_entry.get('opt_swell', []),
             },

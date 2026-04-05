@@ -37,7 +37,7 @@ export function SurfHeatmap({ spots, filter, onSelectSpot }: SurfHeatmapProps) {
     (filter === 'all'
       ? spots
       : spots.filter(sf => sf.spot.region === filter)
-    ).filter(sf => sf.spot.type !== 'harbour' && sf.daily_best != null),
+    ).filter(sf => sf.spot.type !== 'harbour' && sf.spot.type !== 'city' && sf.daily_best != null),
     [spots, filter],
   )
 

@@ -4,7 +4,7 @@
 
 ## What This Project Is
 
-Automated weather forecasting pipeline for **sailing and surfing in northern Taiwan** (Keelung harbour + 7 surf spots). Downloads CWA WRF model data from AWS S3, combines it with ECMWF IFS/WAM wave forecasts from Open-Meteo, generates HTML reports with an AI summary, and deploys to Vercel.
+Automated weather forecasting pipeline for **sailing and surfing in northern Taiwan** (Keelung harbour + Taipei city + 7 surf spots). Downloads CWA WRF model data from AWS S3, combines it with ECMWF IFS/WAM wave forecasts from Open-Meteo, generates HTML reports with an AI summary, and deploys to Vercel.
 
 **Runs 4x daily** via GitHub Actions at 00:45, 06:45, 12:45, 18:45 UTC (45 min after each CWA model cycle).
 
@@ -133,6 +133,7 @@ Each spot uses its nearest CWA township tide station (F-A0021-001) for predictio
 | Green Bay | 新北市萬里區 | C4B01 |
 | Fulong | 新北市貢寮區 | C4A05 (0.2km) |
 | Daxi/DL/Wushih/Chousui | 宜蘭縣頭城鎮 | C4U02 (0.4km) |
+| Taipei | — (inland, no tide) | — |
 
 ---
 
@@ -163,8 +164,8 @@ Each spot uses its nearest CWA township tide station (F-A0021-001) for predictio
 | `IMPROVEMENT_PLAN.md` | ~170 | Post-audit improvement plan with status tracking (FIXED/OPEN) |
 | `frontend/` | React SPA | Vite + React + TypeScript — interactive forecast UI with wind/wave map overlays |
 | `frontend/src/router.tsx` | ~77 | React Router config: `/`, `/spots`, `/spots/:id`, `/harbours`, `/models` |
-| `frontend/src/lib/constants.ts` | ~110 | Shared constants: spot coords, regions, `SPOT_TIDE_STATION`/`SPOT_TIDE_OBS_STATION`/`SPOT_COUNTY`, data file paths |
-| `frontend/src/lib/types.ts` | ~240 | TypeScript interfaces: `ForecastRecord`, `WaveRecord`, `SpotRating`, `CwaObs`, `WaveGrid`, `LiveSpotObs`, etc. |
+| `frontend/src/lib/constants.ts` | ~110 | Shared constants: `SPOTS`, `HARBOURS`, `CITIES` (Taipei), `ALL_LOCATIONS`, `SPOT_TIDE_STATION`/`SPOT_TIDE_OBS_STATION`/`SPOT_COUNTY`, data file paths |
+| `frontend/src/lib/types.ts` | ~240 | TypeScript interfaces: `ForecastRecord`, `WaveRecord`, `SpotRating`, `CwaObs`, `WaveGrid`, `LiveSpotObs`; `LocationType = 'spot' \| 'harbour' \| 'city'` |
 | `frontend/src/hooks/useLiveObs.ts` | ~90 | Hook polling `/api/live-obs` with exponential backoff (5m→10m→20m on failures) |
 | `frontend/src/lib/wind-particles.ts` | ~620 | Canvas wind particle animation + wave heatmap (with color legend) + tile overlay renderer with Mercator projection |
 | `frontend/src/lib/tile-loader.ts` | ~95 | XYZ tile math (Web Mercator), tile bounds, zoom calculation, image cache |
@@ -177,11 +178,12 @@ Each spot uses its nearest CWA township tide station (F-A0021-001) for predictio
 | `frontend/src/components/spots/ScoreBreakdownTooltip.tsx` | ~80 | Popover showing per-factor score breakdown (swell_dir, wind_dir, wind_spd, energy, rain, tide) |
 | `frontend/src/components/spots/BestTimeWindows.tsx` | ~60 | Per-spot top 3 upcoming surf sessions with day/time/rating |
 | `frontend/src/components/spots/SwellWindowFinder.tsx` | ~70 | Cross-spot ranked top 5 best sessions, clickable to select spot |
-| `frontend/src/components/layout/TownshipForecastCard.tsx` | ~120 | CWA township forecast card (expandable per county: Keelung/New Taipei/Yilan) |
+| `frontend/src/components/layout/TownshipForecastCard.tsx` | ~120 | CWA township forecast card (expandable per county: Keelung/Taipei/New Taipei/Yilan) |
 | `frontend/src/components/layout/ShareButton.tsx` | ~70 | Deep-link share button (native share on mobile, clipboard on desktop) |
 | `frontend/src/components/spots/LiveObsCard.tsx` | ~62 | Per-spot live observation grid (tide, wave, wind, temp, UV, currents) |
 | `frontend/src/components/spots/SpotDetail.tsx` | ~203 | Spot detail panel: header, rating badge, live obs, info pills, swell compass, data cells, per-spot CWA warnings |
 | `frontend/src/components/spots/KeelungDetail.tsx` | ~65 | Keelung harbour detail panel: header, live obs, webcams |
+| `frontend/src/components/spots/TaipeiDetail.tsx` | ~127 | Taipei city detail panel: header, warnings, live obs (weather only, no tide/buoy), forecast data |
 | `frontend/src/components/spots/EnsembleAccuracyPills.tsx` | ~50 | Ensemble confidence stars + accuracy badges (per-horizon: 24h/48h/72h) + accuracy trend |
 | `frontend/src/components/map/MapControls.tsx` | ~207 | Map layer toggles, model selector, zoom controls, satellite band toggle, radar/satellite status badges |
 | `frontend/src/components/layout/ErrorBoundary.tsx` | ~50 | React error boundary wrapping app — shows reload button on crash |
@@ -262,7 +264,7 @@ The primary UI is a **React single-page application** built with Vite + TypeScri
 
 **Browser notifications**: AlertSettingsPanel (bell icon in timeline bar) lets users configure thresholds for wind/wave/rain/surf score. Uses Web Notifications API + localStorage. `checkAlerts()` fires on forecast data load, deduplicates per forecast cycle.
 
-**CWA Township Forecast**: TownshipForecastCard shows official county-level weather forecast (Keelung/New Taipei/Yilan) in charts panel, expandable per county.
+**CWA Township Forecast**: TownshipForecastCard shows official county-level weather forecast (Keelung/Taipei/New Taipei/Yilan) in charts panel, expandable per county.
 
 **Live data**: `useLiveObs` hook polls `/api/live-obs` every 5 min for real-time CWA observations, with exponential backoff on failures (5m→10m→20m, resets on success). Falls back to deploy-time `cwa_obs.json`. Shows in a 3-column labeled grid via `LiveObsCard` component on both spot and harbour panels.
 
@@ -305,7 +307,7 @@ Scoring system (0–16 max) evaluates each 6h timestep with 6 components:
 - Shared `fetch_json()` in `config.py` — centralised retry logic used by all fetch modules
 - Shared `run_parallel()` in `config.py` — standardised thread pool execution with failure counting and threshold-based abort (raises if >N% fail)
 - Retry logic: 3 attempts with 5s delay (Open-Meteo), exponential backoff (S3 downloads)
-- `surf_forecast.py` fetches all 8 locations (Keelung + 7 spots) in parallel via ThreadPoolExecutor(8)
+- `surf_forecast.py` fetches all 8 locations (Keelung + 7 surf spots) in parallel via ThreadPoolExecutor(8)
 - `taiwan_wrf_download.py` aborts if >30% of forecast hours fail to download
 - GFS data backfills ECMWF gaps (wind gusts, visibility)
 - CI pipeline runs 7 independent fetch steps in parallel (ECMWF, wave, tide, CWA, wind grid, wave grid, current grid)
@@ -336,6 +338,8 @@ Scoring system (0–16 max) evaluates each 6h timestep with 6 components:
 | Double Lions 雙獅 (外澳) | 24.881, 121.837 | E | W, SW | ENE, E, SE, SSE |
 | Wushih 烏石 (北堤) | 24.871, 121.837 | E | NW, W | E, SE, SSE |
 | Chousui 臭水 (大坑沙灘) | 24.855, 121.838 | E | WSW, W | ENE, E, ESE |
+
+Additionally, **Taipei** (25.033, 121.565) is a `city` location type — receives weather-only forecasts (wind, temp, precip, pressure) with no surf/tide/buoy data. Three location types exist: `spot` (surf), `harbour` (Keelung), `city` (Taipei).
 
 ---
 
@@ -370,6 +374,7 @@ All endpoints use base URL `https://opendata.cwa.gov.tw/api/v1/rest/datastore/{I
 | **F-D0047-001** | 鄉鎮天氣預報-宜蘭縣未來3天天氣預報 | `TOWNSHIP_FORECAST_ENDPOINTS["宜蘭縣"]` — Yilan 3-day forecast (Daxi, Wushih, Double Lions, Chousui) |
 | **F-D0047-049** | 鄉鎮天氣預報-基隆市未來3天天氣預報 | `TOWNSHIP_FORECAST_ENDPOINT` — Keelung 3-day forecast |
 | F-D0047-051 | 鄉鎮天氣預報-基隆市未來1週天氣預報 | Not used (1-week version) |
+| **F-D0047-061** | 鄉鎮天氣預報-臺北市未來3天天氣預報 | `TOWNSHIP_FORECAST_ENDPOINTS["臺北市"]` — Taipei 3-day forecast |
 | **F-D0047-069** | 鄉鎮天氣預報-新北市未來3天天氣預報 | `TOWNSHIP_FORECAST_ENDPOINTS["新北市"]` — New Taipei 3-day forecast (Fulong, Green Bay, Jinshan) |
 | **W-C0033-002** | 天氣特報-各別天氣警特報之內容及所影響之區域 | `WARNING_ENDPOINT` — weather warnings & advisories |
 
