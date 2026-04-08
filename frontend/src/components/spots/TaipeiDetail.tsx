@@ -82,8 +82,8 @@ export function TaipeiDetail({ cwaObs, ensemble, forecastRec, forecastTimeLabel,
       {/* 2b. Live observations */}
       {show(3) && <LiveObsCard spotId="taipei" />}
 
-      {/* 3. Current conditions from forecast */}
-      {show(3) && forecastRec && (
+      {/* 3. Current conditions from forecast (below timeline to avoid duplicating ConditionsStrip) */}
+      {show(4) && forecastRec && (
         <>
           <SectionDivider label={
             `${t('city.weather')}${forecastTimeLabel ? ` · ${forecastTimeLabel} CST` : ''}`
