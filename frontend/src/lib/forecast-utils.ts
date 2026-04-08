@@ -6,7 +6,7 @@
 import type {
   ForecastRecord, SpotForecast, SpotRating,
   AccuracyEntry, GfsRecord, WaveRecord, TidePrediction,
-  TideExtremum, CwaTideExtremum,
+  TideExtremum, CwaTideExtremum, EnsembleData,
 } from './types'
 import { SPOT_TIDE_STATION } from './constants'
 import type { AllForecastData } from '@/hooks/useForecastData'
@@ -388,4 +388,17 @@ export function seaComfortLabel(comfort: number | undefined): string | null {
     5: 'Smooth', 4: 'Slight', 3: 'Moderate', 2: 'Rough', 1: 'Very rough',
   }
   return labels[comfort] ?? null
+}
+
+/** Get ensemble data for a specific location. Falls back to global (Keelung) data. */
+export function getLocationEnsemble(
+  ensemble: EnsembleData | null,
+  locationId: string | null | undefined,
+): EnsembleData | null {
+  if (!ensemble) return null
+  if (!locationId || !ensemble.locations) return ensemble
+  const loc = ensemble.locations[locationId]
+  if (!loc) return ensemble
+  // Merge per-location spread with global models/records for chart display
+  return { ...ensemble, spread: loc.spread }
 }

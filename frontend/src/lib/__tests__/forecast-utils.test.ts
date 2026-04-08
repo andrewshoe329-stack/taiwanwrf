@@ -22,8 +22,9 @@ import {
   gustFactorColor,
   seaComfortStars,
   seaComfortLabel,
+  getLocationEnsemble,
 } from '../forecast-utils'
-import type { SpotRating, GfsRecord, AccuracyEntry } from '../types'
+import type { SpotRating, GfsRecord, AccuracyEntry, EnsembleData } from '../types'
 
 // ── degToCompass ────────────────────────────────────────────────────────────
 
@@ -451,5 +452,53 @@ describe('ratingsToForecastRecords passthrough', () => {
     const result = ratingsToForecastRecords(ratings)
     expect(result[0].gust_factor).toBe(1.8)
     expect(result[0].squall_risk).toBe(true)
+  })
+})
+
+// ── getLocationEnsemble ────────────────────────────────────────────────────
+
+describe('getLocationEnsemble', () => {
+  const globalEnsemble: EnsembleData = {
+    models: {
+      GFS: { meta: { model_id: 'GFS', init_utc: '', source: '' }, record_count: 10 },
+    },
+    spread: { wind_spread_kt: 5.0, temp_spread_c: 2.0, precip_spread_mm: 1.5 },
+    locations: {
+      keelung: {
+        models: { GFS: { meta: { model_id: 'GFS', init_utc: '', source: '' }, record_count: 10 } },
+        spread: { wind_spread_kt: 5.0, temp_spread_c: 2.0 },
+      },
+      jinshan: {
+        models: { GFS: { meta: { model_id: 'GFS', init_utc: '', source: '' }, record_count: 8 } },
+        spread: { wind_spread_kt: 3.2, temp_spread_c: 1.1, precip_spread_mm: 0.5 },
+      },
+    },
+  }
+
+  it('returns null when ensemble is null', () => {
+    expect(getLocationEnsemble(null, 'jinshan')).toBeNull()
+  })
+
+  it('returns global data when locationId is null', () => {
+    expect(getLocationEnsemble(globalEnsemble, null)).toBe(globalEnsemble)
+  })
+
+  it('returns global data when no locations dict', () => {
+    const noLocs: EnsembleData = { ...globalEnsemble, locations: undefined }
+    expect(getLocationEnsemble(noLocs, 'jinshan')).toBe(noLocs)
+  })
+
+  it('returns per-location spread for known location', () => {
+    const result = getLocationEnsemble(globalEnsemble, 'jinshan')
+    expect(result).not.toBeNull()
+    expect(result!.spread.wind_spread_kt).toBe(3.2)
+    expect(result!.spread.temp_spread_c).toBe(1.1)
+    // Global models preserved for chart display
+    expect(result!.models).toBe(globalEnsemble.models)
+  })
+
+  it('falls back to global for unknown location', () => {
+    const result = getLocationEnsemble(globalEnsemble, 'unknown_spot')
+    expect(result).toBe(globalEnsemble)
   })
 })

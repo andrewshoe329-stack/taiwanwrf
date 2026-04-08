@@ -123,13 +123,21 @@ export interface CwaObs {
   }>
 }
 
+export interface EnsembleSpread {
+  wind_spread_kt?: number
+  temp_spread_c?: number
+  precip_spread_mm?: number
+}
+
+export interface EnsembleLocationData {
+  models: Record<string, { meta: ForecastMeta; record_count?: number }>
+  spread: EnsembleSpread
+}
+
 export interface EnsembleData {
   models: Record<string, { meta: ForecastMeta; records?: ForecastRecord[]; record_count?: number }>
-  spread: {
-    wind_spread_kt?: number
-    temp_spread_c?: number
-    precip_spread_mm?: number
-  }
+  spread: EnsembleSpread
+  locations?: Record<string, EnsembleLocationData>
 }
 
 export interface AISummary {

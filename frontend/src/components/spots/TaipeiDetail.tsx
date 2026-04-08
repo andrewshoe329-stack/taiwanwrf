@@ -3,7 +3,7 @@ import { ShareButton } from '@/components/layout/ShareButton'
 import { LiveObsCard } from '@/components/spots/LiveObsCard'
 import { SectionDivider } from '@/components/spots/SectionDivider'
 import type { DetailSection } from '@/components/spots/SpotDetail'
-import type { CwaObs, ForecastRecord } from '@/lib/types'
+import type { CwaObs, EnsembleData, ForecastRecord } from '@/lib/types'
 
 function DataCell({ label, value, unit, sub }: {
   label: string; value: string; unit: string; sub?: string
@@ -21,14 +21,16 @@ function DataCell({ label, value, unit, sub }: {
 
 interface TaipeiDetailProps {
   cwaObs?: CwaObs | null
+  ensemble?: EnsembleData | null
   forecastRec?: ForecastRecord | null
   forecastTimeLabel?: string
   section?: DetailSection
   onDeselect: () => void
 }
 
-export function TaipeiDetail({ cwaObs, forecastRec, forecastTimeLabel, section = 'all', onDeselect }: TaipeiDetailProps) {
-  const { t } = useTranslation()
+export function TaipeiDetail({ cwaObs, ensemble, forecastRec, forecastTimeLabel, section = 'all', onDeselect }: TaipeiDetailProps) {
+  const { t, i18n } = useTranslation()
+  const lang = (i18n.language.startsWith('zh') ? 'zh' : 'en') as 'en' | 'zh'
 
   const show = (s: number) =>
     section === 'all' ||
@@ -111,7 +113,27 @@ export function TaipeiDetail({ cwaObs, forecastRec, forecastTimeLabel, section =
         </>
       )}
 
-      {/* 4. Info */}
+      {/* 4. Model consensus */}
+      {show(4) && ensemble?.spread && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {(() => {
+            const ws = ensemble.spread.wind_spread_kt ?? 99
+            const stars = ws < 3 ? 3 : ws < 6 ? 2 : 1
+            return (
+              <span className="fs-compact px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-dim)]">
+                {'★'.repeat(stars)}{'☆'.repeat(3 - stars)} {t('ensemble_confidence')}
+              </span>
+            )
+          })()}
+          {ensemble.spread.precip_spread_mm != null && ensemble.spread.precip_spread_mm > 1 && (
+            <span className="fs-compact px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-amber-400">
+              {lang === 'zh' ? '降雨差異' : 'Rain spread'} ±{ensemble.spread.precip_spread_mm.toFixed(1)}mm
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* 5. Info */}
       {show(4) && (
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="fs-compact px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-text-dim)]">

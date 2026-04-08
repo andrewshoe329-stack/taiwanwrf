@@ -25,7 +25,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from config import KEELUNG_LAT, KEELUNG_LON, norm_utc, setup_logging, aggregate_hourly_to_6h
+from config import (KEELUNG_LAT, KEELUNG_LON, SPOT_COORDS, norm_utc,
+                     setup_logging, aggregate_hourly_to_6h, run_parallel)
 from config import fetch_json as _fetch_json_shared
 
 log = logging.getLogger(__name__)
@@ -214,10 +215,30 @@ def _fetch_ensemble_for_point(lat: float, lon: float, label: str,
     }
 
 
+def _fetch_location(loc: dict) -> tuple[str, dict | None]:
+    """Fetch ensemble for a single location. Returns (id, result_dict | None)."""
+    loc_id = loc["id"]
+    result = _fetch_ensemble_for_point(loc["lat"], loc["lon"], loc_id)
+    if result:
+        # Strip full records from per-location output to keep file size reasonable.
+        # Keep only record_count + spread for non-Keelung locations.
+        compact = {
+            "models": {
+                mk: {"meta": md["meta"], "record_count": len(md.get("records", []))}
+                for mk, md in result["models"].items()
+            },
+            "spread": result["spread"],
+        }
+        return loc_id, compact
+    return loc_id, None
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description='Fetch multi-model ensemble forecasts')
     ap.add_argument('--ecmwf-json', default=None,
                     help='Path to ecmwf_keelung.json (include ECMWF in ensemble)')
+    ap.add_argument('--all-locations', action='store_true',
+                    help='Fetch ensemble for all spots, cities, and harbors')
     ap.add_argument('--output', default='ensemble_keelung.json',
                     help='Output JSON path (default: ensemble_keelung.json)')
     args = ap.parse_args()
@@ -234,7 +255,7 @@ def main() -> None:
         except (FileNotFoundError, json.JSONDecodeError) as e:
             log.warning("Could not load ECMWF JSON: %s", e)
 
-    # Fetch Keelung ensemble
+    # Fetch Keelung ensemble (with full records for chart display)
     output = _fetch_ensemble_for_point(KEELUNG_LAT, KEELUNG_LON, "keelung", ecmwf_recs)
     if output is None:
         log.error("No ensemble models available for Keelung")
@@ -244,6 +265,34 @@ def main() -> None:
         rc = len(mdata.get("records", []))
         log.info("  %s: %d records", mk, rc)
     log.info("Ensemble spread: %s", output.get("spread", {}))
+
+    # Fetch ensemble for all locations (spots, cities, harbors)
+    if args.all_locations:
+        non_keelung = [s for s in SPOT_COORDS if s["id"] != "keelung"]
+        log.info("Fetching ensemble for %d additional locations…", len(non_keelung))
+
+        results = run_parallel(
+            _fetch_location, non_keelung,
+            max_workers=4, max_fail_pct=75, label="ensemble-locations",
+        )
+
+        locations = {"keelung": {"models": {
+            mk: {"meta": md["meta"], "record_count": len(md.get("records", []))}
+            for mk, md in output["models"].items()
+        }, "spread": output["spread"]}}
+
+        for loc_dict, (loc_id, loc_result) in results:
+            if loc_result:
+                locations[loc_id] = loc_result
+                log.info("  %s: %s", loc_id,
+                         {k: v.get("record_count", 0)
+                          for k, v in loc_result["models"].items()})
+            else:
+                log.warning("  %s: no data", loc_id)
+
+        output["locations"] = locations
+        log.info("Fetched ensemble for %d/%d locations",
+                 sum(1 for v in locations.values() if v), len(SPOT_COORDS))
 
     Path(args.output).write_text(json.dumps(output, indent=2))
     log.info("Wrote %s", args.output)
