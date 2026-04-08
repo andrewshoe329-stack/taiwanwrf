@@ -250,9 +250,15 @@ export function getModelRecords(
   const sf = getLocationForecast(data, locationId)
   if (!sf) {
     // Cities and Keelung harbour don't have surf spot forecasts —
-    // fall back to ECMWF point forecast (closest available weather data)
-    if ((locationId === 'keelung' || locationId === 'taipei') && model === 'ecmwf' && data.ecmwf) {
-      return data.ecmwf.records
+    // fall back to point forecast data (closest available weather data)
+    if (locationId === 'keelung' || locationId === 'taipei') {
+      if (model === 'ecmwf' && data.ecmwf) {
+        return data.ecmwf.records
+      }
+      if (model === 'gfs') {
+        const gfsModel = data.ensemble?.models?.GFS
+        if (gfsModel?.records?.length) return gfsModel.records
+      }
     }
     return []
   }
