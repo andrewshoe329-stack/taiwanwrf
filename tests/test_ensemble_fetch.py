@@ -1,6 +1,7 @@
 """Tests for ensemble_fetch.py — pure functions only (no API calls)."""
 
-from ensemble_fetch import compute_ensemble_stats, ENSEMBLE_VARS
+from ensemble_fetch import compute_ensemble_stats, _fetch_location, ENSEMBLE_VARS
+from unittest.mock import patch
 
 
 class TestComputeEnsembleStats:
@@ -100,3 +101,39 @@ class TestComputeEnsembleStats:
         stats = compute_ensemble_stats(recs)
         s = stats[0]
         assert s["cape"] is None  # Not provided → None
+
+
+class TestFetchLocation:
+    """Test _fetch_location compact output (mocked API)."""
+
+    def test_returns_compact_output(self):
+        fake_result = {
+            "models": {
+                "GFS": {
+                    "meta": {"model_id": "GFS-Global"},
+                    "records": [{"valid_utc": "t1"}, {"valid_utc": "t2"}],
+                },
+                "ICON": {
+                    "meta": {"model_id": "ICON-Global"},
+                    "records": [{"valid_utc": "t1"}],
+                },
+            },
+            "spread": {"wind_spread_kt": 3.5, "temp_spread_c": 1.2},
+        }
+        with patch("ensemble_fetch._fetch_ensemble_for_point", return_value=fake_result):
+            loc_id, result = _fetch_location({"id": "jinshan", "lat": 25.0, "lon": 121.0})
+
+        assert loc_id == "jinshan"
+        assert result is not None
+        # Compact output should have record_count, not full records
+        assert "records" not in result["models"]["GFS"]
+        assert result["models"]["GFS"]["record_count"] == 2
+        assert result["models"]["ICON"]["record_count"] == 1
+        assert result["spread"] == fake_result["spread"]
+
+    def test_returns_none_when_no_data(self):
+        with patch("ensemble_fetch._fetch_ensemble_for_point", return_value=None):
+            loc_id, result = _fetch_location({"id": "taipei", "lat": 25.0, "lon": 121.5})
+
+        assert loc_id == "taipei"
+        assert result is None

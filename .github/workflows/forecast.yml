@@ -129,7 +129,7 @@ jobs:
         timeout-minutes: 10
         run: |
           ECMWF_ARG=""; [ -f ecmwf_keelung.json ] && ECMWF_ARG="--ecmwf-json ecmwf_keelung.json"
-          python ensemble_fetch.py $ECMWF_ARG --output ensemble_keelung.json
+          python ensemble_fetch.py $ECMWF_ARG --all-locations --output ensemble_keelung.json
 
       - name: Check critical data availability
         run: |

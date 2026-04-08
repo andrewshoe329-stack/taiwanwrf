@@ -22,6 +22,7 @@ import { AccuracyTrend } from '@/components/charts/AccuracyTrend'
 import {
   getModelRecords,
   ratingsToWaveRecords, ratingsToTidePredictions, getSpotTideExtrema,
+  getLocationEnsemble,
 } from '@/lib/forecast-utils'
 import type { TimeRange } from '@/components/charts/chart-utils'
 import type { SpotForecast } from '@/lib/types'
@@ -196,7 +197,7 @@ export function NowPage() {
           tideExtrema={tideExtrema}
           forecastTimeLabel={forecastTimeLabel}
           nowMs={nowMs}
-          ensemble={data.ensemble}
+          ensemble={getLocationEnsemble(data.ensemble, locationId)}
           accuracy={data.accuracy}
           cwaObs={data.cwa_obs}
           section={section}
@@ -208,7 +209,7 @@ export function NowPage() {
       {/* Harbour selected */}
       {locationId === 'keelung' && (
         <KeelungDetail
-          ensemble={data.ensemble}
+          ensemble={getLocationEnsemble(data.ensemble, 'keelung')}
           accuracy={data.accuracy}
           cwaObs={data.cwa_obs}
           waveRec={keelungWaveRec}
@@ -223,6 +224,7 @@ export function NowPage() {
       {locationId === 'taipei' && (
         <TaipeiDetail
           cwaObs={data.cwa_obs}
+          ensemble={getLocationEnsemble(data.ensemble, 'taipei')}
           forecastRec={chartRecords?.[index] ?? null}
           forecastTimeLabel={forecastTimeLabel}
           section={section}

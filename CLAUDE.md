@@ -37,7 +37,7 @@ GitHub Actions (cron 4x/day)
   ├─ 4. GRIB2 variable diagnostic → wrf_analyze.py --list-vars
   │
   ├─ 5. ensemble_fetch.py        → GFS/ICON/JMA from Open-Meteo, multi-model spread
-  │     Output: ensemble_keelung.json
+  │     Output: ensemble_keelung.json (with --all-locations: per-spot/city/harbor spread)
   │
   ├─ 6. surf_forecast.py         → 7-spot surf ratings + daily planner (parallel API calls)
   │     Outputs: surf_forecast.html, surf_planner.json
@@ -151,7 +151,7 @@ Each spot uses its nearest CWA township tide station (F-A0021-001) for predictio
 | `tide_predict.py` | ~323 | Tide prediction: harmonic analysis + CWA-anchored cosine interpolation |
 | `accuracy_track.py` | ~736 | Forecast accuracy tracking vs Open-Meteo + CWA observations + tide accuracy |
 | `forecast_summary.py` | ~680 | Anthropic API call (3-attempt retry), prompt + accuracy context + monthly climate normals, HTML + JSON output |
-| `ensemble_fetch.py` | ~299 | Fetch GFS/ICON/JMA from Open-Meteo, compute multi-model spread stats |
+| `ensemble_fetch.py` | ~310 | Fetch GFS/ICON/JMA from Open-Meteo, compute multi-model spread stats; `--all-locations` fetches for all spots/cities/harbors |
 | `wind_grid_fetch.py` | ~310 | Fetch gridded u/v wind from Open-Meteo for ECMWF/GFS particle animation map overlay |
 | `notify.py` | ~401 | Threshold-based alerts via LINE Notify and Telegram Bot API |
 | `firebase_storage.py` | ~280 | Firebase Firestore + Cloud Storage: read/write JSON docs, upload/cleanup GRIB2 archives |
@@ -443,7 +443,13 @@ These are the intermediate JSON files passed between pipeline steps:
 ### `ensemble_keelung.json` (produced by ensemble_fetch.py)
 ```
 { "models": { "GFS": {...}, "ICON": {...}, "JMA": {...} },
-  "spread": { "wind_spread_kt", "temp_spread_c", ... } }
+  "spread": { "wind_spread_kt", "temp_spread_c", ... },
+  "locations": {                          // present when --all-locations
+    "keelung": { "models": {...}, "spread": {...} },
+    "taipei":  { "models": {...}, "spread": {...} },
+    "jinshan": { "models": {...}, "spread": {...} },
+    ...per spot/city/harbor (compact: record_count only, no full records)
+  } }
 ```
 
 ### `cwa_obs.json` (produced by cwa_fetch.py)
