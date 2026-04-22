@@ -162,18 +162,51 @@ jobs:
             --output-wind-grid wind_grid_wrf.json \
             --output-spots-json wrf_spots.json
 
-      # Upload WRF summary + archive to Firebase for the forecast workflow to use
-      - name: Upload to Firebase
-        if: steps.stale_check.outputs.is_new == 'true'
+      # Upload WRF summary + archive to Firebase for the forecast workflow to use.
+      # Summary upload is the critical path — if it fails, the forecast pipeline
+      # keeps serving an old init_utc. Do NOT swallow its exit code.
+      - name: Upload archive to Firebase
+        id: upload_archive
+        if: steps.stale_check.outputs.is_new == 'true' && steps.download.outputs.archive_path != ''
         continue-on-error: true
         timeout-minutes: 10
         run: |
-          ARCHIVE_NAME="${{ steps.download.outputs.archive_name }}"
           python firebase_storage.py upload-archive \
-            --input "${{ steps.download.outputs.archive_path }}" 2>/dev/null || true
+            --input "${{ steps.download.outputs.archive_path }}"
           python firebase_storage.py cleanup-archives \
-            --keep "$ARCHIVE_NAME" --max-age-days 1 2>/dev/null || true
+            --keep "${{ steps.download.outputs.archive_name }}" || true
+
+      - name: Upload summary to Firebase
+        id: upload_summary
+        if: steps.stale_check.outputs.is_new == 'true'
+        timeout-minutes: 5
+        run: |
           python firebase_storage.py upload-summary \
             --input keelung_summary_new.json
-          [ -f wrf_spots.json ] && python firebase_storage.py upload-wrf-spots \
-            --input wrf_spots.json || true
+          if [ -f wrf_spots.json ]; then
+            python firebase_storage.py upload-wrf-spots \
+              --input wrf_spots.json
+          fi
+
+      - name: Record WRF pipeline health
+        if: always()
+        continue-on-error: true
+        timeout-minutes: 1
+        env:
+          IS_NEW: ${{ steps.stale_check.outputs.is_new }}
+          UPLOAD_SUMMARY: ${{ steps.upload_summary.outcome }}
+          UPLOAD_ARCHIVE: ${{ steps.upload_archive.outcome }}
+          INIT_UTC: ${{ steps.download.outputs.init_utc }}
+        run: |
+          python -c "
+          from firebase_storage import record_pipeline_health
+          import os
+          record_pipeline_health(
+              'wrf-' + os.environ.get('GITHUB_RUN_ID', 'local'),
+              {'stage': 'wrf',
+               'init_utc': os.environ.get('INIT_UTC') or None,
+               'is_new_cycle': os.environ.get('IS_NEW') == 'true',
+               'upload_summary': os.environ.get('UPLOAD_SUMMARY') or 'skipped',
+               'upload_archive': os.environ.get('UPLOAD_ARCHIVE') or 'skipped'}
+          )
+          "

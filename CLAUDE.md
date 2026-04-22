@@ -594,6 +594,11 @@ python cwa_fetch.py --output cwa_obs.json
 ### Open Bugs
 - No known open bugs
 
+### Staleness Handling
+- `DataFreshness.tsx` reports age of the **freshest** available data source (WRF/ECMWF/waves), not WRF specifically. A stale WRF summary no longer forces the whole banner red while ECMWF is current; stale sources are listed in the `title` tooltip.
+- `forecast.yml` rejects WRF summaries from Firestore older than 18h so the pipeline deploys an ECMWF-only forecast rather than an 8-day-old `keelung.json`.
+- `wrf.yml` upload-summary is a hard-fail step (no `continue-on-error`); both wrf.yml and forecast.yml write `pipeline_health` rows with `upload_summary` outcome + WRF age in hours for monitoring.
+
 ### Known Redundancies
 - `surf_forecast.py` Keelung redundancy **partially fixed**: accepts `--ecmwf-json`/`--wave-json` to reuse pre-fetched data (saves 3 API calls). The 7 surf spots still fetch independently (different coordinates).
 - GFS data is fetched 3 times: once in `ecmwf_fetch.py` (gust backfill), once in `ensemble_fetch.py`, once per spot in `surf_forecast.py`.

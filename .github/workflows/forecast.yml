@@ -57,22 +57,51 @@ jobs:
             echo "FIREBASE_STORAGE_BUCKET=$FIREBASE_STORAGE_BUCKET" >> "$GITHUB_ENV"
           fi
 
-      # Download WRF summary from Firebase (produced by wrf.yml)
+      # Download WRF summary from Firebase (produced by wrf.yml).
+      # Reject summaries older than STALE_MAX_HOURS so we don't deploy a
+      # week-old init_utc when the WRF pipeline has been silently failing.
       - name: Fetch WRF summary from Firebase
         id: wrf_summary
         timeout-minutes: 5
+        env:
+          STALE_MAX_HOURS: '18'
         run: |
           python firebase_storage.py download-summary \
             --output keelung_summary_new.json 2>/dev/null || true
-          if [ -f keelung_summary_new.json ]; then
-            echo "found=true" >> "$GITHUB_OUTPUT"
-          else
+          if [ ! -f keelung_summary_new.json ]; then
             echo "found=false" >> "$GITHUB_OUTPUT"
             echo "::warning::No WRF summary in Firebase — forecast will use ECMWF only"
+            exit 0
+          fi
+          AGE_H=$(python3 -c "
+          import json, sys
+          from datetime import datetime, timezone
+          try:
+              d = json.load(open('keelung_summary_new.json'))
+              init = d.get('meta', {}).get('init_utc')
+              if not init:
+                  print('999'); sys.exit(0)
+              dt = datetime.fromisoformat(init)
+              age = (datetime.now(timezone.utc) - dt).total_seconds() / 3600
+              print(f'{age:.1f}')
+          except Exception:
+              print('999')
+          ")
+          echo "age_hours=$AGE_H" >> "$GITHUB_OUTPUT"
+          if python3 -c "import sys; sys.exit(0 if float('$AGE_H') > float('$STALE_MAX_HOURS') else 1)"; then
+            echo "::warning::WRF summary is ${AGE_H}h old (>${STALE_MAX_HOURS}h) — dropping; forecast will use ECMWF only"
+            rm -f keelung_summary_new.json wrf_spots.json
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "WRF summary age: ${AGE_H}h"
+            echo "found=true" >> "$GITHUB_OUTPUT"
           fi
 
-      # Download WRF per-spot data from Firebase (produced by wrf.yml)
+      # Download WRF per-spot data from Firebase (produced by wrf.yml).
+      # Skip when the WRF summary was rejected as stale — the spots would
+      # be from the same stale run.
       - name: Fetch WRF spots data from Firebase
+        if: steps.wrf_summary.outputs.found == 'true'
         continue-on-error: true
         timeout-minutes: 3
         run: |
@@ -244,17 +273,26 @@ jobs:
         if: always()
         continue-on-error: true
         timeout-minutes: 1
+        env:
+          WRF_FRESH: ${{ steps.wrf_summary.outputs.found }}
+          WRF_AGE_H: ${{ steps.wrf_summary.outputs.age_hours }}
         run: |
           python -c "
           from firebase_storage import record_pipeline_health
           import os
+          try:
+              age = float(os.environ.get('WRF_AGE_H') or 'nan')
+          except ValueError:
+              age = None
           record_pipeline_health(
               os.environ.get('GITHUB_RUN_ID', 'local'),
               {'ecmwf': os.path.exists('ecmwf_keelung.json'),
                'wave': os.path.exists('wave_keelung.json'),
                'surf': os.path.exists('surf_frontend.json'),
                'ai_summary': os.path.exists('ai_summary.json'),
-               'accuracy': os.path.exists('accuracy_log.json')}
+               'accuracy': os.path.exists('accuracy_log.json'),
+               'wrf_fresh': os.environ.get('WRF_FRESH') == 'true',
+               'wrf_age_hours': age}
           )
           "
 

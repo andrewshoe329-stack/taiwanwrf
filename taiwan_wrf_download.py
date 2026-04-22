@@ -542,22 +542,23 @@ def run(
     log.info(sep)
     total_size = sum(p.stat().st_size for p in results if p.exists()) / 1_048_576
     log.info("Done! %d files  ·  %.0f MB on disk", len(results), total_size)
+
+    arc_mb = None
     if archive and archive.exists():
         arc_mb = archive.stat().st_size / 1_048_576
         log.info("Archive → %s  (%.1f MB)", archive.name, arc_mb)
 
-        # Expose archive details to GitHub Actions via $GITHUB_OUTPUT so
-        # downstream steps (rclone upload, Vercel deploy) can use them.
-        github_output = os.environ.get("GITHUB_OUTPUT")
-        if github_output:
-            with open(github_output, "a") as gho:
+    # Expose rundir and init_utc to GitHub Actions unconditionally so the
+    # stale-run check can compare cycle IDs even when archive packing fails.
+    github_output = os.environ.get("GITHUB_OUTPUT")
+    if github_output:
+        with open(github_output, "a") as gho:
+            gho.write(f"rundir={outdir.resolve()}\n")
+            gho.write(f"init_utc={init.strftime('%Y-%m-%dT%H:00:00+00:00')}\n")
+            if archive and archive.exists() and arc_mb is not None:
                 gho.write(f"archive_name={archive.name}\n")
                 gho.write(f"archive_path={archive.resolve()}\n")
                 gho.write(f"archive_size_mb={arc_mb:.1f}\n")
-                # Also expose rundir and init_utc so downstream steps can use them
-                # without fragile dirname() manipulation on the archive path.
-                gho.write(f"rundir={outdir.resolve()}\n")
-                gho.write(f"init_utc={init.strftime('%Y-%m-%dT%H:00:00+00:00')}\n")
 
     log.info("Output: %s", outdir.resolve())
     log.info(sep)
