@@ -47,10 +47,19 @@ _initialized = False
 
 
 def _check_configured() -> bool:
-    """Return True if Firebase environment variables are set."""
+    """Return True if Firebase environment variables are set.
+
+    Requires FIREBASE_PROJECT plus either GOOGLE_APPLICATION_CREDENTIALS
+    (service account path) or ambient ADC. Without credentials the SDK
+    crashes inside credentials.Certificate(None), so fail fast here.
+    """
     project = os.environ.get('FIREBASE_PROJECT')
     if not project:
-        log.debug("FIREBASE_PROJECT not set — Firebase storage disabled")
+        log.info("FIREBASE_PROJECT not set — Firebase storage disabled")
+        return False
+    sa_path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
+    if sa_path and not Path(sa_path).is_file():
+        log.error("GOOGLE_APPLICATION_CREDENTIALS=%s does not exist", sa_path)
         return False
     return True
 
