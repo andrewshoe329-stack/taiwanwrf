@@ -1,5 +1,5 @@
 {
-  "discovered_utc": "2026-04-01T01:19:13+00:00",
+  "discovered_utc": "2026-05-01T01:48:33+00:00",
   "spots": {
     "keelung": {
       "station_id": "C0B050",
@@ -8,6 +8,14 @@
       "buoy_id": "C6AH2",
       "buoy_name": "基隆",
       "buoy_dist_km": 4.8
+    },
+    "taipei": {
+      "station_id": "C0AC70",
+      "station_name": "信義",
+      "station_dist_km": 1.1,
+      "buoy_id": "C4B01",
+      "buoy_name": "基隆潮位",
+      "buoy_dist_km": 21.0
     },
     "jinshan": {
       "station_id": "C0A940",
@@ -1252,8 +1260,8 @@
     {
       "station_id": "C0R700",
       "station_name": "枋山",
-      "lat": 22.24864,
-      "lon": 120.65306
+      "lat": 22.24957,
+      "lon": 120.65275
     },
     {
       "station_id": "C0R660",
@@ -3118,8 +3126,8 @@
     {
       "station_id": "467290",
       "station_name": "古坑",
-      "lat": 23.6354,
-      "lon": 120.54377
+      "lat": 23.6353,
+      "lon": 120.54379
     },
     {
       "station_id": "467300",
@@ -5530,14 +5538,14 @@
       "lon": null
     },
     {
-      "buoy_id": "C4E01",
-      "buoy_name": "C4E01",
+      "buoy_id": "C4A05",
+      "buoy_name": "C4A05",
       "lat": null,
       "lon": null
     },
     {
-      "buoy_id": "C4A05",
-      "buoy_name": "C4A05",
+      "buoy_id": "C4E01",
+      "buoy_name": "C4E01",
       "lat": null,
       "lon": null
     },
@@ -5650,14 +5658,14 @@
       "lon": null
     },
     {
-      "buoy_id": "C4S01",
-      "buoy_name": "C4S01",
+      "buoy_id": "C4Q03",
+      "buoy_name": "C4Q03",
       "lat": null,
       "lon": null
     },
     {
-      "buoy_id": "C4Q03",
-      "buoy_name": "C4Q03",
+      "buoy_id": "C4S01",
+      "buoy_name": "C4S01",
       "lat": null,
       "lon": null
     },
