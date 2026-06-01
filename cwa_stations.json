@@ -1,5 +1,5 @@
 {
-  "discovered_utc": "2026-05-01T01:48:33+00:00",
+  "discovered_utc": "2026-06-01T02:13:44+00:00",
   "spots": {
     "keelung": {
       "station_id": "C0B050",
@@ -2952,8 +2952,8 @@
     {
       "station_id": "C0K500",
       "station_name": "元長",
-      "lat": 23.65154,
-      "lon": 120.30689
+      "lat": 23.64461,
+      "lon": 120.31154
     },
     {
       "station_id": "C0M750",
@@ -5454,14 +5454,14 @@
       "lon": null
     },
     {
-      "buoy_id": "46735A",
-      "buoy_name": "46735A",
+      "buoy_id": "WRA007",
+      "buoy_name": "WRA007",
       "lat": null,
       "lon": null
     },
     {
-      "buoy_id": "WRA007",
-      "buoy_name": "WRA007",
+      "buoy_id": "46735A",
+      "buoy_name": "46735A",
       "lat": null,
       "lon": null
     },
