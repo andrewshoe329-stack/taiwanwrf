@@ -1,5 +1,5 @@
 {
-  "discovered_utc": "2026-06-01T02:13:44+00:00",
+  "discovered_utc": "2026-07-01T02:07:06+00:00",
   "spots": {
     "keelung": {
       "station_id": "C0B050",
@@ -98,6 +98,126 @@
       "station_name": "牛頭山",
       "lat": 22.67848,
       "lon": 121.49888
+    },
+    {
+      "station_id": "C0TC00",
+      "station_name": "磐石",
+      "lat": 24.0168,
+      "lon": 121.3873
+    },
+    {
+      "station_id": "C0TC10",
+      "station_name": "西林林道12.5K",
+      "lat": 23.83143,
+      "lon": 121.40419
+    },
+    {
+      "station_id": "C0TC20",
+      "station_name": "光復林道16K",
+      "lat": 23.66881,
+      "lon": 121.36136
+    },
+    {
+      "station_id": "C0TC30",
+      "station_name": "虎頭山",
+      "lat": 23.53029,
+      "lon": 121.33181
+    },
+    {
+      "station_id": "C0TC40",
+      "station_name": "新白楊",
+      "lat": 24.19999,
+      "lon": 121.4248
+    },
+    {
+      "station_id": "C0SD90",
+      "station_name": "龍泉苗圃",
+      "lat": 23.1684,
+      "lon": 121.17201
+    },
+    {
+      "station_id": "C0TC50",
+      "station_name": "綠水",
+      "lat": 24.18021,
+      "lon": 121.49979
+    },
+    {
+      "station_id": "C0SE00",
+      "station_name": "樟原南溪",
+      "lat": 23.40411,
+      "lon": 121.41507
+    },
+    {
+      "station_id": "C0M9H0",
+      "station_name": "水社寮",
+      "lat": 23.50594,
+      "lon": 120.65223
+    },
+    {
+      "station_id": "C0H9Z0",
+      "station_name": "鹿林山",
+      "lat": 23.47046,
+      "lon": 120.86517
+    },
+    {
+      "station_id": "C0M9J0",
+      "station_name": "交力坪",
+      "lat": 23.53344,
+      "lon": 120.63544
+    },
+    {
+      "station_id": "C0M9K0",
+      "station_name": "二萬平",
+      "lat": 23.51016,
+      "lon": 120.78199
+    },
+    {
+      "station_id": "C0V930",
+      "station_name": "天池",
+      "lat": 23.27956,
+      "lon": 120.90759
+    },
+    {
+      "station_id": "C0HA10",
+      "station_name": "奧萬大",
+      "lat": 23.95473,
+      "lon": 121.17033
+    },
+    {
+      "station_id": "C0HA20",
+      "station_name": "杉林溪大飯店",
+      "lat": 23.63604,
+      "lon": 120.78316
+    },
+    {
+      "station_id": "C0V940",
+      "station_name": "美瓏山",
+      "lat": 23.12148,
+      "lon": 120.73922
+    },
+    {
+      "station_id": "C0V950",
+      "station_name": "五指寮林道3.5K",
+      "lat": 23.13855,
+      "lon": 120.63219
+    },
+    {
+      "station_id": "C0V960",
+      "station_name": "西阿里關山",
+      "lat": 23.18479,
+      "lon": 120.63334
+    },
+    {
+      "station_id": "C0R120",
+      "station_name": "上德文",
+      "lat": 22.76515,
+      "lon": 120.69652
+    },
+    {
+      "station_id": "C0V970",
+      "station_name": "花菓",
+      "lat": 23.03655,
+      "lon": 120.67607
     },
     {
       "station_id": "C0AK30",
@@ -3022,34 +3142,10 @@
       "lon": 120.11737
     },
     {
-      "station_id": "12J990",
-      "station_name": "口湖工作站",
-      "lat": 23.59172,
-      "lon": 120.17228
-    },
-    {
-      "station_id": "12Q970",
-      "station_name": "東港工作站",
-      "lat": 22.48178,
-      "lon": 120.45802
-    },
-    {
-      "station_id": "12Q980",
-      "station_name": "恆春工作站",
-      "lat": 22.08148,
-      "lon": 120.70641
-    },
-    {
-      "station_id": "42HA10",
-      "station_name": "萬大發電廠",
-      "lat": 23.98061,
-      "lon": 121.1315
-    },
-    {
-      "station_id": "466881",
-      "station_name": "新北",
-      "lat": 24.96099,
-      "lon": 121.51698
+      "station_id": "466940",
+      "station_name": "基隆",
+      "lat": 25.1351,
+      "lon": 121.73224
     },
     {
       "station_id": "466900",
@@ -3058,16 +3154,10 @@
       "lon": 121.44067
     },
     {
-      "station_id": "466910",
-      "station_name": "鞍部",
-      "lat": 25.18436,
-      "lon": 121.5215
-    },
-    {
-      "station_id": "466920",
-      "station_name": "臺北",
-      "lat": 25.03944,
-      "lon": 121.50663
+      "station_id": "466881",
+      "station_name": "新北",
+      "lat": 24.96099,
+      "lon": 121.51698
     },
     {
       "station_id": "466930",
@@ -3076,28 +3166,76 @@
       "lon": 121.53631
     },
     {
-      "station_id": "466940",
-      "station_name": "基隆",
-      "lat": 25.1351,
-      "lon": 121.73224
+      "station_id": "466910",
+      "station_name": "鞍部",
+      "lat": 25.18436,
+      "lon": 121.5215
     },
     {
-      "station_id": "466950",
-      "station_name": "彭佳嶼",
-      "lat": 25.62977,
-      "lon": 122.07147
+      "station_id": "467571",
+      "station_name": "新竹",
+      "lat": 24.83034,
+      "lon": 121.00634
     },
     {
-      "station_id": "466990",
-      "station_name": "花蓮",
-      "lat": 23.97693,
-      "lon": 121.60513
+      "station_id": "467490",
+      "station_name": "臺中",
+      "lat": 24.14749,
+      "lon": 120.67592
     },
     {
-      "station_id": "467050",
-      "station_name": "新屋",
-      "lat": 25.00848,
-      "lon": 121.03927
+      "station_id": "C0FA30",
+      "station_name": "梧棲",
+      "lat": 24.25775,
+      "lon": 120.51521
+    },
+    {
+      "station_id": "467350",
+      "station_name": "澎湖",
+      "lat": 23.56722,
+      "lon": 119.55499
+    },
+    {
+      "station_id": "467650",
+      "station_name": "日月潭",
+      "lat": 23.8831,
+      "lon": 120.89991
+    },
+    {
+      "station_id": "467530",
+      "station_name": "阿里山",
+      "lat": 23.50998,
+      "lon": 120.80513
+    },
+    {
+      "station_id": "467550",
+      "station_name": "玉山",
+      "lat": 23.48896,
+      "lon": 120.95132
+    },
+    {
+      "station_id": "467480",
+      "station_name": "嘉義",
+      "lat": 23.49768,
+      "lon": 120.4248
+    },
+    {
+      "station_id": "467410",
+      "station_name": "臺南",
+      "lat": 22.99504,
+      "lon": 120.19685
+    },
+    {
+      "station_id": "467441",
+      "station_name": "高雄",
+      "lat": 22.7322,
+      "lon": 120.30446
+    },
+    {
+      "station_id": "467590",
+      "station_name": "恆春",
+      "lat": 22.0057,
+      "lon": 120.73833
     },
     {
       "station_id": "467080",
@@ -3106,16 +3244,166 @@
       "lon": 121.74832
     },
     {
+      "station_id": "466990",
+      "station_name": "花蓮",
+      "lat": 23.97693,
+      "lon": 121.60513
+    },
+    {
+      "station_id": "467610",
+      "station_name": "成功",
+      "lat": 23.0993,
+      "lon": 121.36534
+    },
+    {
+      "station_id": "467660",
+      "station_name": "臺東",
+      "lat": 22.75402,
+      "lon": 121.14652
+    },
+    {
+      "station_id": "467540",
+      "station_name": "大武",
+      "lat": 22.35752,
+      "lon": 120.8957
+    },
+    {
+      "station_id": "467620",
+      "station_name": "蘭嶼",
+      "lat": 22.03874,
+      "lon": 121.55041
+    },
+    {
+      "station_id": "466950",
+      "station_name": "彭佳嶼",
+      "lat": 25.62977,
+      "lon": 122.07147
+    },
+    {
+      "station_id": "467300",
+      "station_name": "東吉島",
+      "lat": 23.259,
+      "lon": 119.65953
+    },
+    {
+      "station_id": "469020",
+      "station_name": "南沙島",
+      "lat": 10.37212,
+      "lon": 114.35694
+    },
+    {
+      "station_id": "468100",
+      "station_name": "東沙島",
+      "lat": 20.70252,
+      "lon": 116.72212
+    },
+    {
+      "station_id": "467420",
+      "station_name": "永康",
+      "lat": 23.04015,
+      "lon": 120.22862
+    },
+    {
+      "station_id": "C2W030",
+      "station_name": "金門(東)",
+      "lat": 24.45007,
+      "lon": 118.44363
+    },
+    {
+      "station_id": "466920",
+      "station_name": "臺北",
+      "lat": 25.03944,
+      "lon": 121.50663
+    },
+    {
+      "station_id": "A0G720",
+      "station_name": "彰師大",
+      "lat": 24.08314,
+      "lon": 120.54851
+    },
+    {
+      "station_id": "A0Z080",
+      "station_name": "合歡山",
+      "lat": 24.14497,
+      "lon": 121.27607
+    },
+    {
+      "station_id": "A0W080",
+      "station_name": "吉貝",
+      "lat": 23.74171,
+      "lon": 119.59604
+    },
+    {
       "station_id": "467110",
       "station_name": "金門",
       "lat": 24.40894,
       "lon": 118.28113
     },
     {
+      "station_id": "467990",
+      "station_name": "馬祖",
+      "lat": 26.17114,
+      "lon": 119.91486
+    },
+    {
+      "station_id": "A0K420",
+      "station_name": "麥寮",
+      "lat": 23.80052,
+      "lon": 120.20957
+    },
+    {
+      "station_id": "467050",
+      "station_name": "新屋",
+      "lat": 25.00848,
+      "lon": 121.03927
+    },
+    {
+      "station_id": "A2K570",
+      "station_name": "古坑(花卉中心)",
+      "lat": 23.6353,
+      "lon": 120.54428
+    },
+    {
+      "station_id": "CAAH60",
+      "station_name": "大安森林",
+      "lat": 25.03133,
+      "lon": 121.52806
+    },
+    {
+      "station_id": "CAHA00",
+      "station_name": "消防署訓練中心",
+      "lat": 23.82313,
+      "lon": 120.7148
+    },
+    {
       "station_id": "467270",
       "station_name": "田中",
       "lat": 23.87556,
       "lon": 120.57315
+    },
+    {
+      "station_id": "CAC040",
+      "station_name": "拉拉山",
+      "lat": 24.7011,
+      "lon": 121.41893
+    },
+    {
+      "station_id": "CAW010",
+      "station_name": "東引",
+      "lat": 26.36054,
+      "lon": 120.47531
+    },
+    {
+      "station_id": "CAP070",
+      "station_name": "高雄燈塔",
+      "lat": 22.61636,
+      "lon": 120.25663
+    },
+    {
+      "station_id": "A0F010",
+      "station_name": "武陵",
+      "lat": 24.35461,
+      "lon": 121.30011
     },
     {
       "station_id": "467280",
@@ -3130,190 +3418,22 @@
       "lon": 120.54379
     },
     {
-      "station_id": "467300",
-      "station_name": "東吉島",
-      "lat": 23.259,
-      "lon": 119.65953
+      "station_id": "C2C410",
+      "station_name": "中央大學",
+      "lat": 24.96942,
+      "lon": 121.17695
     },
     {
-      "station_id": "467350",
-      "station_name": "澎湖",
-      "lat": 23.56722,
-      "lon": 119.55499
+      "station_id": "A0A460",
+      "station_name": "文化大學",
+      "lat": 25.13785,
+      "lon": 121.53166
     },
     {
-      "station_id": "467410",
-      "station_name": "臺南",
-      "lat": 22.99504,
-      "lon": 120.19685
-    },
-    {
-      "station_id": "467420",
-      "station_name": "永康",
-      "lat": 23.04015,
-      "lon": 120.22862
-    },
-    {
-      "station_id": "467441",
-      "station_name": "高雄",
-      "lat": 22.7322,
-      "lon": 120.30446
-    },
-    {
-      "station_id": "467480",
-      "station_name": "嘉義",
-      "lat": 23.49768,
-      "lon": 120.4248
-    },
-    {
-      "station_id": "467490",
-      "station_name": "臺中",
-      "lat": 24.14749,
-      "lon": 120.67592
-    },
-    {
-      "station_id": "467530",
-      "station_name": "阿里山",
-      "lat": 23.50998,
-      "lon": 120.80513
-    },
-    {
-      "station_id": "467540",
-      "station_name": "大武",
-      "lat": 22.35752,
-      "lon": 120.8957
-    },
-    {
-      "station_id": "467550",
-      "station_name": "玉山",
-      "lat": 23.48896,
-      "lon": 120.95132
-    },
-    {
-      "station_id": "467571",
-      "station_name": "新竹",
-      "lat": 24.83034,
-      "lon": 121.00634
-    },
-    {
-      "station_id": "467590",
-      "station_name": "恆春",
-      "lat": 22.0057,
-      "lon": 120.73833
-    },
-    {
-      "station_id": "467610",
-      "station_name": "成功",
-      "lat": 23.0993,
-      "lon": 121.36534
-    },
-    {
-      "station_id": "467620",
-      "station_name": "蘭嶼",
-      "lat": 22.03874,
-      "lon": 121.55041
-    },
-    {
-      "station_id": "467650",
-      "station_name": "日月潭",
-      "lat": 23.8831,
-      "lon": 120.89991
-    },
-    {
-      "station_id": "467660",
-      "station_name": "臺東",
-      "lat": 22.75402,
-      "lon": 121.14652
-    },
-    {
-      "station_id": "467990",
-      "station_name": "馬祖",
-      "lat": 26.17114,
-      "lon": 119.91486
-    },
-    {
-      "station_id": "468100",
-      "station_name": "東沙島",
-      "lat": 20.70252,
-      "lon": 116.72212
-    },
-    {
-      "station_id": "469020",
-      "station_name": "南沙島",
-      "lat": 10.37212,
-      "lon": 114.35694
-    },
-    {
-      "station_id": "72AI40",
-      "station_name": "桃改樹林分場",
-      "lat": 24.94628,
-      "lon": 121.37875
-    },
-    {
-      "station_id": "72C440",
-      "station_name": "桃園農改",
-      "lat": 24.95272,
-      "lon": 121.02237
-    },
-    {
-      "station_id": "72D080",
-      "station_name": "桃改五峰分場",
-      "lat": 24.61398,
-      "lon": 121.14898
-    },
-    {
-      "station_id": "72D680",
-      "station_name": "桃改新埔分場",
-      "lat": 24.836,
-      "lon": 121.058
-    },
-    {
-      "station_id": "72G600",
-      "station_name": "臺中農改",
-      "lat": 24.00478,
-      "lon": 120.52624
-    },
-    {
-      "station_id": "72HA00",
-      "station_name": "中改埔里分場",
-      "lat": 23.90498,
-      "lon": 120.95522
-    },
-    {
-      "station_id": "72K220",
-      "station_name": "南改斗南分場",
-      "lat": 23.6363,
-      "lon": 120.4692
-    },
-    {
-      "station_id": "72M360",
-      "station_name": "南改義竹分場",
-      "lat": 23.36243,
-      "lon": 120.27124
-    },
-    {
-      "station_id": "72M700",
-      "station_name": "南改鹿草分場",
-      "lat": 23.41861,
-      "lon": 120.27494
-    },
-    {
-      "station_id": "72N100",
-      "station_name": "臺南農改",
-      "lat": 23.06224,
-      "lon": 120.3341
-    },
-    {
-      "station_id": "72N240",
-      "station_name": "七股研究中心",
-      "lat": 23.08347,
-      "lon": 120.05479
-    },
-    {
-      "station_id": "72Q010",
-      "station_name": "高雄農改",
-      "lat": 22.71108,
-      "lon": 120.51781
+      "station_id": "A0A010",
+      "station_name": "臺灣大學",
+      "lat": 25.01606,
+      "lon": 121.53119
     },
     {
       "station_id": "72S200",
@@ -3328,16 +3448,34 @@
       "lon": 121.0632
     },
     {
-      "station_id": "72T250",
-      "station_name": "花蓮農改",
-      "lat": 23.97703,
-      "lon": 121.55575
+      "station_id": "82S580",
+      "station_name": "茶改東部分場",
+      "lat": 22.90948,
+      "lon": 121.12206
     },
     {
-      "station_id": "72U480",
-      "station_name": "花改蘭陽分場",
-      "lat": 24.68812,
-      "lon": 121.7084
+      "station_id": "U2H480",
+      "station_name": "臺大溪頭",
+      "lat": 23.67207,
+      "lon": 120.79006
+    },
+    {
+      "station_id": "72G600",
+      "station_name": "臺中農改",
+      "lat": 24.00478,
+      "lon": 120.52624
+    },
+    {
+      "station_id": "72K220",
+      "station_name": "南改斗南分場",
+      "lat": 23.6363,
+      "lon": 120.4692
+    },
+    {
+      "station_id": "72N100",
+      "station_name": "臺南農改",
+      "lat": 23.06224,
+      "lon": 120.3341
     },
     {
       "station_id": "72V140",
@@ -3346,106 +3484,10 @@
       "lon": 120.50858
     },
     {
-      "station_id": "82A750",
-      "station_name": "茶改北部分場",
-      "lat": 24.95759,
-      "lon": 121.62302
-    },
-    {
-      "station_id": "82C160",
-      "station_name": "茶改場",
-      "lat": 24.91026,
-      "lon": 121.17713
-    },
-    {
-      "station_id": "82H320",
-      "station_name": "茶改中部分場",
-      "lat": 23.87738,
-      "lon": 120.90544
-    },
-    {
-      "station_id": "82H840",
-      "station_name": "茶改南部分場",
-      "lat": 23.76429,
-      "lon": 120.73236
-    },
-    {
-      "station_id": "82S580",
-      "station_name": "茶改東部分場",
-      "lat": 22.90948,
-      "lon": 121.12206
-    },
-    {
-      "station_id": "A0A010",
-      "station_name": "臺灣大學",
-      "lat": 25.01606,
-      "lon": 121.53119
-    },
-    {
-      "station_id": "A0A460",
-      "station_name": "文化大學",
-      "lat": 25.13785,
-      "lon": 121.53166
-    },
-    {
-      "station_id": "A0F010",
-      "station_name": "武陵",
-      "lat": 24.35461,
-      "lon": 121.30011
-    },
-    {
-      "station_id": "A0G720",
-      "station_name": "彰師大",
-      "lat": 24.08314,
-      "lon": 120.54851
-    },
-    {
-      "station_id": "A0K420",
-      "station_name": "麥寮",
-      "lat": 23.80052,
-      "lon": 120.20957
-    },
-    {
-      "station_id": "A0W080",
-      "station_name": "吉貝",
-      "lat": 23.74171,
-      "lon": 119.59604
-    },
-    {
-      "station_id": "A0Z080",
-      "station_name": "合歡山",
-      "lat": 24.14497,
-      "lon": 121.27607
-    },
-    {
-      "station_id": "A2C560",
-      "station_name": "農工中心",
-      "lat": 24.98771,
-      "lon": 121.23163
-    },
-    {
-      "station_id": "A2K360",
-      "station_name": "水試臺西試驗場",
-      "lat": 23.71897,
-      "lon": 120.1824
-    },
-    {
-      "station_id": "A2K570",
-      "station_name": "古坑(花卉中心)",
-      "lat": 23.6353,
-      "lon": 120.54428
-    },
-    {
-      "station_id": "A2K630",
-      "station_name": "雲林臺大",
-      "lat": 23.73238,
-      "lon": 120.41578
-    },
-    {
-      "station_id": "A2N290",
-      "station_name": "蘭花園區",
-      "lat": 23.34202,
-      "lon": 120.37156
+      "station_id": "72Q010",
+      "station_name": "高雄農改",
+      "lat": 22.71108,
+      "lon": 120.51781
     },
     {
       "station_id": "B2E890",
@@ -3454,10 +3496,100 @@
       "lon": 120.76279
     },
     {
+      "station_id": "72C440",
+      "station_name": "桃園農改",
+      "lat": 24.95272,
+      "lon": 121.02237
+    },
+    {
+      "station_id": "72D080",
+      "station_name": "桃改五峰分場",
+      "lat": 24.61398,
+      "lon": 121.14898
+    },
+    {
+      "station_id": "82C160",
+      "station_name": "茶改場",
+      "lat": 24.91026,
+      "lon": 121.17713
+    },
+    {
+      "station_id": "A2C560",
+      "station_name": "農工中心",
+      "lat": 24.98771,
+      "lon": 121.23163
+    },
+    {
+      "station_id": "82A750",
+      "station_name": "茶改北部分場",
+      "lat": 24.95759,
+      "lon": 121.62302
+    },
+    {
+      "station_id": "72U480",
+      "station_name": "花改蘭陽分場",
+      "lat": 24.68812,
+      "lon": 121.7084
+    },
+    {
+      "station_id": "K2E360",
+      "station_name": "苗栗農改",
+      "lat": 24.49749,
+      "lon": 120.82093
+    },
+    {
+      "station_id": "K2E710",
+      "station_name": "苗改生物防治研究中心",
+      "lat": 24.42463,
+      "lon": 120.86366
+    },
+    {
+      "station_id": "K2F750",
+      "station_name": "種苗繁殖",
+      "lat": 24.22774,
+      "lon": 120.79275
+    },
+    {
+      "station_id": "82H840",
+      "station_name": "茶改南部分場",
+      "lat": 23.76429,
+      "lon": 120.73236
+    },
+    {
+      "station_id": "82H320",
+      "station_name": "茶改中部分場",
+      "lat": 23.87738,
+      "lon": 120.90544
+    },
+    {
+      "station_id": "U2HA50",
+      "station_name": "臺大竹山",
+      "lat": 23.75873,
+      "lon": 120.67342
+    },
+    {
+      "station_id": "G2L020",
+      "station_name": "農試嘉義分所",
+      "lat": 23.48678,
+      "lon": 120.46568
+    },
+    {
+      "station_id": "72M360",
+      "station_name": "南改義竹分場",
+      "lat": 23.36243,
+      "lon": 120.27124
+    },
+    {
       "station_id": "B2N890",
       "station_name": "畜試所",
       "lat": 23.06071,
       "lon": 120.32831
+    },
+    {
+      "station_id": "G2P820",
+      "station_name": "農試鳳山分所",
+      "lat": 22.64835,
+      "lon": 120.34801
     },
     {
       "station_id": "B2Q810",
@@ -3466,172 +3598,280 @@
       "lon": 120.79414
     },
     {
+      "station_id": "72T250",
+      "station_name": "花蓮農改",
+      "lat": 23.97703,
+      "lon": 121.55575
+    },
+    {
+      "station_id": "E2H360",
+      "station_name": "蓮華池",
+      "lat": 23.92011,
+      "lon": 120.87714
+    },
+    {
+      "station_id": "72HA00",
+      "station_name": "中改埔里分場",
+      "lat": 23.90498,
+      "lon": 120.95522
+    },
+    {
+      "station_id": "U2HA30",
+      "station_name": "臺大和社",
+      "lat": 23.59263,
+      "lon": 120.88074
+    },
+    {
+      "station_id": "U2HA40",
+      "station_name": "臺大內茅埔",
+      "lat": 23.6915,
+      "lon": 120.84299
+    },
+    {
+      "station_id": "G2M350",
+      "station_name": "農試溪口農場",
+      "lat": 23.58741,
+      "lon": 120.39999
+    },
+    {
+      "station_id": "E2K600",
+      "station_name": "四湖植物園",
+      "lat": 23.67872,
+      "lon": 120.1553
+    },
+    {
+      "station_id": "G2F820",
+      "station_name": "農業試驗所",
+      "lat": 24.03302,
+      "lon": 120.67999
+    },
+    {
+      "station_id": "72M700",
+      "station_name": "南改鹿草分場",
+      "lat": 23.41861,
+      "lon": 120.27494
+    },
+    {
+      "station_id": "72N240",
+      "station_name": "七股研究中心",
+      "lat": 23.08347,
+      "lon": 120.05479
+    },
+    {
+      "station_id": "42HA10",
+      "station_name": "萬大發電廠",
+      "lat": 23.98061,
+      "lon": 121.1315
+    },
+    {
+      "station_id": "12Q970",
+      "station_name": "東港工作站",
+      "lat": 22.48178,
+      "lon": 120.45802
+    },
+    {
+      "station_id": "12J990",
+      "station_name": "口湖工作站",
+      "lat": 23.59172,
+      "lon": 120.17228
+    },
+    {
+      "station_id": "12Q980",
+      "station_name": "恆春工作站",
+      "lat": 22.08148,
+      "lon": 120.70641
+    },
+    {
+      "station_id": "V2K610",
+      "station_name": "大庄合作社",
+      "lat": 23.80855,
+      "lon": 120.35981
+    },
+    {
+      "station_id": "V2K620",
+      "station_name": "麥寮合作社",
+      "lat": 23.75558,
+      "lon": 120.28666
+    },
+    {
+      "station_id": "E2S980",
+      "station_name": "太麻里(1)",
+      "lat": 22.60072,
+      "lon": 120.97199
+    },
+    {
+      "station_id": "E2S960",
+      "station_name": "太麻里(2)",
+      "lat": 22.5998,
+      "lon": 120.9897
+    },
+    {
+      "station_id": "72AI40",
+      "station_name": "桃改樹林分場",
+      "lat": 24.94628,
+      "lon": 121.37875
+    },
+    {
+      "station_id": "E2HA20",
+      "station_name": "畢祿溪站",
+      "lat": 24.22873,
+      "lon": 121.30036
+    },
+    {
+      "station_id": "A2N290",
+      "station_name": "蘭花園區",
+      "lat": 23.34202,
+      "lon": 120.37156
+    },
+    {
       "station_id": "B2U990",
       "station_name": "畜試東區分所",
       "lat": 24.67084,
       "lon": 121.82436
     },
     {
-      "station_id": "C0FA30",
-      "station_name": "梧棲",
-      "lat": 24.25775,
-      "lon": 120.51521
+      "station_id": "A2K630",
+      "station_name": "雲林臺大",
+      "lat": 23.73238,
+      "lon": 120.41578
     },
     {
-      "station_id": "C2A540",
-      "station_name": "四堵",
-      "lat": 24.89439,
-      "lon": 121.73752
+      "station_id": "E2P980",
+      "station_name": "六龜林試",
+      "lat": 22.99348,
+      "lon": 120.63765
     },
     {
-      "station_id": "C2A560",
-      "station_name": "福山",
-      "lat": 24.77833,
-      "lon": 121.49458
+      "station_id": "E2P990",
+      "station_name": "扇平林試",
+      "lat": 22.96948,
+      "lon": 120.67763
     },
     {
-      "station_id": "C2A650",
-      "station_name": "火燒寮",
-      "lat": 25.00441,
-      "lon": 121.73457
+      "station_id": "A2K360",
+      "station_name": "水試臺西試驗場",
+      "lat": 23.71897,
+      "lon": 120.1824
     },
     {
-      "station_id": "C2A660",
-      "station_name": "瑞芳",
-      "lat": 25.11486,
-      "lon": 121.79264
+      "station_id": "72D680",
+      "station_name": "桃改新埔分場",
+      "lat": 24.836,
+      "lon": 121.058
     },
     {
-      "station_id": "C2A880",
-      "station_name": "福隆",
-      "lat": 25.01917,
-      "lon": 121.93417
+      "station_id": "CAN130",
+      "station_name": "水試所海水繁養殖中心",
+      "lat": 23.12255,
+      "lon": 120.07159
     },
     {
-      "station_id": "C2A920",
-      "station_name": "富貴角",
-      "lat": 25.26556,
-      "lon": 121.55728
+      "station_id": "CAL110",
+      "station_name": "布袋國中",
+      "lat": 23.36068,
+      "lon": 120.17216
     },
     {
-      "station_id": "C2AA10",
-      "station_name": "中八仙",
-      "lat": 25.11754,
-      "lon": 121.48376
+      "station_id": "CAG100",
+      "station_name": "王功漁港",
+      "lat": 23.96998,
+      "lon": 120.31772
     },
     {
-      "station_id": "C2AK30",
-      "station_name": "信賢",
-      "lat": 24.84286,
-      "lon": 121.52671
+      "station_id": "CAJ050",
+      "station_name": "海口故事園區",
+      "lat": 23.57717,
+      "lon": 120.1331
     },
     {
-      "station_id": "C2AK40",
-      "station_name": "漁光",
-      "lat": 24.97054,
-      "lon": 121.7131
+      "station_id": "CAN140",
+      "station_name": "六官養殖協會",
+      "lat": 23.23057,
+      "lon": 120.29153
     },
     {
-      "station_id": "C2C410",
-      "station_name": "中央大學",
-      "lat": 24.96942,
-      "lon": 121.17695
+      "station_id": "CAQ030",
+      "station_name": "崎峰國小",
+      "lat": 22.42743,
+      "lon": 120.48717
     },
     {
-      "station_id": "C2C480",
-      "station_name": "桃園",
-      "lat": 24.99426,
-      "lon": 121.31504
+      "station_id": "C2M960",
+      "station_name": "外寮",
+      "lat": 23.56441,
+      "lon": 120.65757
     },
     {
-      "station_id": "C2C590",
-      "station_name": "觀音",
-      "lat": 25.02884,
-      "lon": 121.14509
+      "station_id": "C2M970",
+      "station_name": "碧湖",
+      "lat": 23.5704,
+      "lon": 120.61605
     },
     {
-      "station_id": "C2C810",
-      "station_name": "八德蔬果",
-      "lat": 24.98035,
-      "lon": 121.27365
+      "station_id": "C2R170",
+      "station_name": "屏東",
+      "lat": 22.66205,
+      "lon": 120.48597
     },
     {
-      "station_id": "C2C830",
-      "station_name": "中德",
-      "lat": 24.98363,
-      "lon": 121.28312
+      "station_id": "C2V310",
+      "station_name": "美濃",
+      "lat": 22.90057,
+      "lon": 120.511
     },
     {
-      "station_id": "C2D430",
-      "station_name": "峨眉",
-      "lat": 24.69239,
-      "lon": 121.00908
+      "station_id": "C2M980",
+      "station_name": "安和",
+      "lat": 23.51552,
+      "lon": 120.30782
     },
     {
-      "station_id": "C2D480",
-      "station_name": "打鐵坑",
-      "lat": 24.85175,
-      "lon": 121.14261
+      "station_id": "C2M990",
+      "station_name": "大巃頂",
+      "lat": 23.55647,
+      "lon": 120.60627
     },
     {
-      "station_id": "C2D720",
-      "station_name": "關西工作站",
-      "lat": 24.75905,
-      "lon": 121.17659
+      "station_id": "C2N170",
+      "station_name": "茅港尾",
+      "lat": 23.20786,
+      "lon": 120.25431
     },
     {
-      "station_id": "C2D730",
-      "station_name": "寶山農場",
-      "lat": 24.7342,
-      "lon": 120.96795
+      "station_id": "C2R980",
+      "station_name": "竹田國中",
+      "lat": 22.6171,
+      "lon": 120.51607
     },
     {
-      "station_id": "C2D770",
-      "station_name": "巨埔",
-      "lat": 24.84611,
-      "lon": 121.10621
+      "station_id": "C2R990",
+      "station_name": "泰武",
+      "lat": 22.60865,
+      "lon": 120.6896
     },
     {
-      "station_id": "C2D790",
-      "station_name": "石鹿",
-      "lat": 24.56728,
-      "lon": 121.15022
+      "station_id": "C2TA60",
+      "station_name": "六十石",
+      "lat": 23.22658,
+      "lon": 121.31051
     },
     {
-      "station_id": "C2E420",
-      "station_name": "竹南",
-      "lat": 24.71074,
-      "lon": 120.88077
+      "station_id": "C2TA70",
+      "station_name": "赤科坪",
+      "lat": 23.40066,
+      "lon": 121.38357
     },
     {
-      "station_id": "C2E430",
-      "station_name": "南庄",
-      "lat": 24.60354,
-      "lon": 120.99202
+      "station_id": "C2UC10",
+      "station_name": "出水溪",
+      "lat": 24.61762,
+      "lon": 121.64406
     },
     {
-      "station_id": "C2E520",
-      "station_name": "大湖",
-      "lat": 24.4167,
-      "lon": 120.86269
-    },
-    {
-      "station_id": "C2E540",
-      "station_name": "龍溪",
-      "lat": 24.60806,
-      "lon": 120.77556
-    },
-    {
-      "station_id": "C2E880",
-      "station_name": "三義",
-      "lat": 24.40724,
-      "lon": 120.74164
-    },
-    {
-      "station_id": "C2E970",
-      "station_name": "八甲",
-      "lat": 24.53757,
-      "lon": 120.7878
+      "station_id": "C2UC20",
+      "station_name": "長嶺",
+      "lat": 24.71073,
+      "lon": 121.60342
     },
     {
       "station_id": "C2E980",
@@ -3646,88 +3886,130 @@
       "lon": 120.84923
     },
     {
-      "station_id": "C2EA10",
-      "station_name": "拉庫斯",
-      "lat": 24.53814,
-      "lon": 121.01318
+      "station_id": "C2H9Y0",
+      "station_name": "松茗",
+      "lat": 23.81846,
+      "lon": 120.64263
     },
     {
-      "station_id": "C2F000",
-      "station_name": "大肚",
-      "lat": 24.15467,
-      "lon": 120.564
+      "station_id": "C2RA10",
+      "station_name": "大新",
+      "lat": 22.67736,
+      "lon": 120.56982
     },
     {
-      "station_id": "C2F860",
-      "station_name": "梨山",
-      "lat": 24.245,
-      "lon": 121.23767
+      "station_id": "C2TA90",
+      "station_name": "加納納",
+      "lat": 23.46822,
+      "lon": 121.35175
     },
     {
-      "station_id": "C2F930",
-      "station_name": "大甲",
-      "lat": 24.34992,
-      "lon": 120.63236
+      "station_id": "C2TB30",
+      "station_name": "吉安",
+      "lat": 23.94718,
+      "lon": 121.53988
     },
     {
-      "station_id": "C2F990",
-      "station_name": "摩天嶺",
-      "lat": 24.32422,
-      "lon": 120.92865
+      "station_id": "C2K290",
+      "station_name": "崙內",
+      "lat": 23.697,
+      "lon": 120.34789
     },
     {
-      "station_id": "C2F9A0",
-      "station_name": "中竹林",
-      "lat": 24.10556,
-      "lon": 120.74333
+      "station_id": "C2K301",
+      "station_name": "鹿南",
+      "lat": 23.64508,
+      "lon": 120.36017
     },
     {
-      "station_id": "C2FA00",
-      "station_name": "烏石坑",
-      "lat": 24.27527,
-      "lon": 120.93945
+      "station_id": "C2K250",
+      "station_name": "崙背",
+      "lat": 23.75728,
+      "lon": 120.3108
     },
     {
-      "station_id": "C2FB50",
-      "station_name": "出雲",
-      "lat": 24.20824,
-      "lon": 120.89463
+      "station_id": "C2K280",
+      "station_name": "四湖",
+      "lat": 23.63215,
+      "lon": 120.21905
     },
     {
-      "station_id": "C2FB60",
-      "station_name": "頭櫃山",
-      "lat": 24.13161,
-      "lon": 120.85077
+      "station_id": "C2X060",
+      "station_name": "下營",
+      "lat": 23.22856,
+      "lon": 120.2482
     },
     {
-      "station_id": "C2G640",
-      "station_name": "鹿港",
-      "lat": 24.07694,
-      "lon": 120.42222
+      "station_id": "C2S9B0",
+      "station_name": "利吉",
+      "lat": 22.86426,
+      "lon": 121.14679
     },
     {
-      "station_id": "C2G840",
-      "station_name": "北斗",
-      "lat": 23.87922,
-      "lon": 120.50653
+      "station_id": "C2S9A0",
+      "station_name": "北份子寮",
+      "lat": 22.78741,
+      "lon": 121.07006
     },
     {
-      "station_id": "C2G870",
-      "station_name": "芳苑",
-      "lat": 23.924,
-      "lon": 120.31186
+      "station_id": "C2SD50",
+      "station_name": "順那",
+      "lat": 23.04347,
+      "lon": 121.28524
     },
     {
-      "station_id": "C2G980",
-      "station_name": "田頭村",
-      "lat": 23.82805,
-      "lon": 120.43604
+      "station_id": "C2SD70",
+      "station_name": "二層坪",
+      "lat": 22.94285,
+      "lon": 121.1603
     },
     {
-      "station_id": "C2G9A0",
-      "station_name": "畜試所彰化",
-      "lat": 23.86221,
-      "lon": 120.54983
+      "station_id": "C2SD60",
+      "station_name": "明峰",
+      "lat": 22.8689,
+      "lon": 121.11018
+    },
+    {
+      "station_id": "C2SD80",
+      "station_name": "再來山",
+      "lat": 23.34552,
+      "lon": 121.43312
+    },
+    {
+      "station_id": "C2TB80",
+      "station_name": "庄子底",
+      "lat": 23.71974,
+      "lon": 121.48625
+    },
+    {
+      "station_id": "C2TB90",
+      "station_name": "長橋",
+      "lat": 23.6892,
+      "lon": 121.45373
+    },
+    {
+      "station_id": "C2TB50",
+      "station_name": "麻汝",
+      "lat": 23.42734,
+      "lon": 121.38547
+    },
+    {
+      "station_id": "C2TB70",
+      "station_name": "達谷寮",
+      "lat": 23.3818,
+      "lon": 121.35157
+    },
+    {
+      "station_id": "C2TB60",
+      "station_name": "南安",
+      "lat": 23.29998,
+      "lon": 121.25347
+    },
+    {
+      "station_id": "C2H9X0",
+      "station_name": "福盛",
+      "lat": 23.8953,
+      "lon": 120.83263
     },
     {
       "station_id": "C2G9C0",
@@ -3742,10 +4024,526 @@
       "lon": 120.39469
     },
     {
+      "station_id": "C2K310",
+      "station_name": "港尾布雞",
+      "lat": 23.75009,
+      "lon": 120.37626
+    },
+    {
+      "station_id": "C2M9A0",
+      "station_name": "大華",
+      "lat": 23.48417,
+      "lon": 120.6668
+    },
+    {
+      "station_id": "C2M9D0",
+      "station_name": "何竹子腳",
+      "lat": 23.53817,
+      "lon": 120.37392
+    },
+    {
+      "station_id": "C2M9C0",
+      "station_name": "紫雲",
+      "lat": 23.49668,
+      "lon": 120.53214
+    },
+    {
+      "station_id": "C2M9E0",
+      "station_name": "旺來山",
+      "lat": 23.55691,
+      "lon": 120.47835
+    },
+    {
+      "station_id": "C2M9B0",
+      "station_name": "西興",
+      "lat": 23.24457,
+      "lon": 120.56808
+    },
+    {
+      "station_id": "C2N190",
+      "station_name": "烏樹",
+      "lat": 23.32569,
+      "lon": 120.36179
+    },
+    {
+      "station_id": "C2N180",
+      "station_name": "鹿陶洋",
+      "lat": 23.14502,
+      "lon": 120.47543
+    },
+    {
+      "station_id": "C2V920",
+      "station_name": "匏子寮",
+      "lat": 23.05082,
+      "lon": 120.54511
+    },
+    {
+      "station_id": "C2V580",
+      "station_name": "瑞山",
+      "lat": 22.90481,
+      "lon": 120.42617
+    },
+    {
+      "station_id": "C2R9A0",
+      "station_name": "高士國小",
+      "lat": 22.12733,
+      "lon": 120.83851
+    },
+    {
+      "station_id": "C2M530",
+      "station_name": "奮起湖",
+      "lat": 23.49567,
+      "lon": 120.69114
+    },
+    {
+      "station_id": "C2M810",
+      "station_name": "里佳",
+      "lat": 23.3909,
+      "lon": 120.70854
+    },
+    {
+      "station_id": "C2C590",
+      "station_name": "觀音",
+      "lat": 25.02884,
+      "lon": 121.14509
+    },
+    {
+      "station_id": "C2E420",
+      "station_name": "竹南",
+      "lat": 24.71074,
+      "lon": 120.88077
+    },
+    {
+      "station_id": "C2E430",
+      "station_name": "南庄",
+      "lat": 24.60354,
+      "lon": 120.99202
+    },
+    {
+      "station_id": "C2AA10",
+      "station_name": "中八仙",
+      "lat": 25.11754,
+      "lon": 121.48376
+    },
+    {
+      "station_id": "C2AK40",
+      "station_name": "漁光",
+      "lat": 24.97054,
+      "lon": 121.7131
+    },
+    {
+      "station_id": "C2AK30",
+      "station_name": "信賢",
+      "lat": 24.84286,
+      "lon": 121.52671
+    },
+    {
+      "station_id": "C2C830",
+      "station_name": "中德",
+      "lat": 24.98363,
+      "lon": 121.28312
+    },
+    {
+      "station_id": "C2C810",
+      "station_name": "八德蔬果",
+      "lat": 24.98035,
+      "lon": 121.27365
+    },
+    {
+      "station_id": "C2D770",
+      "station_name": "巨埔",
+      "lat": 24.84611,
+      "lon": 121.10621
+    },
+    {
+      "station_id": "C2EA10",
+      "station_name": "拉庫斯",
+      "lat": 24.53814,
+      "lon": 121.01318
+    },
+    {
+      "station_id": "C2UC40",
+      "station_name": "中城",
+      "lat": 24.63045,
+      "lon": 121.73925
+    },
+    {
+      "station_id": "C2UC30",
+      "station_name": "金洋",
+      "lat": 24.42645,
+      "lon": 121.73755
+    },
+    {
+      "station_id": "C2D480",
+      "station_name": "打鐵坑",
+      "lat": 24.85175,
+      "lon": 121.14261
+    },
+    {
+      "station_id": "C2D430",
+      "station_name": "峨眉",
+      "lat": 24.69239,
+      "lon": 121.00908
+    },
+    {
+      "station_id": "C2C480",
+      "station_name": "桃園",
+      "lat": 24.99426,
+      "lon": 121.31504
+    },
+    {
+      "station_id": "C2S890",
+      "station_name": "關山",
+      "lat": 23.0413,
+      "lon": 121.16693
+    },
+    {
+      "station_id": "C2O880",
+      "station_name": "南化",
+      "lat": 23.17509,
+      "lon": 120.58604
+    },
+    {
+      "station_id": "C2SA40",
+      "station_name": "瑞和",
+      "lat": 22.97616,
+      "lon": 121.14862
+    },
+    {
+      "station_id": "C2R550",
+      "station_name": "新埤",
+      "lat": 22.46973,
+      "lon": 120.57485
+    },
+    {
+      "station_id": "C2V570",
+      "station_name": "吉東",
+      "lat": 22.85596,
+      "lon": 120.53732
+    },
+    {
+      "station_id": "C2S800",
+      "station_name": "華源",
+      "lat": 22.65963,
+      "lon": 121.01514
+    },
+    {
+      "station_id": "C2O850",
+      "station_name": "環湖",
+      "lat": 23.15043,
+      "lon": 120.41051
+    },
+    {
+      "station_id": "C2I210",
+      "station_name": "蘆竹湳",
+      "lat": 23.93575,
+      "lon": 120.80395
+    },
+    {
+      "station_id": "C2R240",
+      "station_name": "萬巒",
+      "lat": 22.52909,
+      "lon": 120.61706
+    },
+    {
+      "station_id": "C2R260",
+      "station_name": "春日",
+      "lat": 22.37215,
+      "lon": 120.62027
+    },
+    {
+      "station_id": "C2R490",
+      "station_name": "九如",
+      "lat": 22.74227,
+      "lon": 120.4825
+    },
+    {
+      "station_id": "C2N200",
+      "station_name": "口宵里",
+      "lat": 23.16164,
+      "lon": 120.45179
+    },
+    {
+      "station_id": "C2N210",
+      "station_name": "岩坑",
+      "lat": 23.24791,
+      "lon": 120.46649
+    },
+    {
+      "station_id": "C2M9F0",
+      "station_name": "安溪寮",
+      "lat": 23.35209,
+      "lon": 120.19994
+    },
+    {
+      "station_id": "C2M9G0",
+      "station_name": "沄水",
+      "lat": 23.3847,
+      "lon": 120.51856
+    },
+    {
+      "station_id": "C2I240",
+      "station_name": "外大坪",
+      "lat": 23.96047,
+      "lon": 120.90973
+    },
+    {
+      "station_id": "C2I260",
+      "station_name": "北坑",
+      "lat": 23.92641,
+      "lon": 120.99869
+    },
+    {
+      "station_id": "C2D790",
+      "station_name": "石鹿",
+      "lat": 24.56728,
+      "lon": 121.15022
+    },
+    {
+      "station_id": "C2W230",
+      "station_name": "畜試所澎湖",
+      "lat": 23.63005,
+      "lon": 119.50509
+    },
+    {
+      "station_id": "C2E880",
+      "station_name": "三義",
+      "lat": 24.40724,
+      "lon": 120.74164
+    },
+    {
+      "station_id": "C2FA00",
+      "station_name": "烏石坑",
+      "lat": 24.27527,
+      "lon": 120.93945
+    },
+    {
+      "station_id": "C2F9A0",
+      "station_name": "中竹林",
+      "lat": 24.10556,
+      "lon": 120.74333
+    },
+    {
+      "station_id": "C2G840",
+      "station_name": "北斗",
+      "lat": 23.87922,
+      "lon": 120.50653
+    },
+    {
       "station_id": "C2H950",
       "station_name": "中寮",
       "lat": 23.88628,
       "lon": 120.75853
+    },
+    {
+      "station_id": "C2I090",
+      "station_name": "鳳凰",
+      "lat": 23.72972,
+      "lon": 120.77917
+    },
+    {
+      "station_id": "C2F860",
+      "station_name": "梨山",
+      "lat": 24.245,
+      "lon": 121.23767
+    },
+    {
+      "station_id": "C2K240",
+      "station_name": "草嶺",
+      "lat": 23.59732,
+      "lon": 120.68534
+    },
+    {
+      "station_id": "C2E520",
+      "station_name": "大湖",
+      "lat": 24.4167,
+      "lon": 120.86269
+    },
+    {
+      "station_id": "C2F000",
+      "station_name": "大肚",
+      "lat": 24.15467,
+      "lon": 120.564
+    },
+    {
+      "station_id": "C2E540",
+      "station_name": "龍溪",
+      "lat": 24.60806,
+      "lon": 120.77556
+    },
+    {
+      "station_id": "C2F930",
+      "station_name": "大甲",
+      "lat": 24.34992,
+      "lon": 120.63236
+    },
+    {
+      "station_id": "C2G870",
+      "station_name": "芳苑",
+      "lat": 23.924,
+      "lon": 120.31186
+    },
+    {
+      "station_id": "C2G640",
+      "station_name": "鹿港",
+      "lat": 24.07694,
+      "lon": 120.42222
+    },
+    {
+      "station_id": "C2M910",
+      "station_name": "嘉義大學",
+      "lat": 23.47309,
+      "lon": 120.4778
+    },
+    {
+      "station_id": "C2O950",
+      "station_name": "安南",
+      "lat": 23.07833,
+      "lon": 120.13667
+    },
+    {
+      "station_id": "C2M410",
+      "station_name": "馬頭山",
+      "lat": 23.32639,
+      "lon": 120.57361
+    },
+    {
+      "station_id": "C2O810",
+      "station_name": "曾文",
+      "lat": 23.22147,
+      "lon": 120.48922
+    },
+    {
+      "station_id": "C2O930",
+      "station_name": "玉井",
+      "lat": 23.12783,
+      "lon": 120.45247
+    },
+    {
+      "station_id": "C2V260",
+      "station_name": "月眉",
+      "lat": 22.97278,
+      "lon": 120.53178
+    },
+    {
+      "station_id": "C2V250",
+      "station_name": "甲仙",
+      "lat": 23.08167,
+      "lon": 120.5825
+    },
+    {
+      "station_id": "C2N160",
+      "station_name": "西拉雅風管處",
+      "lat": 23.19124,
+      "lon": 120.32721
+    },
+    {
+      "station_id": "C2A920",
+      "station_name": "富貴角",
+      "lat": 25.26556,
+      "lon": 121.55728
+    },
+    {
+      "station_id": "C2A880",
+      "station_name": "福隆",
+      "lat": 25.01917,
+      "lon": 121.93417
+    },
+    {
+      "station_id": "C2A540",
+      "station_name": "四堵",
+      "lat": 24.89439,
+      "lon": 121.73752
+    },
+    {
+      "station_id": "C2A560",
+      "station_name": "福山",
+      "lat": 24.77833,
+      "lon": 121.49458
+    },
+    {
+      "station_id": "C2D720",
+      "station_name": "關西工作站",
+      "lat": 24.75905,
+      "lon": 121.17659
+    },
+    {
+      "station_id": "C2D730",
+      "station_name": "寶山農場",
+      "lat": 24.7342,
+      "lon": 120.96795
+    },
+    {
+      "station_id": "C2H9K0",
+      "station_name": "屯原",
+      "lat": 24.06975,
+      "lon": 121.20123
+    },
+    {
+      "station_id": "C2G980",
+      "station_name": "田頭村",
+      "lat": 23.82805,
+      "lon": 120.43604
+    },
+    {
+      "station_id": "C2K610",
+      "station_name": "草嶺石壁",
+      "lat": 23.60424,
+      "lon": 120.69961
+    },
+    {
+      "station_id": "C2F990",
+      "station_name": "摩天嶺",
+      "lat": 24.32422,
+      "lon": 120.92865
+    },
+    {
+      "station_id": "C2M920",
+      "station_name": "朴子農改",
+      "lat": 23.47164,
+      "lon": 120.25128
+    },
+    {
+      "station_id": "C2M620",
+      "station_name": "瑞里",
+      "lat": 23.5469,
+      "lon": 120.66704
+    },
+    {
+      "station_id": "C2A660",
+      "station_name": "瑞芳",
+      "lat": 25.11486,
+      "lon": 121.79264
+    },
+    {
+      "station_id": "C2A650",
+      "station_name": "火燒寮",
+      "lat": 25.00441,
+      "lon": 121.73457
+    },
+    {
+      "station_id": "C2H9W0",
+      "station_name": "大坪頂農水",
+      "lat": 24.04489,
+      "lon": 120.92463
+    },
+    {
+      "station_id": "C2K620",
+      "station_name": "馬光農場",
+      "lat": 23.72321,
+      "lon": 120.37074
+    },
+    {
+      "station_id": "C2FB50",
+      "station_name": "出雲",
+      "lat": 24.20824,
+      "lon": 120.89463
+    },
+    {
+      "station_id": "C2FB60",
+      "station_name": "頭櫃山",
+      "lat": 24.13161,
+      "lon": 120.85077
     },
     {
       "station_id": "C2H9D0",
@@ -3772,22 +4570,52 @@
       "lon": 120.90121
     },
     {
+      "station_id": "C2M930",
+      "station_name": "石卓",
+      "lat": 23.48052,
+      "lon": 120.69415
+    },
+    {
+      "station_id": "C2M940",
+      "station_name": "日野賀",
+      "lat": 23.43583,
+      "lon": 120.71906
+    },
+    {
+      "station_id": "C2M950",
+      "station_name": "太和",
+      "lat": 23.54014,
+      "lon": 120.69485
+    },
+    {
+      "station_id": "C2K630",
+      "station_name": "荷苞",
+      "lat": 23.65948,
+      "lon": 120.58702
+    },
+    {
       "station_id": "C2H9H0",
       "station_name": "苗改南投蜂場",
       "lat": 23.85435,
       "lon": 120.68534
     },
     {
+      "station_id": "C2G9A0",
+      "station_name": "畜試所彰化",
+      "lat": 23.86221,
+      "lon": 120.54983
+    },
+    {
+      "station_id": "C2E970",
+      "station_name": "八甲",
+      "lat": 24.53757,
+      "lon": 120.7878
+    },
+    {
       "station_id": "C2H9J0",
       "station_name": "中台",
       "lat": 24.00137,
       "lon": 120.93059
-    },
-    {
-      "station_id": "C2H9K0",
-      "station_name": "屯原",
-      "lat": 24.06975,
-      "lon": 121.20123
     },
     {
       "station_id": "C2H9L0",
@@ -3832,6 +4660,12 @@
       "lon": 120.82504
     },
     {
+      "station_id": "C2R970",
+      "station_name": "屏科大",
+      "lat": 22.65006,
+      "lon": 120.61119
+    },
+    {
       "station_id": "C2H9T0",
       "station_name": "名間竹圍",
       "lat": 23.86168,
@@ -3844,544 +4678,214 @@
       "lon": 120.77993
     },
     {
-      "station_id": "C2H9W0",
-      "station_name": "大坪頂農水",
-      "lat": 24.04489,
-      "lon": 120.92463
+      "station_id": "CAF010",
+      "station_name": "國一N174K",
+      "lat": 24.20666,
+      "lon": 120.64704
     },
     {
-      "station_id": "C2H9X0",
-      "station_name": "福盛",
-      "lat": 23.8953,
-      "lon": 120.83263
+      "station_id": "CAG010",
+      "station_name": "國一N198K",
+      "lat": 24.06564,
+      "lon": 120.5149
     },
     {
-      "station_id": "C2H9Y0",
-      "station_name": "松茗",
-      "lat": 23.81846,
-      "lon": 120.64263
+      "station_id": "CAJ020",
+      "station_name": "國一N234K",
+      "lat": 23.74808,
+      "lon": 120.45979
     },
     {
-      "station_id": "C2I090",
-      "station_name": "鳳凰",
-      "lat": 23.72972,
-      "lon": 120.77917
+      "station_id": "CAL010",
+      "station_name": "國一N250K",
+      "lat": 23.61204,
+      "lon": 120.42874
     },
     {
-      "station_id": "C2I210",
-      "station_name": "蘆竹湳",
-      "lat": 23.93575,
-      "lon": 120.80395
+      "station_id": "CAD010",
+      "station_name": "國一S105K",
+      "lat": 24.72809,
+      "lon": 120.93245
     },
     {
-      "station_id": "C2I240",
-      "station_name": "外大坪",
-      "lat": 23.96047,
-      "lon": 120.90973
+      "station_id": "CAE020",
+      "station_name": "國一S114K",
+      "lat": 24.67059,
+      "lon": 120.87762
     },
     {
-      "station_id": "C2I260",
-      "station_name": "北坑",
-      "lat": 23.92641,
-      "lon": 120.99869
+      "station_id": "CAE030",
+      "station_name": "國一S123K",
+      "lat": 24.59771,
+      "lon": 120.85252
     },
     {
-      "station_id": "C2K240",
-      "station_name": "草嶺",
-      "lat": 23.59732,
-      "lon": 120.68534
+      "station_id": "CAE040",
+      "station_name": "國一S132K",
+      "lat": 24.52627,
+      "lon": 120.81265
     },
     {
-      "station_id": "C2K250",
-      "station_name": "崙背",
-      "lat": 23.75728,
-      "lon": 120.3108
+      "station_id": "CAE050",
+      "station_name": "國一S152K",
+      "lat": 24.37725,
+      "lon": 120.74101
     },
     {
-      "station_id": "C2K280",
-      "station_name": "四湖",
-      "lat": 23.63215,
-      "lon": 120.21905
+      "station_id": "CAF020",
+      "station_name": "國一S162K",
+      "lat": 24.29729,
+      "lon": 120.68781
     },
     {
-      "station_id": "C2K290",
-      "station_name": "崙內",
-      "lat": 23.697,
-      "lon": 120.34789
+      "station_id": "CAF030",
+      "station_name": "國一S169K",
+      "lat": 24.23888,
+      "lon": 120.6801
     },
     {
-      "station_id": "C2K300",
-      "station_name": "鹿南",
-      "lat": 23.6403,
-      "lon": 120.35548
+      "station_id": "CAF040",
+      "station_name": "國一S188K",
+      "lat": 24.1203,
+      "lon": 120.57759
     },
     {
-      "station_id": "C2K310",
-      "station_name": "港尾布雞",
-      "lat": 23.75009,
-      "lon": 120.37626
+      "station_id": "CAG030",
+      "station_name": "國一S207K",
+      "lat": 23.99005,
+      "lon": 120.49994
     },
     {
-      "station_id": "C2K610",
-      "station_name": "草嶺石壁",
-      "lat": 23.60424,
-      "lon": 120.69961
+      "station_id": "CAE060",
+      "station_name": "國三N119K",
+      "lat": 24.6772,
+      "lon": 120.8392
     },
     {
-      "station_id": "C2K620",
-      "station_name": "馬光農場",
-      "lat": 23.72321,
-      "lon": 120.37074
+      "station_id": "CAE070",
+      "station_name": "國三N151K",
+      "lat": 24.44198,
+      "lon": 120.67348
     },
     {
-      "station_id": "C2K630",
-      "station_name": "荷苞",
-      "lat": 23.65948,
-      "lon": 120.58702
+      "station_id": "CAG040",
+      "station_name": "國三N191K",
+      "lat": 24.14101,
+      "lon": 120.51334
     },
     {
-      "station_id": "C2M410",
-      "station_name": "馬頭山",
-      "lat": 23.32639,
-      "lon": 120.57361
+      "station_id": "CAG050",
+      "station_name": "國三N196K",
+      "lat": 24.10891,
+      "lon": 120.54632
     },
     {
-      "station_id": "C2M530",
-      "station_name": "奮起湖",
-      "lat": 23.49567,
-      "lon": 120.69114
+      "station_id": "CAF050",
+      "station_name": "國三N208K",
+      "lat": 24.0679,
+      "lon": 120.65276
     },
     {
-      "station_id": "C2M620",
-      "station_name": "瑞里",
-      "lat": 23.5469,
-      "lon": 120.66704
+      "station_id": "CAE560",
+      "station_name": "國一S144K",
+      "lat": 24.43882,
+      "lon": 120.77002
     },
     {
-      "station_id": "C2M810",
-      "station_name": "里佳",
-      "lat": 23.3909,
-      "lon": 120.70854
+      "station_id": "CAF950",
+      "station_name": "國一N158K",
+      "lat": 24.33412,
+      "lon": 120.70897
     },
     {
-      "station_id": "C2M910",
-      "station_name": "嘉義大學",
-      "lat": 23.47309,
-      "lon": 120.4778
+      "station_id": "CAF960",
+      "station_name": "國三S175K",
+      "lat": 24.25325,
+      "lon": 120.58152
     },
     {
-      "station_id": "C2M920",
-      "station_name": "朴子農改",
-      "lat": 23.47164,
-      "lon": 120.25128
+      "station_id": "CAF980",
+      "station_name": "國三N183K",
+      "lat": 24.19538,
+      "lon": 120.56215
     },
     {
-      "station_id": "C2M930",
-      "station_name": "石卓",
-      "lat": 23.48052,
-      "lon": 120.69415
+      "station_id": "CAH010",
+      "station_name": "國三N223K",
+      "lat": 23.95687,
+      "lon": 120.65423
     },
     {
-      "station_id": "C2M940",
-      "station_name": "日野賀",
-      "lat": 23.43583,
-      "lon": 120.71906
+      "station_id": "CAJ010",
+      "station_name": "國三N252K",
+      "lat": 23.77588,
+      "lon": 120.63247
     },
     {
-      "station_id": "C2M950",
-      "station_name": "太和",
-      "lat": 23.54014,
-      "lon": 120.69485
+      "station_id": "CAE080",
+      "station_name": "國三S140K",
+      "lat": 24.52411,
+      "lon": 120.71682
     },
     {
-      "station_id": "C2M960",
-      "station_name": "外寮",
-      "lat": 23.56441,
-      "lon": 120.65757
+      "station_id": "CAE090",
+      "station_name": "國三S156K",
+      "lat": 24.39974,
+      "lon": 120.66131
     },
     {
-      "station_id": "C2M970",
-      "station_name": "碧湖",
-      "lat": 23.5704,
-      "lon": 120.61605
+      "station_id": "CAF060",
+      "station_name": "國三S168K",
+      "lat": 24.31027,
+      "lon": 120.6063
     },
     {
-      "station_id": "C2M980",
-      "station_name": "安和",
-      "lat": 23.51552,
-      "lon": 120.30782
+      "station_id": "CAG060",
+      "station_name": "國三S202K",
+      "lat": 24.09422,
+      "lon": 120.5951
     },
     {
-      "station_id": "C2M990",
-      "station_name": "大巃頂",
-      "lat": 23.55647,
-      "lon": 120.60627
+      "station_id": "CAH020",
+      "station_name": "國三S217K",
+      "lat": 24.00859,
+      "lon": 120.64506
     },
     {
-      "station_id": "C2M9A0",
-      "station_name": "大華",
-      "lat": 23.48417,
-      "lon": 120.6668
+      "station_id": "CAF090",
+      "station_name": "國四E5K",
+      "lat": 24.29822,
+      "lon": 120.63496
     },
     {
-      "station_id": "C2M9B0",
-      "station_name": "西興",
-      "lat": 23.24457,
-      "lon": 120.56808
+      "station_id": "CAA090",
+      "station_name": "國三甲005K",
+      "lat": 25.00373,
+      "lon": 121.58928
     },
     {
-      "station_id": "C2M9C0",
-      "station_name": "紫雲",
-      "lat": 23.49668,
-      "lon": 120.53214
+      "station_id": "CAC020",
+      "station_name": "國二E009K",
+      "lat": 25.02001,
+      "lon": 121.26547
     },
     {
-      "station_id": "C2M9D0",
-      "station_name": "何竹子腳",
-      "lat": 23.53817,
-      "lon": 120.37392
+      "station_id": "CAB050",
+      "station_name": "國三N002K",
+      "lat": 25.14762,
+      "lon": 121.71347
     },
     {
-      "station_id": "C2M9E0",
-      "station_name": "旺來山",
-      "lat": 23.55691,
-      "lon": 120.47835
+      "station_id": "CAB030",
+      "station_name": "國三S004K",
+      "lat": 25.11623,
+      "lon": 121.68037
     },
     {
-      "station_id": "C2M9F0",
-      "station_name": "安溪寮",
-      "lat": 23.35209,
-      "lon": 120.19994
-    },
-    {
-      "station_id": "C2M9G0",
-      "station_name": "沄水",
-      "lat": 23.3847,
-      "lon": 120.51856
-    },
-    {
-      "station_id": "C2N160",
-      "station_name": "西拉雅風管處",
-      "lat": 23.19124,
-      "lon": 120.32721
-    },
-    {
-      "station_id": "C2N170",
-      "station_name": "茅港尾",
-      "lat": 23.20786,
-      "lon": 120.25431
-    },
-    {
-      "station_id": "C2N180",
-      "station_name": "鹿陶洋",
-      "lat": 23.14502,
-      "lon": 120.47543
-    },
-    {
-      "station_id": "C2N190",
-      "station_name": "烏樹",
-      "lat": 23.32569,
-      "lon": 120.36179
-    },
-    {
-      "station_id": "C2N200",
-      "station_name": "口宵里",
-      "lat": 23.16164,
-      "lon": 120.45179
-    },
-    {
-      "station_id": "C2N210",
-      "station_name": "岩坑",
-      "lat": 23.24791,
-      "lon": 120.46649
-    },
-    {
-      "station_id": "C2O810",
-      "station_name": "曾文",
-      "lat": 23.22147,
-      "lon": 120.48922
-    },
-    {
-      "station_id": "C2O850",
-      "station_name": "環湖",
-      "lat": 23.15043,
-      "lon": 120.41051
-    },
-    {
-      "station_id": "C2O880",
-      "station_name": "南化",
-      "lat": 23.17509,
-      "lon": 120.58604
-    },
-    {
-      "station_id": "C2O930",
-      "station_name": "玉井",
-      "lat": 23.12783,
-      "lon": 120.45247
-    },
-    {
-      "station_id": "C2O950",
-      "station_name": "安南",
-      "lat": 23.07833,
-      "lon": 120.13667
-    },
-    {
-      "station_id": "C2R170",
-      "station_name": "屏東",
-      "lat": 22.66205,
-      "lon": 120.48597
-    },
-    {
-      "station_id": "C2R240",
-      "station_name": "萬巒",
-      "lat": 22.52909,
-      "lon": 120.61706
-    },
-    {
-      "station_id": "C2R260",
-      "station_name": "春日",
-      "lat": 22.37215,
-      "lon": 120.62027
-    },
-    {
-      "station_id": "C2R490",
-      "station_name": "九如",
-      "lat": 22.74227,
-      "lon": 120.4825
-    },
-    {
-      "station_id": "C2R550",
-      "station_name": "新埤",
-      "lat": 22.46973,
-      "lon": 120.57485
-    },
-    {
-      "station_id": "C2R970",
-      "station_name": "屏科大",
-      "lat": 22.65006,
-      "lon": 120.61119
-    },
-    {
-      "station_id": "C2R980",
-      "station_name": "竹田國中",
-      "lat": 22.6171,
-      "lon": 120.51607
-    },
-    {
-      "station_id": "C2R990",
-      "station_name": "泰武",
-      "lat": 22.60865,
-      "lon": 120.6896
-    },
-    {
-      "station_id": "C2R9A0",
-      "station_name": "高士國小",
-      "lat": 22.12733,
-      "lon": 120.83851
-    },
-    {
-      "station_id": "C2RA10",
-      "station_name": "大新",
-      "lat": 22.67736,
-      "lon": 120.56982
-    },
-    {
-      "station_id": "C2S800",
-      "station_name": "華源",
-      "lat": 22.65963,
-      "lon": 121.01514
-    },
-    {
-      "station_id": "C2S890",
-      "station_name": "關山",
-      "lat": 23.0413,
-      "lon": 121.16693
-    },
-    {
-      "station_id": "C2S9A0",
-      "station_name": "北份子寮",
-      "lat": 22.78741,
-      "lon": 121.07006
-    },
-    {
-      "station_id": "C2S9B0",
-      "station_name": "利吉",
-      "lat": 22.86426,
-      "lon": 121.14679
-    },
-    {
-      "station_id": "C2SA40",
-      "station_name": "瑞和",
-      "lat": 22.97616,
-      "lon": 121.14862
-    },
-    {
-      "station_id": "C2SD50",
-      "station_name": "順那",
-      "lat": 23.04347,
-      "lon": 121.28524
-    },
-    {
-      "station_id": "C2SD60",
-      "station_name": "明峰",
-      "lat": 22.8689,
-      "lon": 121.11018
-    },
-    {
-      "station_id": "C2SD70",
-      "station_name": "二層坪",
-      "lat": 22.94285,
-      "lon": 121.1603
-    },
-    {
-      "station_id": "C2SD80",
-      "station_name": "再來山",
-      "lat": 23.34552,
-      "lon": 121.43312
-    },
-    {
-      "station_id": "C2TA60",
-      "station_name": "六十石",
-      "lat": 23.22658,
-      "lon": 121.31051
-    },
-    {
-      "station_id": "C2TA70",
-      "station_name": "赤科坪",
-      "lat": 23.40066,
-      "lon": 121.38357
-    },
-    {
-      "station_id": "C2TA90",
-      "station_name": "加納納",
-      "lat": 23.46822,
-      "lon": 121.35175
-    },
-    {
-      "station_id": "C2TB30",
-      "station_name": "吉安",
-      "lat": 23.94718,
-      "lon": 121.53988
-    },
-    {
-      "station_id": "C2TB50",
-      "station_name": "麻汝",
-      "lat": 23.42734,
-      "lon": 121.38547
-    },
-    {
-      "station_id": "C2TB60",
-      "station_name": "南安",
-      "lat": 23.29998,
-      "lon": 121.25347
-    },
-    {
-      "station_id": "C2TB70",
-      "station_name": "達谷寮",
-      "lat": 23.3818,
-      "lon": 121.35157
-    },
-    {
-      "station_id": "C2TB80",
-      "station_name": "庄子底",
-      "lat": 23.71974,
-      "lon": 121.48625
-    },
-    {
-      "station_id": "C2TB90",
-      "station_name": "長橋",
-      "lat": 23.6892,
-      "lon": 121.45373
-    },
-    {
-      "station_id": "C2UC10",
-      "station_name": "出水溪",
-      "lat": 24.61762,
-      "lon": 121.64406
-    },
-    {
-      "station_id": "C2UC20",
-      "station_name": "長嶺",
-      "lat": 24.71073,
-      "lon": 121.60342
-    },
-    {
-      "station_id": "C2UC30",
-      "station_name": "金洋",
-      "lat": 24.42645,
-      "lon": 121.73755
-    },
-    {
-      "station_id": "C2UC40",
-      "station_name": "中城",
-      "lat": 24.63045,
-      "lon": 121.73925
-    },
-    {
-      "station_id": "C2V250",
-      "station_name": "甲仙",
-      "lat": 23.08167,
-      "lon": 120.5825
-    },
-    {
-      "station_id": "C2V260",
-      "station_name": "月眉",
-      "lat": 22.97278,
-      "lon": 120.53178
-    },
-    {
-      "station_id": "C2V310",
-      "station_name": "美濃",
-      "lat": 22.90057,
-      "lon": 120.511
-    },
-    {
-      "station_id": "C2V570",
-      "station_name": "吉東",
-      "lat": 22.85596,
-      "lon": 120.53732
-    },
-    {
-      "station_id": "C2V580",
-      "station_name": "瑞山",
-      "lat": 22.90481,
-      "lon": 120.42617
-    },
-    {
-      "station_id": "C2V920",
-      "station_name": "匏子寮",
-      "lat": 23.05082,
-      "lon": 120.54511
-    },
-    {
-      "station_id": "C2W030",
-      "station_name": "金門(東)",
-      "lat": 24.45007,
-      "lon": 118.44363
-    },
-    {
-      "station_id": "C2W230",
-      "station_name": "畜試所澎湖",
-      "lat": 23.63005,
-      "lon": 119.50509
-    },
-    {
-      "station_id": "C2X060",
-      "station_name": "下營",
-      "lat": 23.22856,
-      "lon": 120.2482
-    },
-    {
-      "station_id": "CAA010",
-      "station_name": "國一N013K",
-      "lat": 25.06852,
-      "lon": 121.61992
-    },
-    {
-      "station_id": "CAA020",
-      "station_name": "國一S026K",
-      "lat": 25.07817,
-      "lon": 121.48817
+      "station_id": "CAB040",
+      "station_name": "國三S007K",
+      "lat": 25.09873,
+      "lon": 121.65957
     },
     {
       "station_id": "CAA030",
@@ -4414,22 +4918,28 @@
       "lon": 121.38758
     },
     {
-      "station_id": "CAA080",
-      "station_name": "國三S054K",
-      "lat": 24.94094,
-      "lon": 121.31568
-    },
-    {
-      "station_id": "CAA090",
-      "station_name": "國三甲005K",
-      "lat": 25.00373,
-      "lon": 121.58928
-    },
-    {
       "station_id": "CAA990",
       "station_name": "國一N039K",
       "lat": 25.06621,
       "lon": 121.37377
+    },
+    {
+      "station_id": "CAC760",
+      "station_name": "國一高架N063K",
+      "lat": 24.95205,
+      "lon": 121.1881
+    },
+    {
+      "station_id": "CAD710",
+      "station_name": "國三N077K",
+      "lat": 24.79906,
+      "lon": 121.18183
+    },
+    {
+      "station_id": "CAC770",
+      "station_name": "國三N072K",
+      "lat": 24.83816,
+      "lon": 121.19116
     },
     {
       "station_id": "CAAD60",
@@ -4456,10 +4966,46 @@
       "lon": 121.69729
     },
     {
-      "station_id": "CAAH60",
-      "station_name": "大安森林",
-      "lat": 25.03133,
-      "lon": 121.52806
+      "station_id": "CAUB30",
+      "station_name": "國五S031K",
+      "lat": 24.82094,
+      "lon": 121.77417
+    },
+    {
+      "station_id": "CAUB40",
+      "station_name": "國五S041K",
+      "lat": 24.73656,
+      "lon": 121.77372
+    },
+    {
+      "station_id": "CAUB50",
+      "station_name": "國五S047K",
+      "lat": 24.67726,
+      "lon": 121.78638
+    },
+    {
+      "station_id": "CAA080",
+      "station_name": "國三S054K",
+      "lat": 24.94094,
+      "lon": 121.31568
+    },
+    {
+      "station_id": "CAC030",
+      "station_name": "國三N063K",
+      "lat": 24.89128,
+      "lon": 121.25539
+    },
+    {
+      "station_id": "CAD080",
+      "station_name": "國三N085K",
+      "lat": 24.7851,
+      "lon": 121.11289
+    },
+    {
+      "station_id": "CAD090",
+      "station_name": "國三S103K",
+      "lat": 24.76037,
+      "lon": 120.95263
     },
     {
       "station_id": "CAB010",
@@ -4474,76 +5020,22 @@
       "lon": 121.67867
     },
     {
-      "station_id": "CAB030",
-      "station_name": "國三S004K",
-      "lat": 25.11623,
-      "lon": 121.68037
+      "station_id": "CAA010",
+      "station_name": "國一N013K",
+      "lat": 25.06852,
+      "lon": 121.61992
     },
     {
-      "station_id": "CAB040",
-      "station_name": "國三S007K",
-      "lat": 25.09873,
-      "lon": 121.65957
-    },
-    {
-      "station_id": "CAB050",
-      "station_name": "國三N002K",
-      "lat": 25.14762,
-      "lon": 121.71347
+      "station_id": "CAA020",
+      "station_name": "國一S026K",
+      "lat": 25.07817,
+      "lon": 121.48817
     },
     {
       "station_id": "CAC010",
       "station_name": "國一S072K",
       "lat": 24.89759,
       "lon": 121.12599
-    },
-    {
-      "station_id": "CAC020",
-      "station_name": "國二E009K",
-      "lat": 25.02001,
-      "lon": 121.26547
-    },
-    {
-      "station_id": "CAC030",
-      "station_name": "國三N063K",
-      "lat": 24.89128,
-      "lon": 121.25539
-    },
-    {
-      "station_id": "CAC040",
-      "station_name": "拉拉山",
-      "lat": 24.7011,
-      "lon": 121.41893
-    },
-    {
-      "station_id": "CAC050",
-      "station_name": "西濱S023K",
-      "lat": 25.11826,
-      "lon": 121.26728
-    },
-    {
-      "station_id": "CAC060",
-      "station_name": "西濱S032K",
-      "lat": 25.09373,
-      "lon": 121.18428
-    },
-    {
-      "station_id": "CAC760",
-      "station_name": "國一高架N063K",
-      "lat": 24.95205,
-      "lon": 121.1881
-    },
-    {
-      "station_id": "CAC770",
-      "station_name": "國三N072K",
-      "lat": 24.83816,
-      "lon": 121.19116
-    },
-    {
-      "station_id": "CAD010",
-      "station_name": "國一S105K",
-      "lat": 24.72809,
-      "lon": 120.93245
     },
     {
       "station_id": "CAD020",
@@ -4576,276 +5068,6 @@
       "lon": 120.98289
     },
     {
-      "station_id": "CAD080",
-      "station_name": "國三N085K",
-      "lat": 24.7851,
-      "lon": 121.11289
-    },
-    {
-      "station_id": "CAD090",
-      "station_name": "國三S103K",
-      "lat": 24.76037,
-      "lon": 120.95263
-    },
-    {
-      "station_id": "CAD100",
-      "station_name": "西濱N066K",
-      "lat": 24.89736,
-      "lon": 120.95669
-    },
-    {
-      "station_id": "CAD110",
-      "station_name": "西濱S082K",
-      "lat": 24.75348,
-      "lon": 120.89683
-    },
-    {
-      "station_id": "CAD710",
-      "station_name": "國三N077K",
-      "lat": 24.79906,
-      "lon": 121.18183
-    },
-    {
-      "station_id": "CAE020",
-      "station_name": "國一S114K",
-      "lat": 24.67059,
-      "lon": 120.87762
-    },
-    {
-      "station_id": "CAE030",
-      "station_name": "國一S123K",
-      "lat": 24.59771,
-      "lon": 120.85252
-    },
-    {
-      "station_id": "CAE040",
-      "station_name": "國一S132K",
-      "lat": 24.52627,
-      "lon": 120.81265
-    },
-    {
-      "station_id": "CAE050",
-      "station_name": "國一S152K",
-      "lat": 24.37725,
-      "lon": 120.74101
-    },
-    {
-      "station_id": "CAE060",
-      "station_name": "國三N119K",
-      "lat": 24.6772,
-      "lon": 120.8392
-    },
-    {
-      "station_id": "CAE070",
-      "station_name": "國三N151K",
-      "lat": 24.44198,
-      "lon": 120.67348
-    },
-    {
-      "station_id": "CAE080",
-      "station_name": "國三S140K",
-      "lat": 24.52411,
-      "lon": 120.71682
-    },
-    {
-      "station_id": "CAE090",
-      "station_name": "國三S156K",
-      "lat": 24.39974,
-      "lon": 120.66131
-    },
-    {
-      "station_id": "CAE100",
-      "station_name": "西濱N107K",
-      "lat": 24.59755,
-      "lon": 120.73121
-    },
-    {
-      "station_id": "CAE110",
-      "station_name": "西濱S129K",
-      "lat": 24.44895,
-      "lon": 120.63462
-    },
-    {
-      "station_id": "CAE560",
-      "station_name": "國一S144K",
-      "lat": 24.43882,
-      "lon": 120.77002
-    },
-    {
-      "station_id": "CAF010",
-      "station_name": "國一N174K",
-      "lat": 24.20666,
-      "lon": 120.64704
-    },
-    {
-      "station_id": "CAF020",
-      "station_name": "國一S162K",
-      "lat": 24.29729,
-      "lon": 120.68781
-    },
-    {
-      "station_id": "CAF030",
-      "station_name": "國一S169K",
-      "lat": 24.23888,
-      "lon": 120.6801
-    },
-    {
-      "station_id": "CAF040",
-      "station_name": "國一S188K",
-      "lat": 24.1203,
-      "lon": 120.57759
-    },
-    {
-      "station_id": "CAF050",
-      "station_name": "國三N208K",
-      "lat": 24.0679,
-      "lon": 120.65276
-    },
-    {
-      "station_id": "CAF060",
-      "station_name": "國三S168K",
-      "lat": 24.31027,
-      "lon": 120.6063
-    },
-    {
-      "station_id": "CAF090",
-      "station_name": "國四E5K",
-      "lat": 24.29822,
-      "lon": 120.63496
-    },
-    {
-      "station_id": "CAF100",
-      "station_name": "西濱N151K",
-      "lat": 24.27771,
-      "lon": 120.53952
-    },
-    {
-      "station_id": "CAF950",
-      "station_name": "國一N158K",
-      "lat": 24.33412,
-      "lon": 120.70897
-    },
-    {
-      "station_id": "CAF960",
-      "station_name": "國三S175K",
-      "lat": 24.25325,
-      "lon": 120.58152
-    },
-    {
-      "station_id": "CAF980",
-      "station_name": "國三N183K",
-      "lat": 24.19538,
-      "lon": 120.56215
-    },
-    {
-      "station_id": "CAG010",
-      "station_name": "國一N198K",
-      "lat": 24.06564,
-      "lon": 120.5149
-    },
-    {
-      "station_id": "CAG030",
-      "station_name": "國一S207K",
-      "lat": 23.99005,
-      "lon": 120.49994
-    },
-    {
-      "station_id": "CAG040",
-      "station_name": "國三N191K",
-      "lat": 24.14101,
-      "lon": 120.51334
-    },
-    {
-      "station_id": "CAG050",
-      "station_name": "國三N196K",
-      "lat": 24.10891,
-      "lon": 120.54632
-    },
-    {
-      "station_id": "CAG060",
-      "station_name": "國三S202K",
-      "lat": 24.09422,
-      "lon": 120.5951
-    },
-    {
-      "station_id": "CAG070",
-      "station_name": "西濱S173K",
-      "lat": 24.10985,
-      "lon": 120.42642
-    },
-    {
-      "station_id": "CAG080",
-      "station_name": "西濱S189K",
-      "lat": 23.9896,
-      "lon": 120.36146
-    },
-    {
-      "station_id": "CAG090",
-      "station_name": "西濱N210K",
-      "lat": 23.84528,
-      "lon": 120.2851
-    },
-    {
-      "station_id": "CAG100",
-      "station_name": "王功漁港",
-      "lat": 23.96998,
-      "lon": 120.31772
-    },
-    {
-      "station_id": "CAH010",
-      "station_name": "國三N223K",
-      "lat": 23.95687,
-      "lon": 120.65423
-    },
-    {
-      "station_id": "CAH020",
-      "station_name": "國三S217K",
-      "lat": 24.00859,
-      "lon": 120.64506
-    },
-    {
-      "station_id": "CAHA00",
-      "station_name": "消防署訓練中心",
-      "lat": 23.82313,
-      "lon": 120.7148
-    },
-    {
-      "station_id": "CAJ010",
-      "station_name": "國三N252K",
-      "lat": 23.77588,
-      "lon": 120.63247
-    },
-    {
-      "station_id": "CAJ020",
-      "station_name": "國一N234K",
-      "lat": 23.74808,
-      "lon": 120.45979
-    },
-    {
-      "station_id": "CAJ030",
-      "station_name": "西濱N222K",
-      "lat": 23.73948,
-      "lon": 120.24801
-    },
-    {
-      "station_id": "CAJ040",
-      "station_name": "西濱S241K",
-      "lat": 23.62517,
-      "lon": 120.16453
-    },
-    {
-      "station_id": "CAJ050",
-      "station_name": "海口故事園區",
-      "lat": 23.57717,
-      "lon": 120.1331
-    },
-    {
-      "station_id": "CAL010",
-      "station_name": "國一N250K",
-      "lat": 23.61204,
-      "lon": 120.42874
-    },
-    {
       "station_id": "CAL020",
       "station_name": "國一S262K",
       "lat": 23.51409,
@@ -4864,48 +5086,6 @@
       "lon": 120.3469
     },
     {
-      "station_id": "CAL050",
-      "station_name": "國三N279K",
-      "lat": 23.59787,
-      "lon": 120.51522
-    },
-    {
-      "station_id": "CAL070",
-      "station_name": "國三N295K",
-      "lat": 23.47036,
-      "lon": 120.49126
-    },
-    {
-      "station_id": "CAL080",
-      "station_name": "國三N303K",
-      "lat": 23.41374,
-      "lon": 120.44439
-    },
-    {
-      "station_id": "CAL090",
-      "station_name": "西濱S257K",
-      "lat": 23.50402,
-      "lon": 120.16375
-    },
-    {
-      "station_id": "CAL100",
-      "station_name": "西濱S267K",
-      "lat": 23.41757,
-      "lon": 120.15477
-    },
-    {
-      "station_id": "CAL110",
-      "station_name": "布袋國中",
-      "lat": 23.36068,
-      "lon": 120.17216
-    },
-    {
-      "station_id": "CAM900",
-      "station_name": "國三S290K",
-      "lat": 23.50587,
-      "lon": 120.48263
-    },
-    {
       "station_id": "CAN010",
       "station_name": "國一N288K",
       "lat": 23.30785,
@@ -4922,6 +5102,72 @@
       "station_name": "國一N323K",
       "lat": 23.01355,
       "lon": 120.24138
+    },
+    {
+      "station_id": "CAP010",
+      "station_name": "國一S342K",
+      "lat": 22.84732,
+      "lon": 120.28693
+    },
+    {
+      "station_id": "CAP020",
+      "station_name": "國一S346K",
+      "lat": 22.81399,
+      "lon": 120.3061
+    },
+    {
+      "station_id": "CAP030",
+      "station_name": "國一N351K",
+      "lat": 22.7676,
+      "lon": 120.32083
+    },
+    {
+      "station_id": "CAP040",
+      "station_name": "國一N361K",
+      "lat": 22.68233,
+      "lon": 120.32056
+    },
+    {
+      "station_id": "CAL050",
+      "station_name": "國三N279K",
+      "lat": 23.59787,
+      "lon": 120.51522
+    },
+    {
+      "station_id": "CAL070",
+      "station_name": "國三N295K",
+      "lat": 23.47036,
+      "lon": 120.49126
+    },
+    {
+      "station_id": "CAM900",
+      "station_name": "國三S290K",
+      "lat": 23.50587,
+      "lon": 120.48263
+    },
+    {
+      "station_id": "CAV270",
+      "station_name": "國一S336K",
+      "lat": 22.89593,
+      "lon": 120.2631
+    },
+    {
+      "station_id": "CAN150",
+      "station_name": "國一N315K",
+      "lat": 23.08526,
+      "lon": 120.24383
+    },
+    {
+      "station_id": "CAV280",
+      "station_name": "國三S378K",
+      "lat": 22.82773,
+      "lon": 120.40745
+    },
+    {
+      "station_id": "CAL080",
+      "station_name": "國三N303K",
+      "lat": 23.41374,
+      "lon": 120.44439
     },
     {
       "station_id": "CAN060",
@@ -4954,6 +5200,108 @@
       "lon": 120.34328
     },
     {
+      "station_id": "CAP060",
+      "station_name": "國三S385K",
+      "lat": 22.76955,
+      "lon": 120.43638
+    },
+    {
+      "station_id": "CAQ020",
+      "station_name": "國三S415K",
+      "lat": 22.56978,
+      "lon": 120.51995
+    },
+    {
+      "station_id": "CAQ010",
+      "station_name": "國三N425K",
+      "lat": 22.48206,
+      "lon": 120.52362
+    },
+    {
+      "station_id": "CAJ040",
+      "station_name": "西濱S241K",
+      "lat": 23.62517,
+      "lon": 120.16453
+    },
+    {
+      "station_id": "CAL100",
+      "station_name": "西濱S267K",
+      "lat": 23.41757,
+      "lon": 120.15477
+    },
+    {
+      "station_id": "CAC050",
+      "station_name": "西濱S023K",
+      "lat": 25.11826,
+      "lon": 121.26728
+    },
+    {
+      "station_id": "CAC060",
+      "station_name": "西濱S032K",
+      "lat": 25.09373,
+      "lon": 121.18428
+    },
+    {
+      "station_id": "CAD100",
+      "station_name": "西濱N066K",
+      "lat": 24.89736,
+      "lon": 120.95669
+    },
+    {
+      "station_id": "CAD110",
+      "station_name": "西濱S082K",
+      "lat": 24.75348,
+      "lon": 120.89683
+    },
+    {
+      "station_id": "CAE100",
+      "station_name": "西濱N107K",
+      "lat": 24.59755,
+      "lon": 120.73121
+    },
+    {
+      "station_id": "CAE110",
+      "station_name": "西濱S129K",
+      "lat": 24.44895,
+      "lon": 120.63462
+    },
+    {
+      "station_id": "CAF100",
+      "station_name": "西濱N151K",
+      "lat": 24.27771,
+      "lon": 120.53952
+    },
+    {
+      "station_id": "CAG070",
+      "station_name": "西濱S173K",
+      "lat": 24.10985,
+      "lon": 120.42642
+    },
+    {
+      "station_id": "CAG080",
+      "station_name": "西濱S189K",
+      "lat": 23.9896,
+      "lon": 120.36146
+    },
+    {
+      "station_id": "CAG090",
+      "station_name": "西濱N210K",
+      "lat": 23.84528,
+      "lon": 120.2851
+    },
+    {
+      "station_id": "CAJ030",
+      "station_name": "西濱N222K",
+      "lat": 23.73948,
+      "lon": 120.24801
+    },
+    {
+      "station_id": "CAL090",
+      "station_name": "西濱S257K",
+      "lat": 23.50402,
+      "lon": 120.16375
+    },
+    {
       "station_id": "CAN110",
       "station_name": "西濱S280K",
       "lat": 23.30695,
@@ -4966,232 +5314,10 @@
       "lon": 120.07861
     },
     {
-      "station_id": "CAN130",
-      "station_name": "水試所海水繁養殖中心",
-      "lat": 23.12255,
-      "lon": 120.07159
-    },
-    {
-      "station_id": "CAN140",
-      "station_name": "六官養殖協會",
-      "lat": 23.23057,
-      "lon": 120.29153
-    },
-    {
-      "station_id": "CAN150",
-      "station_name": "國一N315K",
-      "lat": 23.08526,
-      "lon": 120.24383
-    },
-    {
-      "station_id": "CAP010",
-      "station_name": "國一S342K",
-      "lat": 22.84732,
-      "lon": 120.28693
-    },
-    {
-      "station_id": "CAP020",
-      "station_name": "國一S346K",
-      "lat": 22.81399,
-      "lon": 120.3061
-    },
-    {
-      "station_id": "CAP030",
-      "station_name": "國一N351K",
-      "lat": 22.7676,
-      "lon": 120.32083
-    },
-    {
-      "station_id": "CAP040",
-      "station_name": "國一N361K",
-      "lat": 22.68233,
-      "lon": 120.32056
-    },
-    {
-      "station_id": "CAP060",
-      "station_name": "國三S385K",
-      "lat": 22.76955,
-      "lon": 120.43638
-    },
-    {
-      "station_id": "CAP070",
-      "station_name": "高雄燈塔",
-      "lat": 22.61636,
-      "lon": 120.25663
-    },
-    {
-      "station_id": "CAQ010",
-      "station_name": "國三N425K",
-      "lat": 22.48206,
-      "lon": 120.52362
-    },
-    {
-      "station_id": "CAQ020",
-      "station_name": "國三S415K",
-      "lat": 22.56978,
-      "lon": 120.51995
-    },
-    {
-      "station_id": "CAQ030",
-      "station_name": "崎峰國小",
-      "lat": 22.42743,
-      "lon": 120.48717
-    },
-    {
-      "station_id": "CAUB30",
-      "station_name": "國五S031K",
-      "lat": 24.82094,
-      "lon": 121.77417
-    },
-    {
-      "station_id": "CAUB40",
-      "station_name": "國五S041K",
-      "lat": 24.73656,
-      "lon": 121.77372
-    },
-    {
-      "station_id": "CAUB50",
-      "station_name": "國五S047K",
-      "lat": 24.67726,
-      "lon": 121.78638
-    },
-    {
-      "station_id": "CAV270",
-      "station_name": "國一S336K",
-      "lat": 22.89593,
-      "lon": 120.2631
-    },
-    {
-      "station_id": "CAV280",
-      "station_name": "國三S378K",
-      "lat": 22.82773,
-      "lon": 120.40745
-    },
-    {
-      "station_id": "CAW010",
-      "station_name": "東引",
-      "lat": 26.36054,
-      "lon": 120.47531
-    },
-    {
-      "station_id": "E2H360",
-      "station_name": "蓮華池",
-      "lat": 23.92011,
-      "lon": 120.87714
-    },
-    {
-      "station_id": "E2HA20",
-      "station_name": "畢祿溪站",
-      "lat": 24.22873,
-      "lon": 121.30036
-    },
-    {
-      "station_id": "E2K600",
-      "station_name": "四湖植物園",
-      "lat": 23.67872,
-      "lon": 120.1553
-    },
-    {
-      "station_id": "E2P980",
-      "station_name": "六龜林試",
-      "lat": 22.99348,
-      "lon": 120.63765
-    },
-    {
-      "station_id": "E2P990",
-      "station_name": "扇平林試",
-      "lat": 22.96948,
-      "lon": 120.67763
-    },
-    {
-      "station_id": "E2S960",
-      "station_name": "太麻里(2)",
-      "lat": 22.5998,
-      "lon": 120.9897
-    },
-    {
-      "station_id": "E2S980",
-      "station_name": "太麻里(1)",
-      "lat": 22.60072,
-      "lon": 120.97199
-    },
-    {
-      "station_id": "G2F820",
-      "station_name": "農業試驗所",
-      "lat": 24.03302,
-      "lon": 120.67999
-    },
-    {
-      "station_id": "G2L020",
-      "station_name": "農試嘉義分所",
-      "lat": 23.48678,
-      "lon": 120.46568
-    },
-    {
-      "station_id": "G2M350",
-      "station_name": "農試溪口農場",
-      "lat": 23.58741,
-      "lon": 120.39999
-    },
-    {
-      "station_id": "G2P820",
-      "station_name": "農試鳳山分所",
-      "lat": 22.64835,
-      "lon": 120.34801
-    },
-    {
-      "station_id": "K2E360",
-      "station_name": "苗栗農改",
-      "lat": 24.49749,
-      "lon": 120.82093
-    },
-    {
-      "station_id": "K2E710",
-      "station_name": "苗改生物防治研究中心",
-      "lat": 24.42463,
-      "lon": 120.86366
-    },
-    {
-      "station_id": "K2F750",
-      "station_name": "種苗繁殖",
-      "lat": 24.22774,
-      "lon": 120.79275
-    },
-    {
-      "station_id": "U2H480",
-      "station_name": "臺大溪頭",
-      "lat": 23.67207,
-      "lon": 120.79006
-    },
-    {
-      "station_id": "U2HA30",
-      "station_name": "臺大和社",
-      "lat": 23.59263,
-      "lon": 120.88074
-    },
-    {
-      "station_id": "U2HA40",
-      "station_name": "臺大內茅埔",
-      "lat": 23.6915,
-      "lon": 120.84299
-    },
-    {
-      "station_id": "U2HA50",
-      "station_name": "臺大竹山",
-      "lat": 23.75873,
-      "lon": 120.67342
-    },
-    {
-      "station_id": "V2K610",
-      "station_name": "大庄合作社",
-      "lat": 23.80855,
-      "lon": 120.35981
-    },
-    {
-      "station_id": "V2K620",
-      "station_name": "麥寮合作社",
-      "lat": 23.75558,
-      "lon": 120.28666
+      "station_id": "CAAK50",
+      "station_name": "西濱N000K",
+      "lat": 25.17847,
+      "lon": 121.40999
     }
   ],
   "all_buoys": [
@@ -5454,14 +5580,14 @@
       "lon": null
     },
     {
-      "buoy_id": "WRA007",
-      "buoy_name": "WRA007",
+      "buoy_id": "46735A",
+      "buoy_name": "46735A",
       "lat": null,
       "lon": null
     },
     {
-      "buoy_id": "46735A",
-      "buoy_name": "46735A",
+      "buoy_id": "WRA007",
+      "buoy_name": "WRA007",
       "lat": null,
       "lon": null
     },
@@ -5538,14 +5664,14 @@
       "lon": null
     },
     {
-      "buoy_id": "C4A05",
-      "buoy_name": "C4A05",
+      "buoy_id": "C4E01",
+      "buoy_name": "C4E01",
       "lat": null,
       "lon": null
     },
     {
-      "buoy_id": "C4E01",
-      "buoy_name": "C4E01",
+      "buoy_id": "C4A05",
+      "buoy_name": "C4A05",
       "lat": null,
       "lon": null
     },
