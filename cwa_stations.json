@@ -1,5 +1,5 @@
 {
-  "discovered_utc": "2026-09-01T02:17:27+00:00",
+  "discovered_utc": "2026-10-01T02:44:27+00:00",
   "spots": {
     "keelung": {
       "station_id": "C0B050",
@@ -1950,8 +1950,8 @@
     {
       "station_id": "C0AC60",
       "station_name": "三峽",
-      "lat": 24.94081,
-      "lon": 121.3615
+      "lat": 24.93674,
+      "lon": 121.3588
     },
     {
       "station_id": "C0AC70",
@@ -3540,8 +3540,8 @@
     {
       "station_id": "A0W080",
       "station_name": "吉貝",
-      "lat": 23.74171,
-      "lon": 119.59604
+      "lat": 23.74041,
+      "lon": 119.6042
     },
     {
       "station_id": "A0Z080",
