@@ -1,5 +1,5 @@
 {
-  "discovered_utc": "2026-10-01T02:44:27+00:00",
+  "discovered_utc": "2026-11-01T02:51:03+00:00",
   "spots": {
     "keelung": {
       "station_id": "C0B050",
@@ -5592,14 +5592,14 @@
       "lon": null
     },
     {
-      "buoy_id": "46735A",
-      "buoy_name": "46735A",
+      "buoy_id": "WRA007",
+      "buoy_name": "WRA007",
       "lat": null,
       "lon": null
     },
     {
-      "buoy_id": "WRA007",
-      "buoy_name": "WRA007",
+      "buoy_id": "46735A",
+      "buoy_name": "46735A",
       "lat": null,
       "lon": null
     },
@@ -5658,14 +5658,14 @@
       "lon": null
     },
     {
-      "buoy_id": "C4A03",
-      "buoy_name": "C4A03",
+      "buoy_id": "C4C01",
+      "buoy_name": "C4C01",
       "lat": null,
       "lon": null
     },
     {
-      "buoy_id": "C4C01",
-      "buoy_name": "C4C01",
+      "buoy_id": "C4A03",
+      "buoy_name": "C4A03",
       "lat": null,
       "lon": null
     },
@@ -5676,14 +5676,14 @@
       "lon": null
     },
     {
-      "buoy_id": "C4A05",
-      "buoy_name": "C4A05",
+      "buoy_id": "C4E01",
+      "buoy_name": "C4E01",
       "lat": null,
       "lon": null
     },
     {
-      "buoy_id": "C4E01",
-      "buoy_name": "C4E01",
+      "buoy_id": "C4A05",
+      "buoy_name": "C4A05",
       "lat": null,
       "lon": null
     },
